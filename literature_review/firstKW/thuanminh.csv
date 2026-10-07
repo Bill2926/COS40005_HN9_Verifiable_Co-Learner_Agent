@@ -1,0 +1,21 @@
+type,year,title,authors,venue,cited_by,url
+individual,2026,Agentspec: Customizable runtime enforcement for safe and reliable llm agents,H Wang; CM Poskitt; J Sun,Proceedings of the 2026 IEEE/ACM 48th …,291,https://dl.acm.org/doi/abs/10.1145/3744916.3764546
+individual,2026,CodeQual-Agent: An Intelligent LLM-Agent Framework for Automated Software Quality Assessment with Explainable Predictions and Real-Time Analysis,F Mohammad; JK Kakar; DRBB Ndong,"… Testing, Verification …",0,https://ieeexplore.ieee.org/abstract/document/11600412/
+individual,2026,Lemma Discovery in Agentic Program Verification,H Zhao; H Tu; Z Liu; M Rinard,arXiv preprint arXiv …,2,https://arxiv.org/abs/2603.22114
+individual,2026,Who Guards the Benchmarks? Automated Auditing of LLM Agent Benchmarks,X Tu; T Wang; Y Lu; K Huang; Y Qu,Third Conference on …,1,https://openreview.net/forum?id=3x89U8nvoE
+individual,2026,Gatelens: A reasoning-enhanced llm agent for automotive software release analytics,AG Khoee; S Wang; R Feldt; D Parthasarathy,Journal of Systems and …,7,https://www.sciencedirect.com/science/article/pii/S0164121226001949
+individual,2026,Skillforge: Evolving verifiable skills for reinforcement learning agents,S Yang; Z Ma; T Huang; X Wang; R Li; Y Hu,arXiv preprint arXiv …,2,https://arxiv.org/abs/2608.24747
+individual,2026,SIRI: Self-Internalizing Reinforcement Learning with Intrinsic Skills for LLM Agent Training,Z He; Y Li; F Huang; T Chen; S Chen; X Li,arXiv preprint arXiv …,9,https://arxiv.org/abs/2606.02355
+individual,2026,"SkillOpt: Trajectory-Derived, Verifier-Grounded Compilation of LLM-Agent Skills",R Rao; V Kalluru,First Workshop on Agent Skills,2,https://openreview.net/forum?id=2ONrrPIFYi
+individual,2026,Selaur: Self evolving llm agent via uncertainty-aware rewards,D Zhang; X Liu; L Cheng; Y Wang; K Murray,Pacific-Asia Conference …,15,https://link.springer.com/chapter/10.1007/978-981-92-1468-6_29
+individual,2026,Adarubric: Task-adaptive rubrics for reliable llm agent evaluation and reward learning,L Ding,arXiv preprint arXiv:2603.21362,44,https://arxiv.org/abs/2603.21362
+individual,2026,Position: A Three-Layer Probabilistic Assume-Guarantee Architecture Is Structurally Required for Safe LLM Agent Deployment,S Bensalem; Y Dong; M Franzle; X Huang,arXiv preprint arXiv …,3,https://arxiv.org/abs/2605.18672
+individual,2026,CauSAL-Rec: Causally-Consistent LLM Agent for Faithful and Controllable Explainable Recommendation,J Ding; X Chai; B Zhang; W Lin,2026 6th International …,14,https://ieeexplore.ieee.org/abstract/document/11637910/
+individual,2026,AgentDrift: A step-labeled benchmark of injection-hijacked LLM agent trajectories,A Pinjari; MP Saint-Germain,arXiv preprint arXiv:2609.06972,2,https://arxiv.org/abs/2609.06972
+individual,2026,Verified tool calls improve LLM agent reliability under non-atomic failures,IK Mansoor; A Phadke; P Rana,arXiv preprint arXiv:2608.02645,5,https://arxiv.org/abs/2608.02645
+individual,2026,Agent audit: A security analysis system for LLM agent applications,H Zhang; Y Nian; Y Zhao,arXiv preprint arXiv:2603.22853,8,https://arxiv.org/abs/2603.22853
+individual,2026,Beyond Static Evaluation: Building Simulation Environments for Scalable Agentic Reinforcement Learning,A Arora; I Nigam; A Aggarwal; S Bansal,arXiv preprint arXiv …,0,https://arxiv.org/abs/2607.05773
+individual,2026,Etemaro: An LLM Agent with Federated Experiential Learning for Autonomous Concentrated-Liquidity Management on Solana,R Kurnovskii,Available at SSRN 7404538,0,https://papers.ssrn.com/sol3/papers.cfm?abstract_id=7404538
+individual,2026,SafeHarbor: Hierarchical memory-augmented guardrail for LLM agent safety,Z Liu; Z Ying; W Zhang; Q Zou; D Zhang,arXiv preprint arXiv …,4,https://arxiv.org/abs/2605.05704
+individual,2026,Protocol-Mediated Execution Governance for LLM Agent Systems,A Harrison,Available at SSRN 6426760,2,https://papers.ssrn.com/sol3/papers.cfm?abstract_id=6426760
+individual,2026,Can Dependencies Induced by LLM-Agent Workflows Be Trusted?,Y Yao; YL Song; Y Xie; M Fan,Advances in Neural …,2,https://proceedings.neurips.cc/paper_files/paper/2025/hash/19206a6ed5ed0aaeed440448dfc5cf7e-Abstract-Conference.html

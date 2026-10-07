@@ -1,0 +1,420 @@
+[
+ {
+  "title": "IntelliCode: A Multi-Agent LLM Tutoring System with Centralized Learner Modeling",
+  "authors": [
+   "J David",
+   "S Ghosh"
+  ],
+  "year": "2026",
+  "venue": "Proceedings of the 19th Conference of the …",
+  "abstract": "LLM-based tutors are typically single-turn assistants that lack  We introduce IntelliCode, a  multi-agent LLM tutoring system built  Our demo showcases an end-to-end tutoring workflow: a",
+  "url": "https://aclanthology.org/2026.eacl-demo.10/",
+  "cited_by": 8,
+  "type": "individual"
+ },
+ {
+  "title": "Exploring knowledge tracing in tutor-student dialogues using llms",
+  "authors": [
+   "A Scarlatos",
+   "RS Baker",
+   "A Lan"
+  ],
+  "year": "2025",
+  "venue": "Proceedings of the 15th international …",
+  "abstract": "Overall, by assessing student performance in more detail, we can make it possible to  apply KT to LLM-human tutoring dialogues, enabling mastery learning and various other",
+  "url": "https://dl.acm.org/doi/abs/10.1145/3706468.3706501",
+  "cited_by": 103,
+  "type": "individual"
+ },
+ {
+  "title": "A comprehensive survey and taxonomy on large language model-based knowledge tracing",
+  "authors": [
+   "S Park",
+   "H Kim"
+  ],
+  "year": "2025",
+  "venue": "International Conference on Intelligent Tutoring …",
+  "abstract": "tutoring systems (ITS), particularly in knowledge tracing (KT). Many current studies exhibit  diverse approaches to LLM-based  LLM-based KT approaches within three integration levels:",
+  "url": "https://link.springer.com/chapter/10.1007/978-3-031-98281-1_20",
+  "cited_by": 8,
+  "type": "survey/review"
+ },
+ {
+  "title": "Problems With Large Language Models for Learner Modelling: Why LLMs Alone Fall Short for Responsible Tutoring in K--12 Education",
+  "authors": [
+   "D Hooshyar",
+   "Y Yang",
+   "G Šíř",
+   "T Kärkkäinen"
+  ],
+  "year": "2025",
+  "venue": "arXiv preprint arXiv …",
+  "abstract": "of LLM-based tutoring systems and then  knowledge tracing (DKT) model with a widely used  LLM (with and without fine-tuning) that has demonstrated competitive performance in tutoring",
+  "url": "https://arxiv.org/abs/2512.23036",
+  "cited_by": 7,
+  "type": "individual"
+ },
+ {
+  "title": "Adaptive large language model scaffolding supports online programming education through learning analytics and knowledge tracing",
+  "authors": [
+   "P Bartoš"
+  ],
+  "year": "2026",
+  "venue": "Discover Education",
+  "abstract": "Adaptive learning systems and intelligent tutoring systems offer a  show that intelligent  tutoring, learning analytics, and LLM- RQ1: How accurately do the operational knowledge-tracing",
+  "url": "https://link.springer.com/article/10.1007/s44217-026-02172-8",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "Interpretable Difficulty-Aware Knowledge Tracing in Tutor-Student Dialogues",
+  "authors": [
+   "S Huang",
+   "A Scarlatos",
+   "J Lee",
+   "A Lan"
+  ],
+  "year": "2026",
+  "venue": "arXiv preprint arXiv:2605.01097",
+  "abstract": "and generation capabilities of large language models (LLMs), researchers have developed  an increasing number of LLM-based tutoring systems, such as Khanmigo (Khan Academy",
+  "url": "https://arxiv.org/abs/2605.01097",
+  "cited_by": 1,
+  "type": "individual"
+ },
+ {
+  "title": "Leveraging Large Language Models for Adaptive Tutoring System via Pedagogical Knowledge-Augmented Prompting",
+  "authors": [
+   "H Jeon",
+   "BY Kang"
+  ],
+  "year": "2026",
+  "venue": "Expert Systems with Applications",
+  "abstract": "LLM responses in real time. Prior research in personality-adaptive tutoring and behavior-integrated  student modeling  effectiveness across multiple LLM families and tutoring datasets,",
+  "url": "https://www.sciencedirect.com/science/article/pii/S0957417426023237",
+  "cited_by": 2,
+  "type": "individual"
+ },
+ {
+  "title": "Towards modeling learner performance with large language models",
+  "authors": [
+   "SP Neshaei",
+   "RL Davis",
+   "A Hazimeh"
+  ],
+  "year": "2024",
+  "venue": "arXiv preprint arXiv …",
+  "abstract": ", a critical component in the development of intelligent tutoring systems ( knowledge tracing  models and the LLM approaches, with the goal of benchmarking the performance of the LLM",
+  "url": "https://arxiv.org/abs/2403.14661",
+  "cited_by": 64,
+  "type": "individual"
+ },
+ {
+  "title": "Why Large Language Models Alone Fall Short for Responsible Learner Modelling in K–12 Tutoring: A Case Study",
+  "authors": [
+   "D Hooshyar",
+   "Y Yang",
+   "G Šír",
+   "T Kärkkäinen"
+  ],
+  "year": "2026",
+  "venue": "IEEE …",
+  "abstract": "of LLM-based tutoring systems and then  knowledge tracing (DKT) model with a widely used  LLM (with and without fine-tuning) that has demonstrated competitive performance in tutoring",
+  "url": "https://ieeexplore.ieee.org/abstract/document/11554315/",
+  "cited_by": 1,
+  "type": "individual"
+ },
+ {
+  "title": "CoLearn: An Agentic Tutor that Learns its Learner in a Human--AI Co-Learning Loop",
+  "authors": [
+   "K He",
+   "Z Wu",
+   "L Zhang",
+   "R Zhao",
+   "Y He",
+   "J Li"
+  ],
+  "year": "2026",
+  "venue": "arXiv preprint arXiv:2609.21154",
+  "abstract": "that supports an iterative tutoring loop: the learner practises,  evidence variant of Bayesian  Knowledge Tracing, where a large  direct comparisons with other LLM-based tutoring systems.",
+  "url": "https://arxiv.org/abs/2609.21154",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "Leveraging LLMS for Bayesian and deep knowledge tracing in the logic-muse intelligent tutoring system",
+  "authors": [
+   "A Tato",
+   "R Nkambou"
+  ],
+  "year": "2025",
+  "venue": "International Conference on Intelligent Tutoring …",
+  "abstract": "network (BN) for knowledge tracing without relying on expert  that a BN constructed using  an LLM is as effective as one  via Deep Knowledge Tracing (DKT), the LLM-based BN (as",
+  "url": "https://link.springer.com/chapter/10.1007/978-3-031-98281-1_14",
+  "cited_by": 2,
+  "type": "individual"
+ },
+ {
+  "title": "LLM-based intelligent tutoring systems: A survey",
+  "authors": [
+   "L Kong",
+   "J Sun",
+   "J Zhou",
+   "V Ng"
+  ],
+  "year": "",
+  "venue": "NA",
+  "abstract": "LLM-based ITS increasingly emphasize learner modeling  The core tasks are (1) knowledge  tracing (M1), which predicts  Datasets Datasets developed to support knowledge tracing and",
+  "url": "https://www.ijcai.org/proceedings/2026/0875.pdf",
+  "cited_by": 1,
+  "type": "survey/review"
+ },
+ {
+  "title": "Leveraging Large Language Models for Mastery Tutor Construction",
+  "authors": [
+   "O Manakina"
+  ],
+  "year": "2026",
+  "venue": "NA",
+  "abstract": "tutoring systems offer fine-grained knowledge tracing but  We designed an LLM-based  mastery tutor targeting code  design and implementation of an LLM-based mastery tutor for code-",
+  "url": "https://carleton.scholaris.ca/items/5e71bb6c-9656-4b7a-bbdb-b23c2867030a",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "AI-driven intelligent tutoring systems for personalized digital learning",
+  "authors": [
+   "I Klein",
+   "E Garcia"
+  ],
+  "year": "2024",
+  "venue": "Journal of Digital Learning Futures p-ISSN …",
+  "abstract": "- knowledge tracing (BKT, DKT), LLM-based tutoring, reinforcement learning pedagogical  agents, multimodal adaptive systems, and collaborative AI tutoring  results: LLM-based tutoring",
+  "url": "http://galaxiauniverse.com/index.php/JDLF/article/view/377",
+  "cited_by": 26,
+  "type": "individual"
+ },
+ {
+  "title": "A DESIGN FRAMEWORK FOR PERSONALIZED INTELLIGENT TUTORING SYSTEMS INTEGRATING KNOWLEDGE TRACING AND RETRIEVAL-AUGMENTED …",
+  "authors": [
+   "P CHAMNANKIJ",
+   "E NAOWANICH"
+  ],
+  "year": "2026",
+  "venue": "Journal of Theoretical …",
+  "abstract": "Knowledge Tracing (KT) is typically employed for learner  , while RAG- and LLM-based  tutoring systems largely function as  framework that embeds learner modeling, generative content",
+  "url": "https://scigrad.com/uploads/43e99642-6dd5-4898-a6a4-f592a8ac4f2b.pdf",
+  "cited_by": 1,
+  "type": "individual"
+ },
+ {
+  "title": "Intelligent Assessment and Tutoring System Design Based on Large Language Models",
+  "authors": [
+   "L Zhang",
+   "J Jia"
+  ],
+  "year": "2026",
+  "venue": "2026 8th International Conference on Computer …",
+  "abstract": "Yet, despite their promise, existing LLM-based educational  ZPD through real-time learner  modeling and adaptive scaffolding  assessment and tutoring system that bridges IRT, LLM, and",
+  "url": "https://ieeexplore.ieee.org/abstract/document/11649662/",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "Intelligent Tutoring Systems Using Large Language Models for Personalized and Context-Aware Learning",
+  "authors": [
+   "GMP Kumar",
+   "N HEMA"
+  ],
+  "year": "2026",
+  "venue": "International Journal of Artificial …",
+  "abstract": "LLM-based tutoring systems capable of supporting diverse learners across educational  settings.  Knowledge tracing approaches provide an important methodological foundation by",
+  "url": "https://svedbergopen.com/index.php/ijaiml/article/view/1671",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "A systematic review of knowledge tracing and large language models in education: Opportunities, issues, and future research",
+  "authors": [
+   "Y Cho",
+   "RE AlMamlook",
+   "T Gharaibeh"
+  ],
+  "year": "2024",
+  "venue": "arXiv preprint arXiv:2412.09248",
+  "abstract": "Knowledge Tracing (KT) is a research field that aims to estimate a student's knowledge state  through learning interactions—a crucial component of Intelligent Tutoring  investigate LLM",
+  "url": "https://arxiv.org/abs/2412.09248",
+  "cited_by": 27,
+  "type": "survey/review"
+ },
+ {
+  "title": "Empowering personalized learning through a conversation-based tutoring system with student modeling",
+  "authors": [
+   "M Park",
+   "S Kim",
+   "S Lee",
+   "S Kwon",
+   "K Kim"
+  ],
+  "year": "2024",
+  "venue": "… of the CHI Conference on Human …",
+  "abstract": "Specifcally, we frst focus on the diagnostic components of the tutoring system, where  these components allow the LLM to incorporate multi-faceted student assessment results via",
+  "url": "https://dl.acm.org/doi/abs/10.1145/3613905.3651122",
+  "cited_by": 143,
+  "type": "individual"
+ },
+ {
+  "title": "Simulation of teaching behaviours in intelligent tutoring systems: a review using large language models",
+  "authors": [
+   "L Marquez-Carpintero",
+   "A Lopez-Sellers"
+  ],
+  "year": "2025",
+  "venue": "Artificial Intelligence …",
+  "abstract": "tutoring to open-ended dialogue, generative content and real-time adaptation. Early classroom  prototypes already leverage multi-agent LLM  that prompting an LLM to rehearse lessons,",
+  "url": "https://link.springer.com/article/10.1007/s10462-025-11464-8",
+  "cited_by": 16,
+  "type": "survey/review"
+ },
+ {
+  "title": "LEARNERCOMPASS: Intelligent Tutoring System with Dynamic Cognitive Diagnosis and Multi-Model Path Planning",
+  "authors": [
+   "ITS ML-Based",
+   "ITS LLM-Based"
+  ],
+  "year": "",
+  "venue": "NA",
+  "abstract": "holistic framework for adap- 070 tive intelligent tutoring. The system operates 071 through a   factual ground- 090 ing and mitigate LLM hallucinations. • Agentic Dynamic Diagnosis: We",
+  "url": "https://openreview.net/forum?id=B65QAl38dr",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "Modeling student knowledge progression across concepts in intelligent tutoring interactions",
+  "authors": [
+   "K Mittal",
+   "A O'Neill",
+   "H Schlegel",
+   "G Ranade"
+  ],
+  "year": "2025",
+  "venue": "… Conference on Artificial …",
+  "abstract": "from the code with LLM KC extractions. Next, we use LLM labels on 8,000 submissions to   Fairer but not fair enough on the equitability of knowledge tracing. In: Proceedings of the 9th",
+  "url": "https://link.springer.com/chapter/10.1007/978-3-031-98417-4_8",
+  "cited_by": 3,
+  "type": "individual"
+ },
+ {
+  "title": "Llm-powered multi-agent framework for goal-oriented learning in intelligent tutoring system",
+  "authors": [
+   "T Wang",
+   "Y Zhan",
+   "J Lian",
+   "Z Hu",
+   "NJ Yuan"
+  ],
+  "year": "2025",
+  "venue": "… Proceedings of the …",
+  "abstract": "Through the integration of LLMs, we propose GenMentor, an LLM multi-agent system to   for LLM fine-tuning. Grounded in educational theories, we propose a adaptive learner modeling",
+  "url": "https://dl.acm.org/doi/abs/10.1145/3701716.3715244",
+  "cited_by": 143,
+  "type": "individual"
+ },
+ {
+  "title": "Leveraging large language models to enhance the inner loops of intelligent tutoring systems",
+  "authors": [
+   "Y Pian",
+   "Y Lu"
+  ],
+  "year": "2025",
+  "venue": "International Conference on Artificial Intelligence in …",
+  "abstract": "These tasks are typically handled by well-established algorithms such as knowledge  tracing these LLM-generated scaffoldings into the inner loop of Intelligent Tutoring Systems to",
+  "url": "https://link.springer.com/chapter/10.1007/978-3-031-98420-4_16",
+  "cited_by": 8,
+  "type": "individual"
+ },
+ {
+  "title": "Can large language models match tutoring system adaptivity? a benchmarking study",
+  "authors": [
+   "C Borchers",
+   "T Shou"
+  ],
+  "year": "2025",
+  "venue": "International Conference on Artificial Intelligence in …",
+  "abstract": "tutoring, prompting learners with open-ended questions to gauge knowledge. Given these  results, we discuss how current LLM-based tutoring is  task analysis, learner modeling, and",
+  "url": "https://link.springer.com/chapter/10.1007/978-3-031-98417-4_29",
+  "cited_by": 53,
+  "type": "individual"
+ },
+ {
+  "title": "Advancing education through tutoring systems: A systematic literature review",
+  "authors": [
+   "V Liu",
+   "E Latif",
+   "X Zhai"
+  ],
+  "year": "2025",
+  "venue": "arXiv preprint arXiv:2503.09748",
+  "abstract": "The paper also raises significant ethical concerns regarding LLM hallucinations, cautioning   Kopp, “Adaptive robot language tutoring based on bayesian knowledge tracing and",
+  "url": "https://arxiv.org/abs/2503.09748",
+  "cited_by": 104,
+  "type": "survey/review"
+ },
+ {
+  "title": "Intelligent Tutoring Algorithm for Advanced Mathematics via Knowledge Graph-Augmented Generative Language Model",
+  "authors": [
+   "L Liying",
+   "J Nan"
+  ],
+  "year": "2026",
+  "venue": "… Conference on Intelligent and Sustainable AI …",
+  "abstract": "This structural characteristic limits traditional Intelligent Tutoring  Therefore, constructing a  novel intelligent tutoring framework that  Traditional knowledge tracing models typically treat",
+  "url": "https://ieeexplore.ieee.org/abstract/document/11648529/",
+  "cited_by": 0,
+  "type": "individual"
+ },
+ {
+  "title": "CLST: Cold-Start Mitigation in Knowledge Tracing by Aligning a Generative Language Model as a Students' Knowledge Tracer",
+  "authors": [
+   "H Jung",
+   "J Yoo",
+   "Y Yoon",
+   "Y Jang"
+  ],
+  "year": "2024",
+  "venue": "arXiv preprint arXiv:2406.10296",
+  "abstract": "In this context, intelligent tutoring systems (ITSs) have  technologies used in ITSs, knowledge  tracing (KT) has emerged  to determine whether a generative LLM aligned with KT could",
+  "url": "https://arxiv.org/abs/2406.10296",
+  "cited_by": 45,
+  "type": "individual"
+ },
+ {
+  "title": "DeepTutor: Towards Agentic Personalized Tutoring",
+  "authors": [
+   "B Zhao",
+   "J Zhang",
+   "X Ren",
+   "Z Guo",
+   "T Chu",
+   "Y Ma"
+  ],
+  "year": "2026",
+  "venue": "arXiv preprint arXiv …",
+  "abstract": "2026), we introduce a TutorBench protocol in which an LLM-based student simulator engages  each tutoring system, and the  Classical learner modeling has long been studied through",
+  "url": "https://arxiv.org/abs/2604.26962",
+  "cited_by": 2,
+  "type": "individual"
+ },
+ {
+  "title": "Enhancing Automated Feedback in Intelligent Tutoring Systems via Large Language Models and Data Distillation",
+  "authors": [
+   "X Meng",
+   "Y Yang"
+  ],
+  "year": "2025",
+  "venue": "2025 13th International Conference on …",
+  "abstract": "This study investigates the integration of Large Language Model (LLM)-generated feedback  in Intelligent Tutoring Systems (ITS), addressing its potential for personalized, scalable",
+  "url": "https://ieeexplore.ieee.org/abstract/document/11046219/",
+  "cited_by": 0,
+  "type": "individual"
+ }
+]

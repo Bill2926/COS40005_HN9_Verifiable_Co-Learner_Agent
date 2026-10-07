@@ -1,0 +1,10 @@
+[project]
+name = "cos40005-hn9-verifiable-co-learner-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyzotero>=1.15.2",
+    "scholarly>=1.7.11",
+]
