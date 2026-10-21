@@ -1,0 +1,94 @@
+@startuml intro_programming_use_cases
+' ============================================================
+' Use Case Diagram — Intro to Programming (Python) Learning System
+' Capstone A scope: core use cases only
+' Agent decomposition follows the three-agent LCS model
+' (Chan 1991): teacher agent, companion agent, student.
+' Target user: student with no prior programming knowledge
+' ============================================================
+
+left to right direction
+skinparam packageStyle rectangle
+skinparam shadowing false
+skinparam actorStyle awesome
+skinparam usecase {
+  BackgroundColor #FDFDFD
+  BorderColor #666666
+}
+
+' ---------------- Actors ----------------
+' Student, Companion and Teacher are the three agents of the LCS model.
+' The student is a human actor; the other two are system agents.
+actor "Student\n(no prior programming)" as Student
+actor "Instructor" as Instructor
+actor "Companion Agent" as Companion <<system>>
+actor "Teacher Agent" as Teacher <<system>>
+actor "Code Runner" as Runner <<system>>
+
+' ---------------- System boundary ----------------
+rectangle "Python Intro Programming Learning System" {
+
+  usecase "UC1\nStart an exercise" as UC1
+  usecase "UC2\nPlan the approach\nwith the companion" as UC2
+  usecase "UC3\nDecide the plan" as UC3
+  usecase "UC4\nWrite and run code" as UC4
+  usecase "UC5\nView test results" as UC5
+  usecase "UC6\nDiagnose a failure\ntogether" as UC6
+  usecase "UC7\nRequest a hint" as UC7
+  usecase "UC8\nView progress" as UC8
+  usecase "UC9\nAuthor exercise\n+ test cases" as UC9
+  usecase "UC10\nReceive teacher\nintervention" as UC10
+}
+
+' ---------------- Associations ----------------
+Student --> UC1
+Student --> UC2
+Student --> UC3
+Student --> UC4
+Student --> UC5
+Student --> UC7
+Student --> UC8
+
+Companion --> UC2
+Companion --> UC6
+Teacher --> UC10
+Runner --> UC4
+
+Instructor --> UC9
+Instructor --> UC10
+
+' ---------------- Relationships ----------------
+UC2 ..> UC3 : <<include>>
+UC3 ..> UC4 : <<include>>
+UC4 ..> UC5 : <<include>>
+UC5 ..> UC6 : <<extend>>
+UC4 ..> UC7 : <<extend>>
+UC6 ..> UC10 : <<extend>>
+UC7 ..> UC10 : <<extend>>
+
+' ---------------- Notes ----------------
+note right of UC3
+  The student makes the final call.
+  The companion may disagree,
+  but never overrides.
+end note
+
+note bottom of UC4
+  The companion implements the
+  student's chosen plan **even when
+  it is wrong**, so the error surfaces
+  by running the code rather than
+  by being told.
+end note
+
+note right of UC10
+  The teacher agent holds the complete,
+  correct rule set; the companion sees a
+  restricted view of the same knowledge
+  base. It intervenes only after N failed
+  rounds or on explicit student request,
+  so student and companion still converge
+  on the learning goals.
+end note
+
+@enduml
