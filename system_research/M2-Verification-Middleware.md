@@ -43,16 +43,18 @@ flowchart TB
 
     subgraph M2["M2 — Verification Middleware"]
         SPEC[/"Pedagogical Specification<br/>loaded at import · immutable at runtime"/]
+        ADM["admission check<br/><i>malformed or unknown move</i>"]
         DEC["decide()<br/><i>pure function · no I/O</i>"]
         CHK["check_text()<br/><i>pure function · no I/O</i>"]
     end
 
-    M3["M3 · Graph engine<br/><i>reachable?</i>"]
+    M3["M3 · Graph engine<br/><i>outer fringe</i>"]
     M6B["M6b · Estimators<br/><i>mastery · misconceptions</i>"]
     M7[("M7 · Decision log<br/>append-only")]
     M4["M4 · Canvas<br/>shows verdict and reason"]
 
-    PROP -->|"proposed moves"| DEC
+    PROP -->|"proposed moves"| ADM
+    ADM -->|"well-formed moves"| DEC
     M3 -->|"snapshot"| DEC
     M6B -->|"snapshot"| DEC
     SPEC -.-> DEC
@@ -61,8 +63,10 @@ flowchart TB
     DEC -->|"approved move"| REND
     REND -->|"rendered text"| CHK
     CHK --> M4
-    DEC --> M7
-    CHK --> M7
+    ADM -->|"rejected moves"| M7
+    DEC -->|"verdicts + snapshot"| M7
+
+    LLM(["LLM · network · clock"]) -.->|"✕ never reaches M2"| M2
 
     classDef blocked stroke-dasharray: 4 4
     class LLM blocked
@@ -127,7 +131,12 @@ today or in a year.
 
 It runs in three steps.
 
-**Gather.** Ask M3 whether the target topic is reachable, ask M6b for the
+Before any of this, a move must be well-formed: a proposal naming an unknown move
+type, or a move the proposing role is not allowed, is rejected at the door without
+reaching the guards. Rejections are logged like verdicts — a stream of malformed
+proposals from M1 is a signal worth counting.
+
+**Gather.** Ask M3 for the outer fringe of the student's knowledge state, ask M6b for the
 mastery score and the active misconceptions, read the turn counters. Freeze all
 of it into a snapshot that does not change for the rest of the decision.
 
@@ -154,13 +163,13 @@ promised in a report and never actually done.
 
 **Example use case**
 
-An asks to start `nested_loop`. The teacher agent proposes `advance_to_node`.
+An asks to start `nested_loop`. The teacher agent proposes `advance_to_item`.
 
 Gather:
 
 ```
-move      : advance_to_node(nested_loop)
-snapshot  : for_loop 0.34 · nested_loop reachable=false
+move      : advance_to_item(nested_loop)
+snapshot  : for_loop 0.34 · fringe: [function]
             attempts(for_loop)=4 · active: accumulator_reset
             moves_approved_this_turn = 0
 ```
@@ -254,7 +263,7 @@ code:
 ```
 rule: reveal_requires_attempts
   when:   move.type == reveal_answer
-  if:     snapshot.attempts < node.min_attempts
+  if:     snapshot.attempts < item.min_attempts
   then:   downgrade → hint_level_2
   reason: NOT_ENOUGH_ATTEMPTS
 ```
@@ -287,20 +296,3 @@ Declared, not missing.
 | estimate mastery | that is M6b |
 | judge whether code is correct | that is the test runner |
 | run graph algorithms itself | that is M3 |
-
-Two limits are worth stating plainly rather than leaving for someone to find.
-
-**The spec can only say what M2 can express.** Rules are written using the
-predicates M2 implements — mastery, attempts, reachability, active violations,
-move count, role. A lecturer who wants a rule outside that vocabulary needs a
-code change, not a spec edit. The vocabulary is deliberately small and the
-constraint is deliberate: each new predicate is a reviewed change rather than a
-dial anyone can turn.
-
-**M2 enforces safety, not progress.** It can guarantee that no forbidden move
-is ever made — that nothing bad happens. It cannot guarantee that something
-good eventually does: there is no rule that can make a student master
-`for_loop`. In the runtime-enforcement literature this is the boundary between
-safety and liveness properties, and monitors of this kind only ever enforce the
-first. The system's claim is narrowed accordingly: no shortcut exists in the
-pedagogical model, which is not the same as a promise about learning.

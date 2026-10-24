@@ -42,11 +42,11 @@ flowchart TB
 
         subgraph PED["Pedagogical content — authored, in the spec"]
             direction TB
-            HINT[/"Hint ladders<br/><i>per node</i>"/]
+            HINT[/"Hint ladders<br/><i>per item</i>"/]
             RESP[/"Misconception responses<br/><i>per closed label</i>"/]
         end
 
-        CON[("Content knowledge<br/><i>node-local retrieval</i>")]
+        CON[("Content knowledge<br/><i>item-local retrieval</i>")]
     end
 
     SPEC[/"Pedagogical Specification"/]
@@ -72,7 +72,7 @@ flowchart TB
     RESP -.-> DA
 
     SPEC -.-> PED
-    SPEC -.->|"node materials"| CON
+    SPEC -.->|"item materials"| CON
     SPEC -.-> M2
 
     M2 --> STU
@@ -82,9 +82,11 @@ flowchart TB
     class M1 nd
 ```
 
-Both agents hear the student directly, and both put their move to the same
-middleware. Nothing reaches the student except through M2 — there is no second
-path out.
+Both agents see the student's message and both put their move to the same
+middleware. "Directly" is about the inbound side only: the message arrives
+unmediated because reading it decides nothing. Nothing reaches the student
+except through M2 — there is no second path out, which is the direction VC2
+is about.
 
 ## The three jobs
 
@@ -104,6 +106,17 @@ move that was not approved.
 This is also why the agents cannot drift. Perceive cannot invent a new kind of
 intent, propose cannot invent a new kind of move, and render only ever dresses
 up something that has already been allowed.
+
+The closed set of moves is nine, in four groups: **teaching**
+(`explain_concept`, `answer_question`), **correction** (`hint_level_N`,
+`address_misconception`, `reveal_answer`), **companionship** (`peer_question`,
+`share_confusion`) and **navigation** (`advance_to_item`, `stay_and_practise`).
+
+Which agent may propose which is a rule in the spec, not a habit: the teacher
+may propose teaching, correction and navigation; the deskmate may propose only
+companionship. Leaving this to the knowledge asymmetry below would make a
+deskmate hint merely *unlikely*. A table in the spec makes it impossible, and
+only the second is something M5 can test for.
 
 **Example use case**
 

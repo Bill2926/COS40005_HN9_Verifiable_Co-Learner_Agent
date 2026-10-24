@@ -48,7 +48,6 @@ flowchart TB
 
     M2["M2 · Verification middleware<br/>guard check"]
     M1["M1 · Deskmate agent<br/>what to say"]
-    M4["M4 · Canvas<br/>open learner model"]
 
     SUB --> TR
     SUB --> CC
@@ -62,10 +61,8 @@ flowchart TB
     SPEC -.-> CC
     SPEC -.-> TR
 
-    MAST -->|"mastery per node"| M2
+    MAST -->|"mastery per item"| M2
     MISC -->|"violated principles"| M1
-    MAST --> M4
-    MISC --> M4
 
     LLM(["LLM agents"]) -.->|"✕ never writes"| LEDGER
 
@@ -75,7 +72,8 @@ flowchart TB
 
 Data flows one way: submission → evidence producers → ledger → estimators →
 M2 and M1. Nothing flows back, and no LLM appears anywhere before the final
-step.
+step. M6 never reaches M4 directly — what the canvas shows passes through M2,
+like everything else on screen.
 
 ---
 
