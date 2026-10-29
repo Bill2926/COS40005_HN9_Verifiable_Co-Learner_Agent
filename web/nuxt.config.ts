@@ -6,5 +6,8 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   colorMode: {
     preference: 'light',
+    fallback: 'light',
+    // Don't reuse a dark preference saved by another app on localhost.
+    storageKey: 'colearner-color-mode',
   },
 })
