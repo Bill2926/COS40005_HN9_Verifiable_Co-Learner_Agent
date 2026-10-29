@@ -1,7 +1,11 @@
+<script setup lang="ts">
+await navigateTo('/prototype/workspace', { replace: true })
+</script>
+
 <template>
   <main class="p-8">
-    <h1 class="text-xl font-medium text-default">
-      Verifiable co-learner
-    </h1>
+    <p class="text-sm text-muted">
+      Opening the workspace prototype.
+    </p>
   </main>
 </template>
