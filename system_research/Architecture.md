@@ -332,8 +332,9 @@ Text that failed was never sent and leaves no gap; the agent simply rendered aga
 the same approved move.
 
 *Working area, two modes* — **Learn** shows the current item's materials, **Practice**
-shows the exercise, editor, and test results. The system sets the mode from the approved
-move; the student can switch back to re-read. Learn mode is headed with the item name and
+shows the exercise, editor, and test results. The panel opens in Learn when an item opens;
+after that the student switches, and a teaching move offers its material rather than
+taking the editor away. Learn mode is headed with the item name and
 states that the materials belong to that item alone, which is item-local retrieval made
 visible. Practice results show both producers separately, because they can disagree.
 

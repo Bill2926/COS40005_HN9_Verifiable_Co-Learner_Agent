@@ -181,9 +181,11 @@ point of having a companion rather than a second tutor.
 One panel with two modes. **Learn** shows the current topic's materials.
 **Practice** shows the exercise, the editor, and the test results.
 
-The system sets the mode: a teaching move puts the panel in Learn, a correction
-move puts it in Practice. The student can switch back to re-read at any time,
-because a topic is not a corridor and nobody learns by reading once.
+The system sets the mode once, when a topic opens: the panel starts in Learn.
+After that the mode belongs to the student. A teaching move never takes the
+editor away from someone who is writing code; it offers the material it refers
+to, and the student opens Learn when they are ready. They can switch either way
+at any time, because a topic is not a corridor and nobody learns by reading once.
 
 Learn mode is headed with the topic name and states that the materials belong to
 that topic alone. That line is the item-local retrieval rule made visible: the
