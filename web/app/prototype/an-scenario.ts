@@ -63,18 +63,18 @@ export const exercise = {
 
 export const conversation: ConversationMessage[] = [
   {
-    id: 'teacher-1',
-    author: 'teacher',
-    name: 'Teacher',
-    role: 'Teacher',
-    text: 'Where does the total live?',
-  },
-  {
     id: 'an-1',
     author: 'student',
     name: 'An',
     role: 'Student',
     text: 'Inside the loop, I think.',
+  },
+  {
+    id: 'teacher-1',
+    author: 'teacher',
+    name: 'Teacher',
+    role: 'Teacher',
+    text: 'Where does the total live?',
   },
   {
     id: 'mai-1',

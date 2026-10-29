@@ -13,7 +13,7 @@ const emit = defineEmits<{
   cycle: [direction: -1 | 1]
 }>()
 
-const enabled = import.meta.dev
+const showSwitcher = import.meta.dev
 
 const currentVariant = computed(() =>
   props.variants.find(variant => variant.key === props.current) ?? props.variants[0],
@@ -35,7 +35,7 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 onMounted(() => {
-  if (!enabled) return
+  if (!showSwitcher) return
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -46,7 +46,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div
-    v-if="enabled"
+    v-if="showSwitcher"
     class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full bg-neutral-950 px-1.5 py-1.5 text-white shadow-lg"
     role="toolbar"
     aria-label="Layout prototype"

@@ -93,10 +93,7 @@ function send() {
           <div class="min-w-0">
             <p class="text-sm">
               <span class="font-medium">{{ message.name }}</span>
-              <span
-                v-if="message.role !== message.name"
-                class="text-muted"
-              > · {{ message.role }}</span>
+              <span class="text-muted"> · {{ message.role }}</span>
             </p>
             <p class="mt-1 text-sm leading-6">
               {{ message.text }}
