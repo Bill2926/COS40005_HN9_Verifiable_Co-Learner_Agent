@@ -43,7 +43,7 @@ function installStudentRunner(pyodide) {
   pyodide.runPython(studentRunner, { dedent: false })
 }
 
-function executePython(pyodide, code) {
+function runStudentCode(pyodide, code) {
   const raw = pyodide.runPython(`__run_student__(${JSON.stringify(code)})`, { dedent: false })
   const text = typeof raw === 'string' ? raw : String(raw)
   if (raw && typeof raw.destroy === 'function') raw.destroy()
@@ -57,7 +57,7 @@ export async function servePyodide(host, load) {
     if (!pyodide || message?.type !== 'run') return
     host.post({ type: 'started', id: message.id })
     try {
-      const result = executePython(pyodide, message.code)
+      const result = runStudentCode(pyodide, message.code)
       host.post({ type: 'result', id: message.id, result })
     }
     catch (error) {
