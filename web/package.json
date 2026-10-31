@@ -18,13 +18,19 @@
     ]
   },
   "dependencies": {
+    "@codemirror/lang-python": "^6.2.1",
+    "@codemirror/language": "^6.13.1",
+    "@codemirror/state": "^6.7.6",
     "@nuxt/ui": "^4.12.0",
+    "codemirror": "^6.0.2",
     "nuxt": "^4.6.3",
+    "pyodide": "^314.0.7",
     "tailwindcss": "^4.3.3",
     "vue": "^3.5.44",
     "vue-router": "^5.4.0"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "typescript": "^5.9.3",
     "vitest": "^5.0.5",
     "vue-tsc": "^3.3.13"

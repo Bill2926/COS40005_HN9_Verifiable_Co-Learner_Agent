@@ -17,11 +17,19 @@ export interface TopicMaterials {
   scopeNote: string
 }
 
+export interface CurrentExercise {
+  id: string
+  title: string
+  statement: string
+  starterCode: string
+}
+
 export interface WorkingAreaView {
   mode: 'learn'
   topicId: string
   topicName: string
   materials: TopicMaterials
+  exercise: CurrentExercise
 }
 
 export interface ConversationMessage {
