@@ -7,6 +7,8 @@ export function handleTurn(input: unknown): RedrawState {
     throw new Error('The turn endpoint only accepts an open event.')
   }
 
+  const exercise = forLoopTopic.exercises[0]
+
   return {
     knowledgeMap: knowledgeMap.map(topic => ({ ...topic })),
     workingArea: {
@@ -14,6 +16,12 @@ export function handleTurn(input: unknown): RedrawState {
       topicId: forLoopTopic.id,
       topicName: forLoopTopic.name,
       materials: { ...forLoopTopic.materials },
+      exercise: {
+        id: exercise.id,
+        title: exercise.title,
+        statement: exercise.statement,
+        starterCode: exercise.starterCode,
+      },
     },
     conversation: [],
   }

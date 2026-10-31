@@ -15,4 +15,18 @@ export default defineNuxtConfig({
     // Don't reuse a dark preference saved by another app on localhost.
     storageKey: 'colearner-color-mode',
   },
+  vite: {
+    optimizeDeps: {
+      include: [
+        '@codemirror/lang-python',
+        '@codemirror/language',
+        '@codemirror/state',
+        'codemirror',
+      ],
+      exclude: ['pyodide'],
+    },
+    worker: {
+      format: 'es',
+    },
+  },
 })

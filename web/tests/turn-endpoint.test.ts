@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { handleTurn } from '../server/turn/handle-turn'
 
 describe('turn endpoint', () => {
-  it('open returns the topic states, the closed reason, and Learn mode', () => {
+  it('open returns the topic states, the closed reason, Learn mode, and the current exercise', () => {
     const state = handleTurn({ event: 'open' })
 
     expect(state.knowledgeMap).toEqual([
@@ -26,6 +26,13 @@ describe('turn endpoint', () => {
         body: 'A running total needs a variable that survives every pass of the loop.',
         example: 's = 0\nfor x in ds:\n    s = s + x',
         scopeNote: 'These materials belong to this topic alone.',
+      },
+      exercise: {
+        id: 'sum_of_a_list',
+        title: 'Sum of a list',
+        statement:
+          'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+        starterCode: 'def total(ds):\n    pass\n',
       },
     })
     expect(state.conversation).toEqual([])

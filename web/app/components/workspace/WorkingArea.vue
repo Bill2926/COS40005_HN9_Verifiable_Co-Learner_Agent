@@ -1,9 +1,18 @@
 <script setup lang="ts">
 import type { WorkingAreaView } from '#shared/turn'
+import PracticePanel from './PracticePanel.vue'
 
 defineProps<{
   area: WorkingAreaView
 }>()
+
+const mode = ref<'learn' | 'practice'>('learn')
+const practiceOpened = ref(false)
+
+function choose(next: 'learn' | 'practice') {
+  if (next === 'practice') practiceOpened.value = true
+  mode.value = next
+}
 </script>
 
 <template>
@@ -12,23 +21,44 @@ defineProps<{
     aria-label="Working area"
   >
     <header class="shrink-0 border-b border-default px-5 py-4">
-      <p class="text-sm text-muted">
-        Working area
-        <span aria-hidden="true"> · </span>
-        <template v-if="area.mode === 'learn'">
-          Learn
-        </template>
-      </p>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-muted">
+          Working area
+        </p>
+        <div
+          class="flex gap-2"
+          role="group"
+          aria-label="Working area mode"
+        >
+          <UButton
+            label="Learn"
+            color="neutral"
+            :variant="mode === 'learn' ? 'solid' : 'outline'"
+            :aria-pressed="mode === 'learn'"
+            @click="choose('learn')"
+          />
+          <UButton
+            label="Practice"
+            color="neutral"
+            :variant="mode === 'practice' ? 'solid' : 'outline'"
+            :aria-pressed="mode === 'practice'"
+            @click="choose('practice')"
+          />
+        </div>
+      </div>
       <h1 class="mt-1 text-lg font-semibold">
         {{ area.topicName }}
       </h1>
-      <p class="mt-1 text-sm leading-6">
+      <p
+        v-if="mode === 'learn'"
+        class="mt-1 text-sm leading-6"
+      >
         {{ area.materials.scopeNote }}
       </p>
     </header>
 
     <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
-      <article>
+      <article v-if="mode === 'learn'">
         <h2 class="text-base font-medium">
           {{ area.materials.heading }}
         </h2>
@@ -40,6 +70,13 @@ defineProps<{
         </h3>
         <pre class="mt-2 overflow-x-auto rounded-md bg-elevated px-3 py-2 font-mono text-sm leading-6"><code>{{ area.materials.example }}</code></pre>
       </article>
+
+      <PracticePanel
+        v-if="practiceOpened"
+        v-show="mode === 'practice'"
+        :exercise="area.exercise"
+        :active="mode === 'practice'"
+      />
     </div>
   </section>
 </template>
