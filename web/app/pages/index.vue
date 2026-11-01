@@ -4,6 +4,15 @@ import KnowledgeMap from '~/components/workspace/KnowledgeMap.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { RedrawState } from '#shared/turn'
 
+definePageMeta({
+  middleware: 'signed-in',
+})
+
+async function signOut() {
+  await useNuxtApp().$supabase.auth.signOut()
+  await navigateTo('/sign-in')
+}
+
 const { data, error } = await useFetch<RedrawState>('/turn', {
   method: 'POST',
   body: { event: 'open' },
@@ -26,9 +35,19 @@ useHead({
   <main
     v-else
     data-layout="ide"
-    class="h-dvh overflow-auto bg-elevated"
+    class="flex h-dvh min-w-[60rem] flex-col overflow-auto bg-elevated"
   >
-    <div class="grid h-full min-h-[40rem] min-w-[60rem] grid-cols-[14rem_minmax(0,1fr)_22rem]">
+    <header class="flex shrink-0 justify-end bg-default px-3 py-2">
+      <UButton
+        type="button"
+        color="neutral"
+        variant="ghost"
+        @click="signOut"
+      >
+        Sign out
+      </UButton>
+    </header>
+    <div class="grid min-h-[40rem] flex-1 grid-cols-[14rem_minmax(0,1fr)_22rem]">
       <KnowledgeMap :topics="data.knowledgeMap" />
       <WorkingArea :area="data.workingArea" />
       <ConversationPanel :messages="data.conversation" />

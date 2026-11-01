@@ -1,9 +1,39 @@
 import { describe, expect, it } from 'vitest'
-import { handleTurn } from '../server/turn/handle-turn'
+import { handleTurn, studentIdForTurn } from '../server/turn/handle-turn'
+
+const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
+const otherStudent = '6f1b0c1e-2222-4222-8222-222222222222'
 
 describe('turn endpoint', () => {
+  it('rejects a request when there is no session', () => {
+    expect(() => handleTurn({
+      sessionStudentId: null,
+      body: { event: 'open' },
+    })).toThrow(expect.objectContaining({
+      name: 'SignInRequiredError',
+      statusCode: 401,
+    }))
+  })
+
+  it('ignores a student id in the request body', () => {
+    expect(studentIdForTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open', studentId: otherStudent },
+    })).toBe(signedInStudent)
+
+    const state = handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open', studentId: otherStudent },
+    })
+
+    expect(JSON.stringify(state)).not.toContain(otherStudent)
+  })
+
   it('open returns the topic states, the closed reason, Learn mode, and the current exercise', () => {
-    const state = handleTurn({ event: 'open' })
+    const state = handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    })
 
     expect(state.knowledgeMap).toEqual([
       { id: 'variable', name: 'Variables', state: 'mastered', current: false },
