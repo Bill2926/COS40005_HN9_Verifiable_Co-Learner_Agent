@@ -45,7 +45,7 @@ async function redrawTurn(studentId: string, body: unknown, store: ConversationS
   }
 
   if (isSelectExercise(body)) {
-    const exercise = forLoopTopic.exercises.find(item => item.id === body.exerciseId)
+    const exercise = forLoopTopic.exercises.find(choice => choice.id === body.exerciseId)
     if (!exercise) throw new UnknownExerciseError()
     await store.saveResumePoint(studentId, {
       topicId: forLoopTopic.id,
@@ -76,8 +76,8 @@ async function redrawTurn(studentId: string, body: unknown, store: ConversationS
 
 async function currentExerciseId(studentId: string, store: ConversationStore): Promise<string> {
   const point = await store.resumePoint(studentId)
-  const stored = point && forLoopTopic.exercises.find(item => item.id === point.exerciseId)
-  if (stored) return stored.id
+  const resumeExercise = point && forLoopTopic.exercises.find(choice => choice.id === point.exerciseId)
+  if (resumeExercise) return resumeExercise.id
 
   const exerciseId = forLoopTopic.exercises[0].id
   await store.saveResumePoint(studentId, { topicId: forLoopTopic.id, exerciseId })
@@ -85,7 +85,7 @@ async function currentExerciseId(studentId: string, store: ConversationStore): P
 }
 
 async function redraw(studentId: string, exerciseId: string, store: ConversationStore): Promise<RedrawState> {
-  const exercise = forLoopTopic.exercises.find(item => item.id === exerciseId)
+  const exercise = forLoopTopic.exercises.find(choice => choice.id === exerciseId)
   if (!exercise) throw new UnknownExerciseError()
   const messages = await store.messages(studentId, forLoopTopic.id)
 
@@ -97,9 +97,9 @@ async function redraw(studentId: string, exerciseId: string, store: Conversation
       topicName: forLoopTopic.name,
       materials: { ...forLoopTopic.materials },
       exercise: presentExercise(exercise),
-      exercises: forLoopTopic.exercises.map(item => ({
-        id: item.id,
-        title: item.title,
+      exercises: forLoopTopic.exercises.map(choice => ({
+        id: choice.id,
+        title: choice.title,
       })),
     },
     conversation: messages.map(presentMessage),
