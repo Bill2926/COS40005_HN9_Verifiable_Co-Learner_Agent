@@ -4,6 +4,12 @@ import PracticePanel from './PracticePanel.vue'
 
 defineProps<{
   area: WorkingAreaView
+  selecting: boolean
+  selectError: string
+}>()
+
+const emit = defineEmits<{
+  selectExercise: [exerciseId: string]
 }>()
 
 const mode = ref<'learn' | 'practice'>('learn')
@@ -75,7 +81,11 @@ function choose(next: 'learn' | 'practice') {
         v-if="practiceOpened"
         v-show="mode === 'practice'"
         :exercise="area.exercise"
+        :exercises="area.exercises"
         :active="mode === 'practice'"
+        :selecting="selecting"
+        :select-error="selectError"
+        @select-exercise="emit('selectExercise', $event)"
       />
     </div>
   </section>

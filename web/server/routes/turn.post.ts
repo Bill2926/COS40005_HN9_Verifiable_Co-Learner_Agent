@@ -1,5 +1,5 @@
 import { sessionStudentId } from '../../shared/student-id'
-import { handleTurn } from '../turn/handle-turn'
+import { handleTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
   const studentId = await sessionStudentId(event)
@@ -7,8 +7,16 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Sign in required' })
   }
 
-  return handleTurn({
-    sessionStudentId: studentId,
-    body: await readBody(event),
-  })
+  try {
+    return handleTurn({
+      sessionStudentId: studentId,
+      body: await readBody(event),
+    })
+  }
+  catch (error) {
+    if (error instanceof UnknownExerciseError) {
+      throw createError({ statusCode: error.statusCode, statusMessage: error.message })
+    }
+    throw error
+  }
 })

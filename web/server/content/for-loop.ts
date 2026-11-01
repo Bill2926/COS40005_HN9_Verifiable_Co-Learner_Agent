@@ -1,17 +1,11 @@
-import type { TopicMaterials } from '../../shared/turn'
-
-export interface ExerciseTest {
-  name: string
-  expression: string
-  expected: string
-}
+import type { ExerciseCheck, TopicMaterials } from '../../shared/turn'
 
 export interface Exercise {
   id: string
   title: string
   statement: string
   starterCode: string
-  tests: readonly [ExerciseTest, ExerciseTest, ExerciseTest]
+  tests: readonly [ExerciseCheck, ExerciseCheck, ExerciseCheck]
 }
 
 export interface MisconceptionResponse {

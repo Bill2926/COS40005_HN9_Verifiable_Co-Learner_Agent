@@ -1,6 +1,6 @@
-import { isRunResult, type FromWorker, type RunResult, type ToWorker } from './protocol'
+import { isRunResult, isTestReport, type ExerciseCheck, type FromWorker, type RunResult, type TestReport, type ToWorker } from './protocol'
 
-export type { RunResult } from './protocol'
+export type { RunResult, TestReport } from './protocol'
 
 export class RunStopped extends Error {
   constructor() {
@@ -21,16 +21,23 @@ export interface RunHandle {
   result: Promise<RunResult>
 }
 
+export interface TestHandle {
+  started: Promise<void>
+  result: Promise<TestReport>
+}
+
 export interface PythonRunner {
   run: (code: string) => RunHandle
+  runTests: (code: string, tests: readonly ExerciseCheck[]) => TestHandle
   stop: () => void
 }
 
 interface PendingRun {
   id: number
+  kind: 'run' | 'test'
   resolveStarted: () => void
   rejectStarted: (error: unknown) => void
-  resolve: (result: RunResult) => void
+  resolve: (result: unknown) => void
   reject: (error: unknown) => void
 }
 
@@ -78,8 +85,20 @@ export function createPythonRunner(spawn: () => WorkerPort): PythonRunner {
           reject(new Error(message.message))
           return
         }
-        if (message.type === 'result' && pending?.id === message.id) {
+        if (message.type === 'result' && pending?.kind === 'run' && pending.id === message.id) {
           if (!isRunResult(message.result)) {
+            const rejectRun = pending.reject
+            pending = null
+            rejectRun(new Error('Python returned an unexpected result.'))
+            return
+          }
+          const resolveRun = pending.resolve
+          pending = null
+          resolveRun(message.result)
+          return
+        }
+        if (message.type === 'checked' && pending?.kind === 'test' && pending.id === message.id) {
+          if (!isTestReport(message.result)) {
             const rejectRun = pending.reject
             pending = null
             rejectRun(new Error('Python returned an unexpected result.'))
@@ -100,59 +119,71 @@ export function createPythonRunner(spawn: () => WorkerPort): PythonRunner {
     return ready
   }
 
+  function request(kind: 'run' | 'test', code: string, tests?: readonly ExerciseCheck[]) {
+    const id = ++nextId
+    let startedSettled = false
+    let resolveStarted!: () => void
+    let rejectStarted!: (error: unknown) => void
+    const started = new Promise<void>((resolve, reject) => {
+      resolveStarted = resolve
+      rejectStarted = reject
+    })
+    started.catch(() => {})
+
+    const result = new Promise<RunResult | TestReport>((resolve, reject) => {
+      let settled = false
+      pending = {
+        id,
+        kind,
+        resolveStarted: () => {
+          if (startedSettled) return
+          startedSettled = true
+          resolveStarted()
+        },
+        rejectStarted: (error) => {
+          if (startedSettled) return
+          startedSettled = true
+          rejectStarted(error)
+        },
+        resolve: (value) => {
+          if (settled) return
+          settled = true
+          resolve(value as RunResult | TestReport)
+        },
+        reject: (error) => {
+          if (settled) return
+          settled = true
+          reject(error)
+        },
+      }
+
+      start().then(() => {
+        if (pending?.id !== id || port === null) return
+        const message: ToWorker = kind === 'run'
+          ? { type: 'run', id, code }
+          : { type: 'check', id, code, tests: [...(tests ?? [])] }
+        port.post(message)
+      }).catch((error: unknown) => {
+        if (pending?.id !== id) return
+        const rejectStartedRun = pending.rejectStarted
+        const rejectRun = pending.reject
+        pending = null
+        rejectStartedRun(error)
+        rejectRun(error)
+      })
+    })
+    result.catch(() => {})
+
+    return { started, result }
+  }
+
   return {
     run(code) {
-      const id = ++nextId
-      let startedSettled = false
-      let resolveStarted!: () => void
-      let rejectStarted!: (error: unknown) => void
-      const started = new Promise<void>((resolve, reject) => {
-        resolveStarted = resolve
-        rejectStarted = reject
-      })
-      started.catch(() => {})
+      return request('run', code) as RunHandle
+    },
 
-      const result = new Promise<RunResult>((resolve, reject) => {
-        let settled = false
-        pending = {
-          id,
-          resolveStarted: () => {
-            if (startedSettled) return
-            startedSettled = true
-            resolveStarted()
-          },
-          rejectStarted: (error) => {
-            if (startedSettled) return
-            startedSettled = true
-            rejectStarted(error)
-          },
-          resolve: (value) => {
-            if (settled) return
-            settled = true
-            resolve(value)
-          },
-          reject: (error) => {
-            if (settled) return
-            settled = true
-            reject(error)
-          },
-        }
-
-        start().then(() => {
-          if (pending?.id !== id || port === null) return
-          port.post({ type: 'run', id, code })
-        }).catch((error: unknown) => {
-          if (pending?.id !== id) return
-          const rejectStartedRun = pending.rejectStarted
-          const rejectRun = pending.reject
-          pending = null
-          rejectStartedRun(error)
-          rejectRun(error)
-        })
-      })
-      result.catch(() => {})
-
-      return { started, result }
+    runTests(code, tests) {
+      return request('test', code, tests) as TestHandle
     },
 
     stop() {

@@ -18,14 +18,39 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
   body: { event: 'open' },
 })
 
+const workspace = ref<RedrawState | null>(data.value ?? null)
+const selecting = ref(false)
+const selectError = ref('')
+
+async function selectExercise(exerciseId: string) {
+  const current = workspace.value
+  if (!current || selecting.value) return
+  if (current.workingArea.exercise.id === exerciseId) return
+
+  selecting.value = true
+  selectError.value = ''
+  try {
+    workspace.value = await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: { event: 'select_exercise', exerciseId },
+    })
+  }
+  catch {
+    selectError.value = 'That exercise could not be opened.'
+  }
+  finally {
+    selecting.value = false
+  }
+}
+
 useHead({
-  title: computed(() => data.value?.workingArea.topicName ?? 'Workspace'),
+  title: computed(() => workspace.value?.workingArea.topicName ?? 'Workspace'),
 })
 </script>
 
 <template>
   <main
-    v-if="error || !data"
+    v-if="error || !workspace"
     class="grid h-dvh place-items-center bg-default px-6"
   >
     <p class="text-sm">
@@ -48,9 +73,14 @@ useHead({
       </UButton>
     </header>
     <div class="grid min-h-[40rem] flex-1 grid-cols-[14rem_minmax(0,1fr)_22rem]">
-      <KnowledgeMap :topics="data.knowledgeMap" />
-      <WorkingArea :area="data.workingArea" />
-      <ConversationPanel :messages="data.conversation" />
+      <KnowledgeMap :topics="workspace.knowledgeMap" />
+      <WorkingArea
+        :area="workspace.workingArea"
+        :selecting="selecting"
+        :select-error="selectError"
+        @select-exercise="selectExercise"
+      />
+      <ConversationPanel :messages="workspace.conversation" />
     </div>
   </main>
 </template>

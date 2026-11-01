@@ -34,7 +34,7 @@ onMounted(async () => {
           autocorrect: 'off',
         }),
         EditorView.updateListener.of((update) => {
-          if (update.docChanged) code.value = update.state.doc.toString()
+          if (alive && update.docChanged) code.value = update.state.doc.toString()
         }),
         EditorView.theme({
           '&': { height: '100%', fontSize: '14px' },
