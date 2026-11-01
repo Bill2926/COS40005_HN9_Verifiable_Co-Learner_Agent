@@ -7,6 +7,7 @@ import PythonEditor from './PythonEditor.vue'
 const props = defineProps<{
   exercise: CurrentExercise
   exercises: readonly ExerciseChoice[]
+  studentId: string
   active: boolean
   selecting: boolean
   selectError: string
@@ -16,7 +17,7 @@ const emit = defineEmits<{
   selectExercise: [exerciseId: string]
 }>()
 
-const drafts = createDraftStore(localStorage)
+const drafts = createDraftStore(localStorage, props.studentId)
 const draft = ref(drafts.read(props.exercise.id) ?? props.exercise.starterCode)
 const status = ref<'idle' | 'loading' | 'running' | 'checking' | 'stopped' | 'failed'>('idle')
 const outcome = ref<RunResult | null>(null)

@@ -47,10 +47,11 @@ export interface WorkingAreaView {
 
 export interface ConversationMessage {
   id: string
-  author: 'student' | 'teacher' | 'deskmate'
+  author: 'student' | 'teacher' | 'deskmate' | 'event'
   name: string
   role: string
   text: string
+  exerciseId: string
 }
 
 export interface RedrawState {

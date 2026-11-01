@@ -1,11 +1,32 @@
 <script setup lang="ts">
 import type { ConversationMessage } from '#shared/turn'
 
-defineProps<{
+const props = defineProps<{
   messages: ConversationMessage[]
+  sending: boolean
+  sendError: string
+}>()
+
+const emit = defineEmits<{
+  send: [text: string]
 }>()
 
 const traceOpen = ref(false)
+const text = ref('')
+const pending = ref('')
+
+function submit() {
+  const value = text.value.trim()
+  if (!value || props.sending) return
+  pending.value = value
+  emit('send', value)
+}
+
+watch(() => props.sending, (sending) => {
+  if (sending) return
+  if (!props.sendError && text.value.trim() === pending.value) text.value = ''
+  pending.value = ''
+})
 </script>
 
 <template>
@@ -49,15 +70,53 @@ const traceOpen = ref(false)
           v-for="message in messages"
           :key="message.id"
         >
-          <p class="text-sm">
-            <span class="font-medium">{{ message.name }}</span>
-            <span class="text-muted"> · {{ message.role }}</span>
+          <p
+            v-if="message.author === 'event'"
+            class="text-center text-sm text-muted"
+          >
+            Exercise · {{ message.text }}
           </p>
-          <p class="mt-1 text-sm leading-6">
-            {{ message.text }}
-          </p>
+          <template v-else>
+            <p class="text-sm">
+              <span class="font-medium">{{ message.name }}</span>
+              <span class="text-muted"> · {{ message.role }}</span>
+            </p>
+            <p class="mt-1 text-sm leading-6">
+              {{ message.text }}
+            </p>
+          </template>
         </li>
       </ol>
     </div>
+
+    <form
+      class="shrink-0 space-y-2 border-t border-default px-4 py-3"
+      @submit.prevent="submit"
+    >
+      <label class="block text-sm">
+        <span class="sr-only">Message</span>
+        <UInput
+          v-model="text"
+          name="message"
+          placeholder="Message"
+          class="w-full"
+          :disabled="sending"
+        />
+      </label>
+      <p
+        v-if="sendError"
+        role="alert"
+        class="text-sm text-error"
+      >
+        {{ sendError }}
+      </p>
+      <UButton
+        type="submit"
+        :loading="sending"
+        :disabled="sending || text.trim().length === 0"
+      >
+        Send
+      </UButton>
+    </form>
   </section>
 </template>

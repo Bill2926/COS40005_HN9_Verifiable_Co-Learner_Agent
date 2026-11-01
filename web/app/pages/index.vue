@@ -3,6 +3,7 @@ import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import KnowledgeMap from '~/components/workspace/KnowledgeMap.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { RedrawState } from '#shared/turn'
+import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 
 definePageMeta({
   middleware: 'signed-in',
@@ -19,12 +20,23 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 })
 
 const workspace = ref<RedrawState | null>(data.value ?? null)
+const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
+const sending = ref(false)
+const sendError = ref('')
+
+if (import.meta.server) {
+  const event = useRequestEvent()
+  studentId.value = (event && await sessionStudentId(event)) || ''
+}
+else {
+  studentId.value = (await studentIdFromAuth(useNuxtApp().$supabase)) ?? ''
+}
 
 async function selectExercise(exerciseId: string) {
   const current = workspace.value
-  if (!current || selecting.value) return
+  if (!current || selecting.value || sending.value) return
   if (current.workingArea.exercise.id === exerciseId) return
 
   selecting.value = true
@@ -40,6 +52,24 @@ async function selectExercise(exerciseId: string) {
   }
   finally {
     selecting.value = false
+  }
+}
+
+async function sendMessage(text: string) {
+  if (!workspace.value || sending.value || selecting.value) return
+  sending.value = true
+  sendError.value = ''
+  try {
+    workspace.value = await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: { event: 'message', text },
+    })
+  }
+  catch {
+    sendError.value = 'That message could not be sent.'
+  }
+  finally {
+    sending.value = false
   }
 }
 
@@ -76,11 +106,17 @@ useHead({
       <KnowledgeMap :topics="workspace.knowledgeMap" />
       <WorkingArea
         :area="workspace.workingArea"
+        :student-id="studentId"
         :selecting="selecting"
         :select-error="selectError"
         @select-exercise="selectExercise"
       />
-      <ConversationPanel :messages="workspace.conversation" />
+      <ConversationPanel
+        :messages="workspace.conversation"
+        :sending="sending"
+        :send-error="sendError"
+        @send="sendMessage"
+      />
     </div>
   </main>
 </template>
