@@ -39,8 +39,63 @@ def __run_student__(code):
     })
 `
 
+const studentChecks = `
+import json
+
+def __format_check_error__(exc):
+    if isinstance(exc, SyntaxError):
+        return "SyntaxError: " + (exc.msg or "invalid syntax")
+    return type(exc).__name__ + ": " + str(exc)
+
+def __check_student__(payload):
+    data = json.loads(payload)
+    code = data["code"]
+    tests = data["tests"]
+    results = []
+    namespace = {"__name__": "__main__"}
+    try:
+        compiled = compile(code, "<student>", "exec")
+        exec(compiled, namespace)
+    except Exception as exc:
+        actual = __format_check_error__(exc)
+        for test in tests:
+            results.append({
+                "name": test["name"],
+                "passed": False,
+                "expected": test["expected"],
+                "actual": actual,
+            })
+        return json.dumps({"results": results})
+
+    for test in tests:
+        expected = test["expected"]
+        try:
+            value = eval(test["expression"], namespace)
+            actual = str(value)
+            passed = actual == expected
+        except Exception as exc:
+            actual = __format_check_error__(exc)
+            passed = False
+        results.append({
+            "name": test["name"],
+            "passed": passed,
+            "expected": expected,
+            "actual": actual,
+        })
+    return json.dumps({"results": results})
+`
+
 function installStudentRunner(pyodide) {
   pyodide.runPython(studentRunner, { dedent: false })
+  pyodide.runPython(studentChecks, { dedent: false })
+}
+
+function checkStudentCode(pyodide, code, tests) {
+  const payload = JSON.stringify({ code, tests })
+  const raw = pyodide.runPython(`__check_student__(${JSON.stringify(payload)})`, { dedent: false })
+  const text = typeof raw === 'string' ? raw : String(raw)
+  if (raw && typeof raw.destroy === 'function') raw.destroy()
+  return JSON.parse(text)
 }
 
 function runStudentCode(pyodide, code) {
@@ -54,11 +109,26 @@ export async function servePyodide(host, load) {
   let pyodide = null
 
   host.listen((message) => {
-    if (!pyodide || message?.type !== 'run') return
+    if (!pyodide) return
+    if (message?.type === 'run') {
+      host.post({ type: 'started', id: message.id })
+      try {
+        const result = runStudentCode(pyodide, message.code)
+        host.post({ type: 'result', id: message.id, result })
+      }
+      catch (error) {
+        host.post({
+          type: 'failed',
+          message: error instanceof Error ? error.message : 'Python failed.',
+        })
+      }
+      return
+    }
+    if (message?.type !== 'check') return
     host.post({ type: 'started', id: message.id })
     try {
-      const result = runStudentCode(pyodide, message.code)
-      host.post({ type: 'result', id: message.id, result })
+      const result = checkStudentCode(pyodide, message.code, message.tests)
+      host.post({ type: 'checked', id: message.id, result })
     }
     catch (error) {
       host.post({

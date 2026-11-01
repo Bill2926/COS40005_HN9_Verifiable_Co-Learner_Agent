@@ -17,11 +17,23 @@ export interface TopicMaterials {
   scopeNote: string
 }
 
+export interface ExerciseCheck {
+  name: string
+  expression: string
+  expected: string
+}
+
+export interface ExerciseChoice {
+  id: string
+  title: string
+}
+
 export interface CurrentExercise {
   id: string
   title: string
   statement: string
   starterCode: string
+  tests: readonly [ExerciseCheck, ExerciseCheck, ExerciseCheck]
 }
 
 export interface WorkingAreaView {
@@ -30,6 +42,7 @@ export interface WorkingAreaView {
   topicName: string
   materials: TopicMaterials
   exercise: CurrentExercise
+  exercises: readonly ExerciseChoice[]
 }
 
 export interface ConversationMessage {
