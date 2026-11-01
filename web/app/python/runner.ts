@@ -161,7 +161,16 @@ export function createPythonRunner(spawn: () => WorkerPort): PythonRunner {
         if (pending?.id !== id || port === null) return
         const message: ToWorker = kind === 'run'
           ? { type: 'run', id, code }
-          : { type: 'check', id, code, tests: [...(tests ?? [])] }
+          : {
+              type: 'check',
+              id,
+              code,
+              tests: (tests ?? []).map(test => ({
+                name: test.name,
+                expression: test.expression,
+                expected: test.expected,
+              })),
+            }
         port.post(message)
       }).catch((error: unknown) => {
         if (pending?.id !== id) return
