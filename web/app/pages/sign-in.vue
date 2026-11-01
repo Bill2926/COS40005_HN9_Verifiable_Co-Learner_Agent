@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { createRequestClient } from '#shared/supabase-server'
+import { sessionStudentId } from '#shared/student-id'
 
 const email = ref('')
 const password = ref('')
@@ -8,22 +8,8 @@ const pending = ref(false)
 
 if (import.meta.server) {
   const event = useRequestEvent()
-  const config = useRuntimeConfig()
-  if (event && config.public.supabaseUrl && config.public.supabasePublishableKey) {
-    try {
-      const supabase = createRequestClient(
-        event,
-        config.public.supabaseUrl,
-        config.public.supabasePublishableKey,
-      )
-      const { data } = await supabase.auth.getClaims()
-      if (data?.claims.sub) {
-        await navigateTo('/')
-      }
-    }
-    catch {
-      // A broken session cookie still leaves the sign-in form available.
-    }
+  if (event && await sessionStudentId(event)) {
+    await navigateTo('/')
   }
 }
 
