@@ -4,6 +4,7 @@ import PracticePanel from './PracticePanel.vue'
 
 defineProps<{
   area: WorkingAreaView
+  studentId: string
   selecting: boolean
   selectError: string
 }>()
@@ -78,10 +79,11 @@ function choose(next: 'learn' | 'practice') {
       </article>
 
       <PracticePanel
-        v-if="practiceOpened"
+        v-if="practiceOpened && studentId"
         v-show="mode === 'practice'"
         :exercise="area.exercise"
         :exercises="area.exercises"
+        :student-id="studentId"
         :active="mode === 'practice'"
         :selecting="selecting"
         :select-error="selectError"

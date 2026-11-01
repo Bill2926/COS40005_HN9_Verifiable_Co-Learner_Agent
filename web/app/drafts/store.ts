@@ -5,13 +5,20 @@ export interface DraftStore {
   write: (exerciseId: string, code: string) => void
 }
 
-export function createDraftStore(storage: Pick<Storage, 'getItem' | 'setItem'>): DraftStore {
+export function createDraftStore(
+  storage: Pick<Storage, 'getItem' | 'setItem'>,
+  studentId: string,
+): DraftStore {
+  function key(exerciseId: string) {
+    return `${prefix}${studentId}:${exerciseId}`
+  }
+
   return {
     read(exerciseId) {
-      return storage.getItem(prefix + exerciseId)
+      return storage.getItem(key(exerciseId))
     },
     write(exerciseId, code) {
-      storage.setItem(prefix + exerciseId, code)
+      storage.setItem(key(exerciseId), code)
     },
   }
 }
