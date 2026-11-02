@@ -5,6 +5,10 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
   runtimeConfig: {
     supabaseSecretKey: '',
+    modelMode: 'fake',
+    modelProvider: 'deepseek',
+    modelName: 'deepseek-v4-flash',
+    deepseekApiKey: '',
     public: {
       supabaseUrl: '',
       supabasePublishableKey: '',

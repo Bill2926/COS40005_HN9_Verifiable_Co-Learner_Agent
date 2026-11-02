@@ -15,6 +15,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectExercise: [exerciseId: string]
+  draft: [code: string]
+  run: [result: RunResult | null]
 }>()
 
 const drafts = createDraftStore(localStorage, props.studentId)
@@ -34,6 +36,9 @@ watch(draft, (code) => {
   if (restoring) return
   drafts.write(props.exercise.id, code)
 }, { flush: 'sync' })
+
+watch(draft, code => emit('draft', code), { immediate: true })
+watch(outcome, result => emit('run', result))
 
 watch(() => props.exercise.id, (next, previous) => {
   if (!previous || previous === next) return
