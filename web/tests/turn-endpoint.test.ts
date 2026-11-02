@@ -1101,6 +1101,81 @@ describe('turn endpoint', () => {
     ])
     expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
     expect(model.exchanges.at(-1)?.move).toEqual({ type: 'explain_concept' })
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'stay_and_practise',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
+  })
+
+  it('reports that the Teacher made no proposal when opening stays quiet', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, createFakeLanguageModel({
+      proposal: null,
+      text: 'A running total survives every pass of the loop.',
+    }))
+
+    expect(state.conversation.map(message => message.approvedMove)).toEqual(['explain_concept'])
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: null,
+          verdict: null,
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
+  })
+
+  it('reports that nobody proposed when the opening proposal fails', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept' },
+      fail: 'propose',
+    }))
+
+    expect(state.conversation).toEqual([])
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: null,
+          verdict: null,
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
   })
 
   it('leaves the topic unintroduced when the opening reply fails, so the next open can introduce it', async () => {
@@ -1118,6 +1193,25 @@ describe('turn endpoint', () => {
     expect(failed.conversation).toEqual([])
     expect(JSON.stringify(failed)).not.toContain('could not answer')
     expect(JSON.stringify(failed)).not.toContain('PARTIAL_OPENING_SHOULD_NOT_STICK')
+    expect(failed.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
 
     const introduced = await handleTurn({
       sessionStudentId: signedInStudent,

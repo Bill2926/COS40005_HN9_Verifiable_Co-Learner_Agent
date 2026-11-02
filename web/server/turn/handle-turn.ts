@@ -163,18 +163,23 @@ async function* introduceTopic(
     proposal = await model.teacher.propose(context)
   }
   catch {
-    yield { type: 'state', state: await redraw(studentId, exerciseId, store, 'learn') }
+    yield {
+      type: 'state',
+      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', shieldTrace(null, null, [])),
+    }
     return
   }
 
-  const move = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
-  const verdicts = decide(
-    [{ agent: 'teacher', move }],
-    { topicId: forLoopTopic.id, exerciseId },
-    roleTable,
-  )
-  const verdict = verdicts.find(item => item.agent === 'teacher')
-  const trace = shieldTrace(move, null, verdicts)
+  const snapshot = { topicId: forLoopTopic.id, exerciseId }
+  const proposedVerdicts = proposal
+    ? decide([{ agent: 'teacher', move: proposal }], snapshot, roleTable)
+    : []
+  const trace = shieldTrace(proposal, null, proposedVerdicts)
+  const ruledMove = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
+  const verdict = (proposal && isTeachingMove(proposal)
+    ? proposedVerdicts
+    : decide([{ agent: 'teacher', move: ruledMove }], snapshot, roleTable)
+  ).find(item => item.agent === 'teacher')
 
   if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
     const text = yield* streamTeacherReply(model, context, verdict.move)
@@ -188,7 +193,7 @@ async function* introduceTopic(
     }
   }
 
-  yield { type: 'state', state: { ...await redraw(studentId, exerciseId, store, 'learn'), trace } }
+  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, 'learn', trace) }
 }
 
 function isTeachingMove(move: Move): boolean {
@@ -239,20 +244,15 @@ async function* answerMessage(
   const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
-  const answered = async (): Promise<RedrawState> => ({
-    ...await redraw(studentId, exerciseId, store, null),
-    trace,
-  })
-
   if (teacherSettled.status === 'rejected') {
     await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-    yield { type: 'state', state: await answered() }
+    yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-      yield { type: 'state', state: await answered() }
+      yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
     }
     else {
       await store.appendMessage(studentId, forLoopTopic.id, {
@@ -294,7 +294,20 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await answered() }
+  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+}
+
+async function redrawWithTrace(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+  mode: 'learn' | null,
+  trace: TurnTrace,
+): Promise<RedrawState> {
+  return {
+    ...await redraw(studentId, exerciseId, store, mode),
+    trace,
+  }
 }
 
 function shieldTrace(

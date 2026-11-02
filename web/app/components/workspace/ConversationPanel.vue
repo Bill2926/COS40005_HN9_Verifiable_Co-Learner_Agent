@@ -15,8 +15,6 @@ const agentName = {
   deskmate: 'Mai',
 } as const
 
-const traceHeading = computed(() => props.trace?.active ? 'Shield' : 'Shield: not active yet')
-
 const emit = defineEmits<{
   send: [text: string]
   openLearn: []
@@ -109,7 +107,7 @@ watch(() => props.sending, (sending) => {
       aria-label="Shield trace"
     >
       <h3 class="text-sm font-semibold">
-        {{ traceHeading }}
+        Shield: not active yet
       </h3>
       <ul
         v-if="trace"
