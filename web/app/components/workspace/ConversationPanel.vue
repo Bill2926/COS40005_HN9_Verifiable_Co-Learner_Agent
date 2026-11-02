@@ -1,13 +1,21 @@
 <script setup lang="ts">
-import type { ConversationMessage } from '#shared/turn'
+import type { ConversationMessage, TurnTrace } from '#shared/turn'
 
 const props = defineProps<{
   messages: ConversationMessage[]
+  trace: TurnTrace | null
   sending: boolean
   sendError: string
   streamingTeacher: string
   streamingDeskmate: string
 }>()
+
+const agentName = {
+  teacher: 'Teacher',
+  deskmate: 'Mai',
+} as const
+
+const traceHeading = computed(() => props.trace?.active ? 'Shield' : 'Shield: not active yet')
 
 const emit = defineEmits<{
   send: [text: string]
@@ -95,15 +103,38 @@ watch(() => props.sending, (sending) => {
       />
     </header>
 
-    <div
+    <section
       v-if="traceOpen"
-      class="shrink-0 border-b border-default px-4 py-3"
+      class="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-3"
       aria-label="Shield trace"
     >
-      <p class="text-sm text-muted">
-        Shield trace is not available yet.
-      </p>
-    </div>
+      <h3 class="text-sm font-semibold">
+        {{ traceHeading }}
+      </h3>
+      <ul
+        v-if="trace"
+        class="mt-2 space-y-1 text-sm"
+      >
+        <li
+          v-for="entry in trace.agents"
+          :key="entry.agent"
+        >
+          <span class="font-medium">{{ agentName[entry.agent] }}</span>
+          <template v-if="entry.proposal">
+            proposed
+            <code class="font-mono text-xs">{{ entry.proposal }}</code>
+            <template v-if="entry.verdict">
+              · {{ entry.verdict.decision }}
+              · {{ entry.verdict.ruleId }}
+              · {{ entry.verdict.reasonCode }}
+            </template>
+          </template>
+          <template v-else>
+            made no proposal
+          </template>
+        </li>
+      </ul>
+    </section>
 
     <div
       ref="scroller"

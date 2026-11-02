@@ -520,6 +520,124 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(state)).not.toContain('HINT_SHOULD_NOT_RENDER')
   })
 
+  it('reports both proposals and a blocked Deskmate move, and does not keep them', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: teacherReply,
+      },
+      {
+        proposal: { type: 'hint_level_N', level: 2 },
+        text: 'HINT_SHOULD_NOT_RENDER',
+      },
+    )
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Just tell me the next step.' },
+    }, store, model)
+
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: 'hint_level_2',
+          verdict: {
+            decision: 'block',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_FORBIDDEN',
+          },
+        },
+      ],
+    })
+
+    const reopened = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store)
+    expect(reopened.trace).toBeUndefined()
+    expect(JSON.stringify(reopened)).not.toContain('hint_level_2')
+    expect(JSON.stringify(reopened)).not.toContain('ROLE_FORBIDDEN')
+    expect(JSON.stringify(reopened)).not.toContain('role_table')
+  })
+
+  it('reports an agent that made no proposal', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: teacherReply,
+      },
+      {
+        proposal: null,
+        text: 'QUIET_MAI_TEXT',
+      },
+    ))
+
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
+    expect(JSON.stringify(state.conversation)).not.toContain('QUIET_MAI_TEXT')
+  })
+
+  it('reports the opening turn as the Teacher proposal and no Deskmate proposal', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, speakingTeacher())
+
+    expect(state.trace).toEqual({
+      active: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
+  })
+
   it('gives Mai no materials, hint ladder, or solution', async () => {
     const store = createMemoryConversationStore()
     const draft = 'def total(ds):\n    MAI_DRAFT_SENTINEL = 0\n'
