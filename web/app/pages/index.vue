@@ -2,7 +2,7 @@
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import KnowledgeMap from '~/components/workspace/KnowledgeMap.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
-import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent } from '#shared/turn'
+import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
 
@@ -26,6 +26,7 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 })
 
 const workspace = ref<RedrawState | null>(null)
+const latestTrace = ref<TurnTrace | null>(null)
 const workingMode = ref<'learn' | 'practice'>('learn')
 const studentId = ref('')
 const selecting = ref(false)
@@ -39,6 +40,7 @@ const latestRun = ref<RunOutput | null>(null)
 
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
+  if (state.trace) latestTrace.value = state.trace
   workspace.value = state
 }
 
@@ -200,6 +202,7 @@ useHead({
       />
       <ConversationPanel
         :messages="workspace.conversation"
+        :trace="latestTrace"
         :sending="sending"
         :send-error="sendError"
         :streaming-teacher="streamingTeacher"

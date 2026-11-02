@@ -1,11 +1,11 @@
-import type { ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent } from '../../shared/turn'
+import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { forLoopTopic, type Exercise } from '../content/for-loop'
 import { knowledgeMap } from '../content/knowledge-map'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
-import { decide } from '../verdict/decide'
+import { decide, type Verdict } from '../verdict/decide'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -163,15 +163,22 @@ async function* introduceTopic(
     proposal = await model.teacher.propose(context)
   }
   catch {
-    yield { type: 'state', state: await redraw(studentId, exerciseId, store, 'learn') }
+    yield {
+      type: 'state',
+      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', shieldTrace(null, null, [])),
+    }
     return
   }
 
-  const move = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
-  const verdict = decide(
-    [{ agent: 'teacher', move }],
-    { topicId: forLoopTopic.id, exerciseId },
-    roleTable,
+  const snapshot = { topicId: forLoopTopic.id, exerciseId }
+  const proposedVerdicts = proposal
+    ? decide([{ agent: 'teacher', move: proposal }], snapshot, roleTable)
+    : []
+  const trace = shieldTrace(proposal, null, proposedVerdicts)
+  const ruledMove = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
+  const verdict = (proposal && isTeachingMove(proposal)
+    ? proposedVerdicts
+    : decide([{ agent: 'teacher', move: ruledMove }], snapshot, roleTable)
   ).find(item => item.agent === 'teacher')
 
   if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
@@ -186,7 +193,7 @@ async function* introduceTopic(
     }
   }
 
-  yield { type: 'state', state: await redraw(studentId, exerciseId, store, 'learn') }
+  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, 'learn', trace) }
 }
 
 function isTeachingMove(move: Move): boolean {
@@ -226,27 +233,26 @@ async function* answerMessage(
     model.deskmate.propose(deskmate),
   ])
 
+  const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
+  const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const proposals = [
-    ...(teacherSettled.status === 'fulfilled' && teacherSettled.value
-      ? [{ agent: 'teacher' as const, move: teacherSettled.value }]
-      : []),
-    ...(deskmateSettled.status === 'fulfilled' && deskmateSettled.value
-      ? [{ agent: 'deskmate' as const, move: deskmateSettled.value }]
-      : []),
+    ...(teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []),
+    ...(deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []),
   ]
   const verdicts = decide(proposals, { topicId: forLoopTopic.id, exerciseId }, roleTable)
+  const trace = shieldTrace(teacherMove, deskmateMove, verdicts)
   const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherSettled.status === 'rejected') {
     await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-    yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
+    yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-      yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
+      yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
     }
     else {
       await store.appendMessage(studentId, forLoopTopic.id, {
@@ -288,7 +294,53 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+}
+
+async function redrawWithTrace(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+  mode: 'learn' | null,
+  trace: TurnTrace,
+): Promise<RedrawState> {
+  return {
+    ...await redraw(studentId, exerciseId, store, mode),
+    trace,
+  }
+}
+
+function shieldTrace(
+  teacherMove: Move | null,
+  deskmateMove: Move | null,
+  verdicts: readonly Verdict[],
+): TurnTrace {
+  return {
+    active: false,
+    agents: [
+      tracedAgent('teacher', teacherMove, verdicts),
+      tracedAgent('deskmate', deskmateMove, verdicts),
+    ],
+  }
+}
+
+function tracedAgent(
+  agent: 'teacher' | 'deskmate',
+  move: Move | null,
+  verdicts: readonly Verdict[],
+): AgentTrace {
+  if (!move) return { agent, proposal: null, verdict: null }
+  const verdict = verdicts.find(item => item.agent === agent)
+  if (!verdict) return { agent, proposal: moveKey(move), verdict: null }
+  return {
+    agent,
+    proposal: moveKey(move),
+    verdict: {
+      decision: verdict.decision,
+      ruleId: verdict.ruleId,
+      reasonCode: verdict.reasonCode,
+    },
+  }
 }
 
 async function teacherContext(

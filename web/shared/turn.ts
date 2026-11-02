@@ -73,8 +73,26 @@ export type TurnEvent =
   | { type: 'text', author: 'teacher' | 'deskmate', delta: string }
   | { type: 'state', state: RedrawState }
 
+export interface TraceVerdict {
+  decision: 'allow' | 'block' | 'downgrade'
+  ruleId: string
+  reasonCode: string
+}
+
+export interface AgentTrace {
+  agent: 'teacher' | 'deskmate'
+  proposal: string | null
+  verdict: TraceVerdict | null
+}
+
+export interface TurnTrace {
+  active: boolean
+  agents: readonly [AgentTrace, AgentTrace]
+}
+
 export interface RedrawState {
   knowledgeMap: MapTopic[]
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
+  trace?: TurnTrace
 }
