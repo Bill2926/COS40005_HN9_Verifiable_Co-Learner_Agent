@@ -2,12 +2,13 @@ import type { ConversationMessage, CurrentExercise, RedrawState, RunOutput, Turn
 import { forLoopTopic, type Exercise } from '../content/for-loop'
 import { knowledgeMap } from '../content/knowledge-map'
 import { roleTable } from '../content/role-table'
-import type { LanguageModel, TeacherContext } from '../model/language-model'
-import { moveKey, type Move } from '../model/moves'
+import type { DeskmateContext, LanguageModel, TeacherContext } from '../model/language-model'
+import { moveKey } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
 import { decide } from '../verdict/decide'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
+const deskmateFallback = 'Mai could not answer just now. Please try again.'
 
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
@@ -102,7 +103,7 @@ async function* streamTurnBody(
   }
 
   if (isMessage(body)) {
-    if (!model) throw new Error('The Teacher has no language model.')
+    if (!model) throw new Error('The agents have no language model.')
     const exerciseId = await currentExerciseId(studentId, store)
     await store.appendMessage(studentId, forLoopTopic.id, {
       author: 'student',
@@ -110,14 +111,14 @@ async function* streamTurnBody(
       text: body.text.trim(),
       exerciseId,
     })
-    yield* teacherReply(studentId, exerciseId, body, store, model)
+    yield* answerMessage(studentId, exerciseId, body, store, model)
     return
   }
 
   throw new Error('The turn endpoint does not accept that event.')
 }
 
-async function* teacherReply(
+async function* answerMessage(
   studentId: string,
   exerciseId: string,
   body: MessageEvent,
@@ -129,46 +130,85 @@ async function* teacherReply(
     draft: messageDraft(body),
     runOutput: messageRun(body),
   })
-  let proposal: Move | null
-  try {
-    proposal = await model.propose(context)
-  }
-  catch {
-    yield* teacherCouldNotAnswer(studentId, exerciseId, store)
-    return
-  }
-  const verdict = proposal
-    ? decide([{ agent: 'teacher', move: proposal }], { topicId: forLoopTopic.id, exerciseId }, roleTable)[0]
-    : undefined
+  const deskmate = deskmateContext(context)
+  const [teacherSettled, deskmateSettled] = await Promise.allSettled([
+    model.teacher.propose(context),
+    model.deskmate.propose(deskmate),
+  ])
 
-  if (!verdict || verdict.decision !== 'allow' || !verdict.move) {
+  const proposals = [
+    ...(teacherSettled.status === 'fulfilled' && teacherSettled.value
+      ? [{ agent: 'teacher' as const, move: teacherSettled.value }]
+      : []),
+    ...(deskmateSettled.status === 'fulfilled' && deskmateSettled.value
+      ? [{ agent: 'deskmate' as const, move: deskmateSettled.value }]
+      : []),
+  ]
+  const verdicts = decide(proposals, { topicId: forLoopTopic.id, exerciseId }, roleTable)
+  const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
+  const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
+
+  if (teacherSettled.status === 'rejected') {
+    await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
     yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
-    return
   }
+  else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
+    let text = ''
+    let failed = false
+    try {
+      for await (const delta of model.teacher.render(context, teacherVerdict.move)) {
+        text += delta
+        yield { type: 'text', author: 'teacher' as const, delta }
+      }
+    }
+    catch {
+      failed = true
+    }
 
-  let text = ''
-  try {
-    for await (const delta of model.render(context, verdict.move)) {
-      text += delta
-      yield { type: 'text', delta }
+    if (failed || text.trim().length === 0) {
+      await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
+      yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
+    }
+    else {
+      await store.appendMessage(studentId, forLoopTopic.id, {
+        author: 'teacher',
+        approvedMove: moveKey(teacherVerdict.move),
+        text,
+        exerciseId,
+      })
     }
   }
-  catch {
-    yield* teacherCouldNotAnswer(studentId, exerciseId, store)
-    return
+
+  if (deskmateSettled.status === 'rejected') {
+    await rememberDeskmateCouldNotAnswer(studentId, exerciseId, store)
+  }
+  else if (deskmateVerdict?.decision === 'allow' && deskmateVerdict.move) {
+    const renderContext = await deskmateContextWithConversation(studentId, deskmate, store)
+    let text = ''
+    let failed = false
+    try {
+      for await (const delta of model.deskmate.render(renderContext, deskmateVerdict.move)) {
+        text += delta
+        yield { type: 'text', author: 'deskmate' as const, delta }
+      }
+    }
+    catch {
+      failed = true
+    }
+
+    if (failed || text.trim().length === 0) {
+      await rememberDeskmateCouldNotAnswer(studentId, exerciseId, store)
+    }
+    else {
+      await store.appendMessage(studentId, forLoopTopic.id, {
+        author: 'deskmate',
+        approvedMove: moveKey(deskmateVerdict.move),
+        text,
+        exerciseId,
+      })
+    }
   }
 
-  if (text.trim().length === 0) {
-    yield* teacherCouldNotAnswer(studentId, exerciseId, store)
-    return
-  }
-
-  await store.appendMessage(studentId, forLoopTopic.id, {
-    author: 'teacher',
-    approvedMove: moveKey(verdict.move),
-    text,
-    exerciseId,
-  })
   yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
 }
 
@@ -199,18 +239,56 @@ async function teacherContext(
   }
 }
 
-async function* teacherCouldNotAnswer(
+function deskmateContext(context: TeacherContext): DeskmateContext {
+  return {
+    misconceptionResponses: context.misconceptionResponses.map(response => ({ ...response })),
+    exerciseStatement: context.exercise.statement,
+    draft: context.draft,
+    runOutput: context.runOutput,
+    conversation: context.conversation.map(message => ({ ...message })),
+  }
+}
+
+async function deskmateContextWithConversation(
+  studentId: string,
+  context: DeskmateContext,
+  store: ConversationStore,
+): Promise<DeskmateContext> {
+  const messages = await store.messages(studentId, forLoopTopic.id)
+  return {
+    ...context,
+    conversation: messages.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    })),
+  }
+}
+
+async function rememberTeacherCouldNotAnswer(
   studentId: string,
   exerciseId: string,
   store: ConversationStore,
-): AsyncGenerator<TurnEvent> {
+): Promise<void> {
   await store.appendMessage(studentId, forLoopTopic.id, {
     author: 'teacher',
     approvedMove: null,
     text: teacherFallback,
     exerciseId,
   })
-  yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
+}
+
+async function rememberDeskmateCouldNotAnswer(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+): Promise<void> {
+  await store.appendMessage(studentId, forLoopTopic.id, {
+    author: 'deskmate',
+    approvedMove: null,
+    text: deskmateFallback,
+    exerciseId,
+  })
 }
 
 function exerciseById(exerciseId: string): Exercise {

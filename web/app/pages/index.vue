@@ -27,6 +27,7 @@ const selectError = ref('')
 const sending = ref(false)
 const sendError = ref('')
 const streamingTeacher = ref('')
+const streamingDeskmate = ref('')
 const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 
@@ -65,6 +66,7 @@ async function sendMessage(text: string) {
   sending.value = true
   sendError.value = ''
   streamingTeacher.value = ''
+  streamingDeskmate.value = ''
   const storedDraft = studentId.value
     ? createDraftStore(localStorage, studentId.value).read(current.workingArea.exercise.id)
     : null
@@ -100,10 +102,14 @@ async function sendMessage(text: string) {
       for (const line of lines) {
         if (line.trim().length === 0) continue
         const turnEvent = JSON.parse(line) as TurnEvent
-        if (turnEvent.type === 'text') streamingTeacher.value += turnEvent.delta
+        if (turnEvent.type === 'text') {
+          if (turnEvent.author === 'deskmate') streamingDeskmate.value += turnEvent.delta
+          else streamingTeacher.value += turnEvent.delta
+        }
         if (turnEvent.type === 'state') {
           workspace.value = turnEvent.state
           streamingTeacher.value = ''
+          streamingDeskmate.value = ''
           sawState = true
         }
       }
@@ -112,6 +118,7 @@ async function sendMessage(text: string) {
   }
   catch {
     streamingTeacher.value = ''
+    streamingDeskmate.value = ''
     sendError.value = 'That message could not be sent.'
   }
   finally {
@@ -164,6 +171,7 @@ useHead({
         :sending="sending"
         :send-error="sendError"
         :streaming-teacher="streamingTeacher"
+        :streaming-deskmate="streamingDeskmate"
         @send="sendMessage"
       />
     </div>

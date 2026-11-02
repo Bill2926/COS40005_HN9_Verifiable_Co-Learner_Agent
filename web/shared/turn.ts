@@ -62,7 +62,7 @@ export interface RunOutput {
 }
 
 export type TurnEvent =
-  | { type: 'text', delta: string }
+  | { type: 'text', author: 'teacher' | 'deskmate', delta: string }
   | { type: 'state', state: RedrawState }
 
 export interface RedrawState {

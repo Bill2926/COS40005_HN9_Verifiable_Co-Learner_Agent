@@ -344,6 +344,77 @@ describe('turn endpoint', () => {
     })
   })
 
+  it('answers with the Teacher first and then Mai', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: 'The total has to exist before the loop starts.',
+      },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'wait, does the total live outside the loop?',
+      },
+    )
+
+    const events = []
+    for await (const event of streamTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, model)) {
+      events.push(event)
+    }
+
+    const textEvents = events.filter(event => event.type === 'text')
+    const teacherSpoken = textEvents
+      .filter(event => event.author === 'teacher')
+      .map(event => event.delta)
+      .join('')
+    const maiSpoken = textEvents
+      .filter(event => event.author === 'deskmate')
+      .map(event => event.delta)
+      .join('')
+    const lastTeacher = textEvents.findLastIndex(event => event.author === 'teacher')
+    const firstMai = textEvents.findIndex(event => event.author === 'deskmate')
+    const finished = events.at(-1)
+
+    expect(teacherSpoken).toBe('The total has to exist before the loop starts.')
+    expect(maiSpoken).toBe('wait, does the total live outside the loop?')
+    expect(firstMai).toBeGreaterThan(lastTeacher)
+    expect(finished?.type).toBe('state')
+    if (finished?.type !== 'state') return
+
+    expect(finished.state.conversation.map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      {
+        author: 'student',
+        name: 'You',
+        role: 'Student',
+        text: 'Where does the total live?',
+        approvedMove: null,
+      },
+      {
+        author: 'teacher',
+        name: 'Teacher',
+        role: 'Teacher',
+        text: 'The total has to exist before the loop starts.',
+        approvedMove: 'explain_concept',
+      },
+      {
+        author: 'deskmate',
+        name: 'Mai',
+        role: 'Deskmate',
+        text: 'wait, does the total live outside the loop?',
+        approvedMove: 'peer_question',
+      },
+    ])
+  })
+
   it('gives the Teacher the draft and latest Run output without storing either', async () => {
     const store = createMemoryConversationStore()
     const model = createFakeLanguageModel({
@@ -363,8 +434,9 @@ describe('turn endpoint', () => {
       },
     }, store, model)
 
-    expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
-    for (const exchange of model.exchanges) {
+    const teacherExchanges = model.exchanges.filter(exchange => exchange.agent === 'teacher')
+    expect(teacherExchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
+    for (const exchange of teacherExchanges) {
       expect(exchange.context.draft).toBe(draft)
       expect(exchange.context.runOutput).toEqual(run)
       expect(exchange.context.materials).toEqual({
@@ -410,6 +482,180 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(reopened)).not.toContain('RUN_OUTPUT_SENTINEL_42')
   })
 
+  it('blocks a Deskmate hint and does not render it', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: teacherReply,
+      },
+      {
+        proposal: { type: 'hint_level_N', level: 2 },
+        text: 'HINT_SHOULD_NOT_RENDER',
+      },
+    )
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Just tell me the next step.' },
+    }, store, model)
+
+    expect(model.exchanges.filter(exchange => exchange.agent === 'deskmate').map(exchange => exchange.phase)).toEqual(['propose'])
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      {
+        author: 'student',
+        text: 'Just tell me the next step.',
+        approvedMove: null,
+      },
+      {
+        author: 'teacher',
+        text: teacherReply,
+        approvedMove: 'explain_concept',
+      },
+    ])
+    expect(JSON.stringify(state)).not.toContain('HINT_SHOULD_NOT_RENDER')
+  })
+
+  it('gives Mai no materials, hint ladder, or solution', async () => {
+    const store = createMemoryConversationStore()
+    const draft = 'def total(ds):\n    MAI_DRAFT_SENTINEL = 0\n'
+    const run = { stdout: 'MAI_RUN_SENTINEL\n', stderr: '', error: null }
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'hint_level_N', level: 1 },
+        text: teacherReply,
+      },
+      {
+        proposal: { type: 'share_confusion' },
+        text: 'i keep getting zero too.',
+      },
+    )
+
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: {
+        event: 'message',
+        text: 'Why is this zero?',
+        draft,
+        run,
+      },
+    }, store, model)
+
+    const given = model.exchanges.filter(exchange => exchange.agent === 'deskmate')
+    expect(given.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
+    const [propose, render] = given
+    const allowed = {
+      misconceptionResponses: [
+        {
+          id: 'accumulator_reset_inside_loop',
+          response: 'The total is set back to zero inside the loop, so each pass forgets the numbers before it. Create the total once, before the loop starts.',
+        },
+      ],
+      exerciseStatement: 'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+      draft,
+      runOutput: run,
+    }
+    expect(propose?.context).toEqual({
+      ...allowed,
+      conversation: [
+        {
+          author: 'student',
+          text: 'Why is this zero?',
+          approvedMove: null,
+        },
+      ],
+    })
+    expect(render?.context).toEqual({
+      ...allowed,
+      conversation: [
+        {
+          author: 'student',
+          text: 'Why is this zero?',
+          approvedMove: null,
+        },
+        {
+          author: 'teacher',
+          text: teacherReply,
+          approvedMove: 'hint_level_1',
+        },
+      ],
+    })
+    for (const exchange of given) {
+      const rendered = JSON.stringify(exchange.context)
+      expect(rendered).not.toContain('Accumulating a total')
+      expect(rendered).not.toContain('A running total has to be created before the loop. A variable created inside the loop starts again on every pass.')
+      expect(rendered).not.toContain('starterCode')
+      expect(rendered).not.toContain('solution')
+    }
+  })
+
+  it('produces no message for an agent that makes no proposal', async () => {
+    const store = createMemoryConversationStore()
+    const quietMai = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: teacherReply,
+      },
+      {
+        proposal: null,
+        text: 'QUIET_MAI_TEXT',
+      },
+    )
+
+    const teacherOnly = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, quietMai)
+
+    expect(quietMai.exchanges.filter(exchange => exchange.agent === 'deskmate').map(exchange => exchange.phase)).toEqual(['propose'])
+    expect(teacherOnly.conversation.map(message => message.author)).toEqual(['student', 'teacher'])
+    expect(JSON.stringify(teacherOnly)).not.toContain('QUIET_MAI_TEXT')
+
+    const quietTeacher = createFakeLanguageModel(
+      {
+        proposal: null,
+        text: 'QUIET_TEACHER_AGAIN',
+      },
+      {
+        proposal: { type: 'share_confusion' },
+        text: 'i keep getting zero too.',
+      },
+    )
+    const maiOnly = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Mine is zero as well.' },
+    }, store, quietTeacher)
+
+    expect(quietTeacher.exchanges.filter(exchange => exchange.agent === 'teacher').map(exchange => exchange.phase)).toEqual(['propose'])
+    expect(maiOnly.conversation.slice(-2).map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      {
+        author: 'student',
+        name: 'You',
+        role: 'Student',
+        text: 'Mine is zero as well.',
+        approvedMove: null,
+      },
+      {
+        author: 'deskmate',
+        name: 'Mai',
+        role: 'Deskmate',
+        text: 'i keep getting zero too.',
+        approvedMove: 'share_confusion',
+      },
+    ])
+    expect(JSON.stringify(maiOnly)).not.toContain('QUIET_TEACHER_AGAIN')
+  })
+
   it('stays quiet when the Teacher proposes no move', async () => {
     const store = createMemoryConversationStore()
     const model = createFakeLanguageModel({
@@ -422,7 +668,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Hello' },
     }, store, model)
 
-    expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose'])
+    expect(model.exchanges.filter(exchange => exchange.agent === 'teacher').map(exchange => exchange.phase)).toEqual(['propose'])
     expect(state.conversation.map(message => message.author)).toEqual(['student'])
     expect(JSON.stringify(state)).not.toContain('QUIET_TEACHER_TEXT')
   })
@@ -439,9 +685,115 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Hello' },
     }, store, model)
 
-    expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose'])
+    expect(model.exchanges.filter(exchange => exchange.agent === 'teacher').map(exchange => exchange.phase)).toEqual(['propose'])
     expect(state.conversation.map(message => message.author)).toEqual(['student'])
     expect(JSON.stringify(state)).not.toContain('FORBIDDEN_TEACHER_TEXT')
+  })
+
+  it('lets Mai speak when the Teacher cannot answer', async () => {
+    const store = createMemoryConversationStore()
+    const events = []
+    for await (const event of streamTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        fail: 'propose',
+      },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'i\'m stuck on that too.',
+      },
+    ))) {
+      events.push(event)
+    }
+
+    const teacherShown = events.findIndex(event =>
+      event.type === 'state'
+      && event.state.conversation.some(message => message.author === 'teacher'),
+    )
+    const firstMai = events.findIndex(event => event.type === 'text' && event.author === 'deskmate')
+    expect(teacherShown).toBeGreaterThanOrEqual(0)
+    expect(teacherShown).toBeLessThan(firstMai)
+
+    const finished = events.at(-1)
+    expect(finished?.type).toBe('state')
+    if (finished?.type !== 'state') return
+    const state = finished.state
+
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      {
+        author: 'student',
+        name: 'You',
+        role: 'Student',
+        text: 'Where does the total live?',
+        approvedMove: null,
+      },
+      {
+        author: 'teacher',
+        name: 'Teacher',
+        role: 'Teacher',
+        text: 'The Teacher could not answer just now. Please try again.',
+        approvedMove: null,
+      },
+      {
+        author: 'deskmate',
+        name: 'Mai',
+        role: 'Deskmate',
+        text: 'i\'m stuck on that too.',
+        approvedMove: 'peer_question',
+      },
+    ])
+    expect(state.knowledgeMap.length).toBeGreaterThan(0)
+    expect(state.workingArea.topicId).toBe('for_loop')
+  })
+
+  it('stores a friendly Mai line, with no move, when she cannot answer', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: teacherReply,
+      },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'PARTIAL_MAI_TEXT',
+        fail: 'render',
+      },
+    ))
+
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      {
+        author: 'student',
+        text: 'Where does the total live?',
+        approvedMove: null,
+      },
+      {
+        author: 'teacher',
+        text: teacherReply,
+        approvedMove: 'explain_concept',
+      },
+      {
+        author: 'deskmate',
+        text: 'Mai could not answer just now. Please try again.',
+        approvedMove: null,
+      },
+    ])
+    expect(JSON.stringify(state)).not.toContain('PARTIAL_MAI_TEXT')
   })
 
   it('returns a full redraw with a friendly fallback when the model fails', async () => {
@@ -512,14 +864,35 @@ describe('turn endpoint', () => {
       apiKey: '',
     }))
 
-    expect(state.conversation.at(-1)).toMatchObject({
-      author: 'teacher',
-      name: 'Teacher',
-      role: 'Teacher',
-      approvedMove: 'explain_concept',
-      text: 'A running total has to be created before the loop, so each pass can add to the same number.',
-    })
-    expect(state.conversation.filter(message => message.author === 'teacher')).toHaveLength(1)
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      approvedMove: message.approvedMove,
+      text: message.text,
+    }))).toEqual([
+      {
+        author: 'student',
+        name: 'You',
+        role: 'Student',
+        approvedMove: null,
+        text: 'Where does the total live?',
+      },
+      {
+        author: 'teacher',
+        name: 'Teacher',
+        role: 'Teacher',
+        approvedMove: 'explain_concept',
+        text: 'A running total has to be created before the loop, so each pass can add to the same number.',
+      },
+      {
+        author: 'deskmate',
+        name: 'Mai',
+        role: 'Deskmate',
+        approvedMove: 'peer_question',
+        text: 'wait, does the total live outside the loop? i\'m lost too.',
+      },
+    ])
   })
 
   it('rejects an exercise that is not on the topic', async () => {

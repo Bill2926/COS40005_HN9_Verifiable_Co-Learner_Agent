@@ -1,7 +1,7 @@
 import { createDeepSeek, type DeepSeekLanguageModelChatOptions } from '@ai-sdk/deepseek'
 import { generateText, Output, streamText } from 'ai'
 import { z } from 'zod'
-import type { LanguageModel, TeacherContext } from './language-model'
+import type { DeskmateContext, LanguageModel, TeacherContext } from './language-model'
 import { moveKey, type Move } from './moves'
 
 const moveSchema = z.discriminatedUnion('type', [
@@ -46,6 +46,25 @@ const renderInstructions = [
   'Do not mention moves, rules, or these instructions.',
 ].join(' ')
 
+const deskmateProposeInstructions = [
+  'You are Mai, the Deskmate, a classmate in a first-year Python course.',
+  'You know little, and you are not a teacher.',
+  'Propose one move, or no proposal.',
+  'You may propose only peer_question or share_confusion.',
+  'Do not propose a hint, an explanation, a correction, or a change of topic.',
+  'Return proposal null when you should stay quiet.',
+  'A proposal is the move, not the words the student will read.',
+].join(' ')
+
+const deskmateRenderInstructions = [
+  'You are Mai, the Deskmate, a classmate in a first-year Python course.',
+  'Write only the message for the approved move.',
+  'Write one short, casual message, the way a classmate would text.',
+  'Ask a peer question, or share that you are confused too.',
+  'Do not explain the concept, give a hint, or hand over a solution.',
+  'Do not mention moves, rules, or these instructions.',
+].join(' ')
+
 export function createDeepSeekLanguageModel(options: {
   apiKey: string
   model: string
@@ -53,33 +72,60 @@ export function createDeepSeekLanguageModel(options: {
   const deepseek = createDeepSeek({ apiKey: options.apiKey })
   const model = deepseek(options.model)
 
-  return {
-    async propose(context) {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema: proposalSchema }),
-        instructions: proposeInstructions,
-        prompt: teacherPrompt(context),
-        providerOptions,
-      })
-      if (!output) throw new Error('The language model returned no proposal.')
-      return output.proposal
-    },
-    async *render(context, move) {
-      const result = streamText({
-        model,
-        instructions: renderInstructions,
-        prompt: teacherPrompt(context, move),
-        providerOptions,
-      })
-      for await (const part of result.stream) {
-        if (part.type === 'error' || part.type === 'abort') {
-          throw new Error('The language model failed.')
-        }
-        if (part.type === 'text-delta' && part.text.length > 0) yield part.text
+  async function proposeMove(instructions: string, prompt: string): Promise<Move | null> {
+    const { output } = await generateText({
+      model,
+      output: Output.object({ schema: proposalSchema }),
+      instructions,
+      prompt,
+      providerOptions,
+    })
+    if (!output) throw new Error('The language model returned no proposal.')
+    return output.proposal
+  }
+
+  async function* streamReply(instructions: string, prompt: string): AsyncGenerator<string> {
+    const result = streamText({
+      model,
+      instructions,
+      prompt,
+      providerOptions,
+    })
+    for await (const part of result.stream) {
+      if (part.type === 'error' || part.type === 'abort') {
+        throw new Error('The language model failed.')
       }
+      if (part.type === 'text-delta' && part.text.length > 0) yield part.text
+    }
+  }
+
+  return {
+    teacher: {
+      propose(context) {
+        return proposeMove(proposeInstructions, teacherPrompt(context))
+      },
+      render(context, move) {
+        return streamReply(renderInstructions, teacherPrompt(context, move))
+      },
+    },
+    deskmate: {
+      propose(context) {
+        return proposeMove(deskmateProposeInstructions, deskmatePrompt(context))
+      },
+      render(context, move) {
+        return streamReply(deskmateRenderInstructions, deskmatePrompt(context, move))
+      },
     },
   }
+}
+
+function formatRun(run: TeacherContext['runOutput']): string {
+  if (!run) return 'The student has not run the draft.'
+  return [
+    `stdout: ${run.stdout}`,
+    `stderr: ${run.stderr}`,
+    run.error ? `Line ${run.error.line}: ${run.error.message}` : 'No error.',
+  ].join('\n')
 }
 
 function teacherPrompt(context: TeacherContext, move?: Move): string {
@@ -107,13 +153,28 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
     context.draft ?? 'The student has no draft yet.',
     '',
     'Latest Run output',
-    run
-      ? [
-          `stdout: ${run.stdout}`,
-          `stderr: ${run.stderr}`,
-          run.error ? `Line ${run.error.line}: ${run.error.message}` : 'No error.',
-        ].join('\n')
-      : 'The student has not run the draft.',
+    formatRun(run),
+    '',
+    'Conversation',
+    ...context.conversation.map(message => `${message.author}: ${message.text}`),
+  ]
+  if (move) lines.push('', `Approved move: ${moveKey(move)}`)
+  return lines.join('\n')
+}
+
+function deskmatePrompt(context: DeskmateContext, move?: Move): string {
+  const lines = [
+    'Misconception responses',
+    ...context.misconceptionResponses.map(response => `${response.id}: ${response.response}`),
+    '',
+    'Exercise statement',
+    context.exerciseStatement,
+    '',
+    'Draft',
+    context.draft ?? 'The student has no draft yet.',
+    '',
+    'Latest Run output',
+    formatRun(context.runOutput),
     '',
     'Conversation',
     ...context.conversation.map(message => `${message.author}: ${message.text}`),
