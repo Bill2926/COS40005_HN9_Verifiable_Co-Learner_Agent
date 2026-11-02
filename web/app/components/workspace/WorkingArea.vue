@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { WorkingAreaView } from '#shared/turn'
+import type { RunOutput, WorkingAreaView } from '#shared/turn'
 import PracticePanel from './PracticePanel.vue'
 
 defineProps<{
@@ -11,6 +11,8 @@ defineProps<{
 
 const emit = defineEmits<{
   selectExercise: [exerciseId: string]
+  draft: [code: string]
+  run: [result: RunOutput | null]
 }>()
 
 const mode = ref<'learn' | 'practice'>('learn')
@@ -88,6 +90,8 @@ function choose(next: 'learn' | 'practice') {
         :selecting="selecting"
         :select-error="selectError"
         @select-exercise="emit('selectExercise', $event)"
+        @draft="emit('draft', $event)"
+        @run="emit('run', $event)"
       />
     </div>
   </section>

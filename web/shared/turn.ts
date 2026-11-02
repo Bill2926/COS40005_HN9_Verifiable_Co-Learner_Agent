@@ -52,7 +52,18 @@ export interface ConversationMessage {
   role: string
   text: string
   exerciseId: string
+  approvedMove: string | null
 }
+
+export interface RunOutput {
+  stdout: string
+  stderr: string
+  error: { message: string, line: number } | null
+}
+
+export type TurnEvent =
+  | { type: 'text', delta: string }
+  | { type: 'state', state: RedrawState }
 
 export interface RedrawState {
   knowledgeMap: MapTopic[]

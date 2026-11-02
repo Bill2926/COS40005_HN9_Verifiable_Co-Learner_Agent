@@ -2,8 +2,9 @@
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import KnowledgeMap from '~/components/workspace/KnowledgeMap.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
-import type { RedrawState } from '#shared/turn'
+import type { RedrawState, RunOutput, TurnEvent } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
+import { createDraftStore } from '~/drafts/store'
 
 definePageMeta({
   middleware: 'signed-in',
@@ -25,6 +26,9 @@ const selecting = ref(false)
 const selectError = ref('')
 const sending = ref(false)
 const sendError = ref('')
+const streamingTeacher = ref('')
+const liveDraft = ref<string | null>(null)
+const latestRun = ref<RunOutput | null>(null)
 
 if (import.meta.server) {
   const event = useRequestEvent()
@@ -56,16 +60,58 @@ async function selectExercise(exerciseId: string) {
 }
 
 async function sendMessage(text: string) {
-  if (!workspace.value || sending.value || selecting.value) return
+  const current = workspace.value
+  if (!current || sending.value || selecting.value) return
   sending.value = true
   sendError.value = ''
+  streamingTeacher.value = ''
+  const storedDraft = studentId.value
+    ? createDraftStore(localStorage, studentId.value).read(current.workingArea.exercise.id)
+    : null
   try {
-    workspace.value = await $fetch<RedrawState>('/turn', {
+    const response = await fetch('/turn', {
       method: 'POST',
-      body: { event: 'message', text },
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/x-ndjson',
+      },
+      body: JSON.stringify({
+        event: 'message',
+        text,
+        draft: liveDraft.value ?? storedDraft,
+        run: latestRun.value,
+      }),
     })
+    if (!response.ok || !response.body) {
+      sendError.value = 'That message could not be sent.'
+      return
+    }
+
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let sawState = false
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const lines = buffer.split('\n')
+      buffer = lines.pop() ?? ''
+      for (const line of lines) {
+        if (line.trim().length === 0) continue
+        const turnEvent = JSON.parse(line) as TurnEvent
+        if (turnEvent.type === 'text') streamingTeacher.value += turnEvent.delta
+        if (turnEvent.type === 'state') {
+          workspace.value = turnEvent.state
+          streamingTeacher.value = ''
+          sawState = true
+        }
+      }
+    }
+    if (!sawState) sendError.value = 'That message could not be sent.'
   }
   catch {
+    streamingTeacher.value = ''
     sendError.value = 'That message could not be sent.'
   }
   finally {
@@ -110,11 +156,14 @@ useHead({
         :selecting="selecting"
         :select-error="selectError"
         @select-exercise="selectExercise"
+        @draft="liveDraft = $event"
+        @run="latestRun = $event"
       />
       <ConversationPanel
         :messages="workspace.conversation"
         :sending="sending"
         :send-error="sendError"
+        :streaming-teacher="streamingTeacher"
         @send="sendMessage"
       />
     </div>

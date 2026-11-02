@@ -1,6 +1,7 @@
 import { sessionStudentId } from '../../shared/student-id'
+import { createConfiguredLanguageModel } from '../model/configured-language-model'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
-import { handleTurn, UnknownExerciseError } from '../turn/handle-turn'
+import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
   const studentId = await sessionStudentId(event)
@@ -13,12 +14,35 @@ export default defineEventHandler(async (event) => {
     url: config.public.supabaseUrl,
     secretKey: config.supabaseSecretKey,
   })
+  const model = createConfiguredLanguageModel({
+    mode: config.modelMode,
+    provider: config.modelProvider,
+    model: config.modelName,
+    apiKey: config.deepseekApiKey,
+  })
+  const body = await readBody(event)
+  const request = { sessionStudentId: studentId, body }
 
   try {
-    return await handleTurn({
-      sessionStudentId: studentId,
-      body: await readBody(event),
-    }, store)
+    if (!isMessageEvent(body)) return await handleTurn(request, store, model)
+
+    setResponseHeader(event, 'content-type', 'application/x-ndjson; charset=utf-8')
+    setResponseHeader(event, 'cache-control', 'no-cache, no-transform')
+    const encoder = new TextEncoder()
+    const stream = new ReadableStream({
+      async start(controller) {
+        try {
+          for await (const turnEvent of streamTurn(request, store, model)) {
+            controller.enqueue(encoder.encode(`${JSON.stringify(turnEvent)}\n`))
+          }
+          controller.close()
+        }
+        catch (error) {
+          controller.error(error)
+        }
+      },
+    })
+    return sendStream(event, stream)
   }
   catch (error) {
     if (error instanceof UnknownExerciseError) {
@@ -27,3 +51,10 @@ export default defineEventHandler(async (event) => {
     throw error
   }
 })
+
+function isMessageEvent(input: unknown): boolean {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'message'
+}
