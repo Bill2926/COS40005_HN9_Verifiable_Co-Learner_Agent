@@ -11,6 +11,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   send: [text: string]
+  openLearn: []
 }>()
 
 const appearance = {
@@ -128,7 +129,7 @@ watch(() => props.sending, (sending) => {
             v-if="message.author === 'event'"
             class="text-center text-sm text-muted"
           >
-            Exercise · {{ message.text }}
+            {{ message.name }} · {{ message.text }}
           </p>
           <article
             v-else
@@ -150,6 +151,16 @@ watch(() => props.sending, (sending) => {
               <p class="mt-1 text-sm leading-6">
                 {{ message.text }}
               </p>
+              <UButton
+                v-if="message.openInLearn"
+                type="button"
+                class="mt-2"
+                size="sm"
+                color="neutral"
+                variant="outline"
+                label="Open in Learn"
+                @click="emit('openLearn')"
+              />
             </div>
           </article>
         </li>

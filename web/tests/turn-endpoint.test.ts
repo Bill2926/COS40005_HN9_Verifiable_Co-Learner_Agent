@@ -105,7 +105,7 @@ describe('turn endpoint', () => {
     }, store)
 
     expect(state.knowledgeMap).toEqual(opened.knowledgeMap)
-    expect(state.workingArea.mode).toBe('learn')
+    expect(state.workingArea.mode).toBeNull()
     expect(state.workingArea.topicId).toBe('for_loop')
     expect(state.workingArea.exercises).toEqual([
       { id: 'sum_of_a_list', title: 'Sum of a list' },
@@ -558,6 +558,7 @@ describe('turn endpoint', () => {
       exerciseStatement: 'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
       draft,
       runOutput: run,
+      submission: null,
     }
     expect(propose?.context).toEqual({
       ...allowed,
@@ -812,7 +813,7 @@ describe('turn endpoint', () => {
     }))
 
     expect(state.knowledgeMap).toEqual(opened.knowledgeMap)
-    expect(state.workingArea).toEqual(opened.workingArea)
+    expect(state.workingArea).toEqual({ ...opened.workingArea, mode: null })
     expect(state.conversation.map(message => ({
       author: message.author,
       name: message.name,
@@ -844,7 +845,7 @@ describe('turn endpoint', () => {
       text: 'PARTIAL_SHOULD_NOT_STICK',
       fail: 'render',
     }))
-    expect(rendered.workingArea).toEqual(opened.workingArea)
+    expect(rendered.workingArea).toEqual({ ...opened.workingArea, mode: null })
     expect(rendered.conversation.at(-1)).toMatchObject({
       author: 'teacher',
       text: 'The Teacher could not answer just now. Please try again.',
@@ -893,6 +894,341 @@ describe('turn endpoint', () => {
         text: 'wait, does the total live outside the loop? i\'m lost too.',
       },
     ])
+  })
+
+  it('introduces a topic the first time it is opened and starts in Learn', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: 'A running total survives every pass of the loop.',
+      },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'MAI_SHOULD_NOT_SPEAK_ON_OPEN',
+      },
+    )
+
+    const events = []
+    for await (const event of streamTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, model)) {
+      events.push(event)
+    }
+
+    const spoken = events
+      .filter(event => event.type === 'text')
+      .map(event => event.author === 'teacher' ? event.delta : `UNEXPECTED_${event.author}`)
+      .join('')
+    const finished = events.at(-1)
+
+    expect(spoken).toBe('A running total survives every pass of the loop.')
+    expect(finished?.type).toBe('state')
+    if (finished?.type !== 'state') return
+
+    expect(finished.state.workingArea.mode).toBe('learn')
+    expect(finished.state.conversation.map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      approvedMove: message.approvedMove,
+      openInLearn: message.openInLearn,
+    }))).toEqual([
+      {
+        author: 'teacher',
+        name: 'Teacher',
+        role: 'Teacher',
+        text: 'A running total survives every pass of the loop.',
+        approvedMove: 'explain_concept',
+        openInLearn: true,
+      },
+    ])
+    expect(JSON.stringify(finished.state)).not.toContain('MAI_SHOULD_NOT_SPEAK_ON_OPEN')
+    expect(model.exchanges.filter(exchange => exchange.agent === 'teacher').map(exchange => exchange.phase)).toEqual(['propose', 'render'])
+    for (const exchange of model.exchanges) {
+      expect(exchange.agent).toBe('teacher')
+      if (exchange.agent !== 'teacher') continue
+      expect(exchange.context.conversation).toEqual([])
+      expect(exchange.context.materials.heading).toBe('Accumulating a total')
+    }
+  })
+
+  it('introduces the topic with a teaching move when the model proposes another move', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel({
+      proposal: { type: 'stay_and_practise' },
+      text: 'A running total survives every pass of the loop.',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, model)
+
+    expect(state.workingArea.mode).toBe('learn')
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+      openInLearn: message.openInLearn,
+    }))).toEqual([
+      {
+        author: 'teacher',
+        text: 'A running total survives every pass of the loop.',
+        approvedMove: 'explain_concept',
+        openInLearn: true,
+      },
+    ])
+    expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
+    expect(model.exchanges.at(-1)?.move).toEqual({ type: 'explain_concept' })
+  })
+
+  it('leaves the topic unintroduced when the opening reply fails, so the next open can introduce it', async () => {
+    const store = createMemoryConversationStore()
+    const failed = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept' },
+      text: 'PARTIAL_OPENING_SHOULD_NOT_STICK',
+      fail: 'render',
+    }))
+
+    expect(failed.workingArea.mode).toBe('learn')
+    expect(failed.conversation).toEqual([])
+    expect(JSON.stringify(failed)).not.toContain('could not answer')
+    expect(JSON.stringify(failed)).not.toContain('PARTIAL_OPENING_SHOULD_NOT_STICK')
+
+    const introduced = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, speakingTeacher())
+
+    expect(introduced.workingArea.mode).toBe('learn')
+    expect(introduced.conversation.map(message => ({
+      author: message.author,
+      approvedMove: message.approvedMove,
+      openInLearn: message.openInLearn,
+    }))).toEqual([
+      {
+        author: 'teacher',
+        approvedMove: 'explain_concept',
+        openInLearn: true,
+      },
+    ])
+  })
+
+  it('does not take an agent turn when the topic already has a conversation', async () => {
+    const store = createMemoryConversationStore()
+    const earlier = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, speakingTeacher())
+
+    const model = createFakeLanguageModel({
+      proposal: { type: 'explain_concept' },
+      text: 'SHOULD_NOT_INTRODUCE_AGAIN',
+    })
+    const reopened = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, model)
+
+    expect(model.exchanges).toEqual([])
+    expect(reopened.workingArea.mode).toBeNull()
+    expect(reopened.conversation.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    }))).toEqual(earlier.conversation.map(message => ({
+      author: message.author,
+      text: message.text,
+      approvedMove: message.approvedMove,
+    })))
+    expect(JSON.stringify(reopened)).not.toContain('SHOULD_NOT_INTRODUCE_AGAIN')
+  })
+
+  it('offers to open Learn from a teaching reply without changing the working area mode', async () => {
+    const store = createMemoryConversationStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store, speakingTeacher())
+
+    const explained = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Where does the total live?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept' },
+      text: 'The total has to exist before the loop starts.',
+    }))
+
+    expect(explained.workingArea.mode).toBeNull()
+    expect(explained.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      approvedMove: 'explain_concept',
+      openInLearn: true,
+    })
+
+    const answered = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Is the total a variable?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'answer_question' },
+      text: 'Yes. It is a variable that lives outside the loop.',
+    }))
+
+    expect(answered.workingArea.mode).toBeNull()
+    expect(answered.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      approvedMove: 'answer_question',
+      openInLearn: true,
+    })
+  })
+
+  it('does not offer Learn from a hint, and that turn does not set the working area mode', async () => {
+    const store = createMemoryConversationStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'I am stuck.' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'hint_level_N', level: 1 },
+      text: 'Create the total before the loop.',
+    }))
+
+    expect(state.workingArea.mode).toBeNull()
+    expect(state.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      approvedMove: 'hint_level_1',
+      openInLearn: false,
+    })
+  })
+
+  it('records a submission summary and lets the agents answer with no student text', async () => {
+    const store = createMemoryConversationStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept' },
+        text: 'The total is still created inside the loop.',
+      },
+      {
+        proposal: { type: 'share_confusion' },
+        text: 'mine failed that one too.',
+      },
+    )
+    const code = 'def total(ds):\n    SUBMISSION_CODE_SENTINEL = 0\n'
+    const results = [
+      { name: 'three numbers', passed: false, expected: '6', actual: '0' },
+      { name: 'one number', passed: true, expected: '10', actual: '10' },
+      { name: 'empty list', passed: false, expected: 'EXPECTED_SENTINEL', actual: 'ACTUAL_SENTINEL' },
+    ]
+
+    const events = []
+    for await (const event of streamTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'submission', code, results },
+    }, store, model)) {
+      events.push(event)
+    }
+
+    const textEvents = events.filter(event => event.type === 'text')
+    const teacherSpoken = textEvents
+      .filter(event => event.author === 'teacher')
+      .map(event => event.delta)
+      .join('')
+    const maiSpoken = textEvents
+      .filter(event => event.author === 'deskmate')
+      .map(event => event.delta)
+      .join('')
+    const finished = events.at(-1)
+    expect(finished?.type).toBe('state')
+    if (finished?.type !== 'state') return
+    const state = finished.state
+
+    expect(teacherSpoken).toBe('The total is still created inside the loop.')
+    expect(maiSpoken).toBe('mine failed that one too.')
+    expect(textEvents.findIndex(event => event.author === 'deskmate'))
+      .toBeGreaterThan(textEvents.findLastIndex(event => event.author === 'teacher'))
+    expect(state.workingArea.mode).toBeNull()
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      approvedMove: message.approvedMove,
+      openInLearn: message.openInLearn,
+    }))).toEqual([
+      {
+        author: 'event',
+        name: 'Practice check',
+        role: 'Result',
+        text: '1/3 tests passed',
+        approvedMove: null,
+        openInLearn: false,
+      },
+      {
+        author: 'teacher',
+        name: 'Teacher',
+        role: 'Teacher',
+        text: 'The total is still created inside the loop.',
+        approvedMove: 'explain_concept',
+        openInLearn: true,
+      },
+      {
+        author: 'deskmate',
+        name: 'Mai',
+        role: 'Deskmate',
+        text: 'mine failed that one too.',
+        approvedMove: 'share_confusion',
+        openInLearn: false,
+      },
+    ])
+    expect(state.conversation.some(message => message.author === 'student')).toBe(false)
+    expect(JSON.stringify(state)).not.toContain('SUBMISSION_CODE_SENTINEL')
+    expect(JSON.stringify(state)).not.toContain('EXPECTED_SENTINEL')
+    expect(JSON.stringify(state)).not.toContain('ACTUAL_SENTINEL')
+
+    const teacherPropose = model.exchanges.find(exchange => exchange.agent === 'teacher' && exchange.phase === 'propose')
+    const deskmatePropose = model.exchanges.find(exchange => exchange.agent === 'deskmate' && exchange.phase === 'propose')
+    expect(teacherPropose?.agent).toBe('teacher')
+    expect(deskmatePropose?.agent).toBe('deskmate')
+    if (teacherPropose?.agent !== 'teacher' || deskmatePropose?.agent !== 'deskmate') return
+
+    expect(teacherPropose.context.submission).toEqual({ code, results })
+    expect(teacherPropose.context.draft).toBeNull()
+    expect(teacherPropose.context.conversation).toEqual([
+      { author: 'event', text: '1/3 tests passed', approvedMove: null },
+    ])
+    expect(deskmatePropose.context.submission).toEqual({ code, results })
+    expect(deskmatePropose.context.conversation).toEqual([
+      { author: 'event', text: '1/3 tests passed', approvedMove: null },
+    ])
+    expect(JSON.stringify(deskmatePropose.context)).not.toContain('Accumulating a total')
+    expect(JSON.stringify(deskmatePropose.context)).not.toContain('starterCode')
+  })
+
+  it('does not accept a run as a turn', async () => {
+    const store = createMemoryConversationStore()
+    const model = speakingTeacher()
+
+    await expect(handleTurn({
+      sessionStudentId: signedInStudent,
+      body: {
+        event: 'run',
+        code: 'print(1)\n',
+        stdout: 'RUN_SHOULD_NOT_BE_A_TURN',
+      },
+    }, store, model)).rejects.toThrow('The turn endpoint does not accept that event.')
+
+    expect(model.exchanges).toEqual([])
+    const opened = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store)
+    expect(opened.conversation).toEqual([])
+    expect(JSON.stringify(opened)).not.toContain('RUN_SHOULD_NOT_BE_A_TURN')
   })
 
   it('rejects an exercise that is not on the topic', async () => {

@@ -1,7 +1,7 @@
 import { createDeepSeek, type DeepSeekLanguageModelChatOptions } from '@ai-sdk/deepseek'
 import { generateText, Output, streamText } from 'ai'
 import { z } from 'zod'
-import type { DeskmateContext, LanguageModel, TeacherContext } from './language-model'
+import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from './language-model'
 import { moveKey, type Move } from './moves'
 
 const moveSchema = z.discriminatedUnion('type', [
@@ -119,6 +119,26 @@ export function createDeepSeekLanguageModel(options: {
   }
 }
 
+function formatDraft(draft: string | null, submission: SubmissionCheck | null): string {
+  if (draft !== null) return draft
+  if (submission) return 'The student submitted the code shown under Submission.'
+  return 'The student has no draft yet.'
+}
+
+function formatSubmission(submission: SubmissionCheck): string {
+  return [
+    'Submitted code:',
+    submission.code,
+    ...submission.results.map(result =>
+      `${result.passed ? 'passed' : 'failed'}: ${result.name}; expected ${result.expected}; actual ${result.actual}`),
+  ].join('\n')
+}
+
+function submissionLines(submission: SubmissionCheck | null): string[] {
+  if (!submission) return []
+  return ['', 'Submission', formatSubmission(submission)]
+}
+
 function formatRun(run: TeacherContext['runOutput']): string {
   if (!run) return 'The student has not run the draft.'
   return [
@@ -150,14 +170,20 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
     context.exercise.starterCode,
     '',
     'Draft',
-    context.draft ?? 'The student has no draft yet.',
+    formatDraft(context.draft, context.submission),
     '',
     'Latest Run output',
     formatRun(run),
+    ...submissionLines(context.submission),
     '',
     'Conversation',
     ...context.conversation.map(message => `${message.author}: ${message.text}`),
   ]
+  if (context.conversation.length === 0) {
+    lines.unshift(move
+      ? 'The student has just opened this topic for the first time. Introduce it from the topic materials.'
+      : 'The student has just opened this topic for the first time. Propose a teaching move that introduces the topic.')
+  }
   if (move) lines.push('', `Approved move: ${moveKey(move)}`)
   return lines.join('\n')
 }
@@ -171,10 +197,11 @@ function deskmatePrompt(context: DeskmateContext, move?: Move): string {
     context.exerciseStatement,
     '',
     'Draft',
-    context.draft ?? 'The student has no draft yet.',
+    formatDraft(context.draft, context.submission),
     '',
     'Latest Run output',
     formatRun(context.runOutput),
+    ...submissionLines(context.submission),
     '',
     'Conversation',
     ...context.conversation.map(message => `${message.author}: ${message.text}`),

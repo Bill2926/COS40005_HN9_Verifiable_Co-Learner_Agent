@@ -37,7 +37,7 @@ export interface CurrentExercise {
 }
 
 export interface WorkingAreaView {
-  mode: 'learn'
+  mode: 'learn' | null
   topicId: string
   topicName: string
   materials: TopicMaterials
@@ -53,12 +53,20 @@ export interface ConversationMessage {
   text: string
   exerciseId: string
   approvedMove: string | null
+  openInLearn: boolean
 }
 
 export interface RunOutput {
   stdout: string
   stderr: string
   error: { message: string, line: number } | null
+}
+
+export interface PracticeTestResult {
+  name: string
+  passed: boolean
+  expected: string
+  actual: string
 }
 
 export type TurnEvent =

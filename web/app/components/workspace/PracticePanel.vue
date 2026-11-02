@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CurrentExercise, ExerciseChoice } from '#shared/turn'
+import type { CurrentExercise, ExerciseChoice, PracticeTestResult } from '#shared/turn'
 import { createDraftStore, draftAfterSwitch } from '~/drafts/store'
 import { RunStopped, type PythonRunner, type RunResult, type TestReport } from '~/python/runner'
 import PythonEditor from './PythonEditor.vue'
@@ -11,12 +11,14 @@ const props = defineProps<{
   active: boolean
   selecting: boolean
   selectError: string
+  submitting: boolean
 }>()
 
 const emit = defineEmits<{
   selectExercise: [exerciseId: string]
   draft: [code: string]
   run: [result: RunResult | null]
+  submit: [submission: { code: string, results: PracticeTestResult[] }]
 }>()
 
 const drafts = createDraftStore(localStorage, props.studentId)
@@ -121,6 +123,7 @@ async function onSubmit() {
     if (!alive || generation !== runGeneration) return
     submission.value = result
     status.value = 'idle'
+    emit('submit', { code: draft.value, results: result.results })
   }
   catch (error) {
     if (!alive || generation !== runGeneration) return
@@ -200,7 +203,7 @@ function onStop() {
       <UButton
         label="Submit"
         color="neutral"
-        :disabled="busy"
+        :disabled="busy || submitting"
         @click="onSubmit"
       />
       <UButton
