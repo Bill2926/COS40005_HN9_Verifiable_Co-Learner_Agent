@@ -182,7 +182,7 @@ async function teacherContext(
   return {
     materials: { ...forLoopTopic.materials },
     hintLadder: [...forLoopTopic.hintLadder],
-    misconceptionResponses: forLoopTopic.misconceptionResponses.map(item => ({ ...item })),
+    misconceptionResponses: forLoopTopic.misconceptionResponses.map(response => ({ ...response })),
     exercise: {
       id: exercise.id,
       title: exercise.title,

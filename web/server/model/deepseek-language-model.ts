@@ -72,8 +72,11 @@ export function createDeepSeekLanguageModel(options: {
         prompt: teacherPrompt(context, move),
         providerOptions,
       })
-      for await (const delta of result.textStream) {
-        if (delta.length > 0) yield delta
+      for await (const part of result.stream) {
+        if (part.type === 'error' || part.type === 'abort') {
+          throw new Error('The language model failed.')
+        }
+        if (part.type === 'text-delta' && part.text.length > 0) yield part.text
       }
     },
   }
@@ -92,7 +95,7 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
     ...context.hintLadder.map((hint, index) => `${index + 1}. ${hint}`),
     '',
     'Misconception responses',
-    ...context.misconceptionResponses.map(item => `${item.id}: ${item.response}`),
+    ...context.misconceptionResponses.map(response => `${response.id}: ${response.response}`),
     '',
     'Exercise',
     context.exercise.title,
