@@ -14,6 +14,9 @@ export function createConfiguredLanguageModel(config: ModelConfiguration): Langu
     return createFakeLanguageModel({
       proposal: { type: 'explain_concept' },
       text: 'A running total has to be created before the loop, so each pass can add to the same number.',
+    }, {
+      proposal: { type: 'peer_question' },
+      text: 'wait, does the total live outside the loop? i\'m lost too.',
     })
   }
 

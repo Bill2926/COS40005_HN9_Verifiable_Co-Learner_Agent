@@ -6,6 +6,7 @@ const props = defineProps<{
   sending: boolean
   sendError: string
   streamingTeacher: string
+  streamingDeskmate: string
 }>()
 
 const emit = defineEmits<{
@@ -30,6 +31,17 @@ const appearance = {
   },
 } as const
 
+const streamingBubbles = computed(() => {
+  const bubbles: { author: 'teacher' | 'deskmate', name: string, role: string, text: string }[] = []
+  if (props.streamingTeacher) {
+    bubbles.push({ author: 'teacher', name: 'Teacher', role: 'Teacher', text: props.streamingTeacher })
+  }
+  if (props.streamingDeskmate) {
+    bubbles.push({ author: 'deskmate', name: 'Mai', role: 'Deskmate', text: props.streamingDeskmate })
+  }
+  return bubbles
+})
+
 const traceOpen = ref(false)
 const text = ref('')
 const pending = ref('')
@@ -45,7 +57,7 @@ function bubbleFor(author: ConversationMessage['author']) {
   return appearance[author]
 }
 
-watch(() => [props.messages.length, props.streamingTeacher, props.sending] as const, () => {
+watch(() => [props.messages.length, props.streamingTeacher, props.streamingDeskmate, props.sending] as const, () => {
   nextTick(() => {
     const element = scroller.value
     if (element) element.scrollTop = element.scrollHeight
@@ -97,7 +109,7 @@ watch(() => props.sending, (sending) => {
       class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
     >
       <p
-        v-if="messages.length === 0 && !sending && streamingTeacher.length === 0"
+        v-if="messages.length === 0 && !sending && streamingTeacher.length === 0 && streamingDeskmate.length === 0"
         class="text-sm text-muted"
       >
         No messages yet.
@@ -162,21 +174,29 @@ watch(() => props.sending, (sending) => {
           </article>
         </li>
         <li
-          v-if="streamingTeacher"
-          class="flex justify-start"
+          v-for="bubble in streamingBubbles"
+          :key="bubble.author"
+          class="flex"
+          :class="appearance[bubble.author].row"
         >
-          <article class="flex max-w-[85%] gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
+          <article
+            class="flex max-w-[85%] gap-2 rounded-lg border px-3 py-2"
+            :class="appearance[bubble.author].bubble"
+          >
             <span
-              class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-indigo-800 text-sm font-medium text-white"
+              class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
+              :class="appearance[bubble.author].avatar"
               aria-hidden="true"
-            >T</span>
+            >
+              {{ bubble.name.slice(0, 1) }}
+            </span>
             <div class="min-w-0">
               <p class="text-sm">
-                <span class="font-medium">Teacher</span>
-                <span class="text-muted"> · Teacher</span>
+                <span class="font-medium">{{ bubble.name }}</span>
+                <span class="text-muted"> · {{ bubble.role }}</span>
               </p>
               <p class="mt-1 text-sm leading-6">
-                {{ streamingTeacher }}
+                {{ bubble.text }}
               </p>
             </div>
           </article>

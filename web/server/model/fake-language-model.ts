@@ -1,4 +1,4 @@
-import type { LanguageModel, ModelExchange, TeacherContext } from './language-model'
+import type { LanguageModel, ModelExchange } from './language-model'
 import type { Move } from './moves'
 
 export interface FakeModelScript {
@@ -7,20 +7,57 @@ export interface FakeModelScript {
   fail?: 'propose' | 'render'
 }
 
-export function createFakeLanguageModel(script: FakeModelScript): LanguageModel & { exchanges: ModelExchange[] } {
+export function createFakeLanguageModel(
+  script: FakeModelScript,
+  deskmateScript: FakeModelScript = { proposal: null },
+): LanguageModel & { exchanges: ModelExchange[] } {
   const exchanges: ModelExchange[] = []
 
   return {
     exchanges,
-    async propose(context) {
-      exchanges.push({ phase: 'propose', context: structuredClone(context), move: script.proposal })
-      if (script.fail === 'propose') throw new Error('The language model failed.')
-      return script.proposal
+    teacher: {
+      async propose(context) {
+        exchanges.push({
+          agent: 'teacher',
+          phase: 'propose',
+          context: structuredClone(context),
+          move: script.proposal,
+        })
+        if (script.fail === 'propose') throw new Error('The language model failed.')
+        return script.proposal
+      },
+      async *render(context, move) {
+        exchanges.push({
+          agent: 'teacher',
+          phase: 'render',
+          context: structuredClone(context),
+          move,
+        })
+        if (script.fail === 'render') throw new Error('The language model failed.')
+        for (const delta of spokenChunks(script.text ?? '')) yield delta
+      },
     },
-    async *render(context, move) {
-      exchanges.push({ phase: 'render', context: structuredClone(context), move })
-      if (script.fail === 'render') throw new Error('The language model failed.')
-      for (const delta of spokenChunks(script.text ?? '')) yield delta
+    deskmate: {
+      async propose(context) {
+        exchanges.push({
+          agent: 'deskmate',
+          phase: 'propose',
+          context: structuredClone(context),
+          move: deskmateScript.proposal,
+        })
+        if (deskmateScript.fail === 'propose') throw new Error('The language model failed.')
+        return deskmateScript.proposal
+      },
+      async *render(context, move) {
+        exchanges.push({
+          agent: 'deskmate',
+          phase: 'render',
+          context: structuredClone(context),
+          move,
+        })
+        if (deskmateScript.fail === 'render') throw new Error('The language model failed.')
+        for (const delta of spokenChunks(deskmateScript.text ?? '')) yield delta
+      },
     },
   }
 }
