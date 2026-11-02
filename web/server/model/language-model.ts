@@ -1,5 +1,10 @@
-import type { RunOutput, TopicMaterials } from '../../shared/turn'
+import type { PracticeTestResult, RunOutput, TopicMaterials } from '../../shared/turn'
 import type { Move } from './moves'
+
+export interface SubmissionCheck {
+  code: string
+  results: readonly PracticeTestResult[]
+}
 
 export interface TeacherContext {
   materials: TopicMaterials
@@ -13,6 +18,7 @@ export interface TeacherContext {
   }
   draft: string | null
   runOutput: RunOutput | null
+  submission: SubmissionCheck | null
   conversation: readonly {
     author: 'student' | 'teacher' | 'deskmate' | 'event'
     text: string
@@ -25,6 +31,7 @@ export interface DeskmateContext {
   exerciseStatement: string
   draft: string | null
   runOutput: RunOutput | null
+  submission: SubmissionCheck | null
   conversation: TeacherContext['conversation']
 }
 

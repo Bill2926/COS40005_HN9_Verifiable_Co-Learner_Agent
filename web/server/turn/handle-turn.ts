@@ -1,9 +1,9 @@
-import type { ConversationMessage, CurrentExercise, RedrawState, RunOutput, TurnEvent } from '../../shared/turn'
+import type { ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent } from '../../shared/turn'
 import { forLoopTopic, type Exercise } from '../content/for-loop'
 import { knowledgeMap } from '../content/knowledge-map'
 import { roleTable } from '../content/role-table'
-import type { DeskmateContext, LanguageModel, TeacherContext } from '../model/language-model'
-import { moveKey } from '../model/moves'
+import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
+import { moveKey, type Move } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
 import { decide } from '../verdict/decide'
 
@@ -81,7 +81,14 @@ async function* streamTurnBody(
   const body = request.body
 
   if (isOpenEvent(body)) {
-    yield { type: 'state', state: await redraw(studentId, await currentExerciseId(studentId, store), store) }
+    const exerciseId = await currentExerciseId(studentId, store)
+    const existing = await store.messages(studentId, forLoopTopic.id)
+    if (existing.length === 0 && model) {
+      yield* introduceTopic(studentId, exerciseId, store, model)
+      return
+    }
+    const mode = existing.length === 0 ? 'learn' : null
+    yield { type: 'state', state: await redraw(studentId, exerciseId, store, mode) }
     return
   }
 
@@ -98,7 +105,24 @@ async function* streamTurnBody(
       text: exercise.title,
       exerciseId: exercise.id,
     })
-    yield { type: 'state', state: await redraw(studentId, exercise.id, store) }
+    yield { type: 'state', state: await redraw(studentId, exercise.id, store, null) }
+    return
+  }
+
+  if (isSubmission(body)) {
+    if (!model) throw new Error('The agents have no language model.')
+    const exerciseId = await currentExerciseId(studentId, store)
+    await store.appendMessage(studentId, forLoopTopic.id, {
+      author: 'event',
+      approvedMove: null,
+      text: submissionSummary(body.results),
+      exerciseId,
+    })
+    yield* answerMessage(studentId, exerciseId, {
+      draft: null,
+      runOutput: null,
+      submission: { code: body.code, results: body.results },
+    }, store, model)
     return
   }
 
@@ -111,25 +135,91 @@ async function* streamTurnBody(
       text: body.text.trim(),
       exerciseId,
     })
-    yield* answerMessage(studentId, exerciseId, body, store, model)
+    yield* answerMessage(studentId, exerciseId, {
+      draft: messageDraft(body),
+      runOutput: messageRun(body),
+      submission: null,
+    }, store, model)
     return
   }
 
   throw new Error('The turn endpoint does not accept that event.')
 }
 
+async function* introduceTopic(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+  model: LanguageModel,
+): AsyncGenerator<TurnEvent> {
+  const context = await teacherContext(studentId, exerciseById(exerciseId), store, {
+    draft: null,
+    runOutput: null,
+    submission: null,
+  })
+
+  let proposal: Move | null = null
+  try {
+    proposal = await model.teacher.propose(context)
+  }
+  catch {
+    yield { type: 'state', state: await redraw(studentId, exerciseId, store, 'learn') }
+    return
+  }
+
+  const move = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
+  const verdict = decide(
+    [{ agent: 'teacher', move }],
+    { topicId: forLoopTopic.id, exerciseId },
+    roleTable,
+  ).find(item => item.agent === 'teacher')
+
+  if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
+    const text = yield* streamTeacherReply(model, context, verdict.move)
+    if (text) {
+      await store.appendMessage(studentId, forLoopTopic.id, {
+        author: 'teacher',
+        approvedMove: moveKey(verdict.move),
+        text,
+        exerciseId,
+      })
+    }
+  }
+
+  yield { type: 'state', state: await redraw(studentId, exerciseId, store, 'learn') }
+}
+
+function isTeachingMove(move: Move): boolean {
+  return move.type === 'explain_concept' || move.type === 'answer_question'
+}
+
+async function* streamTeacherReply(
+  model: LanguageModel,
+  context: TeacherContext,
+  move: Move,
+): AsyncGenerator<TurnEvent, string | null> {
+  let text = ''
+  try {
+    for await (const delta of model.teacher.render(context, move)) {
+      text += delta
+      yield { type: 'text', author: 'teacher', delta }
+    }
+  }
+  catch {
+    return null
+  }
+  return text.trim().length > 0 ? text : null
+}
+
 async function* answerMessage(
   studentId: string,
   exerciseId: string,
-  body: MessageEvent,
+  seen: SeenWork,
   store: ConversationStore,
   model: LanguageModel,
 ): AsyncGenerator<TurnEvent> {
   const exercise = exerciseById(exerciseId)
-  const context = await teacherContext(studentId, exercise, store, {
-    draft: messageDraft(body),
-    runOutput: messageRun(body),
-  })
+  const context = await teacherContext(studentId, exercise, store, seen)
   const deskmate = deskmateContext(context)
   const [teacherSettled, deskmateSettled] = await Promise.allSettled([
     model.teacher.propose(context),
@@ -150,24 +240,13 @@ async function* answerMessage(
 
   if (teacherSettled.status === 'rejected') {
     await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-    yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
+    yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
-    let text = ''
-    let failed = false
-    try {
-      for await (const delta of model.teacher.render(context, teacherVerdict.move)) {
-        text += delta
-        yield { type: 'text', author: 'teacher' as const, delta }
-      }
-    }
-    catch {
-      failed = true
-    }
-
-    if (failed || text.trim().length === 0) {
+    const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
+    if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-      yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
+      yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
     }
     else {
       await store.appendMessage(studentId, forLoopTopic.id, {
@@ -209,14 +288,14 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await redraw(studentId, exerciseId, store) }
+  yield { type: 'state', state: await redraw(studentId, exerciseId, store, null) }
 }
 
 async function teacherContext(
   studentId: string,
   exercise: Exercise,
   store: ConversationStore,
-  seen: { draft: string | null, runOutput: RunOutput | null },
+  seen: SeenWork,
 ): Promise<TeacherContext> {
   const messages = await store.messages(studentId, forLoopTopic.id)
   return {
@@ -231,6 +310,7 @@ async function teacherContext(
     },
     draft: seen.draft,
     runOutput: seen.runOutput,
+    submission: copySubmission(seen.submission),
     conversation: messages.map(message => ({
       author: message.author,
       text: message.text,
@@ -245,6 +325,7 @@ function deskmateContext(context: TeacherContext): DeskmateContext {
     exerciseStatement: context.exercise.statement,
     draft: context.draft,
     runOutput: context.runOutput,
+    submission: copySubmission(context.submission),
     conversation: context.conversation.map(message => ({ ...message })),
   }
 }
@@ -307,7 +388,12 @@ async function currentExerciseId(studentId: string, store: ConversationStore): P
   return exerciseId
 }
 
-async function redraw(studentId: string, exerciseId: string, store: ConversationStore): Promise<RedrawState> {
+async function redraw(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+  mode: 'learn' | null = null,
+): Promise<RedrawState> {
   const exercise = forLoopTopic.exercises.find(choice => choice.id === exerciseId)
   if (!exercise) throw new UnknownExerciseError()
   const messages = await store.messages(studentId, forLoopTopic.id)
@@ -315,7 +401,7 @@ async function redraw(studentId: string, exerciseId: string, store: Conversation
   return {
     knowledgeMap: knowledgeMap.map(topic => ({ ...topic })),
     workingArea: {
-      mode: 'learn',
+      mode,
       topicId: forLoopTopic.id,
       topicName: forLoopTopic.name,
       materials: { ...forLoopTopic.materials },
@@ -330,12 +416,14 @@ async function redraw(studentId: string, exerciseId: string, store: Conversation
 }
 
 function presentMessage(message: StoredMessage): ConversationMessage {
-  const speaker = {
-    student: { name: 'You', role: 'Student' },
-    teacher: { name: 'Teacher', role: 'Teacher' },
-    deskmate: { name: 'Mai', role: 'Deskmate' },
-    event: { name: 'Exercise', role: 'Marker' },
-  }[message.author]
+  const speaker = message.author === 'event' && isSubmissionSummary(message.text)
+    ? { name: 'Practice check', role: 'Result' }
+    : {
+        student: { name: 'You', role: 'Student' },
+        teacher: { name: 'Teacher', role: 'Teacher' },
+        deskmate: { name: 'Mai', role: 'Deskmate' },
+        event: { name: 'Exercise', role: 'Marker' },
+      }[message.author]
 
   return {
     id: message.id,
@@ -345,6 +433,8 @@ function presentMessage(message: StoredMessage): ConversationMessage {
     text: message.text,
     exerciseId: message.exerciseId,
     approvedMove: message.approvedMove,
+    openInLearn: message.author === 'teacher'
+      && (message.approvedMove === 'explain_concept' || message.approvedMove === 'answer_question'),
   }
 }
 
@@ -358,11 +448,40 @@ function presentExercise(exercise: Exercise): CurrentExercise {
   }
 }
 
+interface SeenWork {
+  draft: string | null
+  runOutput: RunOutput | null
+  submission: SubmissionCheck | null
+}
+
 interface MessageEvent {
   event: 'message'
   text: string
   draft?: unknown
   run?: unknown
+}
+
+function copySubmission(submission: SubmissionCheck | null): SubmissionCheck | null {
+  if (!submission) return null
+  return {
+    code: submission.code,
+    results: submission.results.map(result => ({ ...result })),
+  }
+}
+
+interface SubmissionEvent {
+  event: 'submission'
+  code: string
+  results: PracticeTestResult[]
+}
+
+function submissionSummary(results: readonly { passed: boolean }[]): string {
+  const passed = results.filter(result => result.passed).length
+  return `${passed}/${results.length} tests passed`
+}
+
+function isSubmissionSummary(text: string): boolean {
+  return /^\d+\/\d+ tests passed$/.test(text)
 }
 
 function messageDraft(body: MessageEvent): string | null {
@@ -384,6 +503,33 @@ function messageRun(body: MessageEvent): RunOutput | null {
     stderr: run.stderr,
     error: { message: run.error.message, line: run.error.line },
   }
+}
+
+function isSubmission(input: unknown): input is SubmissionEvent {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'submission'
+    && 'code' in input
+    && typeof input.code === 'string'
+    && 'results' in input
+    && Array.isArray(input.results)
+    && input.results.length > 0
+    && input.results.every(isPracticeResult)
+}
+
+function isPracticeResult(input: unknown): input is PracticeTestResult {
+  return typeof input === 'object'
+    && input !== null
+    && 'name' in input
+    && typeof input.name === 'string'
+    && input.name.length > 0
+    && 'passed' in input
+    && typeof input.passed === 'boolean'
+    && 'expected' in input
+    && typeof input.expected === 'string'
+    && 'actual' in input
+    && typeof input.actual === 'string'
 }
 
 function isMessage(input: unknown): input is MessageEvent {

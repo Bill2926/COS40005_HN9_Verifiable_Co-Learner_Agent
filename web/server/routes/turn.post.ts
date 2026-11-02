@@ -24,7 +24,7 @@ export default defineEventHandler(async (event) => {
   const request = { sessionStudentId: studentId, body }
 
   try {
-    if (!isMessageEvent(body)) return await handleTurn(request, store, model)
+    if (!isStreamedTurn(body)) return await handleTurn(request, store, model)
 
     setResponseHeader(event, 'content-type', 'application/x-ndjson; charset=utf-8')
     setResponseHeader(event, 'cache-control', 'no-cache, no-transform')
@@ -52,9 +52,9 @@ export default defineEventHandler(async (event) => {
   }
 })
 
-function isMessageEvent(input: unknown): boolean {
+function isStreamedTurn(input: unknown): boolean {
   return typeof input === 'object'
     && input !== null
     && 'event' in input
-    && input.event === 'message'
+    && (input.event === 'message' || input.event === 'submission')
 }

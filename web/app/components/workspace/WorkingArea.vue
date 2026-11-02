@@ -1,27 +1,34 @@
 <script setup lang="ts">
-import type { RunOutput, WorkingAreaView } from '#shared/turn'
+import type { PracticeTestResult, RunOutput, WorkingAreaView } from '#shared/turn'
 import PracticePanel from './PracticePanel.vue'
 
-defineProps<{
+const props = defineProps<{
   area: WorkingAreaView
+  mode: 'learn' | 'practice'
   studentId: string
   selecting: boolean
   selectError: string
+  submitting: boolean
 }>()
 
 const emit = defineEmits<{
   selectExercise: [exerciseId: string]
   draft: [code: string]
   run: [result: RunOutput | null]
+  submit: [submission: { code: string, results: PracticeTestResult[] }]
+  'update:mode': [mode: 'learn' | 'practice']
 }>()
 
-const mode = ref<'learn' | 'practice'>('learn')
 const practiceOpened = ref(false)
 
 function choose(next: 'learn' | 'practice') {
   if (next === 'practice') practiceOpened.value = true
-  mode.value = next
+  emit('update:mode', next)
 }
+
+watch(() => props.mode, (mode) => {
+  if (mode === 'practice') practiceOpened.value = true
+}, { immediate: true })
 </script>
 
 <template>
@@ -89,9 +96,11 @@ function choose(next: 'learn' | 'practice') {
         :active="mode === 'practice'"
         :selecting="selecting"
         :select-error="selectError"
+        :submitting="submitting"
         @select-exercise="emit('selectExercise', $event)"
         @draft="emit('draft', $event)"
         @run="emit('run', $event)"
+        @submit="emit('submit', $event)"
       />
     </div>
   </section>
