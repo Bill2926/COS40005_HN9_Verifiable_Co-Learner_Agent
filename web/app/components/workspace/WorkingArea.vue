@@ -126,7 +126,7 @@ watch(() => props.mode, (mode) => {
       <div
         v-if="practiceOpened && studentId"
         v-show="mode === 'practice'"
-        class="px-5 py-5"
+        class="w-full max-w-[768px] p-8"
       >
         <PracticePanel
           :exercise="area.exercise"

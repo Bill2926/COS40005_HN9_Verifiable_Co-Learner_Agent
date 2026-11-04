@@ -55,7 +55,10 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     const editor = page.getByRole('textbox', { name: 'Python editor' })
     await expect(editor).toBeVisible()
     await expect(editor).toContainText('def total')
-    await expect(page.getByRole('heading', { name: 'Sum of a list' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Sum of a list', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('heading', { name: 'Sum of a list' })).toHaveCount(0)
+    await expect(page.getByText('Problem statement')).toBeVisible()
+    await expect(page.getByText('Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled()
 
     const clicks = await page.evaluate(() => Number(sessionStorage.getItem('demo-clicks')))

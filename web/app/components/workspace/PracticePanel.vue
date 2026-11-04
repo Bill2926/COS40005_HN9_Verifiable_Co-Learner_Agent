@@ -134,6 +134,13 @@ async function onSubmit() {
   }
 }
 
+function chipClass(selected: boolean): string {
+  const shape = 'rounded-[4px] px-3 py-1.5 text-center text-xs leading-4 font-medium disabled:cursor-not-allowed'
+  return selected
+    ? `${shape} bg-slate-800 text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-slate-800 disabled:text-white`
+    : `${shape} border border-slate-200 bg-slate-100 text-slate-600 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-600`
+}
+
 function onStop() {
   runGeneration += 1
   pythonReady.value = false
@@ -145,40 +152,52 @@ function onStop() {
 
 <template>
   <div
-    class="flex flex-col gap-4"
+    class="flex flex-col gap-6"
     :aria-busy="busy"
   >
-    <div
-      class="flex flex-wrap gap-2"
-      role="group"
-      aria-label="Exercises"
-    >
-      <UButton
-        v-for="choice in exercises"
-        :key="choice.id"
-        :label="choice.title"
-        color="neutral"
-        :variant="choice.id === exercise.id ? 'solid' : 'outline'"
-        :aria-pressed="choice.id === exercise.id"
-        :disabled="selecting"
-        @click="chooseExercise(choice.id)"
-      />
-    </div>
-    <p
-      v-if="selectError"
-      class="text-sm text-error"
-    >
-      {{ selectError }}
-    </p>
-
-    <article>
-      <h2 class="text-base font-medium">
-        {{ exercise.title }}
-      </h2>
-      <p class="mt-2 text-sm leading-6">
-        <InlineText :text="exercise.statement" />
+    <div class="flex flex-col gap-2">
+      <div
+        class="flex flex-wrap items-center gap-2"
+        role="group"
+        aria-label="Exercises"
+      >
+        <button
+          v-for="choice in exercises"
+          :key="choice.id"
+          type="button"
+          :class="chipClass(choice.id === exercise.id)"
+          :aria-pressed="choice.id === exercise.id"
+          :disabled="selecting"
+          @click="chooseExercise(choice.id)"
+        >
+          {{ choice.title }}
+        </button>
+      </div>
+      <p
+        v-if="selectError"
+        class="text-sm text-error"
+      >
+        {{ selectError }}
       </p>
-    </article>
+    </div>
+
+    <section
+      class="flex flex-col gap-[3.5px] rounded-[8px] border border-slate-200 bg-slate-50 p-[17px]"
+      aria-labelledby="exercise-statement"
+    >
+      <p
+        id="exercise-statement"
+        class="font-mono text-[11px] leading-[16.5px] text-slate-400 uppercase"
+      >
+        Problem statement
+      </p>
+      <p class="text-xs leading-[19.5px] text-slate-700">
+        <InlineText
+          :text="exercise.statement"
+          code-style="statement"
+        />
+      </p>
+    </section>
 
     <div>
       <p class="text-sm font-medium">
