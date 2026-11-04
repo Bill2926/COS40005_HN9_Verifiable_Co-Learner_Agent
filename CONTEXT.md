@@ -12,7 +12,7 @@ _Avoid_: user, learner
 
 **Teacher agent**:
 The co-learner agent that knows the full content of the current topic; the only agent allowed to teach, correct, or move the student between topics.
-_Avoid_: tutor, assistant, bot
+_Avoid_: tutor, assistant, bot, instructor
 
 **Deskmate agent**:
 The co-learner agent working at roughly the student's level, which learns alongside them and may only ask peer questions or share confusion.
@@ -30,6 +30,14 @@ _Avoid_: lesson, module, node
 **Exercise**:
 A practice task belonging to one topic, checked by automatic tests.
 _Avoid_: problem, task, assignment
+
+**Test**:
+One automatic check of an exercise, comparing what the student's code returns for a given input with the expected value.
+_Avoid_: assertion, test case
+
+**Misconception**:
+A specific wrong idea that explains a student's mistake, such as setting a running total back to zero inside the loop. Only the teacher agent names or corrects one to the student.
+_Avoid_: bug, error, mistake
 
 **Knowledge map**:
 The picture of the course that shows every topic as mastered, open, or closed, with the reason a closed topic is closed.
