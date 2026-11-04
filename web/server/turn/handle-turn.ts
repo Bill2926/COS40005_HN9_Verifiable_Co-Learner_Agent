@@ -483,13 +483,24 @@ function presentMessage(message: StoredMessage, displayName: string): Conversati
     id: message.id,
     author: message.author,
     name: speaker.name,
-    role: speaker.role,
+    role: message.author === 'teacher' ? teacherMoveLabel(message.approvedMove) : speaker.role,
     text: message.text,
     exerciseId: message.exerciseId,
     approvedMove: message.approvedMove,
     openInLearn: message.author === 'teacher'
       && (message.approvedMove === 'explain_concept' || message.approvedMove === 'answer_question'),
   }
+}
+
+function teacherMoveLabel(approvedMove: string | null): string {
+  if (approvedMove === 'explain_concept') return 'Explanation'
+  if (approvedMove === 'answer_question') return 'Answer'
+  if (approvedMove?.startsWith('hint_level_')) return 'Hint'
+  if (approvedMove?.startsWith('address_misconception')) return 'Misconception'
+  if (approvedMove === 'reveal_answer') return 'Answer revealed'
+  if (approvedMove?.startsWith('advance_to_item')) return 'Next topic'
+  if (approvedMove === 'stay_and_practise') return 'Keep practising'
+  return ''
 }
 
 function presentExercise(exercise: Exercise): CurrentExercise {

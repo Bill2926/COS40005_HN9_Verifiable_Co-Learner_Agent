@@ -355,7 +355,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: 'Explanation',
         text: 'The total has to exist before the loop starts.',
         approvedMove: 'explain_concept',
       },
@@ -424,7 +424,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: 'Explanation',
         text: 'The total has to exist before the loop starts.',
         approvedMove: 'explain_concept',
       },
@@ -882,7 +882,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: '',
         text: 'The Teacher could not answer just now. Please try again.',
         approvedMove: null,
       },
@@ -973,7 +973,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: '',
         text: 'The Teacher could not answer just now. Please try again.',
         approvedMove: null,
       },
@@ -1024,7 +1024,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: 'Explanation',
         approvedMove: 'explain_concept',
         text: 'A running total has to be created before the loop, so each pass can add to the same number.',
       },
@@ -1081,7 +1081,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: 'Explanation',
         text: 'A running total survives every pass of the loop.',
         approvedMove: 'explain_concept',
         openInLearn: true,
@@ -1408,7 +1408,7 @@ describe('turn endpoint', () => {
       {
         author: 'teacher',
         name: 'Teacher',
-        role: 'Teacher',
+        role: 'Explanation',
         text: 'The total is still created inside the loop.',
         approvedMove: 'explain_concept',
         openInLearn: true,
@@ -1444,6 +1444,144 @@ describe('turn endpoint', () => {
     ])
     expect(JSON.stringify(deskmatePropose.context)).not.toContain('Accumulating a total')
     expect(JSON.stringify(deskmatePropose.context)).not.toContain('starterCode')
+  })
+
+  it('presents each Teacher message with the plain-word name of its approved move', async () => {
+    const store = memoryStore()
+    const replies = [
+      {
+        proposal: { type: 'explain_concept' as const },
+        text: 'The total is created before the loop.',
+        role: 'Explanation',
+        approvedMove: 'explain_concept',
+      },
+      {
+        proposal: { type: 'answer_question' as const },
+        text: 'Yes. The total is a variable.',
+        role: 'Answer',
+        approvedMove: 'answer_question',
+      },
+      {
+        proposal: { type: 'hint_level_N' as const, level: 1 },
+        text: 'Look at the line before the loop.',
+        role: 'Hint',
+        approvedMove: 'hint_level_1',
+      },
+      {
+        proposal: { type: 'hint_level_N' as const, level: 3 },
+        text: 'Create the total once, before the loop.',
+        role: 'Hint',
+        approvedMove: 'hint_level_3',
+      },
+      {
+        proposal: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop' },
+        text: 'The total is being set back to zero inside the loop.',
+        role: 'Misconception',
+        approvedMove: 'address_misconception:accumulator_reset_inside_loop',
+      },
+      {
+        proposal: { type: 'reveal_answer' as const },
+        text: 'The total starts at zero before the loop.',
+        role: 'Answer revealed',
+        approvedMove: 'reveal_answer',
+      },
+      {
+        proposal: { type: 'advance_to_item' as const, topicId: 'nested_loop' },
+        text: 'Nested loops is the next topic.',
+        role: 'Next topic',
+        approvedMove: 'advance_to_item:nested_loop',
+      },
+      {
+        proposal: { type: 'stay_and_practise' as const },
+        text: 'Stay with this exercise a little longer.',
+        role: 'Keep practising',
+        approvedMove: 'stay_and_practise',
+      },
+    ]
+
+    for (const [index, reply] of replies.entries()) {
+      const state = await handleTurn({
+        sessionStudentId: signedInStudent,
+        body: { event: 'message', text: `Question ${index}` },
+      }, store, createFakeLanguageModel({
+        proposal: reply.proposal,
+        text: reply.text,
+      }))
+
+      expect(state.conversation.find(message => message.text === reply.text)).toMatchObject({
+        author: 'teacher',
+        name: 'Teacher',
+        role: reply.role,
+        approvedMove: reply.approvedMove,
+      })
+      expect(JSON.stringify(state)).not.toContain('Instructor')
+    }
+
+    const unanswered = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'And if the model fails?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept' },
+      fail: 'propose',
+    }))
+
+    expect(unanswered.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      name: 'Teacher',
+      role: '',
+      text: 'The Teacher could not answer just now. Please try again.',
+      approvedMove: null,
+    })
+
+    const withMai = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Mine is zero as well.' },
+    }, store, createFakeLanguageModel(
+      { proposal: null },
+      {
+        proposal: { type: 'share_confusion' },
+        text: 'i keep getting zero too.',
+      },
+    ))
+
+    expect(withMai.conversation.at(-1)).toMatchObject({
+      author: 'deskmate',
+      name: 'Mai',
+      role: 'Deskmate',
+      approvedMove: 'share_confusion',
+    })
+
+    const quietMai = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Say that again?' },
+    }, store, createFakeLanguageModel(
+      { proposal: null },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'PARTIAL_MAI_LABEL',
+        fail: 'render',
+      },
+    ))
+
+    expect(quietMai.conversation.at(-1)).toMatchObject({
+      author: 'deskmate',
+      name: 'Mai',
+      role: 'Deskmate',
+      approvedMove: null,
+    })
+
+    const selected = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_exercise', exerciseId: 'count_the_even_numbers' },
+    }, store)
+
+    expect(selected.conversation.at(-1)).toMatchObject({
+      author: 'event',
+      name: 'Exercise',
+      role: 'Marker',
+      text: 'Count the even numbers',
+    })
+    expect(JSON.stringify(selected)).not.toContain('Instructor')
   })
 
   it('does not accept a run as a turn', async () => {
