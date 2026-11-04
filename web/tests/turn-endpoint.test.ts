@@ -64,7 +64,7 @@ describe('turn endpoint', () => {
         name: 'Nested loops',
         state: 'closed',
         current: false,
-        closedReason: 'needs for_loop',
+        closedReason: 'Needs For loops.',
       },
     ])
     expect(state.workingArea).toEqual({
@@ -362,7 +362,7 @@ describe('turn endpoint', () => {
     expect(finished.state.workingArea.topicId).toBe('for_loop')
     expect(finished.state.knowledgeMap.find(topic => topic.id === 'nested_loop')).toMatchObject({
       state: 'closed',
-      closedReason: 'needs for_loop',
+      closedReason: 'Needs For loops.',
     })
   })
 
