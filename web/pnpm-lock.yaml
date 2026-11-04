@@ -20,6 +20,9 @@ importers:
       '@codemirror/state':
         specifier: ^6.7.6
         version: 6.7.6
+      '@lezer/highlight':
+        specifier: ^1.2.5
+        version: 1.2.5
       '@nuxt/ui':
         specifier: ^4.12.0
         version: 4.12.0(9b03182c77c5b1880966deb7adedac14)

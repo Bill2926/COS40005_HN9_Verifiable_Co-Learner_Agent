@@ -26,7 +26,8 @@ export const forLoopTopic: {
   materials: {
     heading: 'Accumulating a total',
     body: 'A running total needs a variable that survives every pass of the loop.',
-    example: 's = 0\nfor x in ds:\n    s = s + x',
+    example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
+    keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
     scopeNote: 'These materials belong to this topic alone.',
   },
   exercises: [

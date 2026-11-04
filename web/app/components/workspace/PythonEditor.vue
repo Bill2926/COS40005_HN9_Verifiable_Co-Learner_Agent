@@ -10,11 +10,12 @@ let editor: { destroy: () => void, requestMeasure: () => void } | null = null
 let alive = true
 
 onMounted(async () => {
-  const [{ EditorView, basicSetup }, { python }, { EditorState }, { indentUnit }] = await Promise.all([
+  const [{ EditorView, basicSetup }, { python }, { EditorState }, { indentUnit }, { pythonHighlighting, pythonHighlightColours }] = await Promise.all([
     import('codemirror'),
     import('@codemirror/lang-python'),
     import('@codemirror/state'),
     import('@codemirror/language'),
+    import('~/python/highlight'),
   ])
   if (!alive || !host.value) return
 
@@ -25,6 +26,7 @@ onMounted(async () => {
       extensions: [
         basicSetup,
         python(),
+        pythonHighlighting,
         indentUnit.of('    '),
         EditorState.tabSize.of(4),
         EditorView.contentAttributes.of({
@@ -37,7 +39,7 @@ onMounted(async () => {
           if (alive && update.docChanged) code.value = update.state.doc.toString()
         }),
         EditorView.theme({
-          '&': { height: '100%', fontSize: '14px' },
+          '&': { height: '100%', fontSize: '14px', color: pythonHighlightColours.text },
           '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
         }),
       ],

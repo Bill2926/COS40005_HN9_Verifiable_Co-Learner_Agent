@@ -2,6 +2,7 @@
 import type { CurrentExercise, ExerciseChoice, PracticeTestResult } from '#shared/turn'
 import { createDraftStore, draftAfterSwitch } from '~/drafts/store'
 import { RunStopped, type PythonRunner, type RunResult, type TestReport } from '~/python/runner'
+import InlineText from './InlineText.vue'
 import PythonEditor from './PythonEditor.vue'
 
 const props = defineProps<{
@@ -175,7 +176,7 @@ function onStop() {
         {{ exercise.title }}
       </h2>
       <p class="mt-2 text-sm leading-6">
-        {{ exercise.statement }}
+        <InlineText :text="exercise.statement" />
       </p>
     </article>
 

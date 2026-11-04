@@ -155,6 +155,7 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
     context.materials.heading,
     context.materials.body,
     context.materials.example,
+    context.materials.keyPoint,
     context.materials.scopeNote,
     '',
     'Hint ladder',
