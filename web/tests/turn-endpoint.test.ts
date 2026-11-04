@@ -8,6 +8,13 @@ const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
 const otherStudent = '6f1b0c1e-2222-4222-8222-222222222222'
 const teacherReply = 'The total has to exist before the loop starts.'
 
+function memoryStore() {
+  return createMemoryConversationStore({
+    [signedInStudent]: 'An',
+    [otherStudent]: 'Bình',
+  })
+}
+
 function speakingTeacher() {
   return createFakeLanguageModel({
     proposal: { type: 'explain_concept' },
@@ -35,7 +42,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open', studentId: otherStudent },
-    }, createMemoryConversationStore())
+    }, memoryStore())
 
     expect(JSON.stringify(state)).not.toContain(otherStudent)
   })
@@ -44,7 +51,9 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
-    }, createMemoryConversationStore())
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An',
+    }))
 
     expect(state.knowledgeMap).toEqual([
       { id: 'variable', name: 'Variables', state: 'mastered', current: false },
@@ -86,10 +95,11 @@ describe('turn endpoint', () => {
       ],
     })
     expect(state.conversation).toEqual([])
+    expect(state.displayName).toBe('An')
   })
 
   it('select_exercise redraws the chosen exercise and does not keep a draft', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const opened = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -104,6 +114,7 @@ describe('turn endpoint', () => {
       },
     }, store)
 
+    expect(state.displayName).toBe('An')
     expect(state.knowledgeMap).toEqual(opened.knowledgeMap)
     expect(state.workingArea.mode).toBeNull()
     expect(state.workingArea.topicId).toBe('for_loop')
@@ -137,7 +148,7 @@ describe('turn endpoint', () => {
   })
 
   it('open returns the conversation in the order it was written', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = speakingTeacher()
 
     await handleTurn({
@@ -203,25 +214,31 @@ describe('turn endpoint', () => {
   })
 
   it('keeps each student\'s conversation separate', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
 
-    await handleTurn({
+    const an = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'An speaking' },
     }, store, speakingTeacher())
+
+    expect(an.displayName).toBe('An')
+    expect(an.conversation.find(message => message.author === 'student')).toMatchObject({
+      name: 'An',
+    })
 
     const other = await handleTurn({
       sessionStudentId: otherStudent,
       body: { event: 'open' },
     }, store)
 
+    expect(other.displayName).toBe('Bình')
     expect(other.conversation).toEqual([])
     expect(other.workingArea.topicId).toBe('for_loop')
     expect(other.workingArea.exercise.id).toBe('sum_of_a_list')
   })
 
   it('select_exercise moves the resume point and leaves an exercise marker', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
 
     await handleTurn({
       sessionStudentId: signedInStudent,
@@ -266,9 +283,13 @@ describe('turn endpoint', () => {
       body: { event: 'open' },
     }, store)
 
+    expect(reopened.displayName).toBe('An')
     expect(reopened.workingArea.topicId).toBe('for_loop')
     expect(reopened.workingArea.exercise.id).toBe('count_the_even_numbers')
     expect(reopened.conversation).toEqual(selected.conversation)
+    expect(reopened.conversation.find(message => message.author === 'student')).toMatchObject({
+      name: 'An',
+    })
 
     const followed = await handleTurn({
       sessionStudentId: signedInStudent,
@@ -290,7 +311,7 @@ describe('turn endpoint', () => {
   })
 
   it('answers a message with one streamed Teacher message carrying its move', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: { type: 'explain_concept' },
       text: 'The total has to exist before the loop starts.',
@@ -315,6 +336,7 @@ describe('turn endpoint', () => {
     expect(finished?.type).toBe('state')
     if (finished?.type !== 'state') return
 
+    expect(finished.state.displayName).toBe('An')
     expect(finished.state.conversation.map(message => ({
       author: message.author,
       name: message.name,
@@ -324,7 +346,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         text: 'Where does the total live?',
         approvedMove: null,
@@ -345,7 +367,7 @@ describe('turn endpoint', () => {
   })
 
   it('answers with the Teacher first and then Mai', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -393,7 +415,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         text: 'Where does the total live?',
         approvedMove: null,
@@ -416,7 +438,7 @@ describe('turn endpoint', () => {
   })
 
   it('gives the Teacher the draft and latest Run output without storing either', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: { type: 'answer_question' },
       text: 'Look at the variable that survives the loop.',
@@ -483,7 +505,7 @@ describe('turn endpoint', () => {
   })
 
   it('blocks a Deskmate hint and does not render it', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -521,7 +543,7 @@ describe('turn endpoint', () => {
   })
 
   it('reports both proposals and a blocked Deskmate move, and does not keep them', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -573,7 +595,7 @@ describe('turn endpoint', () => {
   })
 
   it('reports an agent that made no proposal', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
@@ -611,7 +633,7 @@ describe('turn endpoint', () => {
   })
 
   it('reports the opening turn as the Teacher proposal and no Deskmate proposal', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -639,7 +661,7 @@ describe('turn endpoint', () => {
   })
 
   it('gives Mai no materials, hint ladder, or solution', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const draft = 'def total(ds):\n    MAI_DRAFT_SENTINEL = 0\n'
     const run = { stdout: 'MAI_RUN_SENTINEL\n', stderr: '', error: null }
     const model = createFakeLanguageModel(
@@ -713,7 +735,7 @@ describe('turn endpoint', () => {
   })
 
   it('produces no message for an agent that makes no proposal', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const quietMai = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -759,7 +781,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         text: 'Mine is zero as well.',
         approvedMove: null,
@@ -776,7 +798,7 @@ describe('turn endpoint', () => {
   })
 
   it('stays quiet when the Teacher proposes no move', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: null,
       text: 'QUIET_TEACHER_TEXT',
@@ -793,7 +815,7 @@ describe('turn endpoint', () => {
   })
 
   it('does not render a Teacher move the role table forbids', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: { type: 'peer_question' },
       text: 'FORBIDDEN_TEACHER_TEXT',
@@ -810,7 +832,7 @@ describe('turn endpoint', () => {
   })
 
   it('lets Mai speak when the Teacher cannot answer', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const events = []
     for await (const event of streamTurn({
       sessionStudentId: signedInStudent,
@@ -850,7 +872,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         text: 'Where does the total live?',
         approvedMove: null,
@@ -875,7 +897,7 @@ describe('turn endpoint', () => {
   })
 
   it('stores a friendly Mai line, with no move, when she cannot answer', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
@@ -916,7 +938,7 @@ describe('turn endpoint', () => {
   })
 
   it('returns a full redraw with a friendly fallback when the model fails', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const opened = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -941,7 +963,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         text: 'Where does the total live?',
         approvedMove: null,
@@ -976,7 +998,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, createMemoryConversationStore(), createConfiguredLanguageModel({
+    }, memoryStore(), createConfiguredLanguageModel({
       mode: 'fake',
       provider: 'deepseek',
       model: 'deepseek-v4-flash',
@@ -992,7 +1014,7 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'student',
-        name: 'You',
+        name: 'An',
         role: 'Student',
         approvedMove: null,
         text: 'Where does the total live?',
@@ -1015,7 +1037,7 @@ describe('turn endpoint', () => {
   })
 
   it('introduces a topic the first time it is opened and starts in Learn', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -1074,7 +1096,7 @@ describe('turn endpoint', () => {
   })
 
   it('introduces the topic with a teaching move when the model proposes another move', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: { type: 'stay_and_practise' },
       text: 'A running total survives every pass of the loop.',
@@ -1123,7 +1145,7 @@ describe('turn endpoint', () => {
   })
 
   it('reports that the Teacher made no proposal when opening stays quiet', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -1151,7 +1173,7 @@ describe('turn endpoint', () => {
   })
 
   it('reports that nobody proposed when the opening proposal fails', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -1179,7 +1201,7 @@ describe('turn endpoint', () => {
   })
 
   it('leaves the topic unintroduced when the opening reply fails, so the next open can introduce it', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const failed = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -1233,7 +1255,7 @@ describe('turn endpoint', () => {
   })
 
   it('does not take an agent turn when the topic already has a conversation', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const earlier = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
@@ -1263,7 +1285,7 @@ describe('turn endpoint', () => {
   })
 
   it('offers to open Learn from a teaching reply without changing the working area mode', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -1301,7 +1323,7 @@ describe('turn endpoint', () => {
   })
 
   it('does not offer Learn from a hint, and that turn does not set the working area mode', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'I am stuck.' },
@@ -1319,7 +1341,7 @@ describe('turn endpoint', () => {
   })
 
   it('records a submission summary and lets the agents answer with no student text', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = createFakeLanguageModel(
       {
         proposal: { type: 'explain_concept' },
@@ -1363,6 +1385,7 @@ describe('turn endpoint', () => {
     expect(maiSpoken).toBe('mine failed that one too.')
     expect(textEvents.findIndex(event => event.author === 'deskmate'))
       .toBeGreaterThan(textEvents.findLastIndex(event => event.author === 'teacher'))
+    expect(state.displayName).toBe('An')
     expect(state.workingArea.mode).toBeNull()
     expect(state.conversation.map(message => ({
       author: message.author,
@@ -1422,7 +1445,7 @@ describe('turn endpoint', () => {
   })
 
   it('does not accept a run as a turn', async () => {
-    const store = createMemoryConversationStore()
+    const store = memoryStore()
     const model = speakingTeacher()
 
     await expect(handleTurn({
@@ -1447,7 +1470,7 @@ describe('turn endpoint', () => {
     await expect(handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'select_exercise', exerciseId: 'while_loop' },
-    }, createMemoryConversationStore())).rejects.toEqual(expect.objectContaining({
+    }, memoryStore())).rejects.toEqual(expect.objectContaining({
       name: 'UnknownExerciseError',
       statusCode: 400,
     }))

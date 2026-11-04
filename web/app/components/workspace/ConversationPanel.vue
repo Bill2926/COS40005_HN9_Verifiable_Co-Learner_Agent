@@ -3,6 +3,7 @@ import type { ConversationMessage, TurnTrace } from '#shared/turn'
 
 const props = defineProps<{
   messages: ConversationMessage[]
+  displayName: string
   trace: TurnTrace | null
   sending: boolean
   sendError: string
@@ -201,10 +202,10 @@ watch(() => props.sending, (sending) => {
             <span
               class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-600 text-sm font-medium text-white"
               aria-hidden="true"
-            >Y</span>
+            >{{ props.displayName.slice(0, 1) }}</span>
             <div class="min-w-0">
               <p class="text-sm">
-                <span class="font-medium">You</span>
+                <span class="font-medium">{{ props.displayName }}</span>
                 <span class="text-muted"> · Student</span>
               </p>
               <p class="mt-1 text-sm leading-6">

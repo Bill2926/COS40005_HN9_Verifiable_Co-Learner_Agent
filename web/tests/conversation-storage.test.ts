@@ -114,6 +114,8 @@ describe('supabase conversation store', () => {
     const store = createSupabaseConversationStore({ url, secretKey })
 
     try {
+      expect(await store.displayName(studentId)).toBe('Round trip')
+
       await store.saveResumePoint(studentId, {
         topicId: 'for_loop',
         exerciseId: 'count_the_even_numbers',
