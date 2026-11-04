@@ -21,51 +21,109 @@ const emit = defineEmits<{
   openLearn: []
 }>()
 
-const appearance = {
-  teacher: {
-    row: 'justify-start',
-    bubble: 'border-indigo-200 bg-indigo-50',
-    avatar: 'bg-indigo-800',
-  },
-  deskmate: {
-    row: 'justify-start',
-    bubble: 'border-amber-200 bg-amber-50',
-    avatar: 'bg-amber-700',
-  },
-  student: {
-    row: 'justify-end',
-    bubble: 'border-slate-200 bg-slate-100',
-    avatar: 'bg-slate-600',
-  },
+interface BubbleRow {
+  key: string
+  kind: 'bubble'
+  author: 'student' | 'teacher' | 'deskmate'
+  name: string
+  role: string
+  text: string
+  openInLearn: boolean
+}
+
+interface EventRow {
+  key: string
+  kind: 'event'
+  name: string
+  text: string
+}
+
+const bubbleClass = {
+  student: 'rounded-tl-2xl rounded-tr-[2px] rounded-br-2xl rounded-bl-2xl bg-slate-700 px-[14px] py-[10px] text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)]',
+  teacher: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-indigo-200/80 bg-indigo-50 px-[15px] py-[11px] text-indigo-950',
+  deskmate: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-amber-200/80 bg-amber-50 px-[15px] py-[11px] text-amber-950',
 } as const
 
-const streamingBubbles = computed(() => {
-  const bubbles: { author: 'teacher' | 'deskmate', name: string, role: string, text: string }[] = []
-  if (props.streamingTeacher) {
-    bubbles.push({ author: 'teacher', name: 'Teacher', role: 'Teacher', text: props.streamingTeacher })
-  }
-  if (props.streamingDeskmate) {
-    bubbles.push({ author: 'deskmate', name: 'Mai', role: 'Deskmate', text: props.streamingDeskmate })
-  }
-  return bubbles
-})
+const avatarClass = {
+  teacher: 'bg-indigo-600',
+  deskmate: 'bg-amber-500',
+} as const
+
+const nameClass = {
+  student: 'text-slate-700',
+  teacher: 'text-indigo-900',
+  deskmate: 'text-amber-950',
+} as const
+
+const roleClass = {
+  student: 'font-mono text-slate-400',
+  teacher: 'font-mono text-indigo-500',
+  deskmate: 'font-mono text-amber-600',
+} as const
 
 const traceOpen = ref(false)
 const text = ref('')
 const pending = ref('')
 const scroller = ref<HTMLElement | null>(null)
 
-function rowFor(author: ConversationMessage['author']) {
-  if (author === 'event') return 'justify-center'
-  return appearance[author].row
-}
+const rows = computed(() => {
+  const shown: Array<BubbleRow | EventRow> = props.messages.map((message) => {
+    if (message.author === 'event') {
+      return {
+        key: message.id,
+        kind: 'event' as const,
+        name: message.name,
+        text: message.text,
+      }
+    }
+    return {
+      key: message.id,
+      kind: 'bubble' as const,
+      author: message.author,
+      name: message.name,
+      role: message.role,
+      text: message.text,
+      openInLearn: message.openInLearn,
+    }
+  })
 
-function bubbleFor(author: ConversationMessage['author']) {
-  if (author === 'event') return appearance.teacher
-  return appearance[author]
-}
+  if (props.sending && pending.value) {
+    shown.push({
+      key: 'pending-student',
+      kind: 'bubble',
+      author: 'student',
+      name: props.displayName,
+      role: 'Student',
+      text: pending.value,
+      openInLearn: false,
+    })
+  }
+  if (props.streamingTeacher) {
+    shown.push({
+      key: 'streaming-teacher',
+      kind: 'bubble',
+      author: 'teacher',
+      name: 'Teacher',
+      role: '',
+      text: props.streamingTeacher,
+      openInLearn: false,
+    })
+  }
+  if (props.streamingDeskmate) {
+    shown.push({
+      key: 'streaming-deskmate',
+      kind: 'bubble',
+      author: 'deskmate',
+      name: 'Mai',
+      role: 'Deskmate',
+      text: props.streamingDeskmate,
+      openInLearn: false,
+    })
+  }
+  return shown
+})
 
-watch(() => [props.messages.length, props.streamingTeacher, props.streamingDeskmate, props.sending] as const, () => {
+watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate] as const, () => {
   nextTick(() => {
     const element = scroller.value
     if (element) element.scrollTop = element.scrollHeight
@@ -88,18 +146,38 @@ watch(() => props.sending, (sending) => {
 
 <template>
   <section
-    class="flex h-full min-h-0 min-w-0 flex-col bg-default"
+    class="flex h-full min-h-0 min-w-0 flex-col bg-slate-50/40"
     aria-label="Conversation"
   >
-    <header class="flex shrink-0 items-center justify-between gap-3 border-b border-default px-4 py-3">
-      <h2 class="text-sm font-medium">
-        Conversation
-      </h2>
-      <USwitch
-        v-model="traceOpen"
-        label="Shield trace"
-        size="sm"
-      />
+    <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
+      <div class="flex items-center gap-[10px]">
+        <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-800">
+          Conversation
+        </h2>
+        <p class="font-mono text-[10px] leading-[15px] text-slate-400">
+          Teacher + Deskmate
+        </p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span
+          id="conversation-shield-trace"
+          class="text-[11px] leading-[16.5px] text-slate-400"
+        >Shield trace</span>
+        <button
+          type="button"
+          role="switch"
+          class="relative h-4 w-7 shrink-0 rounded-full"
+          :class="traceOpen ? 'bg-indigo-600' : 'bg-slate-200'"
+          :aria-checked="traceOpen"
+          aria-labelledby="conversation-shield-trace"
+          @click="traceOpen = !traceOpen"
+        >
+          <span
+            class="absolute top-0.5 size-3 rounded-full bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
+            :class="traceOpen ? 'left-3.5' : 'left-0.5'"
+          />
+        </button>
+      </div>
     </header>
 
     <section
@@ -137,142 +215,105 @@ watch(() => props.sending, (sending) => {
 
     <div
       ref="scroller"
-      class="min-h-0 flex-1 overflow-y-auto px-4 py-4"
+      class="min-h-0 flex-1 overflow-y-auto p-4"
     >
       <p
-        v-if="messages.length === 0 && !sending && streamingTeacher.length === 0 && streamingDeskmate.length === 0"
-        class="text-sm text-muted"
+        v-if="rows.length === 0"
+        class="text-sm text-slate-400"
       >
         No messages yet.
       </p>
       <ol
         v-else
-        class="space-y-3"
+        class="flex flex-col gap-4"
       >
         <li
-          v-for="message in messages"
-          :key="message.id"
-          class="flex"
-          :class="rowFor(message.author)"
+          v-for="row in rows"
+          :key="row.key"
+          class="flex w-full"
+          :class="row.kind === 'event' ? 'justify-center' : row.author === 'student' ? 'justify-end' : 'justify-start'"
         >
           <p
-            v-if="message.author === 'event'"
-            class="text-center text-sm text-muted"
+            v-if="row.kind === 'event'"
+            class="rounded-[4px] bg-slate-100 px-2 text-center font-mono text-[10px] leading-[15px] text-slate-400"
           >
-            {{ message.name }} · {{ message.text }}
+            {{ row.name }} · {{ row.text }}
           </p>
-          <article
+          <div
             v-else
-            class="flex max-w-[85%] gap-2 rounded-lg border px-3 py-2"
-            :class="bubbleFor(message.author).bubble"
+            class="flex max-w-[85%] flex-col"
+            :class="row.author === 'student' ? 'items-end' : 'items-start'"
           >
-            <span
-              class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
-              :class="bubbleFor(message.author).avatar"
-              aria-hidden="true"
+            <p
+              class="flex items-center gap-1.5"
+              :class="row.author === 'student' ? 'pr-1' : 'pl-1'"
             >
-              {{ message.name.slice(0, 1) }}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm">
-                <span class="font-medium">{{ message.name }}</span>
-                <span class="text-muted"> · {{ message.role }}</span>
-              </p>
-              <p class="mt-1 text-sm leading-6">
-                {{ message.text }}
-              </p>
-              <UButton
-                v-if="message.openInLearn"
+              <span
+                v-if="row.author !== 'student'"
+                class="flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] leading-[13.5px] font-bold text-white"
+                :class="avatarClass[row.author]"
+                aria-hidden="true"
+              >{{ row.name.slice(0, 1) }}</span>
+              <span
+                class="text-[11px] leading-[16.5px] font-medium"
+                :class="nameClass[row.author]"
+              >{{ row.name }}</span>
+              <span
+                v-if="row.role"
+                class="text-[10px] leading-[15px]"
+                :class="roleClass[row.author]"
+              >{{ row.role }}</span>
+            </p>
+            <article
+              class="mt-1 w-fit max-w-full text-[12px] leading-[19.5px] break-words"
+              :class="bubbleClass[row.author]"
+            >
+              <p>{{ row.text }}</p>
+              <button
+                v-if="row.openInLearn"
                 type="button"
-                class="mt-2"
-                size="sm"
-                color="neutral"
-                variant="outline"
-                label="Open in Learn"
+                class="mt-2 text-[11px] leading-4 font-medium text-indigo-700"
                 @click="emit('openLearn')"
-              />
-            </div>
-          </article>
-        </li>
-        <li
-          v-if="sending && pending"
-          class="flex justify-end"
-        >
-          <article class="flex max-w-[85%] gap-2 rounded-lg border border-slate-200 bg-slate-100 px-3 py-2">
-            <span
-              class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full bg-slate-600 text-sm font-medium text-white"
-              aria-hidden="true"
-            >{{ props.displayName.slice(0, 1) }}</span>
-            <div class="min-w-0">
-              <p class="text-sm">
-                <span class="font-medium">{{ props.displayName }}</span>
-                <span class="text-muted"> · Student</span>
-              </p>
-              <p class="mt-1 text-sm leading-6">
-                {{ pending }}
-              </p>
-            </div>
-          </article>
-        </li>
-        <li
-          v-for="bubble in streamingBubbles"
-          :key="bubble.author"
-          class="flex"
-          :class="appearance[bubble.author].row"
-        >
-          <article
-            class="flex max-w-[85%] gap-2 rounded-lg border px-3 py-2"
-            :class="appearance[bubble.author].bubble"
-          >
-            <span
-              class="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full text-sm font-medium text-white"
-              :class="appearance[bubble.author].avatar"
-              aria-hidden="true"
-            >
-              {{ bubble.name.slice(0, 1) }}
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm">
-                <span class="font-medium">{{ bubble.name }}</span>
-                <span class="text-muted"> · {{ bubble.role }}</span>
-              </p>
-              <p class="mt-1 text-sm leading-6">
-                {{ bubble.text }}
-              </p>
-            </div>
-          </article>
+              >
+                Open in Learn
+              </button>
+            </article>
+          </div>
         </li>
       </ol>
     </div>
 
     <form
-      class="shrink-0 space-y-2 border-t border-default px-4 py-3"
+      class="shrink-0 border-t border-slate-200 bg-white px-3 pt-[13px] pb-3"
       @submit.prevent="submit"
     >
-      <label class="block text-sm">
-        <span class="sr-only">Message</span>
-        <UInput
-          v-model="text"
-          name="message"
-          placeholder="Message"
-          class="w-full"
-          :disabled="sending"
-        />
-      </label>
+      <div class="flex items-center gap-2">
+        <label class="min-w-0 flex-1">
+          <span class="sr-only">Message</span>
+          <input
+            v-model="text"
+            name="message"
+            placeholder="Message"
+            :disabled="sending"
+            class="h-[34px] w-full rounded-[4px] border border-slate-200 bg-slate-50 px-[13px] text-xs text-slate-800 outline-none placeholder:text-slate-400 focus-visible:border-indigo-500 disabled:opacity-60"
+          >
+        </label>
+        <button
+          type="submit"
+          class="h-8 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-indigo-600 disabled:text-white disabled:opacity-100"
+          :disabled="sending || text.trim().length === 0"
+          :aria-busy="sending"
+        >
+          Send
+        </button>
+      </div>
       <p
         v-if="sendError"
         role="alert"
-        class="text-sm text-error"
+        class="mt-2 text-sm text-rose-600"
       >
         {{ sendError }}
       </p>
-      <UButton
-        type="submit"
-        :loading="sending"
-        :disabled="sending || text.trim().length === 0"
-      >
-        Send
-      </UButton>
     </form>
   </section>
 </template>

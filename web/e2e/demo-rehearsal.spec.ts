@@ -123,12 +123,21 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
     const texts = await items.allInnerTexts()
     const index = texts.findIndex(text => text.includes(studentMessage))
-    expect(texts[index]).toContain(anAccount.displayName)
+    const student = items.nth(index)
     const teacher = items.nth(index + 1)
     const mai = items.nth(index + 2)
+    const label = (item: Locator) => item.locator('p').first()
+    await expect(label(student)).toContainText(anAccount.displayName)
+    await expect(label(student)).toContainText('Student')
+    await expect(label(teacher)).toContainText('Teacher')
+    await expect(label(teacher)).toContainText('Explanation')
+    await expect(label(teacher)).not.toContainText('Instructor')
+    await expect(label(mai)).toContainText('Mai')
+    await expect(label(mai)).toContainText('Deskmate')
     expect(await background(teacher.locator('article'))).not.toBe(await background(mai.locator('article')))
-    expect(await background(teacher.locator('article > span'))).not.toBe(await background(mai.locator('article > span')))
+    expect(await background(label(teacher).locator('span').first())).not.toBe(await background(label(mai).locator('span').first()))
     expect(await background(teacher.locator('article'))).not.toBe('rgba(0, 0, 0, 0)')
+    expect(await background(label(teacher).locator('span').first())).not.toBe('rgba(0, 0, 0, 0)')
   })
 
   await test.step('toggling the shield trace shows that the shield is not active yet', async () => {
