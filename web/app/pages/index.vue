@@ -175,17 +175,26 @@ useHead({
     data-layout="ide"
     class="flex h-dvh min-w-[60rem] flex-col overflow-auto bg-elevated"
   >
-    <header class="flex shrink-0 justify-end bg-default px-3 py-2">
+    <header class="flex h-12 shrink-0 items-center justify-between border-b border-default bg-default px-6">
+      <p class="flex items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
+        <span
+          class="size-2.5 shrink-0 rounded-sm bg-primary-600"
+          aria-hidden="true"
+        />
+        Verifiable Co-Learner
+      </p>
       <UButton
         type="button"
         color="neutral"
         variant="ghost"
+        size="xs"
+        class="font-medium text-muted"
         @click="signOut"
       >
         Sign out
       </UButton>
     </header>
-    <div class="grid min-h-[40rem] flex-1 grid-cols-[14rem_minmax(0,1fr)_22rem]">
+    <div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)]">
       <KnowledgeMap :topics="workspace.knowledgeMap" />
       <WorkingArea
         :area="workspace.workingArea"
