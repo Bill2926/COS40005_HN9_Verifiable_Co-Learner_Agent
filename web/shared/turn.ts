@@ -91,6 +91,7 @@ export interface TurnTrace {
 }
 
 export interface RedrawState {
+  displayName: string
   knowledgeMap: MapTopic[]
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]

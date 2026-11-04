@@ -41,6 +41,15 @@ export function createSupabaseConversationStore(options: {
   }
 
   return {
+    async displayName(studentId) {
+      const result = await supabase
+        .from('students')
+        .select('display_name')
+        .eq('id', studentId)
+        .single()
+      if (result.error) throw new Error(result.error.message)
+      return result.data.display_name
+    },
     async resumePoint(studentId) {
       const result = await supabase
         .from('resume_points')

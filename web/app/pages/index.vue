@@ -159,6 +159,14 @@ async function streamAgentTurn(body: unknown, failure: string) {
 useHead({
   title: computed(() => workspace.value?.workingArea.topicName ?? 'Workspace'),
 })
+
+function initialsOf(name: string): string {
+  const words = name.trim().split(/\s+/).filter(word => word.length > 0)
+  const first = words[0]
+  if (!first) return ''
+  if (words.length === 1) return Array.from(first).slice(0, 2).join('')
+  return words.slice(0, 2).map(word => Array.from(word)[0] ?? '').join('')
+}
 </script>
 
 <template>
@@ -183,16 +191,26 @@ useHead({
         />
         Verifiable Co-Learner
       </p>
-      <UButton
-        type="button"
-        color="neutral"
-        variant="ghost"
-        size="xs"
-        class="font-medium text-muted"
-        @click="signOut"
-      >
-        Sign out
-      </UButton>
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2 border-r border-slate-200 pr-[13px]">
+          <span
+            class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-medium leading-4 text-slate-700"
+            aria-hidden="true"
+          >{{ initialsOf(workspace.displayName) }}</span>
+          <span class="text-xs font-medium leading-4 text-slate-700">{{ workspace.displayName }}</span>
+          <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-slate-400 uppercase">Student</span>
+        </div>
+        <UButton
+          type="button"
+          color="neutral"
+          variant="ghost"
+          size="xs"
+          class="px-0 text-xs font-medium text-slate-500"
+          @click="signOut"
+        >
+          Sign out
+        </UButton>
+      </div>
     </header>
     <div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)]">
       <KnowledgeMap :topics="workspace.knowledgeMap" />
@@ -211,6 +229,7 @@ useHead({
       />
       <ConversationPanel
         :messages="workspace.conversation"
+        :display-name="workspace.displayName"
         :trace="latestTrace"
         :sending="sending"
         :send-error="sendError"

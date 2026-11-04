@@ -47,6 +47,9 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     await signIn(page, anAccount)
 
     await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+    const topBar = page.locator('main > header')
+    await expect(topBar).toContainText(anAccount.displayName)
+    await expect(topBar).toContainText('Student')
     await page.getByRole('button', { name: 'Practice', exact: true }).click()
 
     const editor = page.getByRole('textbox', { name: 'Python editor' })
@@ -82,11 +85,30 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
   await test.step('a message shows a Teacher message followed by a Mai message, styled differently', async () => {
     await page.getByRole('textbox', { name: 'Message' }).fill(studentMessage)
+    let releaseMessage = () => {}
+    const messageHeld = new Promise<void>((resolve) => {
+      releaseMessage = resolve
+    })
+    await page.route('**/turn', async (route) => {
+      const body = route.request().postData() ?? ''
+      if (body.includes('"event":"message"')) await messageHeld
+      await route.continue()
+    })
     const messageTurn = page.waitForResponse((response) => {
       const body = response.request().postData() ?? ''
       return response.url().endsWith('/turn') && body.includes('"event":"message"')
     })
     await page.getByRole('button', { name: 'Send', exact: true }).click()
+    const pending = conversation(page).locator('ol > li').last()
+    try {
+      await expect(pending).toContainText(anAccount.displayName)
+      await expect(pending).toContainText(studentMessage)
+    }
+    finally {
+      releaseMessage()
+    }
+    await messageTurn
+    await page.unroute('**/turn')
 
     const items = conversation(page).locator('ol > li')
     await expect.poll(async () => {
@@ -101,12 +123,12 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
     const texts = await items.allInnerTexts()
     const index = texts.findIndex(text => text.includes(studentMessage))
+    expect(texts[index]).toContain(anAccount.displayName)
     const teacher = items.nth(index + 1)
     const mai = items.nth(index + 2)
     expect(await background(teacher.locator('article'))).not.toBe(await background(mai.locator('article')))
     expect(await background(teacher.locator('article > span'))).not.toBe(await background(mai.locator('article > span')))
     expect(await background(teacher.locator('article'))).not.toBe('rgba(0, 0, 0, 0)')
-    await messageTurn
   })
 
   await test.step('toggling the shield trace shows that the shield is not active yet', async () => {

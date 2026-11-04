@@ -22,13 +22,16 @@ export interface NewMessage {
 }
 
 export interface ConversationStore {
+  displayName: (studentId: string) => Promise<string>
   resumePoint: (studentId: string) => Promise<ResumePoint | null>
   saveResumePoint: (studentId: string, point: ResumePoint) => Promise<void>
   messages: (studentId: string, topicId: string) => Promise<StoredMessage[]>
   appendMessage: (studentId: string, topicId: string, message: NewMessage) => Promise<StoredMessage>
 }
 
-export function createMemoryConversationStore(): ConversationStore {
+export function createMemoryConversationStore(
+  displayNames: Readonly<Record<string, string>> = {},
+): ConversationStore {
   const resumePoints = new Map<string, ResumePoint>()
   const conversations = new Map<string, StoredMessage[]>()
 
@@ -37,6 +40,11 @@ export function createMemoryConversationStore(): ConversationStore {
   }
 
   return {
+    async displayName(studentId) {
+      const name = displayNames[studentId]
+      if (name === undefined) throw new Error('That student has no display name.')
+      return name
+    },
     async resumePoint(studentId) {
       const point = resumePoints.get(studentId)
       return point ? { ...point } : null

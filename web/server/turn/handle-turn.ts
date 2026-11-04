@@ -449,8 +449,10 @@ async function redraw(
   const exercise = forLoopTopic.exercises.find(choice => choice.id === exerciseId)
   if (!exercise) throw new UnknownExerciseError()
   const messages = await store.messages(studentId, forLoopTopic.id)
+  const displayName = await store.displayName(studentId)
 
   return {
+    displayName,
     knowledgeMap: knowledgeMap.map(topic => ({ ...topic })),
     workingArea: {
       mode,
@@ -463,15 +465,15 @@ async function redraw(
         title: choice.title,
       })),
     },
-    conversation: messages.map(presentMessage),
+    conversation: messages.map(message => presentMessage(message, displayName)),
   }
 }
 
-function presentMessage(message: StoredMessage): ConversationMessage {
+function presentMessage(message: StoredMessage, displayName: string): ConversationMessage {
   const speaker = message.author === 'event' && isSubmissionSummary(message.text)
     ? { name: 'Practice check', role: 'Result' }
     : {
-        student: { name: 'You', role: 'Student' },
+        student: { name: displayName, role: 'Student' },
         teacher: { name: 'Teacher', role: 'Teacher' },
         deskmate: { name: 'Mai', role: 'Deskmate' },
         event: { name: 'Exercise', role: 'Marker' },
