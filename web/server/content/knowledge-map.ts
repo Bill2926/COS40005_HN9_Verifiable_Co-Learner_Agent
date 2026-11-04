@@ -10,6 +10,6 @@ export const knowledgeMap: MapTopic[] = [
     name: 'Nested loops',
     state: 'closed',
     current: false,
-    closedReason: 'needs for_loop',
+    closedReason: 'Needs For loops.',
   },
 ]

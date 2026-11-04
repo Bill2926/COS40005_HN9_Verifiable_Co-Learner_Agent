@@ -33,7 +33,7 @@ watch(() => props.mode, (mode) => {
 
 <template>
   <section
-    class="flex h-full min-h-0 min-w-0 flex-col border-x border-default bg-default"
+    class="flex h-full min-h-0 min-w-0 flex-col border-r border-default bg-default"
     aria-label="Working area"
   >
     <header class="shrink-0 border-b border-default px-5 py-4">
