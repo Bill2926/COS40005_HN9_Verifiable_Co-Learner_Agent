@@ -32,6 +32,7 @@ export default defineNuxtConfig({
         '@codemirror/lang-python',
         '@codemirror/language',
         '@codemirror/state',
+        '@lezer/highlight',
         'codemirror',
       ],
       exclude: ['pyodide'],

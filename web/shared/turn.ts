@@ -14,6 +14,7 @@ export interface TopicMaterials {
   heading: string
   body: string
   example: string
+  keyPoint: string
   scopeNote: string
 }
 
