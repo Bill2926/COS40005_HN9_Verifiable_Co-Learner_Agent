@@ -82,7 +82,7 @@ describe('turn endpoint', () => {
         id: 'sum_of_a_list',
         title: 'Sum of a list',
         statement:
-          'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+          'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
         starterCode: 'def total(ds):\n    pass\n',
         tests: [
           { name: 'three numbers', expression: 'total([1, 2, 3])', expected: '6' },
@@ -126,7 +126,7 @@ describe('turn endpoint', () => {
     expect(state.workingArea.exercise).toEqual({
       id: 'count_the_even_numbers',
       title: 'Count the even numbers',
-      statement: 'Count how many numbers in a list are even. Use a for loop.',
+      statement: 'Count how many numbers in a list are even. Use a `for` loop.',
       starterCode: 'def count_even(ds):\n    pass\n',
       tests: [
         { name: 'two evens', expression: 'count_even([1, 2, 3, 4])', expected: '2' },
@@ -483,7 +483,7 @@ describe('turn endpoint', () => {
       expect(exchange.context.exercise).toEqual({
         id: 'sum_of_a_list',
         title: 'Sum of a list',
-        statement: 'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+        statement: 'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
         starterCode: 'def total(ds):\n    pass\n',
       })
       expect(exchange.context.conversation.map(message => message.text)).toContain('Why is this zero?')
@@ -697,7 +697,7 @@ describe('turn endpoint', () => {
           response: 'The total is set back to zero inside the loop, so each pass forgets the numbers before it. Create the total once, before the loop starts.',
         },
       ],
-      exerciseStatement: 'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+      exerciseStatement: 'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
       draft,
       runOutput: run,
       submission: null,

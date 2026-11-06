@@ -35,7 +35,7 @@ export const forLoopTopic: {
       id: 'sum_of_a_list',
       title: 'Sum of a list',
       statement:
-        'Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.',
+        'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
       starterCode: `def total(ds):
     pass
 `,
@@ -48,7 +48,7 @@ export const forLoopTopic: {
     {
       id: 'count_the_even_numbers',
       title: 'Count the even numbers',
-      statement: 'Count how many numbers in a list are even. Use a for loop.',
+      statement: 'Count how many numbers in a list are even. Use a `for` loop.',
       starterCode: `def count_even(ds):
     pass
 `,
