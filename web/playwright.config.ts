@@ -21,15 +21,17 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } },
     },
   ],
-  // When port 3000 is free, this starts the app in fake-model mode.
-  // An app already there is reused and must already be in fake mode, the default.
+  // Always starts its own app with the fake model forced, and never reuses one
+  // already on the port. A developer with a DeepSeek key or an Ollama base URL
+  // configured serves a live model from `pnpm dev`, and these tests assert on
+  // the exact scripted sentences, so a reused server would test the wrong thing.
   webServer: {
     command: 'pnpm dev --port 3000 --strictPort --no-tui',
     url: `${baseURL}/sign-in`,
-    reuseExistingServer: true,
+    reuseExistingServer: false,
     timeout: 120_000,
     env: {
-      NUXT_MODEL_MODE: 'fake',
+      NUXT_MODEL: 'fake',
     },
   },
 })
