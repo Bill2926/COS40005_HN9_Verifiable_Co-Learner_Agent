@@ -10,7 +10,7 @@ const pending = ref(false)
 const incorrectMessage = 'Email or password is incorrect.'
 const unreachableMessage = 'Sign-in is unavailable right now.'
 
-const inputClass = 'rounded-sm px-[13px] py-[9px] text-sm/5'
+const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
 
 if (import.meta.server) {
   const event = useRequestEvent()
@@ -51,8 +51,8 @@ async function signIn() {
 </script>
 
 <template>
-  <div class="flex h-dvh flex-col bg-muted">
-    <header class="flex shrink-0 items-center border-b border-default/80 bg-default px-8 py-4">
+  <div class="flex min-h-dvh flex-col bg-muted">
+    <header class="phone-safe-top flex shrink-0 items-center border-b border-default/80 bg-default px-4 py-4 md:px-8 md:py-4">
       <p class="flex items-center gap-2 text-sm font-semibold tracking-tight text-highlighted">
         <span
           class="size-2.5 shrink-0 rounded-sm bg-primary-600"
@@ -61,9 +61,9 @@ async function signIn() {
         Verifiable Co-Learner
       </p>
     </header>
-    <main class="grid flex-1 place-items-center p-6">
+    <main class="phone-safe-bottom grid flex-1 place-items-center p-4 md:p-6">
       <form
-        class="flex w-full max-w-sm flex-col gap-6 rounded-lg border border-default bg-default p-8 shadow-xs"
+        class="flex w-full flex-col gap-6 rounded-lg border border-default bg-default p-4 shadow-xs md:max-w-sm md:p-8"
         @submit.prevent="signIn"
       >
         <div class="flex flex-col gap-1">
@@ -124,7 +124,7 @@ async function signIn() {
             block
             size="lg"
             :loading="pending"
-            class="rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600"
+            class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600 md:min-h-0"
           >
             Sign in
           </UButton>

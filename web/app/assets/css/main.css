@@ -4,3 +4,23 @@
 @theme static {
   --font-sans: 'Inter', sans-serif;
 }
+
+/* Phone padding stays clear of a notch and the home indicator. */
+@media (width < 48rem) {
+  .phone-safe,
+  .phone-safe-top,
+  .phone-safe-bottom {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+  }
+
+  .phone-safe,
+  .phone-safe-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .phone-safe,
+  .phone-safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+}
