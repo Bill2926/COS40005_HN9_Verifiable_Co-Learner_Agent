@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf } from '../app/map/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf } from '../app/map/arrangement'
 import type { MapTopic } from '../shared/turn'
 
 const an = 'a11a11a1-1111-4111-8111-111111111111'
@@ -46,6 +46,74 @@ describe('map arrangement', () => {
     expect(arrangement.nested_loop).toEqual({ x: 0.541, y: 0.705 })
     // Fifth topic, one row of five, last column: left 1179.2 of a 1232-wide room, top 64 of an 820-tall room.
     expect(arrangement.while_loop).toEqual({ x: 0.9571428571428572, y: 0.07804878048780488 })
+  })
+
+  it('places four topics on a compact canvas without overlap at 375px and 768px', () => {
+    // The current topic card is the widest and tallest card on the canvas.
+    const card = { width: 248, height: 88 }
+    const topics = ['variable', 'if_else', 'for_loop', 'nested_loop']
+
+    for (const canvas of [
+      { width: 375, height: 700 },
+      { width: 768, height: 440 },
+    ]) {
+      const arrangement = defaultArrangement(topics, canvas)
+      const boxes = topics.map((id) => {
+        const point = arrangement[id]
+        expect(point, id).toBeDefined()
+        return placeCard(point!, card, canvas)
+      })
+
+      for (const box of boxes) {
+        expect(box.x).toBeGreaterThanOrEqual(0)
+        expect(box.y).toBeGreaterThanOrEqual(64)
+        expect(box.x + box.width).toBeLessThanOrEqual(canvas.width)
+        expect(box.y + box.height).toBeLessThanOrEqual(canvas.height - 56)
+      }
+      for (let left = 0; left < boxes.length; left += 1) {
+        for (let right = left + 1; right < boxes.length; right += 1) {
+          const a = boxes[left]!
+          const b = boxes[right]!
+          const separated = a.x + a.width <= b.x
+            || b.x + b.width <= a.x
+            || a.y + a.height <= b.y
+            || b.y + b.height <= a.y
+          expect(separated, `${topics[left]} overlaps ${topics[right]} on ${canvas.width}px`).toBe(true)
+        }
+      }
+    }
+  })
+
+  it('keeps four topics apart when a compact canvas is too short for full-size cards', () => {
+    const canvas = { width: 667, height: 220 }
+    const topics = ['variable', 'if_else', 'for_loop', 'nested_loop']
+    const scale = arrangementScale(canvas, topics.length)
+    const card = { width: 248 * scale, height: 88 * scale }
+    const arrangement = defaultArrangement(topics, canvas)
+    const boxes = topics.map((id) => {
+      const point = arrangement[id]
+      if (!point) throw new Error(`${id} has no starting point`)
+      return placeCard(point, card, canvas)
+    })
+
+    expect(scale).toBeLessThan(1)
+    for (const box of boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(64)
+      expect(box.x + box.width).toBeLessThanOrEqual(canvas.width)
+      expect(box.y + box.height).toBeLessThanOrEqual(canvas.height - 80)
+    }
+    for (let left = 0; left < boxes.length; left += 1) {
+      for (let right = left + 1; right < boxes.length; right += 1) {
+        const a = boxes[left]!
+        const b = boxes[right]!
+        const separated = a.x + a.width <= b.x
+          || b.x + b.width <= a.x
+          || a.y + a.height <= b.y
+          || b.y + b.height <= a.y
+        expect(separated).toBe(true)
+      }
+    }
   })
 
   it('draws one connector for each consecutive pair, in course order, styled by the topic it leads into', () => {

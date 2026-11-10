@@ -106,9 +106,36 @@ const designed: Record<string, Point> = {
 }
 
 const typicalCard: Size = { width: 208, height: 80 }
+// The current topic is the widest and tallest card. A compact canvas lays out
+// around that size, so a shorter card still has a gap.
+const compactCard: Size = { width: 248, height: 88 }
 const edge = 16
 const labelRoom = 64
 const footerRoom = 56
+
+// Shrinks the compact card so every row fits between the label and the pill.
+// A sideways phone is a short canvas; full-size cards would stack.
+export function arrangementScale(canvas: Size, count: number): number {
+  if (count === 0 || sizeClassOf(canvas) === 'wide') return 1
+  const topRoom = canvas.width < 480 ? 96 : labelRoom
+  const bottomRoom = canvas.width < 768 ? 80 : footerRoom
+  const columns = compactColumns(canvas, count)
+  const rows = Math.ceil(count / columns)
+  const stagger = columns > 1 ? 16 : 0
+  const roomHeight = Math.max(0, canvas.height - topRoom - bottomRoom)
+  const roomWidth = Math.max(0, canvas.width - edge * 2)
+  const heightScale = (roomHeight - stagger) / (rows * compactCard.height)
+  const widthScale = roomWidth / compactCard.width
+  return Math.min(1, Math.max(0, heightScale), Math.max(0, widthScale))
+}
+
+export function fittedTopicWidth(canvas: Size, count: number): number {
+  return compactCard.width * arrangementScale(canvas, count)
+}
+
+function compactColumns(canvas: Size, count: number): number {
+  return Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2) / (compactCard.width + 24))))
+}
 
 export function defaultArrangement(topicIds: readonly string[], canvas: Size): Arrangement {
   const wide = sizeClassOf(canvas) === 'wide'
@@ -124,10 +151,19 @@ export function defaultArrangement(topicIds: readonly string[], canvas: Size): A
 // Course order runs left to right, snaking back on the next row; one column zig-zags.
 function flow(count: number, canvas: Size): Point[] {
   if (count === 0) return []
-  const card = typicalCard
-  const columns = Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2) / (card.width + 24))))
+  const compact = sizeClassOf(canvas) !== 'wide'
+  const scale = compact ? arrangementScale(canvas, count) : 1
+  const card = compact
+    ? { width: compactCard.width * scale, height: compactCard.height * scale }
+    : typicalCard
+  const topRoom = compact && canvas.width < 480 ? 96 : labelRoom
+  const bottomRoom = compact && canvas.width < 768 ? 80 : footerRoom
+  const columns = compact
+    ? compactColumns(canvas, count)
+    : Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2) / (card.width + 24))))
   const rows = Math.ceil(count / columns)
-  const usableHeight = Math.max(0, canvas.height - labelRoom - footerRoom - card.height)
+  const stagger = compact && columns > 1 ? 16 : 0
+  const usableHeight = Math.max(0, canvas.height - topRoom - bottomRoom - card.height - stagger)
   const step = rows > 1 ? Math.min(card.height + 40, usableHeight / (rows - 1)) : 0
   const cell = (canvas.width - edge * 2) / columns
 
@@ -138,7 +174,7 @@ function flow(count: number, canvas: Size): Point[] {
     const left = columns === 1
       ? (index % 2 === 0 ? edge : canvas.width - card.width - edge)
       : edge + column * cell + (cell - card.width) / 2
-    const top = labelRoom + row * step + (columns > 1 && column % 2 === 1 ? 16 : 0)
+    const top = topRoom + row * step + (columns > 1 && column % 2 === 1 ? 16 : 0)
     return pointAt(left, top, card, canvas)
   })
 }

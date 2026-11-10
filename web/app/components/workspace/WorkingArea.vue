@@ -53,8 +53,8 @@ watch(() => props.mode, (mode) => {
   <section
     class="flex min-h-0 min-w-0 flex-col bg-white"
     :class="[
-      floating ? '' : 'border-r border-slate-200',
-      floating && expanded === false ? 'h-auto' : 'h-full',
+      floating ? 'md:max-lg:border-r md:max-lg:border-slate-200' : 'border-r border-slate-200',
+      floating && expanded === false ? 'h-full lg:h-auto' : 'h-full',
     ]"
     aria-label="Working area"
   >
@@ -64,7 +64,7 @@ watch(() => props.mode, (mode) => {
           Working area
           <span
             v-if="floating"
-            class="rounded-[4px] bg-[#f1f5f9] px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-[#475569]"
+            class="hidden rounded-[4px] bg-[#f1f5f9] px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-[#475569] lg:inline"
           >ACTIVE</span>
         </p>
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.5px] text-slate-900">
@@ -103,7 +103,7 @@ watch(() => props.mode, (mode) => {
         <button
           v-if="floating"
           type="button"
-          class="rounded-[4px] p-1"
+          class="hidden rounded-[4px] p-1 lg:block"
           :aria-expanded="expanded !== false"
           :aria-label="bodyShown ? 'Collapse working area' : 'Expand working area'"
           @click="toggleExpanded"
@@ -119,8 +119,8 @@ watch(() => props.mode, (mode) => {
     </header>
 
     <div
-      v-show="bodyShown"
       class="min-h-0 min-w-0 flex-1 overflow-y-auto"
+      :class="floating && expanded === false ? 'lg:hidden' : ''"
     >
       <article
         v-if="mode === 'learn'"

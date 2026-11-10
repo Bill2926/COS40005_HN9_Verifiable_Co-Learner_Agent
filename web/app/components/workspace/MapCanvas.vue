@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { MapTopic } from '#shared/turn'
-import { avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/map/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedTopicWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/map/arrangement'
 
 const props = defineProps<{
   topics: MapTopic[]
@@ -74,6 +74,11 @@ const boxes = computed(() => {
 
 const lines = computed(() => connectors(props.topics, boxes.value))
 const placed = computed(() => props.topics.every(topic => boxes.value[topic.id]))
+const cardScale = computed(() => {
+  const canvas = canvasSize.value
+  if (!canvas) return 1
+  return arrangementScale(canvas, props.topics.length)
+})
 
 function bindCard(id: string, element: unknown) {
   if (element instanceof HTMLElement) {
@@ -133,10 +138,20 @@ function measure() {
 // Hidden until measured, so a card never appears at the origin and then jumps.
 function placement(id: string) {
   const box = boxes.value[id]
-  if (!box) return { visibility: 'hidden' as const }
+  const size = cardSizes.value[id]
+  if (!box || !size) return { visibility: 'hidden' as const }
+  const scale = cardScale.value
+  const canvas = canvasSize.value
+  const fitted = canvas ? fittedTopicWidth(canvas, props.topics.length) : size.width
+  const zoomed = scale < 0.999
+  const settled = !zoomed || size.width <= fitted + 8
+  // zoom scales the translate too, so the stored offset is in unzoomed pixels.
+  const left = zoomed ? box.x / scale : box.x
+  const top = zoomed ? box.y / scale : box.y
   return {
-    visibility: 'visible' as const,
-    transform: `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`,
+    visibility: settled ? 'visible' as const : 'hidden' as const,
+    ...(zoomed ? { zoom: scale } : {}),
+    transform: `translate(${Math.round(left)}px, ${Math.round(top)}px)`,
   }
 }
 
@@ -385,7 +400,7 @@ onUnmounted(() => {
 <template>
   <div
     ref="canvasEl"
-    class="absolute inset-0 z-0 overflow-hidden bg-[#f8fafc]"
+    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
   >
     <div
       class="pointer-events-none absolute inset-0"
@@ -395,7 +410,7 @@ onUnmounted(() => {
 
     <div
       ref="labelEl"
-      class="absolute top-[18px] left-6 z-[2] flex items-center gap-6"
+      class="absolute top-[18px] right-4 left-4 z-[2] flex flex-wrap items-center gap-x-6 gap-y-1 lg:right-auto lg:left-6"
     >
       <h2 class="flex items-center gap-2 text-sm leading-[21px] font-medium tracking-[-0.35px] whitespace-nowrap text-[#475569]">
         <span
@@ -404,7 +419,7 @@ onUnmounted(() => {
         />
         Knowledge map
       </h2>
-      <p class="text-xs leading-[18px] whitespace-nowrap text-[#64748b]">
+      <p class="text-xs leading-[18px] text-[#64748b] max-lg:min-w-0 lg:whitespace-nowrap">
         {{ course }}
       </p>
     </div>
@@ -543,7 +558,7 @@ onUnmounted(() => {
 
     <div
       ref="footerEl"
-      class="absolute right-[400px] bottom-5 z-[2] flex items-center gap-2"
+      class="absolute bottom-5 left-4 z-[2] flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2 lg:left-auto lg:max-w-none lg:flex-nowrap lg:right-[400px]"
     >
       <button
         type="button"

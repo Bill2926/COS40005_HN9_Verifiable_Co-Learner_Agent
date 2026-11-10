@@ -53,7 +53,7 @@ const streamingDeskmate = ref('')
 const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
-const floatingPanel = 'overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_#e2e8f0,0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
+const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-white lg:shadow-[0_0_0_1px_#e2e8f0,0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = [
   { id: 'map', name: 'Map' },
   { id: 'working', name: 'Working area' },
@@ -64,7 +64,7 @@ const conversationUnread = ref(false)
 const isPhone = ref(false)
 
 function conversationIsOpen() {
-  return layout.value !== 'ide' || !isPhone.value || phonePanel.value === 'conversation'
+  return !isPhone.value || phonePanel.value === 'conversation'
 }
 
 function noteReply() {
@@ -87,6 +87,27 @@ function ideFrame(panel: 'working' | 'conversation') {
     : 'md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1'
   const display = phonePanel.value === panel ? 'flex' : 'max-md:hidden md:flex'
   return ['h-full min-h-0 min-w-0 flex-col overflow-hidden', place, display]
+}
+
+function mapFrame(panel: 'working' | 'conversation') {
+  const shared = [
+    'h-full min-h-0 min-w-0 flex-col overflow-hidden',
+    floatingChrome,
+    phonePanel.value === panel ? 'flex' : 'max-md:hidden md:flex',
+  ]
+  if (panel === 'working') {
+    return [
+      ...shared,
+      'md:col-start-1 md:row-start-2',
+      'lg:absolute lg:bottom-4 lg:left-4 lg:z-10 lg:w-[520px]',
+      workingAreaExpanded.value ? 'lg:h-[28rem]' : 'lg:h-auto',
+    ]
+  }
+  return [
+    ...shared,
+    'md:col-start-2 md:row-start-2',
+    'lg:absolute lg:top-4 lg:right-4 lg:z-10 lg:h-[40rem] lg:max-h-[calc(100%-2rem)] lg:w-[360px]',
+  ]
 }
 
 watch([streamingTeacher, streamingDeskmate], ([teacher, deskmate]) => {
@@ -310,7 +331,6 @@ function initialsOf(name: string): string {
       </div>
     </header>
     <div
-      v-if="layout === 'ide'"
       class="flex shrink-0 border-b border-slate-200 bg-white md:hidden"
       role="tablist"
       aria-label="Panels"
@@ -338,10 +358,11 @@ function initialsOf(name: string): string {
       class="min-h-0 min-w-0 flex-1"
       :class="layout === 'ide'
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
-        : 'relative overflow-hidden bg-[#f8fafc]'"
+        : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-[#f8fafc] md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
       <MapCanvas
         v-if="layout === 'map'"
+        :class="phonePanel === 'map' ? undefined : 'max-md:hidden'"
         :topics="workspace.knowledgeMap"
         :course="workspace.course"
         :student-id="studentId"
@@ -352,11 +373,7 @@ function initialsOf(name: string): string {
         :class="phonePanel === 'map' ? 'max-md:flex' : 'max-md:hidden'"
         :topics="workspace.knowledgeMap"
       />
-      <div
-        :class="layout === 'ide'
-          ? ideFrame('working')
-          : ['absolute bottom-4 left-4 z-10 w-[520px]', floatingPanel, workingAreaExpanded ? 'h-[28rem]' : 'h-auto']"
-      >
+      <div :class="layout === 'ide' ? ideFrame('working') : mapFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
           :mode="workingMode"
@@ -374,11 +391,7 @@ function initialsOf(name: string): string {
           @submit="submitCode"
         />
       </div>
-      <div
-        :class="layout === 'ide'
-          ? ideFrame('conversation')
-          : ['absolute top-4 right-4 z-10 h-[40rem] max-h-[calc(100%-2rem)] w-[360px]', floatingPanel]"
-      >
+      <div :class="layout === 'ide' ? ideFrame('conversation') : mapFrame('conversation')">
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
