@@ -5,5 +5,4 @@ export interface PrototypeState {
   messages: ConversationMessage[]
   composer: string
   traceOpen: boolean
-  drawerOpen: boolean
 }

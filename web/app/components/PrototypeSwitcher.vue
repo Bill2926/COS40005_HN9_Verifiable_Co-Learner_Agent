@@ -9,15 +9,12 @@ const props = defineProps<{
   current: string
 }>()
 
-const emit = defineEmits<{
-  cycle: [direction: -1 | 1]
-}>()
+const route = useRoute()
+const router = useRouter()
 
-const showSwitcher = import.meta.dev
-
-const currentVariant = computed(() =>
-  props.variants.find(variant => variant.key === props.current) ?? props.variants[0],
-)
+function destination(key: string) {
+  return { path: route.path, query: { variant: key } }
+}
 
 function isEditableTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -30,12 +27,15 @@ function isEditableTarget(target: EventTarget | null): boolean {
 function onKeydown(event: KeyboardEvent) {
   if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
   if (isEditableTarget(event.target)) return
+  const index = props.variants.findIndex(item => item.key === props.current)
+  const direction = event.key === 'ArrowLeft' ? -1 : 1
+  const next = props.variants[(index + direction + props.variants.length) % props.variants.length]
+  if (!next) return
   event.preventDefault()
-  emit('cycle', event.key === 'ArrowLeft' ? -1 : 1)
+  void router.push(destination(next.key))
 }
 
 onMounted(() => {
-  if (!showSwitcher) return
   window.addEventListener('keydown', onKeydown)
 })
 
@@ -45,30 +45,24 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div
-    v-if="showSwitcher"
-    class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-1 rounded-full bg-neutral-950 px-1.5 py-1.5 text-white shadow-lg"
-    role="toolbar"
-    aria-label="Layout prototype"
+  <nav
+    class="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 rounded-full bg-neutral-950 p-1 text-sm text-white shadow-lg"
+    aria-label="Workspace layout"
   >
-    <button
-      type="button"
-      class="flex size-9 items-center justify-center rounded-full hover:bg-white/15"
-      aria-label="Previous layout"
-      @click="emit('cycle', -1)"
+    <NuxtLink
+      v-for="variant in variants"
+      :key="variant.key"
+      v-slot="{ href, navigate }"
+      custom
+      :to="destination(variant.key)"
     >
-      ←
-    </button>
-    <p class="min-w-40 px-2 text-center text-sm">
-      {{ currentVariant?.key }} ({{ currentVariant?.name }})
-    </p>
-    <button
-      type="button"
-      class="flex size-9 items-center justify-center rounded-full hover:bg-white/15"
-      aria-label="Next layout"
-      @click="emit('cycle', 1)"
-    >
-      →
-    </button>
-  </div>
+      <a
+        :href="href ?? undefined"
+        class="rounded-full px-4 py-2"
+        :class="variant.key === current ? 'bg-white font-medium text-neutral-950' : 'hover:bg-white/15'"
+        :aria-current="variant.key === current ? 'page' : undefined"
+        @click="navigate"
+      >{{ variant.name }}</a>
+    </NuxtLink>
+  </nav>
 </template>
