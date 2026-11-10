@@ -66,6 +66,13 @@ const traceOpen = ref(false)
 const text = ref('')
 const pending = ref('')
 const scroller = ref<HTMLElement | null>(null)
+let revealObserver: IntersectionObserver | null = null
+
+function scrollToNewest() {
+  const element = scroller.value
+  if (!element || element.clientHeight === 0) return
+  element.scrollTop = element.scrollHeight
+}
 
 const rows = computed(() => {
   const shown: Array<BubbleRow | EventRow> = props.messages.map((message) => {
@@ -125,10 +132,27 @@ const rows = computed(() => {
 })
 
 watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate] as const, () => {
-  nextTick(() => {
-    const element = scroller.value
-    if (element) element.scrollTop = element.scrollHeight
+  nextTick(scrollToNewest)
+})
+
+onMounted(() => {
+  const element = scroller.value
+  if (!element) return
+  let wasHidden = element.clientHeight === 0
+  revealObserver = new IntersectionObserver((entries) => {
+    const visible = entries.some(entry => entry.isIntersecting)
+    if (visible && wasHidden) {
+      scrollToNewest()
+      nextTick(scrollToNewest)
+    }
+    wasHidden = !visible
   })
+  revealObserver.observe(element)
+})
+
+onBeforeUnmount(() => {
+  revealObserver?.disconnect()
+  revealObserver = null
 })
 
 function submit() {
@@ -150,8 +174,8 @@ watch(() => props.sending, (sending) => {
     class="flex h-full min-h-0 min-w-0 flex-col bg-slate-50/40"
     aria-label="Conversation"
   >
-    <header class="flex h-14 shrink-0 items-center justify-between border-b border-slate-200 bg-white px-4">
-      <div class="flex items-center gap-[10px]">
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 md:h-14">
+      <div class="flex min-w-0 items-center gap-[10px]">
         <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-800">
           Conversation
         </h2>
@@ -160,7 +184,7 @@ watch(() => props.sending, (sending) => {
           class="size-1.5 shrink-0 rounded-full bg-[#10b981]"
           aria-hidden="true"
         />
-        <p class="font-mono text-[10px] leading-[15px] text-slate-400">
+        <p class="font-mono text-[10px] leading-[15px] text-slate-400 max-md:hidden">
           Teacher + Deskmate
         </p>
       </div>
@@ -172,15 +196,20 @@ watch(() => props.sending, (sending) => {
         <button
           type="button"
           role="switch"
-          class="relative h-4 w-7 shrink-0 rounded-full"
-          :class="traceOpen ? 'bg-indigo-600' : 'bg-slate-200'"
+          class="relative h-11 w-11 shrink-0 md:h-4 md:w-7 md:rounded-full"
+          :class="traceOpen ? 'md:bg-indigo-600' : 'md:bg-slate-200'"
           :aria-checked="traceOpen"
           aria-labelledby="conversation-shield-trace"
           @click="traceOpen = !traceOpen"
         >
           <span
-            class="absolute top-0.5 size-3 rounded-full bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
-            :class="traceOpen ? 'left-3.5' : 'left-0.5'"
+            class="absolute top-1/2 left-1/2 h-4 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full md:hidden"
+            :class="traceOpen ? 'bg-indigo-600' : 'bg-slate-200'"
+            aria-hidden="true"
+          />
+          <span
+            class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
+            :class="traceOpen ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
           />
         </button>
       </div>
@@ -301,12 +330,12 @@ watch(() => props.sending, (sending) => {
             name="message"
             placeholder="Message"
             :disabled="sending"
-            class="h-[34px] w-full rounded-[4px] border border-slate-200 bg-slate-50 px-[13px] text-xs text-slate-800 outline-none placeholder:text-slate-400 focus-visible:border-indigo-500 disabled:opacity-60"
+            class="h-11 w-full rounded-[4px] border border-slate-200 bg-slate-50 px-[13px] text-base text-slate-800 outline-none placeholder:text-slate-400 focus-visible:border-indigo-500 disabled:opacity-60 md:h-[34px] md:text-xs"
           >
         </label>
         <button
           type="submit"
-          class="h-8 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-indigo-600 disabled:text-white disabled:opacity-100"
+          class="h-11 min-w-11 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-indigo-600 disabled:text-white disabled:opacity-100 md:h-8 md:min-w-0"
           :disabled="sending || text.trim().length === 0"
           :aria-busy="sending"
         >

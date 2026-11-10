@@ -54,6 +54,66 @@ const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
 const floatingPanel = 'overflow-hidden rounded-2xl bg-white shadow-[0_0_0_1px_#e2e8f0,0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
+const phonePanels = [
+  { id: 'map', name: 'Map' },
+  { id: 'working', name: 'Working area' },
+  { id: 'conversation', name: 'Conversation' },
+] as const
+const phonePanel = ref<(typeof phonePanels)[number]['id']>('working')
+const conversationUnread = ref(false)
+const isPhone = ref(false)
+
+function conversationIsOpen() {
+  return layout.value !== 'ide' || !isPhone.value || phonePanel.value === 'conversation'
+}
+
+function noteReply() {
+  if (!conversationIsOpen()) conversationUnread.value = true
+}
+
+function choosePanel(panel: (typeof phonePanels)[number]['id']) {
+  phonePanel.value = panel
+  if (panel === 'conversation') conversationUnread.value = false
+}
+
+function openInLearn() {
+  workingMode.value = 'learn'
+  phonePanel.value = 'working'
+}
+
+function ideFrame(panel: 'working' | 'conversation') {
+  const place = panel === 'working'
+    ? 'md:col-start-1 md:row-start-2 lg:col-start-2 lg:row-start-1'
+    : 'md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1'
+  const display = phonePanel.value === panel ? 'flex' : 'max-md:hidden md:flex'
+  return ['h-full min-h-0 min-w-0 flex-col overflow-hidden', place, display]
+}
+
+watch([streamingTeacher, streamingDeskmate], ([teacher, deskmate]) => {
+  if (teacher || deskmate) noteReply()
+})
+
+watch(() => workspace.value?.conversation, (messages, previous) => {
+  if (!messages || !previous || messages.length <= previous.length) return
+  const added = messages.slice(previous.length)
+  if (added.some(message => message.author === 'teacher' || message.author === 'deskmate')) noteReply()
+})
+
+let phoneMedia: MediaQueryList | undefined
+
+function syncPhone() {
+  isPhone.value = phoneMedia?.matches ?? false
+}
+
+onMounted(() => {
+  phoneMedia = window.matchMedia('(width < 48rem)')
+  syncPhone()
+  phoneMedia.addEventListener('change', syncPhone)
+})
+
+onBeforeUnmount(() => {
+  phoneMedia?.removeEventListener('change', syncPhone)
+})
 
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
@@ -198,16 +258,15 @@ function initialsOf(name: string): string {
   <main
     v-else
     :data-layout="layout"
-    class="flex h-dvh flex-col bg-elevated"
-    :class="layout === 'ide' ? 'min-w-[60rem] overflow-auto' : 'overflow-hidden'"
+    class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-elevated"
   >
-    <header class="flex h-12 shrink-0 items-center justify-between border-b border-default bg-default px-6">
-      <p class="flex items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
+    <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:h-12 md:flex-nowrap md:gap-4">
+      <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <span
           class="size-2.5 shrink-0 rounded-sm bg-primary-600"
           aria-hidden="true"
         />
-        Verifiable Co-Learner
+        <span class="max-md:sr-only">Verifiable Co-Learner</span>
       </p>
       <nav
         class="flex items-center rounded-[6px] border border-slate-200/80 bg-slate-100 p-0.5"
@@ -222,28 +281,28 @@ function initialsOf(name: string): string {
         >
           <a
             :href="href ?? undefined"
-            class="rounded-[4px] px-2.5 py-1 text-xs leading-4"
+            class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 md:inline md:min-h-0 md:min-w-0"
             :class="layout === option.id ? 'bg-white font-medium text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-slate-500'"
             :aria-current="layout === option.id ? 'page' : undefined"
             @click="navigate"
           >{{ option.name }}</a>
         </NuxtLink>
       </nav>
-      <div class="flex items-center gap-4">
-        <div class="flex items-center gap-2 border-r border-slate-200 pr-[13px]">
+      <div class="flex shrink-0 items-center gap-2 md:gap-4">
+        <div class="flex items-center gap-2 border-r border-slate-200 pr-2 md:pr-[13px]">
           <span
             class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-medium leading-4 text-slate-700"
             aria-hidden="true"
           >{{ initialsOf(workspace.displayName) }}</span>
-          <span class="text-xs font-medium leading-4 text-slate-700">{{ workspace.displayName }}</span>
-          <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-slate-400 uppercase">Student</span>
+          <span class="text-xs font-medium leading-4 text-slate-700 max-md:sr-only">{{ workspace.displayName }}</span>
+          <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-slate-400 uppercase max-md:hidden">Student</span>
         </div>
         <UButton
           type="button"
           color="neutral"
           variant="ghost"
           size="xs"
-          class="px-0 text-xs font-medium text-slate-500"
+          class="min-h-11 min-w-11 px-2 text-xs font-medium text-slate-500 md:min-h-0 md:min-w-0 md:px-0"
           @click="signOut"
         >
           Sign out
@@ -251,9 +310,34 @@ function initialsOf(name: string): string {
       </div>
     </header>
     <div
-      class="min-h-0 flex-1"
+      v-if="layout === 'ide'"
+      class="flex shrink-0 border-b border-slate-200 bg-white md:hidden"
+      role="tablist"
+      aria-label="Panels"
+    >
+      <button
+        v-for="panel in phonePanels"
+        :key="panel.id"
+        type="button"
+        role="tab"
+        class="relative min-h-11 min-w-0 flex-1 truncate border-b-2 px-1 text-sm"
+        :class="phonePanel === panel.id ? 'border-indigo-600 font-medium text-slate-900' : 'border-transparent font-normal text-slate-500'"
+        :aria-selected="phonePanel === panel.id"
+        @click="choosePanel(panel.id)"
+      >
+        {{ panel.name }}
+        <span
+          v-if="panel.id === 'conversation' && conversationUnread"
+          class="absolute top-1.5 right-1.5 size-2 rounded-full bg-indigo-600"
+          role="img"
+          aria-label="New reply"
+        />
+      </button>
+    </div>
+    <div
+      class="min-h-0 min-w-0 flex-1"
       :class="layout === 'ide'
-        ? 'grid grid-cols-[220px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)]'
+        ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
         : 'relative overflow-hidden bg-[#f8fafc]'"
     >
       <MapCanvas
@@ -264,11 +348,13 @@ function initialsOf(name: string): string {
       />
       <KnowledgeMap
         v-else
+        class="md:col-span-2 md:row-start-1 lg:col-span-1 lg:col-start-1 lg:row-start-1"
+        :class="phonePanel === 'map' ? 'max-md:flex' : 'max-md:hidden'"
         :topics="workspace.knowledgeMap"
       />
       <div
         :class="layout === 'ide'
-          ? 'contents'
+          ? ideFrame('working')
           : ['absolute bottom-4 left-4 z-10 w-[520px]', floatingPanel, workingAreaExpanded ? 'h-[28rem]' : 'h-auto']"
       >
         <WorkingArea
@@ -290,7 +376,7 @@ function initialsOf(name: string): string {
       </div>
       <div
         :class="layout === 'ide'
-          ? 'contents'
+          ? ideFrame('conversation')
           : ['absolute top-4 right-4 z-10 h-[40rem] max-h-[calc(100%-2rem)] w-[360px]', floatingPanel]"
       >
         <ConversationPanel
@@ -303,7 +389,7 @@ function initialsOf(name: string): string {
           :streaming-deskmate="streamingDeskmate"
           :floating="layout === 'map'"
           @send="sendMessage"
-          @open-learn="workingMode = 'learn'"
+          @open-learn="openInLearn"
         />
       </div>
     </div>
