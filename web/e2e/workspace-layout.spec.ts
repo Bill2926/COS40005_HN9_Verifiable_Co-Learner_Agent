@@ -204,6 +204,26 @@ test('drags a topic with the mouse and leaves the current topic and working area
   await expect(page.getByRole('heading', { name: 'For loops', level: 1 })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveAttribute('aria-pressed', 'true')
+
+  const tick = topicCard(page, 'Variables').locator('img')
+  const tickBox = await tick.boundingBox()
+  const variablesBefore = await topicCard(page, 'Variables').boundingBox()
+  expect(tickBox).not.toBeNull()
+  expect(variablesBefore).not.toBeNull()
+  await page.mouse.move(tickBox!.x + tickBox!.width / 2, tickBox!.y + tickBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(tickBox!.x + 160, tickBox!.y, { steps: 12 })
+  await page.mouse.up()
+  const variablesAfter = await topicCard(page, 'Variables').boundingBox()
+  expect(variablesAfter).not.toBeNull()
+  expect(variablesAfter!.x - variablesBefore!.x).toBeGreaterThan(40)
+
+  const branchingBefore = await topicCard(page, 'If / else').boundingBox()
+  expect(branchingBefore).not.toBeNull()
+  await dragCard(page, 'If / else', { dx: 80, dy: 0 })
+  const branchingAfter = await topicCard(page, 'If / else').boundingBox()
+  expect(branchingAfter).not.toBeNull()
+  expect(branchingAfter!.x - branchingBefore!.x).toBeGreaterThan(40)
 })
 
 test('drags a topic with touch without scrolling the page', async ({ browser }) => {

@@ -203,6 +203,15 @@ function onPointerCancel(event: PointerEvent) {
   finishGesture(event, false)
 }
 
+function onLostPointerCapture(event: PointerEvent) {
+  const active = gesture
+  if (!active || event.pointerId !== active.pointerId) return
+  if (active.dragged) commitDrag(active.id)
+  swallowClick = active.dragged
+  gesture = null
+  stopTracking()
+}
+
 function finishGesture(event: PointerEvent, useEventPoint: boolean) {
   const active = gesture
   if (!active || event.pointerId !== active.pointerId) return
@@ -375,6 +384,8 @@ onUnmounted(() => {
           :aria-pressed="selectedId === topic.id"
           :aria-label="announcement(topic)"
           @pointerdown="onPointerDown($event, topic.id)"
+          @lostpointercapture="onLostPointerCapture"
+          @dragstart.prevent
           @click="onClick(topic.id)"
           @keydown="onKeyDown($event, topic.id)"
         >
@@ -418,6 +429,7 @@ onUnmounted(() => {
                   alt=""
                   width="12"
                   height="12"
+                  draggable="false"
                 >
                 Mastered
               </p>
@@ -438,6 +450,7 @@ onUnmounted(() => {
                   alt=""
                   width="12"
                   height="12"
+                  draggable="false"
                 >
                 Closed
               </p>
