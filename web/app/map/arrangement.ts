@@ -68,15 +68,27 @@ export function createArrangementStore(
   }
 }
 
+// A saved point outside 0–1, or one that is not a finite number, is dropped.
+// That topic keeps the starting arrangement.
 function validArrangement(value: unknown): Arrangement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const arrangement: Arrangement = {}
   for (const [id, point] of Object.entries(value)) {
-    if (!point || typeof point !== 'object') continue
+    if (!point || typeof point !== 'object' || Array.isArray(point)) continue
     const { x, y } = point as Record<string, unknown>
     if (typeof x !== 'number' || typeof y !== 'number') continue
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-    arrangement[id] = { x: unit(x), y: unit(y) }
+    if (x < 0 || x > 1 || y < 0 || y > 1) continue
+    arrangement[id] = { x, y }
+  }
+  return arrangement
+}
+
+export function mergeArrangement(starting: Arrangement, saved: Arrangement): Arrangement {
+  const arrangement: Arrangement = { ...starting }
+  for (const [id, point] of Object.entries(saved)) {
+    if (!(id in arrangement)) continue
+    arrangement[id] = point
   }
   return arrangement
 }

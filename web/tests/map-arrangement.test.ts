@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { avoid, connectors, defaultArrangement, placeCard, pointAt } from '../app/map/arrangement'
+import { avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf } from '../app/map/arrangement'
 import type { MapTopic } from '../shared/turn'
+
+const an = 'a11a11a1-1111-4111-8111-111111111111'
+const binh = 'b22b22b2-2222-4222-8222-222222222222'
 
 const card = { width: 200, height: 100 }
 const canvas = { width: 1000, height: 500 }
@@ -114,3 +117,128 @@ describe('map arrangement', () => {
     expect(avoid(card, [panel], canvas)).toEqual({ x: 20, y: 20, width: 100, height: 80 })
   })
 })
+
+describe('saved map arrangement', () => {
+  it('reads back the arrangement it saved', () => {
+    const store = createArrangementStore(memoryStorage(), an, 'wide')
+
+    expect(store.read()).toEqual({})
+    store.write({
+      for_loop: { x: 0.4, y: 0.6 },
+      variable: { x: 0, y: 1 },
+    })
+
+    expect(store.read()).toEqual({
+      for_loop: { x: 0.4, y: 0.6 },
+      variable: { x: 0, y: 1 },
+    })
+  })
+
+  it('keeps each Student and each size class apart', () => {
+    const storage = memoryStorage()
+    const anWide = createArrangementStore(storage, an, sizeClassOf({ width: 1024, height: 560 }))
+    const anCompact = createArrangementStore(storage, an, sizeClassOf({ width: 1023, height: 900 }))
+    const binhWide = createArrangementStore(storage, binh, 'wide')
+
+    anWide.write({ for_loop: { x: 0.2, y: 0.3 } })
+    anCompact.write({ for_loop: { x: 0.8, y: 0.1 } })
+    binhWide.write({ variable: { x: 0.5, y: 0.5 } })
+
+    expect(anWide.read()).toEqual({ for_loop: { x: 0.2, y: 0.3 } })
+    expect(anCompact.read()).toEqual({ for_loop: { x: 0.8, y: 0.1 } })
+    expect(binhWide.read()).toEqual({ variable: { x: 0.5, y: 0.5 } })
+    expect(sizeClassOf({ width: 1440, height: 900 })).toBe('wide')
+    expect(sizeClassOf({ width: 1024, height: 559 })).toBe('compact')
+    expect(sizeClassOf({ width: 375, height: 700 })).toBe('compact')
+  })
+
+  it('ignores corrupt JSON and stored data that is not an arrangement', () => {
+    for (const raw of ['{', '', 'null', '[]', '42', '"for_loop"']) {
+      expect(createArrangementStore(storageHolding(raw), an, 'wide').read()).toEqual({})
+    }
+  })
+
+  it('ignores a malformed point and keeps a point that is on the canvas', () => {
+    const store = createArrangementStore(storageHolding(JSON.stringify({
+      for_loop: { x: 0.4, y: 0.6 },
+      variable: { x: 'left', y: 0.2 },
+      if_else: null,
+      nested_loop: [0.1, 0.2],
+      while_loop: { x: 0.3 },
+      open_topic: { y: 0.5, x: true },
+    })), an, 'wide')
+
+    expect(store.read()).toEqual({ for_loop: { x: 0.4, y: 0.6 } })
+  })
+
+  it('ignores an out-of-range or non-finite point and keeps one inside the canvas', () => {
+    const store = createArrangementStore(storageHolding(JSON.stringify({
+      for_loop: { x: -0.2, y: 0.4 },
+      variable: { x: 0.2, y: 1.8 },
+      if_else: { x: 0, y: 1 },
+    })), an, 'wide')
+    const overflow = createArrangementStore(storageHolding('{"nested_loop":{"x":1e309,"y":0.2}}'), an, 'compact')
+
+    expect(store.read()).toEqual({ if_else: { x: 0, y: 1 } })
+    expect(overflow.read()).toEqual({})
+  })
+
+  it('clears one Student and size class and leaves the others saved', () => {
+    const storage = memoryStorage()
+    const anWide = createArrangementStore(storage, an, 'wide')
+    const anCompact = createArrangementStore(storage, an, 'compact')
+    const binhWide = createArrangementStore(storage, binh, 'wide')
+
+    anWide.write({ for_loop: { x: 0.2, y: 0.3 } })
+    anCompact.write({ for_loop: { x: 0.8, y: 0.1 } })
+    binhWide.write({ variable: { x: 0.4, y: 0.5 } })
+    anWide.clear()
+
+    expect(anWide.read()).toEqual({})
+    expect(anCompact.read()).toEqual({ for_loop: { x: 0.8, y: 0.1 } })
+    expect(binhWide.read()).toEqual({ variable: { x: 0.4, y: 0.5 } })
+  })
+
+  it('uses the starting arrangement for a topic with nothing saved', () => {
+    const canvas = { width: 1440, height: 900 }
+    const starting = defaultArrangement(
+      ['variable', 'if_else', 'for_loop', 'nested_loop', 'while_loop'],
+      canvas,
+    )
+    const shown = mergeArrangement(starting, {
+      for_loop: { x: 0.5, y: 0.25 },
+      not_a_topic: { x: 1, y: 1 },
+    })
+
+    expect(shown.for_loop).toEqual({ x: 0.5, y: 0.25 })
+    expect(shown.variable).toEqual({ x: 0.082, y: 0.162 })
+    expect(shown.while_loop).toEqual({ x: 0.9571428571428572, y: 0.07804878048780488 })
+    expect(shown.not_a_topic).toBeUndefined()
+    expect(mergeArrangement(starting, { variable: { x: 0, y: 0 } }).variable).toEqual({ x: 0, y: 0 })
+  })
+})
+
+function memoryStorage() {
+  const values = new Map<string, string>()
+  return {
+    getItem(key: string) {
+      return values.get(key) ?? null
+    },
+    setItem(key: string, value: string) {
+      values.set(key, value)
+    },
+    removeItem(key: string) {
+      values.delete(key)
+    },
+  }
+}
+
+function storageHolding(raw: string) {
+  return {
+    getItem() {
+      return raw
+    },
+    setItem() {},
+    removeItem() {},
+  }
+}

@@ -6,6 +6,7 @@ import { resetDemoAccounts } from './reset-demo-accounts'
 // knowledge map, working area and conversation a Student can see.
 
 const anAccount = demoAccounts.find(account => account.displayName === 'An')
+const binhAccount = demoAccounts.find(account => account.displayName === 'Bình')
 
 test.beforeAll(async () => {
   await resetDemoAccounts()
@@ -379,6 +380,64 @@ test('selects a topic without moving it, and arrow keys move the focused topic',
   await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
 })
 
+test('keeps a moved topic on this device, and reset arrangement restores the starting arrangement', async ({ page }) => {
+  if (!anAccount || !binhAccount) throw new Error('Demo accounts An and Bình are missing.')
+  await openWorkspace(page)
+  await showMap(page)
+  await expectResetBesidePill(page)
+
+  const start = await topicOrigins(page)
+  await dragCard(page, 'For loops', { dx: 160, dy: 24 })
+  const dragged = await topicOrigins(page)
+  expect(Math.hypot(dragged['For loops'].x - start['For loops'].x, dragged['For loops'].y - start['For loops'].y)).toBeGreaterThan(80)
+  for (const name of ['Variables', 'If / else', 'Nested loops']) {
+    expect(Math.hypot(dragged[name].x - start[name].x, dragged[name].y - start[name].y)).toBeLessThanOrEqual(2)
+  }
+
+  await page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'IDE', exact: true }).click()
+  await expectIde(page)
+  await showMap(page)
+  await expectArrangement(page, dragged)
+
+  await topicCard(page, 'Variables').getByRole('button').focus()
+  await page.keyboard.press('ArrowRight')
+  const moved = await topicOrigins(page)
+  expect(moved.Variables.x - start.Variables.x).toBeGreaterThan(12)
+  expect(Math.hypot(moved['For loops'].x - dragged['For loops'].x, moved['For loops'].y - dragged['For loops'].y)).toBeLessThanOrEqual(2)
+
+  await page.reload()
+  await waitForApp(page)
+  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expectArrangement(page, moved)
+
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await signInAs(page, anAccount)
+  await showMap(page)
+  await expectSignedInAs(page, 'An')
+  await expectArrangement(page, moved)
+
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await signInAs(page, binhAccount)
+  await showMap(page)
+  await expectSignedInAs(page, 'Bình')
+  await expectArrangement(page, start)
+
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
+  await signInAs(page, anAccount)
+  await showMap(page)
+  await expectArrangement(page, moved)
+  await page.getByRole('button', { name: 'Reset arrangement', exact: true }).click()
+  await expectArrangement(page, start)
+
+  await page.reload()
+  await waitForApp(page)
+  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expectArrangement(page, start)
+})
+
 function topicCard(page: Page, name: string): Locator {
   return page.getByRole('list', { name: 'Topics' }).getByRole('listitem').filter({
     has: page.getByText(name, { exact: true }),
@@ -492,6 +551,61 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
   finally {
     await server.close()
   }
+}
+
+async function showMap(page: Page) {
+  const mapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Map canvas', exact: true })
+  if (await mapLink.getAttribute('aria-current') !== 'page') await mapLink.click()
+  await expectMapCanvas(page)
+  await expect(topicCard(page, 'For loops')).toBeVisible()
+}
+
+function expectSignedInAs(page: Page, displayName: string) {
+  return expect(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: new RegExp(`^${displayName}$`) })).toBeVisible()
+}
+
+async function signInAs(page: Page, account: { email: string, password: string }) {
+  await page.getByLabel('Email').fill(account.email)
+  await page.getByLabel('Password').fill(account.password)
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await waitForApp(page)
+}
+
+async function topicOrigins(page: Page) {
+  const origins: Record<string, { x: number, y: number }> = {}
+  for (const name of ['Variables', 'If / else', 'For loops', 'Nested loops']) {
+    const card = topicCard(page, name)
+    await expect(card).toBeVisible()
+    const box = await card.boundingBox()
+    if (!box) throw new Error(`${name} is not on the canvas.`)
+    origins[name] = { x: box.x, y: box.y }
+  }
+  return origins
+}
+
+async function expectArrangement(page: Page, expected: Record<string, { x: number, y: number }>) {
+  await expect.poll(async () => {
+    const actual = await topicOrigins(page)
+    return Math.max(...Object.keys(expected).map((name) => {
+      const found = actual[name]
+      const point = expected[name]
+      if (!found || !point) return Number.POSITIVE_INFINITY
+      return Math.hypot(found.x - point.x, found.y - point.y)
+    }))
+  }).toBeLessThanOrEqual(2)
+}
+
+async function expectResetBesidePill(page: Page) {
+  const reset = page.getByRole('button', { name: 'Reset arrangement', exact: true })
+  await expect(reset).toBeVisible()
+  const resetBox = await reset.boundingBox()
+  const pillBox = await page.getByText('Studio canvas', { exact: true }).boundingBox()
+  expect(resetBox).not.toBeNull()
+  expect(pillBox).not.toBeNull()
+  expect(resetBox!.x + resetBox!.width).toBeLessThan(pillBox!.x)
+  expect(pillBox!.x - (resetBox!.x + resetBox!.width)).toBeLessThan(160)
+  expect(Math.abs((resetBox!.y + resetBox!.height / 2) - (pillBox!.y + pillBox!.height / 2))).toBeLessThanOrEqual(12)
 }
 
 async function openWorkspace(page: Page) {
