@@ -43,7 +43,15 @@ _Avoid_: bug, error, mistake
 The picture of the course that shows every topic as mastered, open, or closed, with the reason a closed topic is closed.
 _Avoid_: skill tree, course map, progress map
 
+**Map arrangement**:
+Where the student has placed each topic on the knowledge map in the Map canvas layout. Personal to the student and their device; it is neither evidence nor part of the resume point, and it never changes a topic's state or the current topic.
+_Avoid_: layout, map state, positions
+
 ### Workspace
+
+**Workspace layout**:
+How the knowledge map, working area and conversation are arranged on screen. There are two, chosen by the student: the IDE layout (the knowledge map as a list beside the working area and conversation) and the Map canvas layout (the knowledge map as a canvas with the working area and conversation over it). Switching layouts changes nothing but the arrangement on screen.
+_Avoid_: screen, view, variant
 
 **Conversation**:
 The exchange between the student and both agents about one topic. Each topic has its own conversation; moving to another exercise in the same topic continues it.
