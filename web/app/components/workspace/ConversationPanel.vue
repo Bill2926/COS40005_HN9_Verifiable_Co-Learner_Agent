@@ -181,7 +181,7 @@ watch(() => props.sending, (sending) => {
         </h2>
         <span
           v-if="floating"
-          class="size-1.5 shrink-0 rounded-full bg-[#10b981]"
+          class="hidden size-1.5 shrink-0 rounded-full bg-[#10b981] lg:block"
           aria-hidden="true"
         />
         <p class="font-mono text-[10px] leading-[15px] text-slate-400 max-md:hidden">
