@@ -5,8 +5,16 @@
   --font-sans: 'Inter', sans-serif;
 }
 
+:root {
+  --python-editor-font-size: 14px;
+}
+
 /* Phone padding stays clear of a notch and the home indicator. */
 @media (width < 48rem) {
+  :root {
+    --python-editor-font-size: 16px;
+  }
+
   .phone-safe,
   .phone-safe-top,
   .phone-safe-bottom {

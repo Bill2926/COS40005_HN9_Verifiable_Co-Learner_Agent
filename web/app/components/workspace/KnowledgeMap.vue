@@ -19,9 +19,9 @@ function cardClass(topic: MapTopic): string {
 </script>
 
 <template>
-  <aside class="flex h-full min-h-0 min-w-0 flex-col border-r border-slate-200 bg-slate-50/80">
-    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
-      <div class="flex items-center justify-between gap-2">
+  <aside class="h-full min-h-0 min-w-0 flex-col border-r border-slate-200 bg-slate-50/80 md:max-lg:block md:max-lg:h-auto md:max-lg:overflow-x-auto md:max-lg:overflow-y-hidden md:max-lg:border-r-0 md:max-lg:border-b lg:flex">
+    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:max-lg:w-max md:max-lg:min-w-full md:max-lg:flex-none md:max-lg:flex-row md:max-lg:items-center md:max-lg:overflow-visible">
+      <div class="flex items-center justify-between gap-2 md:max-lg:w-36 md:max-lg:shrink-0 md:max-lg:flex-col md:max-lg:items-start">
         <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-400 uppercase">
           Knowledge map
         </h2>
@@ -29,11 +29,11 @@ function cardClass(topic: MapTopic): string {
           {{ masteredCount }}/{{ topics.length }} mastered
         </p>
       </div>
-      <ul class="flex flex-col gap-1.5">
+      <ul class="flex flex-col gap-1.5 md:max-lg:flex-row md:max-lg:flex-nowrap">
         <li
           v-for="topic in topics"
           :key="topic.id"
-          class="rounded-[4px] p-[11px]"
+          class="rounded-[4px] p-[11px] md:max-lg:w-52 md:max-lg:shrink-0"
           :class="cardClass(topic)"
           :aria-current="topic.current ? 'true' : undefined"
         >

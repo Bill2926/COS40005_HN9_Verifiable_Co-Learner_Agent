@@ -135,7 +135,7 @@ async function onSubmit() {
 }
 
 function chipClass(selected: boolean): string {
-  const shape = 'rounded-[4px] px-3 py-1.5 text-center text-xs leading-4 font-medium disabled:cursor-not-allowed'
+  const shape = 'rounded-[4px] px-3 py-1.5 text-center text-xs leading-4 font-medium disabled:cursor-not-allowed max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center'
   return selected
     ? `${shape} bg-slate-800 text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-slate-800 disabled:text-white`
     : `${shape} border border-slate-200 bg-slate-100 text-slate-600 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-600`
@@ -217,12 +217,14 @@ function onStop() {
         label="Run"
         color="neutral"
         variant="outline"
+        class="max-md:min-h-11 max-md:min-w-11"
         :disabled="busy"
         @click="onRun"
       />
       <UButton
         label="Submit"
         color="neutral"
+        class="max-md:min-h-11 max-md:min-w-11"
         :disabled="busy || submitting"
         @click="onSubmit"
       />
@@ -231,6 +233,7 @@ function onStop() {
         label="Stop"
         color="error"
         variant="outline"
+        class="max-md:min-h-11 max-md:min-w-11"
         @click="onStop"
       />
     </div>

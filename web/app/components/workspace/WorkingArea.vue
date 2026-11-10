@@ -38,7 +38,7 @@ function choose(next: 'learn' | 'practice') {
 }
 
 function modeClass(selected: boolean): string {
-  const shape = 'rounded-[4px] px-[14px] py-1.5 text-xs leading-4 font-medium'
+  const shape = 'rounded-[4px] px-[14px] py-1.5 text-xs leading-4 font-medium max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center'
   return selected
     ? `${shape} bg-white text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]`
     : `${shape} text-slate-500`
@@ -58,7 +58,7 @@ watch(() => props.mode, (mode) => {
     ]"
     aria-label="Working area"
   >
-    <header class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 pt-5 pb-[21px]">
+    <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 md:gap-4 md:px-8 md:pt-5 md:pb-[21px]">
       <div class="flex min-w-0 flex-col gap-0.5">
         <p class="flex items-center gap-2 font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-slate-400 uppercase">
           Working area
@@ -72,7 +72,7 @@ watch(() => props.mode, (mode) => {
         </h1>
         <p
           v-if="mode === 'learn'"
-          class="pt-0.5 text-xs leading-4 text-slate-500"
+          class="pt-0.5 text-xs leading-4 text-slate-500 max-md:hidden"
         >
           <InlineText :text="area.materials.scopeNote" />
         </p>
@@ -120,7 +120,7 @@ watch(() => props.mode, (mode) => {
 
     <div
       v-show="bodyShown"
-      class="min-h-0 flex-1 overflow-y-auto"
+      class="min-h-0 min-w-0 flex-1 overflow-y-auto"
     >
       <article
         v-if="mode === 'learn'"

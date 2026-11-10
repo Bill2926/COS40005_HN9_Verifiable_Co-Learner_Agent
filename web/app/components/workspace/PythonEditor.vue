@@ -7,6 +7,7 @@ const props = defineProps<{
 
 const host = ref<HTMLElement | null>(null)
 let editor: { destroy: () => void, requestMeasure: () => void } | null = null
+let measureObserver: ResizeObserver | null = null
 let alive = true
 
 onMounted(async () => {
@@ -17,10 +18,11 @@ onMounted(async () => {
     import('@codemirror/language'),
     import('~/python/highlight'),
   ])
-  if (!alive || !host.value) return
+  const parent = host.value
+  if (!alive || !parent) return
 
   editor = new EditorView({
-    parent: host.value,
+    parent,
     state: EditorState.create({
       doc: code.value,
       extensions: [
@@ -39,12 +41,17 @@ onMounted(async () => {
           if (alive && update.docChanged) code.value = update.state.doc.toString()
         }),
         EditorView.theme({
-          '&': { height: '100%', fontSize: '14px', color: pythonHighlightColours.text },
-          '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace' },
+          '&': { height: '100%', fontSize: 'var(--python-editor-font-size)', color: pythonHighlightColours.text },
+          '.cm-scroller': { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', fontSize: 'var(--python-editor-font-size)' },
+          '.cm-content, .cm-line': { fontSize: 'var(--python-editor-font-size)' },
         }),
       ],
     }),
   })
+  measureObserver = new ResizeObserver(() => {
+    editor?.requestMeasure()
+  })
+  measureObserver.observe(parent)
 })
 
 watch(() => props.active, (active) => {
@@ -53,6 +60,8 @@ watch(() => props.active, (active) => {
 
 onBeforeUnmount(() => {
   alive = false
+  measureObserver?.disconnect()
+  measureObserver = null
   editor?.destroy()
   editor = null
 })
