@@ -996,15 +996,16 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(rendered)).not.toContain('PARTIAL_SHOULD_NOT_STICK')
   })
 
-  it('uses the scripted Teacher when fake-model mode is configured', async () => {
+  it('uses the scripted Teacher when the fake model is named', async () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
     }, memoryStore(), createConfiguredLanguageModel({
-      mode: 'fake',
-      provider: 'deepseek',
-      model: 'deepseek-v4-flash',
-      apiKey: '',
+      model: 'fake',
+      deepseekApiKey: '',
+      deepseekModel: 'deepseek-flash',
+      ollamaBaseUrl: '',
+      ollamaModel: 'llama3.1',
     }))
 
     expect(state.conversation.map(message => ({

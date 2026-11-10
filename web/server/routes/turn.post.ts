@@ -15,10 +15,11 @@ export default defineEventHandler(async (event) => {
     secretKey: config.supabaseSecretKey,
   })
   const model = createConfiguredLanguageModel({
-    mode: config.modelMode,
-    provider: config.modelProvider,
-    model: config.modelName,
-    apiKey: config.deepseekApiKey,
+    model: config.model,
+    deepseekApiKey: config.deepseekApiKey,
+    deepseekModel: config.deepseekModel,
+    ollamaBaseUrl: config.ollamaBaseUrl,
+    ollamaModel: config.ollamaModel,
   })
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
