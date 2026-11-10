@@ -5,6 +5,7 @@ import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
+import { resolveWorkspaceLayout, workspaceLayoutCookie, workspaceLayoutCookieOptions, workspaceLayoutFrom, workspaceLayouts, type WorkspaceLayoutId } from '~/workspace/layout'
 
 interface SubmissionPayload {
   code: string
@@ -12,13 +13,26 @@ interface SubmissionPayload {
 }
 
 definePageMeta({
-  middleware: 'signed-in',
+  middleware: ['signed-in', 'workspace-layout'],
 })
 
 async function signOut() {
   await useNuxtApp().$supabase.auth.signOut()
   await navigateTo('/sign-in')
 }
+
+const route = useRoute()
+const rememberedLayout = useCookie<string | null>(workspaceLayoutCookie, workspaceLayoutCookieOptions)
+const layout = computed(() => resolveWorkspaceLayout(route.query.layout, rememberedLayout.value))
+
+function layoutTarget(id: WorkspaceLayoutId) {
+  return { path: '/', query: { ...route.query, layout: id } }
+}
+
+watchEffect(() => {
+  const requested = workspaceLayoutFrom(route.query.layout)
+  if (requested) rememberedLayout.value = requested
+})
 
 const { data, error } = await useFetch<RedrawState>('/turn', {
   method: 'POST',
@@ -180,8 +194,9 @@ function initialsOf(name: string): string {
   </main>
   <main
     v-else
-    data-layout="ide"
-    class="flex h-dvh min-w-[60rem] flex-col overflow-auto bg-elevated"
+    :data-layout="layout"
+    class="flex h-dvh flex-col bg-elevated"
+    :class="layout === 'ide' ? 'min-w-[60rem] overflow-auto' : 'overflow-hidden'"
   >
     <header class="flex h-12 shrink-0 items-center justify-between border-b border-default bg-default px-6">
       <p class="flex items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
@@ -191,6 +206,26 @@ function initialsOf(name: string): string {
         />
         Verifiable Co-Learner
       </p>
+      <nav
+        class="flex items-center rounded-[6px] border border-slate-200/80 bg-slate-100 p-0.5"
+        aria-label="Workspace layout"
+      >
+        <NuxtLink
+          v-for="option in workspaceLayouts"
+          :key="option.id"
+          v-slot="{ href, navigate }"
+          custom
+          :to="layoutTarget(option.id)"
+        >
+          <a
+            :href="href ?? undefined"
+            class="rounded-[4px] px-2.5 py-1 text-xs leading-4"
+            :class="layout === option.id ? 'bg-white font-medium text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-slate-500'"
+            :aria-current="layout === option.id ? 'page' : undefined"
+            @click="navigate"
+          >{{ option.name }}</a>
+        </NuxtLink>
+      </nav>
       <div class="flex items-center gap-4">
         <div class="flex items-center gap-2 border-r border-slate-200 pr-[13px]">
           <span
@@ -212,32 +247,58 @@ function initialsOf(name: string): string {
         </UButton>
       </div>
     </header>
-    <div class="grid min-h-0 flex-1 grid-cols-[220px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)]">
-      <KnowledgeMap :topics="workspace.knowledgeMap" />
-      <WorkingArea
-        :area="workspace.workingArea"
-        :mode="workingMode"
-        :student-id="studentId"
-        :selecting="selecting"
-        :select-error="selectError"
-        :submitting="sending"
-        @update:mode="workingMode = $event"
-        @select-exercise="selectExercise"
-        @draft="liveDraft = $event"
-        @run="latestRun = $event"
-        @submit="submitCode"
+    <div
+      class="min-h-0 flex-1"
+      :class="layout === 'ide'
+        ? 'grid grid-cols-[220px_minmax(0,1fr)_360px] grid-rows-[minmax(0,1fr)]'
+        : 'relative overflow-hidden bg-[#e4ebf0]'"
+    >
+      <div
+        v-if="layout === 'map'"
+        class="pointer-events-none absolute inset-0"
+        aria-hidden="true"
+        style="background-image: radial-gradient(#c5d0d8 1px, transparent 1px); background-size: 22px 22px;"
       />
-      <ConversationPanel
-        :messages="workspace.conversation"
-        :display-name="workspace.displayName"
-        :trace="latestTrace"
-        :sending="sending"
-        :send-error="sendError"
-        :streaming-teacher="streamingTeacher"
-        :streaming-deskmate="streamingDeskmate"
-        @send="sendMessage"
-        @open-learn="workingMode = 'learn'"
+      <KnowledgeMap
+        :topics="workspace.knowledgeMap"
+        :canvas="layout === 'map'"
       />
+      <div
+        :class="layout === 'ide'
+          ? 'contents'
+          : 'absolute bottom-4 left-4 z-10 h-[28rem] w-[520px] overflow-hidden rounded-xl bg-white shadow-xl'"
+      >
+        <WorkingArea
+          :area="workspace.workingArea"
+          :mode="workingMode"
+          :student-id="studentId"
+          :selecting="selecting"
+          :select-error="selectError"
+          :submitting="sending"
+          @update:mode="workingMode = $event"
+          @select-exercise="selectExercise"
+          @draft="liveDraft = $event"
+          @run="latestRun = $event"
+          @submit="submitCode"
+        />
+      </div>
+      <div
+        :class="layout === 'ide'
+          ? 'contents'
+          : 'absolute top-4 right-4 z-10 h-[40rem] max-h-[calc(100%-2rem)] w-[360px] overflow-hidden rounded-xl bg-white shadow-xl'"
+      >
+        <ConversationPanel
+          :messages="workspace.conversation"
+          :display-name="workspace.displayName"
+          :trace="latestTrace"
+          :sending="sending"
+          :send-error="sendError"
+          :streaming-teacher="streamingTeacher"
+          :streaming-deskmate="streamingDeskmate"
+          @send="sendMessage"
+          @open-learn="workingMode = 'learn'"
+        />
+      </div>
     </div>
   </main>
 </template>
