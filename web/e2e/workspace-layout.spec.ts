@@ -184,10 +184,266 @@ test('shows each topic on the Map canvas and collapses the working area to its h
   expect(Math.abs(restored!.height - expanded!.height)).toBeLessThanOrEqual(2)
 })
 
+test('drags a topic with the mouse and leaves the current topic and working area unchanged', async ({ page }) => {
+  await openWorkspace(page)
+  await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+  await expectMapCanvas(page)
+  await expect(page.getByRole('img', { name: 'Topic connectors' }).locator('path')).toHaveCount(3)
+
+  const paths = await connectorPaths(page)
+  const before = await dragCard(page, 'For loops', { dx: 160, dy: 24 })
+  const after = await topicCard(page, 'For loops').boundingBox()
+  expect(after).not.toBeNull()
+  expect(Math.hypot(after!.x - before.x, after!.y - before.y)).toBeGreaterThan(80)
+
+  const moved = await connectorPaths(page)
+  expect(moved[1]).not.toBe(paths[1])
+  expect(moved[0]).toBe(paths[0])
+  await expect(topicCard(page, 'For loops').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+  await expect(topicCard(page, 'For loops')).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('heading', { name: 'For loops', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('drags a topic with touch without scrolling the page', async ({ browser }) => {
+  const context = await browser.newContext({
+    hasTouch: true,
+    viewport: { width: 1440, height: 900 },
+  })
+  const page = await context.newPage()
+  try {
+    await openWorkspace(page)
+    await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+    await expectMapCanvas(page)
+
+    const card = topicCard(page, 'If / else')
+    await expect(card).toBeVisible()
+    const before = await card.boundingBox()
+    expect(before).not.toBeNull()
+    const scrollBefore = await scrollOffset(page)
+    await touchDrag(page, centerOf(before!), { x: before!.x + before!.width / 2 + 140, y: before!.y + before!.height / 2 })
+
+    await expect.poll(async () => {
+      const after = await card.boundingBox()
+      return after ? after.x - before!.x : 0
+    }).toBeGreaterThan(100)
+    expect(await scrollOffset(page)).toEqual(scrollBefore)
+  }
+  finally {
+    await context.close()
+  }
+})
+
+test('keeps a dragged topic inside the canvas and clear of the panels', async ({ page }) => {
+  await openWorkspace(page)
+  await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+  await expectMapCanvas(page)
+
+  const canvas = await page.getByRole('list', { name: 'Topics' }).boundingBox()
+  expect(canvas).not.toBeNull()
+  await dragCard(page, 'Variables', { x: -80, y: -80 })
+  const clamped = await topicCard(page, 'Variables').boundingBox()
+  expect(clamped).not.toBeNull()
+  expect(within(clamped!, canvas!)).toBe(true)
+
+  const heading = await page.getByRole('heading', { name: 'Knowledge map', exact: true }).boundingBox()
+  expect(heading).not.toBeNull()
+  await dragCard(page, 'Variables', centerOf(heading!))
+  const clearOfLabel = await topicCard(page, 'Variables').boundingBox()
+  expect(clearOfLabel).not.toBeNull()
+  expect(overlaps(clearOfLabel!, heading!)).toBe(false)
+  expect(within(clearOfLabel!, canvas!)).toBe(true)
+
+  const working = page.getByRole('region', { name: 'Working area', exact: true })
+  const expanded = await working.boundingBox()
+  expect(expanded).not.toBeNull()
+  await page.getByRole('button', { name: 'Collapse working area', exact: true }).click()
+  const collapsed = await working.boundingBox()
+  expect(collapsed).not.toBeNull()
+  expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
+
+  await dragCard(page, 'If / else', { x: expanded!.x + 140, y: expanded!.y + 36 })
+  const parked = await topicCard(page, 'If / else').boundingBox()
+  expect(parked).not.toBeNull()
+  expect(overlaps(parked!, collapsed!)).toBe(false)
+
+  await page.getByRole('button', { name: 'Expand working area', exact: true }).click()
+  await expect.poll(async () => {
+    const card = await topicCard(page, 'If / else').boundingBox()
+    const panel = await working.boundingBox()
+    if (!card || !panel) return false
+    return !overlaps(card, panel) && within(card, canvas!)
+  }).toBe(true)
+
+  const workingBox = await working.boundingBox()
+  expect(workingBox).not.toBeNull()
+  await dragCard(page, 'If / else', centerOf(workingBox!))
+  const clearOfWorking = await topicCard(page, 'If / else').boundingBox()
+  expect(clearOfWorking).not.toBeNull()
+  expect(overlaps(clearOfWorking!, workingBox!)).toBe(false)
+  expect(within(clearOfWorking!, canvas!)).toBe(true)
+
+  const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+  expect(conversation).not.toBeNull()
+  await dragCard(page, 'Nested loops', { x: conversation!.x + conversation!.width / 2, y: conversation!.y + 80 })
+  const clearOfConversation = await topicCard(page, 'Nested loops').boundingBox()
+  expect(clearOfConversation).not.toBeNull()
+  expect(overlaps(clearOfConversation!, conversation!)).toBe(false)
+  expect(within(clearOfConversation!, canvas!)).toBe(true)
+
+  const pill = await page.getByText('Studio canvas', { exact: true }).boundingBox()
+  expect(pill).not.toBeNull()
+  await dragCard(page, 'Nested loops', centerOf(pill!))
+  const clearOfPill = await topicCard(page, 'Nested loops').boundingBox()
+  expect(clearOfPill).not.toBeNull()
+  expect(overlaps(clearOfPill!, pill!)).toBe(false)
+  expect(within(clearOfPill!, canvas!)).toBe(true)
+})
+
+test('selects a topic without moving it, and arrow keys move the focused topic', async ({ page }) => {
+  await openWorkspace(page)
+  await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+  await expectMapCanvas(page)
+
+  const variables = topicCard(page, 'Variables')
+  const button = variables.getByRole('button')
+  await expect(button).toHaveAccessibleName('Variables, mastered. Drag to move.')
+  await expect(topicCard(page, 'For loops').getByRole('button')).toHaveAccessibleName('For loops, current, open. Drag to move.')
+  await expect(topicCard(page, 'Nested loops').getByRole('button')).toHaveAccessibleName('Nested loops, closed. Drag to move.')
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+
+  const before = await variables.boundingBox()
+  expect(before).not.toBeNull()
+  const start = { x: before!.x + 30, y: before!.y + 24 }
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(start.x + 2, start.y + 1)
+  await page.mouse.up()
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('img', { name: 'Topic connectors' }).locator('path')).toHaveCount(3)
+  const afterClick = await variables.boundingBox()
+  expect(afterClick).not.toBeNull()
+  expect(Math.hypot(afterClick!.x - before!.x, afterClick!.y - before!.y)).toBeLessThan(1)
+
+  const beforeStrokes = ['#94a3b8', '#6366f1', '#94a3b8']
+  const strokes = await connectorStrokes(page)
+  expect(strokes[0]).not.toBe(beforeStrokes[0])
+  expect(strokes[1]).toBe(beforeStrokes[1])
+  expect(strokes[2]).toBe(beforeStrokes[2])
+
+  await button.focus()
+  await page.keyboard.press('Escape')
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await page.keyboard.press('Space')
+  await expect(button).toHaveAttribute('aria-pressed', 'true')
+  const afterSpace = await variables.boundingBox()
+  expect(Math.hypot(afterSpace!.x - before!.x, afterSpace!.y - before!.y)).toBeLessThan(1)
+  await page.keyboard.press('Escape')
+  await expect(button).toHaveAttribute('aria-pressed', 'false')
+
+  await page.keyboard.press('ArrowRight')
+  const nudged = await variables.boundingBox()
+  expect(nudged).not.toBeNull()
+  expect(nudged!.x - before!.x).toBeGreaterThan(12)
+  expect(nudged!.x - before!.x).toBeLessThan(22)
+
+  await page.keyboard.press('Shift+ArrowDown')
+  const leapt = await variables.boundingBox()
+  expect(leapt).not.toBeNull()
+  expect(leapt!.y - nudged!.y).toBeGreaterThan(40)
+  expect(leapt!.y - nudged!.y).toBeLessThan(56)
+
+  await expect(topicCard(page, 'For loops')).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('heading', { name: 'For loops', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+})
+
 function topicCard(page: Page, name: string): Locator {
   return page.getByRole('list', { name: 'Topics' }).getByRole('listitem').filter({
     has: page.getByText(name, { exact: true }),
   })
+}
+
+interface Bounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+function centerOf(box: Bounds) {
+  return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+}
+
+function overlaps(a: Bounds, b: Bounds): boolean {
+  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
+}
+
+function within(card: Bounds, canvas: Bounds): boolean {
+  return card.x >= canvas.x - 1
+    && card.y >= canvas.y - 1
+    && card.x + card.width <= canvas.x + canvas.width + 1
+    && card.y + card.height <= canvas.y + canvas.height + 1
+}
+
+async function connectorPaths(page: Page): Promise<string[]> {
+  return page.getByRole('img', { name: 'Topic connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
+}
+
+async function connectorStrokes(page: Page): Promise<string[]> {
+  return page.getByRole('img', { name: 'Topic connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('stroke') ?? ''))
+}
+
+async function scrollOffset(page: Page) {
+  return page.evaluate(() => ({
+    x: window.scrollX,
+    y: window.scrollY,
+    top: document.scrollingElement?.scrollTop ?? 0,
+    left: document.scrollingElement?.scrollLeft ?? 0,
+  }))
+}
+
+async function dragCard(page: Page, name: string, to: { x: number, y: number } | { dx: number, dy: number }) {
+  const card = topicCard(page, name)
+  await expect(card).toBeVisible()
+  const before = await card.boundingBox()
+  if (!before) throw new Error(`${name} is not on the canvas.`)
+  const start = centerOf(before)
+  const target = 'dx' in to ? { x: start.x + to.dx, y: start.y + to.dy } : to
+  await page.mouse.move(start.x, start.y)
+  await page.mouse.down()
+  await page.mouse.move(target.x, target.y, { steps: 24 })
+  await page.mouse.up()
+  return before
+}
+
+async function touchDrag(page: Page, from: { x: number, y: number }, to: { x: number, y: number }) {
+  const client = await page.context().newCDPSession(page)
+  const steps = 8
+  try {
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchStart',
+      touchPoints: [{ x: from.x, y: from.y, id: 1 }],
+    })
+    for (let step = 1; step <= steps; step += 1) {
+      await client.send('Input.dispatchTouchEvent', {
+        type: 'touchMove',
+        touchPoints: [{
+          id: 1,
+          x: from.x + ((to.x - from.x) * step) / steps,
+          y: from.y + ((to.y - from.y) * step) / steps,
+        }],
+      })
+    }
+    await client.send('Input.dispatchTouchEvent', {
+      type: 'touchEnd',
+      touchPoints: [],
+    })
+  }
+  finally {
+    await client.detach()
+  }
 }
 
 function conversation(page: Page): Locator {

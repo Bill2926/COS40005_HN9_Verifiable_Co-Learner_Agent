@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { connectors, defaultArrangement, placeCard, pointAt } from '../app/map/arrangement'
+import { avoid, connectors, defaultArrangement, placeCard, pointAt } from '../app/map/arrangement'
 import type { MapTopic } from '../shared/turn'
 
 const card = { width: 200, height: 100 }
@@ -78,5 +78,39 @@ describe('map arrangement', () => {
       'M 350 40 C 225 40, 225 225, 100 225',
       'M 100 225 C 277.5 225, 277.5 390, 455 390',
     ])
+  })
+
+  it('moves a card out from under a panel by the shortest route', () => {
+    const canvas = { width: 800, height: 600 }
+    const card = { x: 300, y: 140, width: 100, height: 80 }
+    const panel = { x: 250, y: 120, width: 200, height: 160 }
+
+    // Above is 108px, below 148px, and either side 158px, with the 8px gap.
+    expect(avoid(card, [panel], canvas)).toEqual({ x: 300, y: 32, width: 100, height: 80 })
+  })
+
+  it('stays inside the canvas when a shorter route would leave it', () => {
+    const canvas = { width: 400, height: 300 }
+    const card = { x: 0, y: 0, width: 100, height: 80 }
+    const panel = { x: 0, y: 0, width: 180, height: 150 }
+
+    // Above and left leave the canvas. Below is 158px and inside; right is 188px.
+    expect(avoid(card, [panel], canvas)).toEqual({ x: 0, y: 158, width: 100, height: 80 })
+  })
+
+  it('leaves the card where it is when there is no room inside the canvas', () => {
+    const canvas = { width: 220, height: 180 }
+    const card = { x: 60, y: 50, width: 100, height: 80 }
+    const panel = { x: 0, y: 0, width: 220, height: 180 }
+
+    expect(avoid(card, [panel], canvas)).toEqual({ x: 60, y: 50, width: 100, height: 80 })
+  })
+
+  it('leaves a card that is already clear of every panel where it is', () => {
+    const canvas = { width: 800, height: 600 }
+    const card = { x: 20, y: 20, width: 100, height: 80 }
+    const panel = { x: 400, y: 300, width: 200, height: 120 }
+
+    expect(avoid(card, [panel], canvas)).toEqual({ x: 20, y: 20, width: 100, height: 80 })
   })
 })
