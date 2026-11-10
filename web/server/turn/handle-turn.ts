@@ -1,6 +1,6 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { forLoopTopic, type Exercise } from '../content/for-loop'
-import { knowledgeMap } from '../content/knowledge-map'
+import { course, knowledgeMap } from '../content/knowledge-map'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
@@ -453,6 +453,7 @@ async function redraw(
 
   return {
     displayName,
+    course,
     knowledgeMap: knowledgeMap.map(topic => ({ ...topic })),
     workingArea: {
       mode,

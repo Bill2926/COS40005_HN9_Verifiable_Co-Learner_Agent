@@ -3,6 +3,7 @@ export type TopicState = 'mastered' | 'open' | 'closed'
 interface MapTopicBase {
   id: string
   name: string
+  summary: string
   current: boolean
 }
 
@@ -93,6 +94,7 @@ export interface TurnTrace {
 
 export interface RedrawState {
   displayName: string
+  course: string
   knowledgeMap: MapTopic[]
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
