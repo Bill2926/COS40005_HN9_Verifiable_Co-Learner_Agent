@@ -3,7 +3,6 @@ import type { MapTopic } from '#shared/turn'
 
 const props = defineProps<{
   topics: MapTopic[]
-  canvas?: boolean
 }>()
 
 const masteredCount = computed(() => props.topics.filter(topic => topic.state === 'mastered').length)
@@ -20,10 +19,7 @@ function cardClass(topic: MapTopic): string {
 </script>
 
 <template>
-  <aside
-    class="flex h-full min-h-0 min-w-0 flex-col"
-    :class="canvas ? 'relative z-[1] max-w-sm bg-transparent' : 'border-r border-slate-200 bg-slate-50/80'"
-  >
+  <aside class="flex h-full min-h-0 min-w-0 flex-col border-r border-slate-200 bg-slate-50/80">
     <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4">
       <div class="flex items-center justify-between gap-2">
         <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-400 uppercase">

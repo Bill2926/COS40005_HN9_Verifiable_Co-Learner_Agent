@@ -11,6 +11,8 @@ const props = defineProps<{
   selecting: boolean
   selectError: string
   submitting: boolean
+  floating?: boolean
+  expanded?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -19,7 +21,14 @@ const emit = defineEmits<{
   run: [result: RunOutput | null]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
   'update:mode': [mode: 'learn' | 'practice']
+  'update:expanded': [expanded: boolean]
 }>()
+
+const bodyShown = computed(() => !props.floating || props.expanded !== false)
+
+function toggleExpanded() {
+  emit('update:expanded', props.expanded === false)
+}
 
 const practiceOpened = ref(false)
 
@@ -42,13 +51,21 @@ watch(() => props.mode, (mode) => {
 
 <template>
   <section
-    class="flex h-full min-h-0 min-w-0 flex-col border-r border-slate-200 bg-white"
+    class="flex min-h-0 min-w-0 flex-col bg-white"
+    :class="[
+      floating ? '' : 'border-r border-slate-200',
+      floating && expanded === false ? 'h-auto' : 'h-full',
+    ]"
     aria-label="Working area"
   >
     <header class="flex shrink-0 items-center justify-between gap-4 border-b border-slate-200 bg-white px-8 pt-5 pb-[21px]">
       <div class="flex min-w-0 flex-col gap-0.5">
-        <p class="font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-slate-400 uppercase">
+        <p class="flex items-center gap-2 font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-slate-400 uppercase">
           Working area
+          <span
+            v-if="floating"
+            class="rounded-[4px] bg-[#f1f5f9] px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-[#475569]"
+          >ACTIVE</span>
         </p>
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.5px] text-slate-900">
           {{ area.topicName }}
@@ -60,31 +77,51 @@ watch(() => props.mode, (mode) => {
           <InlineText :text="area.materials.scopeNote" />
         </p>
       </div>
-      <div
-        class="flex shrink-0 rounded-[6px] border border-slate-200/80 bg-slate-100 p-[5px]"
-        role="group"
-        aria-label="Working area mode"
-      >
-        <button
-          type="button"
-          :class="modeClass(mode === 'learn')"
-          :aria-pressed="mode === 'learn'"
-          @click="choose('learn')"
+      <div class="flex shrink-0 items-center gap-2">
+        <div
+          class="flex rounded-[6px] border border-slate-200/80 bg-slate-100 p-[5px]"
+          role="group"
+          aria-label="Working area mode"
         >
-          Learn
-        </button>
+          <button
+            type="button"
+            :class="modeClass(mode === 'learn')"
+            :aria-pressed="mode === 'learn'"
+            @click="choose('learn')"
+          >
+            Learn
+          </button>
+          <button
+            type="button"
+            :class="modeClass(mode === 'practice')"
+            :aria-pressed="mode === 'practice'"
+            @click="choose('practice')"
+          >
+            Practice
+          </button>
+        </div>
         <button
+          v-if="floating"
           type="button"
-          :class="modeClass(mode === 'practice')"
-          :aria-pressed="mode === 'practice'"
-          @click="choose('practice')"
+          class="rounded-[4px] p-1"
+          :aria-expanded="expanded !== false"
+          :aria-label="bodyShown ? 'Collapse working area' : 'Expand working area'"
+          @click="toggleExpanded"
         >
-          Practice
+          <img
+            src="/map-canvas-collapse.svg"
+            alt=""
+            width="16"
+            height="16"
+          >
         </button>
       </div>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-y-auto">
+    <div
+      v-show="bodyShown"
+      class="min-h-0 flex-1 overflow-y-auto"
+    >
       <article
         v-if="mode === 'learn'"
         class="flex w-full max-w-[672px] flex-col gap-6 p-8"

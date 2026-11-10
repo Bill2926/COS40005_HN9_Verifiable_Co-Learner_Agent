@@ -132,6 +132,64 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
+test('shows each topic on the Map canvas and collapses the working area to its header', async ({ page }) => {
+  await openWorkspace(page)
+  await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
+
+  await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+  await expectMapCanvas(page)
+
+  await expect(page.getByText('CS 101: Introduction to Python · Semester 1', { exact: true })).toBeVisible()
+  const topics = page.getByRole('list', { name: 'Topics' })
+  await expect(topics.getByRole('listitem')).toHaveCount(4)
+  const variables = topicCard(page, 'Variables')
+  const branching = topicCard(page, 'If / else')
+  const current = topicCard(page, 'For loops')
+  const closed = topicCard(page, 'Nested loops')
+  await expect(variables).toBeVisible()
+  await expect(variables).toContainText('Mastered')
+  await expect(variables).toContainText('Foundation')
+  await expect(branching).toContainText('Mastered')
+  await expect(branching).toContainText('Branching logic')
+  await expect(current).toContainText('Current')
+  await expect(current).toContainText('Open')
+  await expect(current).toContainText('Topic 3 of 4')
+  await expect(closed).toContainText('Closed')
+  await expect(closed).toContainText('Needs For loops.')
+
+  const connectors = page.getByRole('img', { name: 'Topic connectors' })
+  await expect(connectors.locator('path')).toHaveCount(3)
+  const drawn = await connectors.locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
+  expect(drawn.every(path => path.startsWith('M '))).toBe(true)
+
+  const working = page.getByRole('region', { name: 'Working area', exact: true })
+  const collapse = page.getByRole('button', { name: 'Collapse working area', exact: true })
+  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
+  const expanded = await working.boundingBox()
+  expect(expanded).not.toBeNull()
+  await collapse.click()
+
+  const expand = page.getByRole('button', { name: 'Expand working area', exact: true })
+  await expect(expand).toHaveAttribute('aria-expanded', 'false')
+  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeHidden()
+  const collapsed = await working.boundingBox()
+  expect(collapsed).not.toBeNull()
+  expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
+
+  await expand.click()
+  await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+  const restored = await working.boundingBox()
+  expect(restored).not.toBeNull()
+  expect(Math.abs(restored!.height - expanded!.height)).toBeLessThanOrEqual(2)
+})
+
+function topicCard(page: Page, name: string): Locator {
+  return page.getByRole('list', { name: 'Topics' }).getByRole('listitem').filter({
+    has: page.getByText(name, { exact: true }),
+  })
+}
+
 function conversation(page: Page): Locator {
   return page.getByRole('region', { name: 'Conversation' })
 }
