@@ -260,6 +260,7 @@ function initialsOf(name: string): string {
         v-if="layout === 'map'"
         :topics="workspace.knowledgeMap"
         :course="workspace.course"
+        :student-id="studentId"
       />
       <KnowledgeMap
         v-else

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { MapTopic } from '#shared/turn'
-import { avoid, connectors, defaultArrangement, placeCard, pointAt, type Arrangement, type Box, type Connector, type Point, type Size } from '~/map/arrangement'
+import { avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/map/arrangement'
 
 const props = defineProps<{
   topics: MapTopic[]
   course: string
+  studentId: string
 }>()
 
 const clickSlop = 4
@@ -13,15 +14,17 @@ const nudgeLeap = 48
 
 const canvasEl = ref<HTMLElement | null>(null)
 const labelEl = ref<HTMLElement | null>(null)
-const pillEl = ref<HTMLElement | null>(null)
+const footerEl = ref<HTMLElement | null>(null)
 const canvasSize = ref<Size | null>(null)
 const cardSizes = ref<Record<string, Size>>({})
 const obstacles = ref<Box[]>([])
-const overrides = ref<Arrangement>({})
+const savedArrangement = ref<Arrangement>({})
 const dragPoint = ref<{ id: string, point: Point } | null>(null)
 const selectedId = ref<string | null>(null)
 const cardEls = new Map<string, HTMLElement>()
 let observer: ResizeObserver | undefined
+let loadedClass: SizeClass | null = null
+let loadedStudent = ''
 
 interface Gesture {
   id: string
@@ -46,10 +49,12 @@ const stroke = {
 const arrangement = computed(() => {
   const canvas = canvasSize.value
   if (!canvas) return null
-  const points = defaultArrangement(props.topics.map(topic => topic.id), canvas)
-  for (const [id, point] of Object.entries(overrides.value)) points[id] = point
+  const points = mergeArrangement(
+    defaultArrangement(props.topics.map(topic => topic.id), canvas),
+    savedArrangement.value,
+  )
   const dragging = dragPoint.value
-  if (dragging) points[dragging.id] = dragging.point
+  if (dragging && dragging.id in points) points[dragging.id] = dragging.point
   return points
 })
 
@@ -91,7 +96,7 @@ function obstacleElements(): HTMLElement[] {
     }
   }
   if (labelEl.value) panels.push(labelEl.value)
-  if (pillEl.value) panels.push(pillEl.value)
+  if (footerEl.value) panels.push(footerEl.value)
   return panels
 }
 
@@ -118,7 +123,9 @@ function measure() {
       height: box.height,
     })
   }
-  canvasSize.value = { width: rect.width, height: rect.height }
+  const nextCanvas = { width: rect.width, height: rect.height }
+  syncSaved(nextCanvas)
+  canvasSize.value = nextCanvas
   cardSizes.value = sizes
   obstacles.value = blocks
 }
@@ -272,7 +279,7 @@ function commitDrag(id: string) {
   const box = boxes.value[id]
   dragPoint.value = null
   if (!limits || !size || !box) return
-  overrides.value = { ...overrides.value, [id]: pointAt(box.x, box.y, size, limits) }
+  saveTopic(id, pointAt(box.x, box.y, size, limits))
 }
 
 function nudge(id: string, dx: number, dy: number) {
@@ -287,7 +294,57 @@ function nudge(id: string, dx: number, dy: number) {
     height: size.height,
   }
   const cleared = avoid(shifted, obstacles.value, limits)
-  overrides.value = { ...overrides.value, [id]: pointAt(cleared.x, cleared.y, size, limits) }
+  saveTopic(id, pointAt(cleared.x, cleared.y, size, limits))
+}
+
+function saveTopic(id: string, point: Point) {
+  const next = { ...savedArrangement.value, [id]: point }
+  savedArrangement.value = next
+  const canvas = canvasSize.value
+  if (!canvas || !import.meta.client || props.studentId.length === 0) return
+  const sizeClass = sizeClassOf(canvas)
+  createArrangementStore(localStorage, props.studentId, sizeClass).write(next)
+  loadedClass = sizeClass
+  loadedStudent = props.studentId
+}
+
+function resetArrangement() {
+  cancelGesture()
+  const canvas = canvasSize.value
+  if (canvas && import.meta.client && props.studentId.length > 0) {
+    const sizeClass = sizeClassOf(canvas)
+    createArrangementStore(localStorage, props.studentId, sizeClass).clear()
+    loadedClass = sizeClass
+    loadedStudent = props.studentId
+  }
+  savedArrangement.value = {}
+}
+
+function syncSaved(canvas: Size) {
+  if (!import.meta.client) return
+  const sizeClass = sizeClassOf(canvas)
+  if (sizeClass === loadedClass && props.studentId === loadedStudent) return
+  if (loadedClass !== null) cancelGesture()
+  loadedClass = sizeClass
+  loadedStudent = props.studentId
+  savedArrangement.value = props.studentId.length === 0
+    ? {}
+    : createArrangementStore(localStorage, props.studentId, sizeClass).read()
+}
+
+function cancelGesture() {
+  const active = gesture
+  gesture = null
+  dragPoint.value = null
+  swallowClick = false
+  stopTracking()
+  if (!active) return
+  try {
+    if (active.handle.hasPointerCapture(active.pointerId)) active.handle.releasePointerCapture(active.pointerId)
+  }
+  catch {
+    // Already released.
+  }
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -305,6 +362,11 @@ function stopTracking() {
   window.removeEventListener('pointerup', onPointerUp, true)
   window.removeEventListener('pointercancel', onPointerCancel, true)
 }
+
+watch(() => props.studentId, () => {
+  const canvas = canvasSize.value
+  if (canvas) syncSaved(canvas)
+})
 
 onMounted(() => {
   observer = new ResizeObserver(() => measure())
@@ -479,14 +541,25 @@ onUnmounted(() => {
       </li>
     </ul>
 
-    <p
-      ref="pillEl"
-      class="absolute right-[400px] bottom-5 z-[2] flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] text-[#64748b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
-      aria-hidden="true"
+    <div
+      ref="footerEl"
+      class="absolute right-[400px] bottom-5 z-[2] flex items-center gap-2"
     >
-      <span>100%</span>
-      <span class="text-[#cbd5e1]">|</span>
-      <span>Studio canvas</span>
-    </p>
+      <button
+        type="button"
+        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-slate-200/80 bg-white/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-[#475569] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+        @click="resetArrangement"
+      >
+        Reset arrangement
+      </button>
+      <p
+        class="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-[#64748b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
+        aria-hidden="true"
+      >
+        <span>100%</span>
+        <span class="text-[#cbd5e1]">|</span>
+        <span>Studio canvas</span>
+      </p>
+    </div>
   </div>
 </template>
