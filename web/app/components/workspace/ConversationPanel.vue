@@ -9,6 +9,7 @@ const props = defineProps<{
   sendError: string
   streamingTeacher: string
   streamingDeskmate: string
+  floating?: boolean
 }>()
 
 const agentName = {
@@ -154,6 +155,11 @@ watch(() => props.sending, (sending) => {
         <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-800">
           Conversation
         </h2>
+        <span
+          v-if="floating"
+          class="size-1.5 shrink-0 rounded-full bg-[#10b981]"
+          aria-hidden="true"
+        />
         <p class="font-mono text-[10px] leading-[15px] text-slate-400">
           Teacher + Deskmate
         </p>
