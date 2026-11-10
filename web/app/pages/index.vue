@@ -172,9 +172,9 @@ function initialsOf(name: string): string {
 <template>
   <main
     v-if="error || !workspace"
-    class="grid h-dvh place-items-center bg-default px-6"
+    class="phone-safe grid min-h-dvh place-items-center bg-default px-6 text-center"
   >
-    <p class="text-sm">
+    <p class="max-w-sm text-sm text-balance">
       The workspace could not be opened.
     </p>
   </main>
