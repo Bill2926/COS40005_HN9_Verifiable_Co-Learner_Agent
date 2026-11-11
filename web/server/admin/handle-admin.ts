@@ -1,5 +1,7 @@
 import { resolveModelChoice, type ModelSettings } from '../model/model-choice'
+import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
+import { verifyShieldEnabled, type VerifyShieldStore } from '../storage/verify-shield-store'
 
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
@@ -28,6 +30,15 @@ export class ModelSettingsError extends Error {
   }
 }
 
+export class AdminRequestError extends Error {
+  readonly statusCode = 400
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'AdminRequestError'
+  }
+}
+
 export interface AdminModelView {
   provider: 'real' | 'fake'
   apiKeyMask: string
@@ -41,17 +52,65 @@ export interface AdminRequest {
   adminEmails: string
   env: ModelSettings
   store: ModelSettingsStore
+  decisions?: DecisionLogStore
+  verifyShield?: VerifyShieldStore
+  verifyShieldEnv?: string
   body: unknown
 }
 
-export async function handleAdmin(request: AdminRequest): Promise<{ model: AdminModelView }> {
+export interface AdminResponse {
+  model: AdminModelView
+  verifyShieldOn: boolean
+  decisions: DecisionRecord[]
+}
+
+export async function handleAdmin(request: AdminRequest): Promise<AdminResponse> {
   if (request.email === null || request.email.trim() === '') throw new SignInRequiredError()
   if (!isProductOwner(request.email, request.adminEmails)) throw new ProductOwnerRequiredError()
 
   const save = saveBody(request.body)
   if (save) await request.store.save(await settingsToStore(save, request))
 
-  return { model: await present(request.store, request.env) }
+  const shield = shieldBody(request.body)
+  if (shield) {
+    if (!request.verifyShield) throw new AdminRequestError('The VerifyShield setting is unavailable.')
+    await request.verifyShield.save(shield.enabled)
+  }
+
+  return {
+    model: await present(request.store, request.env),
+    verifyShieldOn: verifyShieldEnabled(
+      request.verifyShieldEnv ?? 'on',
+      request.verifyShield ? await request.verifyShield.read() : null,
+    ),
+    decisions: request.decisions ? await request.decisions.list(decisionQuery(request.body)) : [],
+  }
+}
+
+function shieldBody(body: unknown): { enabled: boolean } | null {
+  if (typeof body !== 'object' || body === null) return null
+  if (!('event' in body) || body.event !== 'shield') return null
+  if (!('enabled' in body) || typeof body.enabled !== 'boolean') {
+    throw new AdminRequestError('The VerifyShield switch is missing.')
+  }
+  return { enabled: body.enabled }
+}
+
+function decisionQuery(body: unknown): DecisionQuery {
+  if (typeof body !== 'object' || body === null) return {}
+  const query: DecisionQuery = {}
+  if ('verdict' in body && body.verdict !== undefined && body.verdict !== null && body.verdict !== '') {
+    if (body.verdict !== 'allow' && body.verdict !== 'block' && body.verdict !== 'downgrade') {
+      throw new AdminRequestError('The verdict filter is not allow, block, or downgrade.')
+    }
+    query.verdict = body.verdict
+  }
+  if ('studentId' in body && body.studentId !== undefined && body.studentId !== null && body.studentId !== '') {
+    if (typeof body.studentId !== 'string') throw new AdminRequestError('The student filter is not text.')
+    const studentId = body.studentId.trim()
+    if (studentId.length > 0) query.studentId = studentId
+  }
+  return query
 }
 
 function isProductOwner(email: string, adminEmails: string): boolean {

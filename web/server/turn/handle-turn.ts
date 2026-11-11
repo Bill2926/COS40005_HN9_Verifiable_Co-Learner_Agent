@@ -6,7 +6,8 @@ import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
-import { decide, type TurnSnapshot, type Verdict } from '../verdict/decide'
+import type { DecisionLogStore } from '../storage/decision-log'
+import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verdict/decide'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -36,6 +37,7 @@ export interface TurnRequest {
 
 export interface TurnOptions {
   verifyShieldOn?: boolean
+  decisions?: DecisionLogStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -180,15 +182,23 @@ async function* introduceTopic(
     }
     return
   }
-  const proposedVerdicts = proposal
-    ? decide([{ agent: 'teacher', move: proposal }], snapshot, roleTable, courseScope)
-    : []
-  const trace = shieldTrace(proposal, null, proposedVerdicts, snapshot)
-  const ruledMove = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
-  const verdict = (proposal && isTeachingMove(proposal)
-    ? proposedVerdicts
-    : decide([{ agent: 'teacher', move: ruledMove }], snapshot, roleTable, courseScope)
-  ).find(item => item.agent === 'teacher')
+  const proposed = proposal ? { agent: 'teacher' as const, move: proposal } : null
+  const proposedVerdict = proposed
+    ? decide([proposed], snapshot, roleTable, courseScope)[0]
+    : undefined
+  const trace = shieldTrace(proposal, null, proposedVerdict ? [proposedVerdict] : [], snapshot)
+  const teaching = Boolean(proposal && isTeachingMove(proposal))
+  const introduction = teaching
+    ? null
+    : { agent: 'teacher' as const, move: { type: 'explain_concept' as const } }
+  const introductionVerdict = introduction
+    ? decide([introduction], snapshot, roleTable, courseScope)[0]
+    : undefined
+  await recordDecisions(studentId, [
+    ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
+    ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
+  ], snapshot, options?.decisions)
+  const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
     const text = redirectText(verdict.move.scope, snapshot.currentModuleId ?? 'loops')
@@ -284,6 +294,10 @@ async function* answerMessage(
   ]
   const snapshot = turnSnapshot(exerciseId, studentMessage, options)
   const verdicts = decide(proposals, snapshot, roleTable, courseScope)
+  await recordDecisions(studentId, verdicts.flatMap((verdict) => {
+    const proposed = proposals.find(item => item.agent === verdict.agent)
+    return proposed ? [{ proposal: proposed, verdict }] : []
+  }), snapshot, options?.decisions)
   const trace = shieldTrace(teacherMove, deskmateMove, verdicts, snapshot)
   const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
@@ -356,6 +370,35 @@ async function redrawWithTrace(
   return {
     ...await redraw(studentId, exerciseId, store, mode),
     trace,
+  }
+}
+
+async function recordDecisions(
+  studentId: string,
+  ruled: readonly { proposal: Proposal, verdict: Verdict }[],
+  snapshot: TurnSnapshot,
+  decisions: DecisionLogStore | undefined,
+): Promise<void> {
+  if (!decisions || ruled.length === 0) return
+  const time = new Date().toISOString()
+  const turnId = crypto.randomUUID()
+  for (const { proposal, verdict } of ruled) {
+    await decisions.append({
+      time,
+      studentId,
+      turnId,
+      agent: verdict.agent,
+      proposedMove: moveKey(proposal.move),
+      proposedScope: proposedScope(proposal.move),
+      verdict: verdict.decision,
+      ruledMove: verdict.move ? moveKey(verdict.move) : null,
+      ruledScope: verdict.move ? proposedScope(verdict.move) : null,
+      ruleId: verdict.ruleId,
+      reasonCode: verdict.reasonCode,
+      masteries: (snapshot.masteries ?? []).map(item => ({ ...item })),
+      unlockedModuleIds: [...(snapshot.unlockedModuleIds ?? [])],
+      verifyShieldOn: snapshot.verifyShieldOn !== false,
+    })
   }
 }
 
