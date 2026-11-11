@@ -151,7 +151,7 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     const editor = page.getByRole('textbox', { name: 'Python editor' })
     const run = page.getByRole('button', { name: 'Run', exact: true })
     const submit = page.getByRole('button', { name: 'Submit', exact: true })
-    const chip = page.getByRole('button', { name: 'Sum of a list', exact: true })
+    const chip = page.getByRole('button', { name: 'Say hello', exact: true })
     await expectReachable(page, editor)
     await expectReachable(page, run)
     await expectReachable(page, submit)
@@ -210,7 +210,7 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await expectOnlyPanel(page, 'working')
     await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'false')
-    await expect(page.getByRole('heading', { name: 'Accumulating a total', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'A first program', exact: true })).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Python editor' })).toBeHidden()
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
@@ -376,7 +376,7 @@ async function openWorkspace(page: Page, size: { width: number, height: number }
   await page.getByLabel('Email').fill(anAccount.email)
   await page.getByLabel('Password').fill(anAccount.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 

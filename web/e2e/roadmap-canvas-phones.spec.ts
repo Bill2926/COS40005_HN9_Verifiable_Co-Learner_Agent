@@ -6,7 +6,19 @@ import { resetDemoAccounts } from './reset-demo-accounts'
 // reach are observed in the browser.
 
 const anAccount = demoAccounts.find(account => account.displayName === 'An')
-const moduleNames = ['Variables', 'If / else', 'For loops', 'Nested loops'] as const
+const moduleNames = [
+  'Getting Started with Programming and Python',
+  'Variables, Data Types, and Operators',
+  'Working with Strings',
+  'Conditional Statements',
+  'Loops',
+  'Lists and Tuples',
+  'Dictionaries and Sets',
+  'Functions',
+  'Modules and the Standard Library',
+  'File Handling',
+  'Error Handling and Debugging',
+] as const
 const phoneWidths = [320, 390, 430] as const
 
 test.beforeAll(async () => {
@@ -94,13 +106,13 @@ test('drags a module by touch on a tablet and a phone, and the connector follows
   try {
     await openWorkspace(page, { width: 768, height: 1024 })
     await showRoadmap(page)
-    await dragModuleByTouch(page, 'Variables')
+    await dragModuleByTouch(page, 'Variables, Data Types, and Operators')
 
     await page.getByRole('button', { name: 'Reset arrangement', exact: true }).click()
     await page.setViewportSize({ width: 375, height: 812 })
     await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
-    await expect(moduleCard(page, 'Variables')).toBeVisible()
-    await dragModuleByTouch(page, 'Variables')
+    await expect(moduleCard(page, 'Variables, Data Types, and Operators')).toBeVisible()
+    await dragModuleByTouch(page, 'Variables, Data Types, and Operators')
   }
   finally {
     await context.close()
@@ -202,7 +214,7 @@ async function expectModulesFit(page: Page) {
 
 async function expectChromeFits(page: Page) {
   const canvas = await canvasBox(page)
-  const course = await page.getByText('CS 101: Introduction to Python · Semester 1', { exact: true }).boundingBox()
+  const course = await page.getByText('Introduction to Programming with Python', { exact: true }).boundingBox()
   const reset = await page.getByRole('button', { name: 'Reset arrangement', exact: true }).boundingBox()
   const pill = await page.getByText('Studio canvas', { exact: true }).boundingBox()
   expect(canvas).not.toBeNull()
@@ -343,7 +355,7 @@ async function openWorkspace(page: Page, size: { width: number, height: number }
   await page.getByLabel('Email').fill(anAccount.email)
   await page.getByLabel('Password').fill(anAccount.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 

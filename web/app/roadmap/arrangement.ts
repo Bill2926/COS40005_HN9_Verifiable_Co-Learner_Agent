@@ -100,26 +100,23 @@ export function sizeClassOf(canvas: Size): SizeClass {
   return canvas.width >= 1024 && canvas.height >= 560 ? 'wide' : 'compact'
 }
 
-// Frame 18:444 places these modules on a 1440 × 900 canvas.
-const designed: Record<string, Point> = {
-  variable: { x: 0.082, y: 0.162 },
-  if_else: { x: 0.42, y: 0.116 },
-  for_loop: { x: 0.144, y: 0.352 },
-  nested_loop: { x: 0.541, y: 0.705 },
-}
-
-const typicalCard: Size = { width: 208, height: 80 }
+const typicalCard: Size = { width: 248, height: 176 }
 // The current module is the widest and tallest card. A compact canvas lays out
 // around that size, so a shorter card still has a gap.
-const compactCard: Size = { width: 248, height: 88 }
+const compactCard: Size = { width: 248, height: 112 }
 const edge = 16
 const labelRoom = 64
 const footerRoom = 56
+// The Roadmap canvas floats the working area at the bottom left and the
+// conversation at the top right. Wide layouts keep module cards out of both.
+const wideConversationReserve = 360 + edge
+const wideWorkingReserve = 448 + edge
 
 // Shrinks the compact card so every row fits between the label and the pill.
 // A sideways phone is a short canvas; full-size cards would stack.
 export function arrangementScale(canvas: Size, count: number): number {
-  if (count === 0 || sizeClassOf(canvas) === 'wide') return 1
+  if (count === 0) return 1
+  if (sizeClassOf(canvas) === 'wide') return wideScale(canvas, count)
   const topRoom = canvas.width < 480 ? 96 : labelRoom
   const bottomRoom = canvas.width < 768 ? 80 : footerRoom
   const columns = compactColumns(canvas, count)
@@ -133,7 +130,18 @@ export function arrangementScale(canvas: Size, count: number): number {
 }
 
 export function fittedModuleWidth(canvas: Size, count: number): number {
-  return compactCard.width * arrangementScale(canvas, count)
+  const width = sizeClassOf(canvas) === 'wide' ? typicalCard.width : compactCard.width
+  return width * arrangementScale(canvas, count)
+}
+
+function wideScale(canvas: Size, count: number): number {
+  const freeWidth = Math.max(typicalCard.width, canvas.width - edge * 2 - wideConversationReserve)
+  const freeHeight = Math.max(typicalCard.height, canvas.height - labelRoom - wideWorkingReserve)
+  const columns = Math.max(1, Math.min(count, Math.floor(freeWidth / (typicalCard.width + 16))))
+  const rows = Math.ceil(count / columns)
+  const heightScale = freeHeight / (rows * typicalCard.height)
+  const widthScale = freeWidth / (columns * (typicalCard.width + 16))
+  return Math.min(1, Math.max(0, heightScale), Math.max(0, widthScale))
 }
 
 function compactColumns(canvas: Size, count: number): number {
@@ -141,12 +149,10 @@ function compactColumns(canvas: Size, count: number): number {
 }
 
 export function defaultArrangement(moduleIds: readonly string[], canvas: Size): Arrangement {
-  const wide = sizeClassOf(canvas) === 'wide'
   const flowed = flow(moduleIds.length, canvas)
   const arrangement: Arrangement = {}
   moduleIds.forEach((id, index) => {
-    const point = wide ? designed[id] : undefined
-    arrangement[id] = point ?? flowed[index] ?? { x: 0, y: 0 }
+    arrangement[id] = flowed[index] ?? { x: 0, y: 0 }
   })
   return arrangement
 }
@@ -155,15 +161,17 @@ export function defaultArrangement(moduleIds: readonly string[], canvas: Size): 
 function flow(count: number, canvas: Size): Point[] {
   if (count === 0) return []
   const compact = sizeClassOf(canvas) !== 'wide'
-  const scale = compact ? arrangementScale(canvas, count) : 1
+  const scale = arrangementScale(canvas, count)
   const card = compact
     ? { width: compactCard.width * scale, height: compactCard.height * scale }
-    : typicalCard
+    : { width: typicalCard.width * scale, height: typicalCard.height * scale }
   const topRoom = compact && canvas.width < 480 ? 96 : labelRoom
-  const bottomRoom = compact && canvas.width < 768 ? 80 : footerRoom
+  const bottomRoom = compact
+    ? (canvas.width < 768 ? 80 : footerRoom)
+    : wideWorkingReserve
   const columns = compact
     ? compactColumns(canvas, count)
-    : Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2) / (card.width + 24))))
+    : Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2 - wideConversationReserve) / (card.width + 16))))
   const rows = Math.ceil(count / columns)
   const stagger = compact && columns > 1 ? 16 : 0
   const usableHeight = Math.max(0, canvas.height - topRoom - bottomRoom - card.height - stagger)
@@ -258,8 +266,51 @@ function centre(box: Box) {
   return { x: box.x + box.width / 2, y: box.y + box.height / 2 }
 }
 
-function overlaps(a: Box, b: Box): boolean {
-  return a.x < b.x + b.width && a.x + a.width > b.x && a.y < b.y + b.height && a.y + a.height > b.y
+function overlaps(a: Box, b: Box, gap = 0): boolean {
+  return a.x < b.x + b.width + gap
+    && a.x + a.width + gap > b.x
+    && a.y < b.y + b.height + gap
+    && a.y + a.height + gap > b.y
+}
+
+// Cards that dodge the same panel can land on each other. Nudge each one
+// to the nearest free spot that stays on the canvas.
+export function spread(
+  boxes: readonly Box[],
+  canvas: Size,
+  gap = 12,
+  obstacles: readonly Box[] = [],
+): Box[] {
+  const placed: Box[] = []
+  for (const box of boxes) {
+    let next = { ...box }
+    for (let guard = 0; guard < boxes.length + obstacles.length; guard += 1) {
+      const blockers = [
+        ...placed.filter(other => overlaps(next, other, gap)),
+        ...obstacles.filter(obstacle => overlaps(next, obstacle, gap)),
+      ]
+      if (blockers.length === 0) break
+      const candidates = blockers.flatMap(blocker => [
+        { ...next, y: blocker.y + blocker.height + gap },
+        { ...next, y: blocker.y - next.height - gap },
+        { ...next, x: blocker.x + blocker.width + gap },
+        { ...next, x: blocker.x - next.width - gap },
+      ])
+      const nearest = candidates
+        .filter(candidate => inside(candidate, canvas)
+          && !placed.some(other => overlaps(candidate, other, gap))
+          && !obstacles.some(obstacle => overlaps(candidate, obstacle, gap)))
+        .sort((left, right) => {
+          const leftDistance = Math.abs(left.x - box.x) + Math.abs(left.y - box.y)
+          const rightDistance = Math.abs(right.x - box.x) + Math.abs(right.y - box.y)
+          return leftDistance - rightDistance
+        })[0]
+      if (!nearest) break
+      next = nearest
+    }
+    placed.push(next)
+  }
+  return placed
 }
 
 function inside(box: Box, canvas: Size): boolean {

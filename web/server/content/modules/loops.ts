@@ -1,31 +1,11 @@
-import type { ExerciseCheck, ModuleMaterials } from '../../shared/turn'
+import type { StudyModule } from '../study-module'
 
-export interface Exercise {
-  id: string
-  title: string
-  statement: string
-  starterCode: string
-  tests: readonly [ExerciseCheck, ExerciseCheck, ExerciseCheck]
-}
-
-export interface MisconceptionResponse {
-  id: string
-  response: string
-}
-
-export const forLoopModule: {
-  id: string
-  name: string
-  materials: ModuleMaterials
-  exercises: readonly [Exercise, Exercise]
-  hintLadder: readonly string[]
-  misconceptionResponses: readonly MisconceptionResponse[]
-} = {
-  id: 'for_loop',
-  name: 'For loops',
+export const loopsModule: StudyModule = {
+  id: 'loops',
+  name: 'Loops',
   materials: {
     heading: 'Accumulating a total',
-    body: 'A running total needs a variable that survives every pass of the loop.',
+    body: 'A running total needs a variable that survives every pass of the loop. for walks a collection, range() builds a sequence of numbers, and while repeats while a condition stays true. break leaves the loop early, continue skips to the next pass, and a loop can sit inside another loop.',
     example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
     keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
     scopeNote: 'These materials belong to this module alone.',
@@ -44,6 +24,13 @@ export const forLoopModule: {
         { name: 'one number', expression: 'total([10])', expected: '10' },
         { name: 'empty list', expression: 'total([])', expected: '0' },
       ],
+      referenceSolution: [
+        'def total(ds):',
+        '    s = 0',
+        '    for x in ds:',
+        '        s = s + x',
+        '    return s',
+      ].join('\n'),
     },
     {
       id: 'count_the_even_numbers',
@@ -57,6 +44,34 @@ export const forLoopModule: {
         { name: 'all even', expression: 'count_even([2, 4, 6])', expected: '3' },
         { name: 'none even', expression: 'count_even([1, 3, 5])', expected: '0' },
       ],
+      referenceSolution: [
+        'def count_even(ds):',
+        '    n = 0',
+        '    for x in ds:',
+        '        if x % 2 == 0:',
+        '            n = n + 1',
+        '    return n',
+      ].join('\n'),
+    },
+    {
+      id: 'count_the_items',
+      title: 'Count the items',
+      statement: 'Count how many items are in a list. Use a `for` loop, and start the count at zero before the loop.',
+      starterCode: `def count_items(ds):
+    pass
+`,
+      tests: [
+        { name: 'three items', expression: 'count_items([1, 2, 3])', expected: '3' },
+        { name: 'one item', expression: 'count_items([10])', expected: '1' },
+        { name: 'empty list', expression: 'count_items([])', expected: '0' },
+      ],
+      referenceSolution: [
+        'def count_items(ds):',
+        '    n = 0',
+        '    for _ in ds:',
+        '        n = n + 1',
+        '    return n',
+      ].join('\n'),
     },
   ],
   hintLadder: [

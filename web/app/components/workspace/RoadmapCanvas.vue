@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import type { RoadmapModule } from '#shared/turn'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
 
 const props = defineProps<{
   modules: RoadmapModule[]
   course: string
   studentId: string
+}>()
+
+const emit = defineEmits<{
+  selectModule: [moduleId: string]
 }>()
 
 const clickSlop = 4
@@ -59,20 +63,35 @@ const arrangement = computed(() => {
 })
 
 const boxes = computed(() => {
-  const placedBoxes: Record<string, Box> = {}
   const canvas = canvasSize.value
   const points = arrangement.value
-  if (!canvas || !points) return placedBoxes
+  if (!canvas || !points) return {}
+  const order: string[] = []
+  const shifted: Box[] = []
   for (const module of props.modules) {
     const size = cardSizes.value[module.id]
     const point = points[module.id]
     if (!size || !point) continue
-    placedBoxes[module.id] = avoid(placeCard(point, size, canvas), obstacles.value, canvas)
+    order.push(module.id)
+    shifted.push(avoid(placeCard(point, size, canvas), obstacles.value, canvas))
   }
+  const placedBoxes: Record<string, Box> = {}
+  spread(shifted, canvas, 12, obstacles.value).forEach((box, index) => {
+    const id = order[index]
+    if (id) placedBoxes[id] = box
+  })
   return placedBoxes
 })
 
 const lines = computed(() => connectors(props.modules, boxes.value))
+const partLabels = computed(() => {
+  const labels = new Map<string, string>()
+  for (const module of props.modules) {
+    if (labels.has(module.part)) continue
+    labels.set(module.part, `Part ${labels.size + 1}: ${module.part}`)
+  }
+  return labels
+})
 const placed = computed(() => props.modules.every(module => boxes.value[module.id]))
 const cardScale = computed(() => {
   const canvas = canvasSize.value
@@ -256,6 +275,7 @@ function onClick(id: string) {
     return
   }
   selectedId.value = id
+  emit('selectModule', id)
 }
 
 function onKeyDown(event: KeyboardEvent, id: string) {
@@ -466,6 +486,9 @@ onUnmounted(() => {
           @click="onClick(module.id)"
           @keydown="onKeyDown($event, module.id)"
         >
+          <p class="mb-1.5 text-[10px] leading-[15px] font-semibold tracking-[0.4px] text-[#94a3b8] uppercase">
+            {{ partLabels.get(module.part) }}
+          </p>
           <template v-if="module.current">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">

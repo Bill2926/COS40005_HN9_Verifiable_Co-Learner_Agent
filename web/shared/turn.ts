@@ -3,6 +3,7 @@ export type ModuleState = 'mastered' | 'open' | 'closed'
 interface RoadmapModuleBase {
   id: string
   name: string
+  part: string
   summary: string
   current: boolean
 }

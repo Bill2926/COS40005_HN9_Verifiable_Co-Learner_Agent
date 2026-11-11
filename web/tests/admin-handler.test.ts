@@ -114,7 +114,7 @@ describe('admin handler', () => {
       })
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
       return Response.json({
         id: 'chatcmpl-test',
         choices: [{
@@ -210,7 +210,7 @@ describe('admin handler', () => {
       })
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
       return Response.json({
         choices: [{
           message: { role: 'assistant', content: JSON.stringify({ proposal }) },
@@ -285,7 +285,7 @@ describe('admin handler', () => {
       calls.push(request.url)
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse('From the environment.')
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
       return Response.json({
         choices: [{
           message: { role: 'assistant', content: JSON.stringify({ proposal }) },
@@ -348,7 +348,7 @@ describe('admin handler', () => {
       ruleId: 'scope_requires_unlocked_module',
       reasonCode: 'MODULE_CLOSED',
       masteries: zeroMasteries,
-      unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
+      unlockedModuleIds: ['getting_started'],
       verifyShieldOn: true,
     })
     expect(deskmate).toMatchObject({
@@ -541,7 +541,7 @@ describe('admin handler', () => {
     }, createMemoryConversationStore({
       [signedInStudent]: 'An Nguyen',
     }), createFakeLanguageModel({
-      proposal: { type: 'explain_concept', scope: 'loops' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'Look at where the total is created.',
     }), { decisions })
 

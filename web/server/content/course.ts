@@ -1,10 +1,14 @@
+import type { RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
 import type { CourseScope } from '../verdict/decide'
+
+export const courseTitle = 'Introduction to Programming with Python'
 
 export interface CourseModule {
   id: string
   number: number
   name: string
   part: string
+  summary: string
   available: boolean
   keywords: readonly string[]
 }
@@ -17,6 +21,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 1,
     name: 'Getting Started with Programming and Python',
     part: 'Foundations',
+    summary: 'What programming is, algorithms as steps, and a first program with print() and comments',
     available: true,
     keywords: ['Getting Started with Programming and Python'],
   },
@@ -25,6 +30,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 2,
     name: 'Variables, Data Types, and Operators',
     part: 'Foundations',
+    summary: 'Variables, data types, operators, input(), and type casting',
     available: true,
     keywords: ['Variables, Data Types, and Operators'],
   },
@@ -33,6 +39,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 3,
     name: 'Working with Strings',
     part: 'Foundations',
+    summary: 'Indexing, slicing, string methods, and f-strings',
     available: true,
     keywords: ['Working with Strings'],
   },
@@ -41,6 +48,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 4,
     name: 'Conditional Statements',
     part: 'Control Flow',
+    summary: 'if, elif, else, nested conditions, and logical operators',
     available: true,
     keywords: ['Conditional Statements'],
   },
@@ -49,6 +57,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 5,
     name: 'Loops',
     part: 'Control Flow',
+    summary: 'for, range(), while, break, continue, and nested loops',
     available: true,
     keywords: ['Loops'],
   },
@@ -57,6 +66,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 6,
     name: 'Lists and Tuples',
     part: 'Built-in Data Structures',
+    summary: 'Creating, changing, and looping over lists and tuples',
     available: false,
     keywords: ['Lists and Tuples'],
   },
@@ -65,6 +75,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 7,
     name: 'Dictionaries and Sets',
     part: 'Built-in Data Structures',
+    summary: 'Dictionaries, sets, and basic list comprehensions',
     available: false,
     keywords: ['Dictionaries and Sets'],
   },
@@ -73,6 +84,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 8,
     name: 'Functions',
     part: 'Organizing Code',
+    summary: 'Defining functions, parameters, return values, and scope',
     available: false,
     keywords: ['Functions'],
   },
@@ -81,6 +93,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 9,
     name: 'Modules and the Standard Library',
     part: 'Organizing Code',
+    summary: 'import, the standard library, pip, and virtual environments',
     available: false,
     keywords: ['Modules and the Standard Library'],
   },
@@ -89,6 +102,7 @@ export const courseModules: readonly CourseModule[] = [
     number: 10,
     name: 'File Handling',
     part: 'Working with the Real World',
+    summary: 'Reading and writing text, CSV, and JSON files',
     available: false,
     keywords: ['File Handling'],
   },
@@ -97,10 +111,18 @@ export const courseModules: readonly CourseModule[] = [
     number: 11,
     name: 'Error Handling and Debugging',
     part: 'Working with the Real World',
+    summary: 'Errors, try / except / finally, tracebacks, and simple tests',
     available: false,
     keywords: ['Error Handling and Debugging'],
   },
 ]
+
+export const outOfScope = [
+  'OOP: classes, inheritance, and polymorphism',
+  'DSA: complexity, stacks, queues, linked lists, trees, graphs, and hand-written sorting and searching',
+  'decorators, generators, async, and multithreading',
+  'NumPy, pandas, matplotlib, Flask, Django, and machine learning',
+] as const
 
 export const outOfCourseKeywords = [
   'classes',
@@ -167,14 +189,49 @@ export function roadmapForStanding(standing: CourseStanding): RoadmapModule[] {
   })
 }
 
-// Mastery is not estimated yet. The only materials are Loops, so that module
-// is current, and Modules 1–5 count as unlocked until evidence decides.
-export function standingForCurrentCourse(): CourseStanding {
+// Mastery is not estimated yet. With no evidence, Module 1 is open and every
+// later module is closed. Modules 6–11 stay closed as not available.
+export function standingFor(currentModuleId: string): CourseStanding {
   return {
-    currentModuleId: 'loops',
+    currentModuleId,
     masteries: courseModules.map(module => ({ moduleId: module.id, mastery: 0 })),
-    unlockedModuleIds: courseModules.filter(module => module.number <= 5).map(module => module.id),
+    unlockedModuleIds: ['getting_started'],
   }
+}
+
+export function closedReasonFor(module: CourseModule): string {
+  if (!module.available) return 'Not available yet'
+  const previous = courseModules.find(item => item.number === module.number - 1)
+  if (!previous) return 'Not available yet'
+  return `Needs Module ${previous.number}: ${previous.name} mastered`
+}
+
+export function presentedRoadmap(currentModuleId: string): StudentRoadmapModule[] {
+  const standing = standingFor(currentModuleId)
+  return courseModules.map((module) => {
+    const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
+    const unlocked = standing.unlockedModuleIds.includes(module.id)
+    const current = module.id === currentModuleId
+    if (!unlocked) {
+      return {
+        id: module.id,
+        name: module.name,
+        part: module.part,
+        summary: module.summary,
+        state: 'closed',
+        current,
+        closedReason: closedReasonFor(module),
+      }
+    }
+    return {
+      id: module.id,
+      name: module.name,
+      part: module.part,
+      summary: module.summary,
+      state: mastery >= masteryThreshold ? 'mastered' : 'open',
+      current,
+    }
+  })
 }
 
 export function redirectText(scope: string, currentModuleId: string): string {
