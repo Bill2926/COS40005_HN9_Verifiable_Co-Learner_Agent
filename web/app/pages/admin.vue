@@ -352,7 +352,7 @@ function messageFrom(caught: unknown): string {
                         v-for="item in decision.masteries"
                         :key="item.moduleId"
                       >
-                        {{ item.moduleId }} {{ item.mastery }}
+                        {{ item.moduleId }} {{ item.mastery.toFixed(2) }}
                       </li>
                     </ul>
                   </td>

@@ -1,8 +1,0 @@
-type,year,title,authors,venue,cited_by,url
-survey/review,2026,From Rule-Based to Goal-Oriented: A Systematic Review of Agentic AI in Education,F Kamalov; H Sulieman,IEEE Access,5,https://ieeexplore.ieee.org/abstract/document/11569672/
-survey/review,2026,Large Language Models in Intelligent Education Systems: New Educational Perspectives—A Systematic Review.,T Ivanova; V Terzieva,Information,9,https://openurl.ebsco.com/contentitem/gcd:194117264?sid=ebsco:plink:crawler-gcd&id=ebsco:gcd:194117264&crl=c&jrnl=20782489
-survey/review,2025,A comprehensive survey on large language model based agents for education,J Yang; M Wang; X Du; R Na,IEEE Transactions on Learning …,25,https://ieeexplore.ieee.org/abstract/document/11192789/
-individual,2026,When Verification Hurts: Asymmetric Effects of Multi-Agent Feedback in Logic Proof Tutoring,T Yasir; SD Tithi; B Tabarsi; D Droujkov,arXiv preprint arXiv …,0,https://arxiv.org/abs/2603.27076
-individual,2026,VERITAS: A Multi-Agent Verification-Based Framework for Reliable Intelligent Tutoring Systems,LS Victorio; A Viçoso de Araujo; VA Borges,Proceedings of the 41st …,0,https://dl.acm.org/doi/abs/10.1145/3748522.3779997
-individual,2026,An adaptive multi-agent architecture with reinforcement learning and generative AI for intelligent tutoring systems: A moodle-based case study,JP López-Goyez; A González-Briones; Y Demazeau,Applied Sciences,20,https://www.mdpi.com/2076-3417/16/3/1323
-individual,2026,From Knowing to Teaching: Scaffolding Pedagogical Decisions for LLM Agent,Y Wang; S Yang; J Yu; H Li; JJY Lim,Proceedings of the …,0,https://aclanthology.org/2026.acl-long.1328/

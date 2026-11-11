@@ -69,7 +69,7 @@ const traceHeading = computed(() => {
 })
 const masteryLine = computed(() => {
   if (!props.trace) return ''
-  return props.trace.masteries.map(item => `${item.moduleId} ${item.mastery}`).join(', ')
+  return props.trace.masteries.map(item => `${item.moduleId} ${item.mastery.toFixed(2)}`).join(', ')
 })
 const text = ref('')
 const pending = ref('')

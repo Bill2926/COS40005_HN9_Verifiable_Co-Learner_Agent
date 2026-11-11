@@ -65,6 +65,7 @@ describe('turn endpoint', () => {
         summary: 'What programming is, algorithms as steps, and a first program with print() and comments',
         state: 'open',
         current: true,
+        mastery: 0.1,
       },
       {
         id: 'variables',
@@ -185,6 +186,7 @@ describe('turn endpoint', () => {
         { id: 'sign_the_program', title: 'Sign the program' },
       ],
     })
+    expect(state.masteryThreshold).toBe(0.9)
     expect(state.conversation).toEqual([])
     expect(state.displayName).toBe('An')
     expect(JSON.stringify(state)).not.toContain('return "Hello, " + name')
@@ -1849,31 +1851,31 @@ describe('turn endpoint', () => {
       ],
     })
     expect(state.trace?.masteries).toEqual([
-      { moduleId: 'getting_started', mastery: 0 },
-      { moduleId: 'variables', mastery: 0 },
-      { moduleId: 'strings', mastery: 0 },
-      { moduleId: 'conditionals', mastery: 0 },
-      { moduleId: 'loops', mastery: 0 },
-      { moduleId: 'lists_and_tuples', mastery: 0 },
-      { moduleId: 'dictionaries_and_sets', mastery: 0 },
-      { moduleId: 'functions', mastery: 0 },
-      { moduleId: 'modules_and_library', mastery: 0 },
-      { moduleId: 'file_handling', mastery: 0 },
-      { moduleId: 'error_handling', mastery: 0 },
+      { moduleId: 'getting_started', mastery: 0.1 },
+      { moduleId: 'variables', mastery: 0.1 },
+      { moduleId: 'strings', mastery: 0.1 },
+      { moduleId: 'conditionals', mastery: 0.1 },
+      { moduleId: 'loops', mastery: 0.1 },
+      { moduleId: 'lists_and_tuples', mastery: 0.1 },
+      { moduleId: 'dictionaries_and_sets', mastery: 0.1 },
+      { moduleId: 'functions', mastery: 0.1 },
+      { moduleId: 'modules_and_library', mastery: 0.1 },
+      { moduleId: 'file_handling', mastery: 0.1 },
+      { moduleId: 'error_handling', mastery: 0.1 },
     ])
     const proposed = model.exchanges.find(exchange => exchange.agent === 'teacher' && exchange.phase === 'propose')
     expect(proposed && proposed.agent === 'teacher' ? proposed.context.roadmap : []).toEqual([
-      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0, current: true },
-      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'closed', mastery: 0, current: false },
-      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'closed', mastery: 0, current: false },
-      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'closed', mastery: 0, current: false },
-      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'closed', mastery: 0, current: false },
-      { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
-      { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
-      { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', mastery: 0, current: false },
-      { id: 'modules_and_library', number: 9, name: 'Modules and the Standard Library', part: 'Organizing Code', state: 'closed', mastery: 0, current: false },
-      { id: 'file_handling', number: 10, name: 'File Handling', part: 'Working with the Real World', state: 'closed', mastery: 0, current: false },
-      { id: 'error_handling', number: 11, name: 'Error Handling and Debugging', part: 'Working with the Real World', state: 'closed', mastery: 0, current: false },
+      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0.1, current: true },
+      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'closed', mastery: 0.1, current: false },
+      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'closed', mastery: 0.1, current: false },
+      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'closed', mastery: 0.1, current: false },
+      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'closed', mastery: 0.1, current: false },
+      { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', mastery: 0.1, current: false },
+      { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', mastery: 0.1, current: false },
+      { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', mastery: 0.1, current: false },
+      { id: 'modules_and_library', number: 9, name: 'Modules and the Standard Library', part: 'Organizing Code', state: 'closed', mastery: 0.1, current: false },
+      { id: 'file_handling', number: 10, name: 'File Handling', part: 'Working with the Real World', state: 'closed', mastery: 0.1, current: false },
+      { id: 'error_handling', number: 11, name: 'Error Handling and Debugging', part: 'Working with the Real World', state: 'closed', mastery: 0.1, current: false },
     ])
   })
 

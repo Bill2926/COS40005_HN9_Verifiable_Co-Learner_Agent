@@ -1,10 +1,11 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
-import { courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, standingFor } from '../content/course'
+import { courseScope, courseTitle, estimateCourse, furthestUnlockedModuleId, masteryThreshold, presentedRoadmap, redirectText, roadmapForStanding, standingFor, type CourseEstimate, type CourseStanding } from '../content/course'
 import { canonicalModuleId, studyModule, type Exercise, type StudyModule } from '../content/study-module'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
+import { createMemoryEvidenceStore, type EvidenceStore } from '../storage/evidence-store'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verdict/decide'
 
@@ -42,6 +43,7 @@ export interface TurnRequest {
 export interface TurnOptions {
   verifyShieldOn?: boolean
   decisions?: DecisionLogStore
+  evidence?: EvidenceStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -94,24 +96,30 @@ async function* streamTurnBody(
 ): AsyncGenerator<TurnEvent> {
   const studentId = studentIdForTurn(request)
   const body = request.body
-  const placement = await viewPlacement(studentId, store)
+  // The ledger is read once a turn. A submission appends to it below and the
+  // estimate is taken again, so the roadmap the student gets back already
+  // counts the submission they just made.
+  const ledger = options?.evidence ?? createMemoryEvidenceStore()
+  let estimate = estimateCourse(await ledger.forStudent(studentId))
+  const placement = await viewPlacement(studentId, store, estimate)
+  let standing = standingFor(estimate, placement.module.id)
 
   if (isOpenEvent(body)) {
     const existing = await store.messages(studentId, placement.module.id)
     if (existing.length === 0 && model) {
-      yield* introduceModule(studentId, placement, store, model, options)
+      yield* introduceModule(studentId, placement, standing, store, model, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
-    yield { type: 'state', state: await redraw(studentId, placement, store, mode) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, mode) }
     return
   }
 
   if (isSelectModule(body)) {
     const chosen = studyModule(canonicalModuleId(body.moduleId))
-    const standing = standingFor(placement.module.id)
+    // Choosing a closed module changes nothing.
     if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
-      yield { type: 'state', state: await redraw(studentId, placement, store, null) }
+      yield { type: 'state', state: await redraw(studentId, placement, standing, store, null) }
       return
     }
     const point = await store.resumePoint(studentId)
@@ -124,7 +132,7 @@ async function* streamTurnBody(
     const existing = await store.messages(studentId, chosen.id)
     yield {
       type: 'state',
-      state: await redraw(studentId, next, store, existing.length === 0 ? 'learn' : null),
+      state: await redraw(studentId, next, standingFor(estimate, next.module.id), store, existing.length === 0 ? 'learn' : null),
     }
     return
   }
@@ -140,20 +148,30 @@ async function* streamTurnBody(
       text: exercise.title,
       exerciseId: exercise.id,
     })
-    yield { type: 'state', state: await redraw(studentId, next, store, null) }
+    yield { type: 'state', state: await redraw(studentId, next, standing, store, null) }
     return
   }
 
   if (isSubmission(body)) {
     if (!model) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
+    // A submission is the only thing that produces evidence.
+    await ledger.append({
+      studentId,
+      moduleId: placement.module.id,
+      exerciseId: placement.exercise.id,
+      testsPassed: body.results.filter(result => result.passed).length,
+      testsTotal: body.results.length,
+    })
+    estimate = estimateCourse(await ledger.forStudent(studentId))
+    standing = standingFor(estimate, placement.module.id)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
       approvedMove: null,
       text: submissionSummary(body.results),
       exerciseId: placement.exercise.id,
     })
-    yield* answerMessage(studentId, placement, {
+    yield* answerMessage(studentId, placement, standing, {
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
@@ -170,7 +188,7 @@ async function* streamTurnBody(
       text: body.text.trim(),
       exerciseId: placement.exercise.id,
     })
-    yield* answerMessage(studentId, placement, {
+    yield* answerMessage(studentId, placement, standing, {
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
@@ -184,17 +202,18 @@ async function* streamTurnBody(
 async function* introduceModule(
   studentId: string,
   placement: Placement,
+  standing: CourseStanding,
   store: ConversationStore,
   model: LanguageModel,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const context = await teacherContext(studentId, placement, store, {
+  const context = await teacherContext(studentId, placement, standing, store, {
     draft: null,
     runOutput: null,
     submission: null,
   })
 
-  const snapshot = turnSnapshot(placement, '', options)
+  const snapshot = turnSnapshot(placement, standing, '', options)
   let proposal: Move | null = null
   try {
     proposal = await model.teacher.propose(context)
@@ -202,7 +221,7 @@ async function* introduceModule(
   catch {
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, placement, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
+      state: await redrawWithTrace(studentId, placement, standing, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
     }
     return
   }
@@ -241,11 +260,15 @@ async function* introduceModule(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, 'learn', trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, 'learn', trace) }
 }
 
-function turnSnapshot(placement: Placement, studentMessage: string, options?: TurnOptions): TurnSnapshot {
-  const standing = standingFor(placement.module.id)
+function turnSnapshot(
+  placement: Placement,
+  standing: CourseStanding,
+  studentMessage: string,
+  options?: TurnOptions,
+): TurnSnapshot {
   return {
     moduleId: placement.module.id,
     exerciseId: placement.exercise.id,
@@ -296,13 +319,14 @@ async function* streamTeacherReply(
 async function* answerMessage(
   studentId: string,
   placement: Placement,
+  standing: CourseStanding,
   seen: SeenWork,
   store: ConversationStore,
   model: LanguageModel,
   studentMessage: string,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const context = await teacherContext(studentId, placement, store, seen)
+  const context = await teacherContext(studentId, placement, standing, store, seen)
   const deskmate = deskmateContext(context)
   const [teacherSettled, deskmateSettled] = await Promise.allSettled([
     model.teacher.propose(context),
@@ -315,7 +339,7 @@ async function* answerMessage(
     ...(teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []),
     ...(deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []),
   ]
-  const snapshot = turnSnapshot(placement, studentMessage, options)
+  const snapshot = turnSnapshot(placement, standing, studentMessage, options)
   const verdicts = decide(proposals, snapshot, roleTable, courseScope)
   await recordDecisions(studentId, verdicts.flatMap((verdict) => {
     const proposed = proposals.find(item => item.agent === verdict.agent)
@@ -327,7 +351,7 @@ async function* answerMessage(
 
   if (teacherSettled.status === 'rejected') {
     await rememberTeacherCouldNotAnswer(studentId, placement, store)
-    yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
+    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
     const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
@@ -338,7 +362,7 @@ async function* answerMessage(
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, placement, store)
-      yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
+      yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
     }
     else {
       await store.appendMessage(studentId, placement.module.id, {
@@ -380,18 +404,19 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
 }
 
 async function redrawWithTrace(
   studentId: string,
   placement: Placement,
+  standing: CourseStanding,
   store: ConversationStore,
   mode: 'learn' | null,
   trace: TurnTrace,
 ): Promise<RedrawState> {
   return {
-    ...await redraw(studentId, placement, store, mode),
+    ...await redraw(studentId, placement, standing, store, mode),
     trace,
   }
 }
@@ -479,6 +504,7 @@ function proposedScope(move: Move): string | null {
 async function teacherContext(
   studentId: string,
   placement: Placement,
+  standing: CourseStanding,
   store: ConversationStore,
   seen: SeenWork,
 ): Promise<TeacherContext> {
@@ -501,7 +527,7 @@ async function teacherContext(
       text: message.text,
       approvedMove: message.approvedMove,
     })),
-    roadmap: roadmapForStanding(standingFor(placement.module.id)),
+    roadmap: roadmapForStanding(standing),
   }
 }
 
@@ -559,14 +585,19 @@ async function rememberDeskmateCouldNotAnswer(
   })
 }
 
-async function viewPlacement(studentId: string, store: ConversationStore): Promise<Placement> {
-  const opening = studyModule('getting_started')
-  if (!opening) throw new Error('Module 1 is missing.')
+async function viewPlacement(
+  studentId: string,
+  store: ConversationStore,
+  estimate: CourseEstimate,
+): Promise<Placement> {
+  // With no resume point the student starts on the furthest module their
+  // evidence has unlocked, which is Module 1 when they have no evidence.
+  const opening = studyModule(furthestUnlockedModuleId(estimate))
+  if (!opening) throw new Error('The first module of the course is missing.')
   const point = await store.resumePoint(studentId)
   const moduleId = point ? canonicalModuleId(point.moduleId) : opening.id
   const module = studyModule(moduleId)
-  const standing = standingFor(module?.id ?? opening.id)
-  if (module && standing.unlockedModuleIds.includes(module.id)) {
+  if (module && estimate.unlockedModuleIds.includes(module.id)) {
     const exercise = module.exercises.find(item => item.id === point?.exerciseId) ?? module.exercises[0]
     if (!point || point.moduleId !== module.id || point.exerciseId !== exercise.id) {
       await store.saveResumePoint(studentId, { moduleId: module.id, exerciseId: exercise.id })
@@ -595,6 +626,7 @@ async function adoptPlacement(
 async function redraw(
   studentId: string,
   placement: Placement,
+  standing: CourseStanding,
   store: ConversationStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
@@ -604,7 +636,8 @@ async function redraw(
   return {
     displayName,
     course: courseTitle,
-    courseRoadmap: presentedRoadmap(placement.module.id),
+    courseRoadmap: presentedRoadmap(standing),
+    masteryThreshold,
     workingArea: {
       mode,
       moduleId: placement.module.id,

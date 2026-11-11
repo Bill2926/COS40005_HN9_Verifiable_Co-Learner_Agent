@@ -327,7 +327,7 @@ test('selects a module without moving it, and arrow keys move the focused module
   const variables = moduleCard(page, 'Variables, Data Types, and Operators')
   const button = variables.getByRole('button')
   await expect(button).toHaveAccessibleName('Variables, Data Types, and Operators, closed. Drag to move.')
-  await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAccessibleName('Getting Started with Programming and Python, current, open. Drag to move.')
+  await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAccessibleName('Getting Started with Programming and Python, current, open, 10% mastery. Drag to move.')
   await expect(moduleCard(page, 'Lists and Tuples').getByRole('button')).toHaveAccessibleName('Lists and Tuples, closed. Drag to move.')
   await expect(button).toHaveAttribute('aria-pressed', 'false')
 
@@ -384,7 +384,10 @@ test('keeps a moved module on this device, and reset arrangement restores the st
   await expectResetBesidePill(page)
 
   const start = await moduleOrigins(page)
-  await dragCard(page, 'Getting Started with Programming and Python', { dx: 160, dy: 24 })
+  // Down the empty left of the canvas. Cards push each other apart by design,
+  // so a drag onto a neighbour would move that neighbour and say nothing about
+  // whether a drag is local.
+  await dragCard(page, 'Getting Started with Programming and Python', { dx: 24, dy: 220 })
   const dragged = await moduleOrigins(page)
   expect(Math.hypot(dragged['Getting Started with Programming and Python'].x - start['Getting Started with Programming and Python'].x, dragged['Getting Started with Programming and Python'].y - start['Getting Started with Programming and Python'].y)).toBeGreaterThan(80)
   for (const name of ['Variables, Data Types, and Operators', 'Working with Strings', 'Lists and Tuples']) {
@@ -419,7 +422,10 @@ test('keeps a moved module on this device, and reset arrangement restores the st
   await signInAs(page, binhAccount)
   await showRoadmap(page)
   await expectSignedInAs(page, 'Bình')
-  await expectArrangement(page, start)
+  // Bình arranges her own roadmap. Her starting positions are not An's, and
+  // they are her own rather than An's defaults, because her evidence has her
+  // modules at a different stage and so her cards are a different size.
+  await expectModuleAwayFrom(page, 'Getting Started with Programming and Python', moved, 80)
 
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
@@ -565,7 +571,9 @@ async function signInAs(page: Page, account: { email: string, password: string }
   await page.getByLabel('Email').fill(account.email)
   await page.getByLabel('Password').fill(account.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
+  // Which module a student lands on follows their evidence, so the course
+  // roadmap is what every student has in common once the workspace is drawn.
+  await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 
@@ -591,6 +599,21 @@ async function expectArrangement(page: Page, expected: Record<string, { x: numbe
       return Math.hypot(found.x - point.x, found.y - point.y)
     }))
   }).toBeLessThanOrEqual(2)
+}
+
+async function expectModuleAwayFrom(
+  page: Page,
+  name: string,
+  other: Record<string, { x: number, y: number }>,
+  least: number,
+) {
+  const point = other[name]
+  if (!point) throw new Error(`${name} was never measured.`)
+  await expect.poll(async () => {
+    const actual = (await moduleOrigins(page))[name]
+    if (!actual) return 0
+    return Math.hypot(actual.x - point.x, actual.y - point.y)
+  }).toBeGreaterThan(least)
 }
 
 async function expectResetBesidePill(page: Page) {

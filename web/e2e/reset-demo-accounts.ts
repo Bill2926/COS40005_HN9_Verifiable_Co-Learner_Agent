@@ -36,32 +36,51 @@ function adminClient(): SupabaseClient {
   })
 }
 
-async function demoStudentIds(admin: SupabaseClient): Promise<string[]> {
+interface DemoStudent {
+  id: string
+  seededEvidence: boolean
+}
+
+async function demoStudents(admin: SupabaseClient): Promise<DemoStudent[]> {
   const listed = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
   if (listed.error) throw new Error(listed.error.message)
 
   return demoAccounts.map((account) => {
     const user = listed.data.users.find(candidate => candidate.email === account.email)
     if (!user) throw new Error(`Demo account ${account.email} is not seeded.`)
-    return user.id
+    return { id: user.id, seededEvidence: account.seededEvidence }
   })
 }
 
 export async function resetDemoAccounts() {
   const admin = adminClient()
-  const ids = await demoStudentIds(admin)
+  const students = await demoStudents(admin)
+  const ids = students.map(student => student.id)
   const conversations = await admin.from('conversations').delete().in('student_id', ids)
   if (conversations.error) throw new Error(conversations.error.message)
   const resumePoints = await admin.from('resume_points').delete().in('student_id', ids)
   if (resumePoints.error) throw new Error(resumePoints.error.message)
+  // Submissions a rehearsal makes are evidence, so they would change the
+  // mastery the next run starts from. The seeded ledger is left as it is.
+  const evidence = await admin.from('evidence').delete().in('student_id', clearableIds(students))
+  if (evidence.error) throw new Error(evidence.error.message)
+}
+
+function clearableIds(students: readonly DemoStudent[]): string[] {
+  return students.filter(student => !student.seededEvidence).map(student => student.id)
 }
 
 export async function demoAccountsAreClear(): Promise<boolean> {
   const admin = adminClient()
-  const ids = await demoStudentIds(admin)
+  const students = await demoStudents(admin)
+  const ids = students.map(student => student.id)
   const conversations = await admin.from('conversations').select('id').in('student_id', ids)
   if (conversations.error) throw new Error(conversations.error.message)
   const resumePoints = await admin.from('resume_points').select('student_id').in('student_id', ids)
   if (resumePoints.error) throw new Error(resumePoints.error.message)
-  return (conversations.data ?? []).length === 0 && (resumePoints.data ?? []).length === 0
+  const evidence = await admin.from('evidence').select('id').in('student_id', clearableIds(students))
+  if (evidence.error) throw new Error(evidence.error.message)
+  return (conversations.data ?? []).length === 0
+    && (resumePoints.data ?? []).length === 0
+    && (evidence.data ?? []).length === 0
 }

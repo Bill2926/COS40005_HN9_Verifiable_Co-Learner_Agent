@@ -347,7 +347,7 @@ describe('admin handler', () => {
       ruledScope: 'lists_and_tuples',
       ruleId: 'scope_requires_unlocked_module',
       reasonCode: 'MODULE_CLOSED',
-      masteries: zeroMasteries,
+      masteries: priorMasteries,
       unlockedModuleIds: ['getting_started'],
       verifyShieldOn: true,
     })
@@ -612,25 +612,27 @@ function loggedDecision(overrides: Partial<DecisionRecord> = {}): DecisionRecord
     ruledScope: 'loops',
     ruleId: 'role_table',
     reasonCode: 'ROLE_PERMITTED',
-    masteries: zeroMasteries,
+    masteries: priorMasteries,
     unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
     verifyShieldOn: true,
     ...overrides,
   }
 }
 
-const zeroMasteries = [
-  { moduleId: 'getting_started', mastery: 0 },
-  { moduleId: 'variables', mastery: 0 },
-  { moduleId: 'strings', mastery: 0 },
-  { moduleId: 'conditionals', mastery: 0 },
-  { moduleId: 'loops', mastery: 0 },
-  { moduleId: 'lists_and_tuples', mastery: 0 },
-  { moduleId: 'dictionaries_and_sets', mastery: 0 },
-  { moduleId: 'functions', mastery: 0 },
-  { moduleId: 'modules_and_library', mastery: 0 },
-  { moduleId: 'file_handling', mastery: 0 },
-  { moduleId: 'error_handling', mastery: 0 },
+// Every module sits at the Bayesian Knowledge Tracing prior until a submission
+// gives the estimate something to read.
+const priorMasteries = [
+  { moduleId: 'getting_started', mastery: 0.1 },
+  { moduleId: 'variables', mastery: 0.1 },
+  { moduleId: 'strings', mastery: 0.1 },
+  { moduleId: 'conditionals', mastery: 0.1 },
+  { moduleId: 'loops', mastery: 0.1 },
+  { moduleId: 'lists_and_tuples', mastery: 0.1 },
+  { moduleId: 'dictionaries_and_sets', mastery: 0.1 },
+  { moduleId: 'functions', mastery: 0.1 },
+  { moduleId: 'modules_and_library', mastery: 0.1 },
+  { moduleId: 'file_handling', mastery: 0.1 },
+  { moduleId: 'error_handling', mastery: 0.1 },
 ]
 
 function sse(text: string): Response {

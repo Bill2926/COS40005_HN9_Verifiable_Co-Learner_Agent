@@ -6,6 +6,7 @@ const props = defineProps<{
   modules: RoadmapModule[]
   course: string
   studentId: string
+  masteryThreshold: number
 }>()
 
 const emit = defineEmits<{
@@ -187,7 +188,15 @@ function cardClass(module: RoadmapModule): string {
 function announcement(module: RoadmapModule): string {
   const state = module.state === 'mastered' ? 'mastered' : module.state === 'closed' ? 'closed' : 'open'
   const current = module.current ? 'current, ' : ''
-  return `${module.name}, ${current}${state}. Drag to move.`
+  const mastery = module.state === 'closed' ? '' : `, ${masteryPercent(module)}% mastery`
+  return `${module.name}, ${current}${state}${mastery}. Drag to move.`
+}
+
+const thresholdPercent = computed(() => Math.round(props.masteryThreshold * 100))
+
+// A closed module shows no mastery, so only an unlocked one reaches the bar.
+function masteryPercent(module: RoadmapModule): number {
+  return module.state === 'closed' ? 0 : Math.round(module.mastery * 100)
 }
 
 function highlighted(line: Connector): boolean {
@@ -505,12 +514,16 @@ onUnmounted(() => {
               </p>
             </div>
             <div class="mt-3 flex items-center justify-between gap-3">
-              <p class="flex items-center gap-1.5 text-xs leading-[18px] font-semibold tracking-[0.3px] text-[#4f46e5]">
+              <p
+                class="flex items-center gap-1.5 text-xs leading-[18px] font-semibold tracking-[0.3px]"
+                :class="module.state === 'mastered' ? 'text-[#047857]' : 'text-[#4f46e5]'"
+              >
                 <span
-                  class="size-1.5 shrink-0 rounded-full bg-[#6366f1]"
+                  class="size-1.5 shrink-0 rounded-full"
+                  :class="module.state === 'mastered' ? 'bg-[#059669]' : 'bg-[#6366f1]'"
                   aria-hidden="true"
                 />
-                Open
+                {{ module.state === 'mastered' ? 'Mastered' : 'Open' }}
               </p>
               <p class="text-[11px] leading-[16.5px] font-medium text-[#94a3b8]">
                 Module {{ index + 1 }} of {{ modules.length }}
@@ -575,6 +588,29 @@ onUnmounted(() => {
               {{ module.summary }}
             </p>
           </template>
+
+          <div
+            v-if="module.state !== 'closed'"
+            class="mt-3 flex items-center gap-2"
+          >
+            <span
+              class="relative h-1.5 min-w-0 flex-1 rounded-full bg-[#e2e8f0]"
+              aria-hidden="true"
+            >
+              <span
+                class="absolute inset-y-0 left-0 rounded-full"
+                :class="module.state === 'mastered' ? 'bg-[#059669]' : 'bg-[#4f46e5]'"
+                :style="{ width: `${masteryPercent(module)}%` }"
+              />
+              <span
+                class="absolute -top-0.5 -bottom-0.5 w-px bg-[#94a3b8]"
+                :style="{ left: `${thresholdPercent}%` }"
+              />
+            </span>
+            <p class="shrink-0 font-mono text-[11px] leading-[16.5px] text-[#64748b] tabular-nums">
+              {{ masteryPercent(module) }}%
+            </p>
+          </div>
         </button>
       </li>
     </ul>

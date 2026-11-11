@@ -170,9 +170,9 @@ describe('roadmap arrangement', () => {
 
   it('draws one connector for each consecutive pair, in course order, styled by the module it leads into', () => {
     const modules: RoadmapModule[] = [
-      { id: 'variable', name: 'Variables', part: 'Foundations', summary: 'Foundation', state: 'mastered', current: false },
-      { id: 'if_else', name: 'If / else', part: 'Foundations', summary: 'Branching logic', state: 'mastered', current: false },
-      { id: 'for_loop', name: 'For loops', part: 'Control Flow', summary: 'Repeating with a running total', state: 'open', current: true },
+      { id: 'variable', name: 'Variables', part: 'Foundations', summary: 'Foundation', state: 'mastered', current: false, mastery: 0.96 },
+      { id: 'if_else', name: 'If / else', part: 'Foundations', summary: 'Branching logic', state: 'mastered', current: false, mastery: 0.96 },
+      { id: 'for_loop', name: 'For loops', part: 'Control Flow', summary: 'Repeating with a running total', state: 'open', current: true, mastery: 0.43 },
       {
         id: 'nested_loop',
         name: 'Nested loops',
