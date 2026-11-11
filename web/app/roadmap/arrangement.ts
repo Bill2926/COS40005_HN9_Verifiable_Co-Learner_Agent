@@ -1,4 +1,4 @@
-import type { MapTopic } from '#shared/turn'
+import type { RoadmapModule } from '#shared/turn'
 
 // A point is where a card sits within the room it can move in:
 // 0 is the canvas's left or top edge, 1 puts the card flush with the right or bottom edge.
@@ -33,7 +33,8 @@ export interface Connector {
   path: string
 }
 
-const prefix = 'co-learner-map-arrangement:'
+const prefix = 'co-learner-roadmap-arrangement:'
+const earlierPrefix = 'co-learner-map-arrangement:'
 
 export interface ArrangementStore {
   read: () => Arrangement
@@ -47,10 +48,11 @@ export function createArrangementStore(
   sizeClass: SizeClass,
 ): ArrangementStore {
   const key = `${prefix}${studentId}:${sizeClass}`
+  const earlierKey = `${earlierPrefix}${studentId}:${sizeClass}`
 
   return {
     read() {
-      const raw = storage.getItem(key)
+      const raw = storage.getItem(key) ?? storage.getItem(earlierKey)
       if (!raw) return {}
       try {
         return validArrangement(JSON.parse(raw))
@@ -64,12 +66,13 @@ export function createArrangementStore(
     },
     clear() {
       storage.removeItem(key)
+      storage.removeItem(earlierKey)
     },
   }
 }
 
 // A saved point outside 0–1, or one that is not a finite number, is dropped.
-// That topic keeps the starting arrangement.
+// That module keeps the starting arrangement.
 function validArrangement(value: unknown): Arrangement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
   const arrangement: Arrangement = {}
@@ -97,7 +100,7 @@ export function sizeClassOf(canvas: Size): SizeClass {
   return canvas.width >= 1024 && canvas.height >= 560 ? 'wide' : 'compact'
 }
 
-// Frame 18:444 places these topics on a 1440 × 900 canvas.
+// Frame 18:444 places these modules on a 1440 × 900 canvas.
 const designed: Record<string, Point> = {
   variable: { x: 0.082, y: 0.162 },
   if_else: { x: 0.42, y: 0.116 },
@@ -106,7 +109,7 @@ const designed: Record<string, Point> = {
 }
 
 const typicalCard: Size = { width: 208, height: 80 }
-// The current topic is the widest and tallest card. A compact canvas lays out
+// The current module is the widest and tallest card. A compact canvas lays out
 // around that size, so a shorter card still has a gap.
 const compactCard: Size = { width: 248, height: 88 }
 const edge = 16
@@ -129,7 +132,7 @@ export function arrangementScale(canvas: Size, count: number): number {
   return Math.min(1, Math.max(0, heightScale), Math.max(0, widthScale))
 }
 
-export function fittedTopicWidth(canvas: Size, count: number): number {
+export function fittedModuleWidth(canvas: Size, count: number): number {
   return compactCard.width * arrangementScale(canvas, count)
 }
 
@@ -137,11 +140,11 @@ function compactColumns(canvas: Size, count: number): number {
   return Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2) / (compactCard.width + 24))))
 }
 
-export function defaultArrangement(topicIds: readonly string[], canvas: Size): Arrangement {
+export function defaultArrangement(moduleIds: readonly string[], canvas: Size): Arrangement {
   const wide = sizeClassOf(canvas) === 'wide'
-  const flowed = flow(topicIds.length, canvas)
+  const flowed = flow(moduleIds.length, canvas)
   const arrangement: Arrangement = {}
-  topicIds.forEach((id, index) => {
+  moduleIds.forEach((id, index) => {
     const point = wide ? designed[id] : undefined
     arrangement[id] = point ?? flowed[index] ?? { x: 0, y: 0 }
   })
@@ -227,11 +230,11 @@ export function avoid(box: Box, obstacles: readonly Box[], canvas: Size, gap = 8
   return best ?? box
 }
 
-export function connectors(topics: readonly MapTopic[], boxes: Readonly<Record<string, Box>>): Connector[] {
+export function connectors(modules: readonly RoadmapModule[], boxes: Readonly<Record<string, Box>>): Connector[] {
   const lines: Connector[] = []
-  for (let index = 1; index < topics.length; index += 1) {
-    const from = topics[index - 1]
-    const to = topics[index]
+  for (let index = 1; index < modules.length; index += 1) {
+    const from = modules[index - 1]
+    const to = modules[index]
     if (!from || !to) continue
     const start = boxes[from.id]
     const end = boxes[to.id]

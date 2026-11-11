@@ -1,17 +1,17 @@
 <script setup lang="ts">
-import type { MapTopic } from '#shared/turn'
+import type { RoadmapModule } from '#shared/turn'
 
 const props = defineProps<{
-  topics: MapTopic[]
+  modules: RoadmapModule[]
 }>()
 
-const masteredCount = computed(() => props.topics.filter(topic => topic.state === 'mastered').length)
+const masteredCount = computed(() => props.modules.filter(module => module.state === 'mastered').length)
 
-function cardClass(topic: MapTopic): string {
-  if (topic.state === 'closed') {
+function cardClass(module: RoadmapModule): string {
+  if (module.state === 'closed') {
     return 'flex flex-col gap-1 bg-slate-100/70 opacity-80 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)]'
   }
-  if (topic.current) {
+  if (module.current) {
     return 'bg-indigo-50/60 shadow-[inset_0_0_0_1px_#a5b4fc,0px_0px_0px_1px_rgba(199,210,254,0.6)]'
   }
   return 'bg-white shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)]'
@@ -23,37 +23,37 @@ function cardClass(topic: MapTopic): string {
     <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:max-lg:w-max md:max-lg:min-w-full md:max-lg:flex-none md:max-lg:flex-row md:max-lg:items-center md:max-lg:overflow-visible">
       <div class="flex items-center justify-between gap-2 md:max-lg:w-36 md:max-lg:shrink-0 md:max-lg:flex-col md:max-lg:items-start">
         <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-400 uppercase">
-          Knowledge map
+          Course roadmap
         </h2>
         <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-400">
-          {{ masteredCount }}/{{ topics.length }} mastered
+          {{ masteredCount }}/{{ modules.length }} mastered
         </p>
       </div>
       <ul class="flex flex-col gap-1.5 md:max-lg:flex-row md:max-lg:flex-nowrap">
         <li
-          v-for="topic in topics"
-          :key="topic.id"
+          v-for="module in modules"
+          :key="module.id"
           class="rounded-[4px] p-[11px] md:max-lg:w-52 md:max-lg:shrink-0"
-          :class="cardClass(topic)"
-          :aria-current="topic.current ? 'true' : undefined"
+          :class="cardClass(module)"
+          :aria-current="module.current ? 'true' : undefined"
         >
-          <template v-if="topic.state === 'closed'">
+          <template v-if="module.state === 'closed'">
             <div class="flex items-center justify-between gap-2">
               <p class="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-4 text-slate-600">
                 <img
-                  src="/knowledge-map-lock.svg"
+                  src="/course-roadmap-lock.svg"
                   alt=""
                   width="12"
                   height="12"
                 >
-                {{ topic.name }}
+                {{ module.name }}
               </p>
               <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-400">
                 Closed
               </p>
             </div>
             <p class="min-h-[17px] text-[11px] leading-[16.5px] text-slate-400">
-              {{ topic.closedReason }}
+              {{ module.closedReason }}
             </p>
           </template>
           <div
@@ -62,16 +62,16 @@ function cardClass(topic: MapTopic): string {
           >
             <p
               class="min-w-0 text-xs leading-4"
-              :class="topic.current ? 'font-semibold text-indigo-950' : 'font-medium text-slate-800'"
+              :class="module.current ? 'font-semibold text-indigo-950' : 'font-medium text-slate-800'"
             >
-              {{ topic.name }}
+              {{ module.name }}
             </p>
             <p
-              v-if="topic.state === 'mastered'"
+              v-if="module.state === 'mastered'"
               class="flex h-[21px] shrink-0 items-center gap-1 rounded-[4px] border border-emerald-200/60 bg-emerald-50 px-[7px] text-[10px] font-medium leading-[15px] text-emerald-700"
             >
               <img
-                src="/knowledge-map-tick.svg"
+                src="/course-roadmap-tick.svg"
                 alt=""
                 width="10"
                 height="10"
@@ -83,11 +83,11 @@ function cardClass(topic: MapTopic): string {
               class="flex h-[21px] shrink-0 items-center gap-1 rounded-[4px] border border-indigo-200 bg-indigo-100/70 px-[7px] text-[10px] font-medium leading-[15px] text-indigo-700"
             >
               <span
-                v-if="topic.current"
+                v-if="module.current"
                 class="size-1.5 shrink-0 rounded-full bg-indigo-600"
                 aria-hidden="true"
               />
-              {{ topic.current ? 'Open · Current' : 'Open' }}
+              {{ module.current ? 'Open · Current' : 'Open' }}
             </p>
           </div>
         </li>

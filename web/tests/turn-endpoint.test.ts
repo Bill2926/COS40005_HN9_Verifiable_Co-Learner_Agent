@@ -47,7 +47,7 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(state)).not.toContain(otherStudent)
   })
 
-  it('open returns the topic states, the closed reason, Learn mode, and the current exercise', async () => {
+  it('open returns the module states, the closed reason, Learn mode, and the current exercise', async () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
@@ -56,7 +56,7 @@ describe('turn endpoint', () => {
     }))
 
     expect(state.course).toBe('CS 101: Introduction to Python · Semester 1')
-    expect(state.knowledgeMap).toEqual([
+    expect(state.courseRoadmap).toEqual([
       { id: 'variable', name: 'Variables', summary: 'Foundation', state: 'mastered', current: false },
       { id: 'if_else', name: 'If / else', summary: 'Branching logic', state: 'mastered', current: false },
       { id: 'for_loop', name: 'For loops', summary: 'Repeating with a running total', state: 'open', current: true },
@@ -71,14 +71,14 @@ describe('turn endpoint', () => {
     ])
     expect(state.workingArea).toEqual({
       mode: 'learn',
-      topicId: 'for_loop',
-      topicName: 'For loops',
+      moduleId: 'for_loop',
+      moduleName: 'For loops',
       materials: {
         heading: 'Accumulating a total',
         body: 'A running total needs a variable that survives every pass of the loop.',
         example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
         keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
-        scopeNote: 'These materials belong to this topic alone.',
+        scopeNote: 'These materials belong to this module alone.',
       },
       exercise: {
         id: 'sum_of_a_list',
@@ -118,9 +118,9 @@ describe('turn endpoint', () => {
     }, store)
 
     expect(state.displayName).toBe('An')
-    expect(state.knowledgeMap).toEqual(opened.knowledgeMap)
+    expect(state.courseRoadmap).toEqual(opened.courseRoadmap)
     expect(state.workingArea.mode).toBeNull()
-    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('for_loop')
     expect(state.workingArea.exercises).toEqual([
       { id: 'sum_of_a_list', title: 'Sum of a list' },
       { id: 'count_the_even_numbers', title: 'Count the even numbers' },
@@ -212,7 +212,7 @@ describe('turn endpoint', () => {
       'Inside the loop, I think.',
       teacherReply,
     ])
-    expect(sent.knowledgeMap).toEqual(state.knowledgeMap)
+    expect(sent.courseRoadmap).toEqual(state.courseRoadmap)
     expect(sent.workingArea).toEqual(state.workingArea)
   })
 
@@ -236,7 +236,7 @@ describe('turn endpoint', () => {
 
     expect(other.displayName).toBe('Bình')
     expect(other.conversation).toEqual([])
-    expect(other.workingArea.topicId).toBe('for_loop')
+    expect(other.workingArea.moduleId).toBe('for_loop')
     expect(other.workingArea.exercise.id).toBe('sum_of_a_list')
   })
 
@@ -287,7 +287,7 @@ describe('turn endpoint', () => {
     }, store)
 
     expect(reopened.displayName).toBe('An')
-    expect(reopened.workingArea.topicId).toBe('for_loop')
+    expect(reopened.workingArea.moduleId).toBe('for_loop')
     expect(reopened.workingArea.exercise.id).toBe('count_the_even_numbers')
     expect(reopened.conversation).toEqual(selected.conversation)
     expect(reopened.conversation.find(message => message.author === 'student')).toMatchObject({
@@ -362,8 +362,8 @@ describe('turn endpoint', () => {
         approvedMove: 'explain_concept',
       },
     ])
-    expect(finished.state.workingArea.topicId).toBe('for_loop')
-    expect(finished.state.knowledgeMap.find(topic => topic.id === 'nested_loop')).toMatchObject({
+    expect(finished.state.workingArea.moduleId).toBe('for_loop')
+    expect(finished.state.courseRoadmap.find(module => module.id === 'nested_loop')).toMatchObject({
       state: 'closed',
       closedReason: 'Needs For loops.',
     })
@@ -469,7 +469,7 @@ describe('turn endpoint', () => {
         body: 'A running total needs a variable that survives every pass of the loop.',
         example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
         keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
-        scopeNote: 'These materials belong to this topic alone.',
+        scopeNote: 'These materials belong to this module alone.',
       })
       expect(exchange.context.hintLadder).toEqual([
         'A running total has to be created before the loop. A variable created inside the loop starts again on every pass.',
@@ -896,8 +896,8 @@ describe('turn endpoint', () => {
         approvedMove: 'peer_question',
       },
     ])
-    expect(state.knowledgeMap.length).toBeGreaterThan(0)
-    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(state.courseRoadmap.length).toBeGreaterThan(0)
+    expect(state.workingArea.moduleId).toBe('for_loop')
   })
 
   it('stores a friendly Mai line, with no move, when she cannot answer', async () => {
@@ -956,7 +956,7 @@ describe('turn endpoint', () => {
       fail: 'propose',
     }))
 
-    expect(state.knowledgeMap).toEqual(opened.knowledgeMap)
+    expect(state.courseRoadmap).toEqual(opened.courseRoadmap)
     expect(state.workingArea).toEqual({ ...opened.workingArea, mode: null })
     expect(state.conversation.map(message => ({
       author: message.author,
@@ -1040,7 +1040,7 @@ describe('turn endpoint', () => {
     ])
   })
 
-  it('introduces a topic the first time it is opened and starts in Learn', async () => {
+  it('introduces a module the first time it is opened and starts in Learn', async () => {
     const store = memoryStore()
     const model = createFakeLanguageModel(
       {
@@ -1099,7 +1099,7 @@ describe('turn endpoint', () => {
     }
   })
 
-  it('introduces the topic with a teaching move when the model proposes another move', async () => {
+  it('introduces the module with a teaching move when the model proposes another move', async () => {
     const store = memoryStore()
     const model = createFakeLanguageModel({
       proposal: { type: 'stay_and_practise' },
@@ -1204,7 +1204,7 @@ describe('turn endpoint', () => {
     })
   })
 
-  it('leaves the topic unintroduced when the opening reply fails, so the next open can introduce it', async () => {
+  it('leaves the module unintroduced when the opening reply fails, so the next open can introduce it', async () => {
     const store = memoryStore()
     const failed = await handleTurn({
       sessionStudentId: signedInStudent,
@@ -1258,7 +1258,7 @@ describe('turn endpoint', () => {
     ])
   })
 
-  it('does not take an agent turn when the topic already has a conversation', async () => {
+  it('does not take an agent turn when the module already has a conversation', async () => {
     const store = memoryStore()
     const earlier = await handleTurn({
       sessionStudentId: signedInStudent,
@@ -1488,9 +1488,9 @@ describe('turn endpoint', () => {
         approvedMove: 'reveal_answer',
       },
       {
-        proposal: { type: 'advance_to_item' as const, topicId: 'nested_loop' },
-        text: 'Nested loops is the next topic.',
-        role: 'Next topic',
+        proposal: { type: 'advance_to_item' as const, moduleId: 'nested_loop' },
+        text: 'Nested loops is the next module.',
+        role: 'Next module',
         approvedMove: 'advance_to_item:nested_loop',
       },
       {
@@ -1638,8 +1638,8 @@ describe('turn endpoint', () => {
       text: 'wait, are we still on loops?',
       approvedMove: 'peer_question',
     })
-    expect(state.workingArea.topicId).toBe('for_loop')
-    expect(state.workingArea.topicName).toBe('For loops')
+    expect(state.workingArea.moduleId).toBe('for_loop')
+    expect(state.workingArea.moduleName).toBe('For loops')
     expect(JSON.stringify(state)).not.toContain('LISTS_LESSON_SHOULD_NOT_RENDER')
     expect(model.exchanges.filter(exchange => exchange.phase === 'render').map(exchange => exchange.agent)).toEqual(['deskmate'])
     expect(state.trace).toMatchObject({
@@ -1713,7 +1713,7 @@ describe('turn endpoint', () => {
       approvedMove: 'redirect_to_module',
     })
     expect(JSON.stringify(state)).not.toContain('SMALL_TALK_SHOULD_NOT_RENDER')
-    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('for_loop')
   })
 
   it('redirects a mislabelled question when the message names pandas', async () => {
@@ -1799,7 +1799,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Can we start lists?' },
     }, store, createFakeLanguageModel({
-      proposal: { type: 'advance_to_item', topicId: 'lists_and_tuples' },
+      proposal: { type: 'advance_to_item', moduleId: 'lists_and_tuples' },
       text: 'LISTS_ADVANCE_SHOULD_NOT_RENDER',
     }))
 
@@ -1808,11 +1808,11 @@ describe('turn endpoint', () => {
       text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Loops.",
       approvedMove: 'redirect_to_module',
     })
-    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('for_loop')
     expect(JSON.stringify(state)).not.toContain('LISTS_ADVANCE_SHOULD_NOT_RENDER')
   })
 
-  it('rejects an exercise that is not on the topic', async () => {
+  it('rejects an exercise that is not on the module', async () => {
     await expect(handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'select_exercise', exerciseId: 'while_loop' },

@@ -1,7 +1,7 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { courseScope, redirectText, roadmapForStanding, standingForCurrentCourse } from '../content/course'
-import { forLoopTopic, type Exercise } from '../content/for-loop'
-import { course, knowledgeMap } from '../content/knowledge-map'
+import { forLoopModule, type Exercise } from '../content/for-loop'
+import { course, courseRoadmap } from '../content/course-roadmap'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
@@ -25,7 +25,7 @@ export class UnknownExerciseError extends Error {
   readonly statusCode = 400
 
   constructor() {
-    super('That exercise is not part of this topic.')
+    super('That exercise is not part of this module.')
     this.name = 'UnknownExerciseError'
   }
 }
@@ -93,9 +93,9 @@ async function* streamTurnBody(
 
   if (isOpenEvent(body)) {
     const exerciseId = await currentExerciseId(studentId, store)
-    const existing = await store.messages(studentId, forLoopTopic.id)
+    const existing = await store.messages(studentId, forLoopModule.id)
     if (existing.length === 0 && model) {
-      yield* introduceTopic(studentId, exerciseId, store, model, options)
+      yield* introduceModule(studentId, exerciseId, store, model, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
@@ -104,13 +104,13 @@ async function* streamTurnBody(
   }
 
   if (isSelectExercise(body)) {
-    const exercise = forLoopTopic.exercises.find(choice => choice.id === body.exerciseId)
+    const exercise = forLoopModule.exercises.find(choice => choice.id === body.exerciseId)
     if (!exercise) throw new UnknownExerciseError()
     await store.saveResumePoint(studentId, {
-      topicId: forLoopTopic.id,
+      moduleId: forLoopModule.id,
       exerciseId: exercise.id,
     })
-    await store.appendMessage(studentId, forLoopTopic.id, {
+    await store.appendMessage(studentId, forLoopModule.id, {
       author: 'event',
       approvedMove: null,
       text: exercise.title,
@@ -123,7 +123,7 @@ async function* streamTurnBody(
   if (isSubmission(body)) {
     if (!model) throw new Error('The agents have no language model.')
     const exerciseId = await currentExerciseId(studentId, store)
-    await store.appendMessage(studentId, forLoopTopic.id, {
+    await store.appendMessage(studentId, forLoopModule.id, {
       author: 'event',
       approvedMove: null,
       text: submissionSummary(body.results),
@@ -140,7 +140,7 @@ async function* streamTurnBody(
   if (isMessage(body)) {
     if (!model) throw new Error('The agents have no language model.')
     const exerciseId = await currentExerciseId(studentId, store)
-    await store.appendMessage(studentId, forLoopTopic.id, {
+    await store.appendMessage(studentId, forLoopModule.id, {
       author: 'student',
       approvedMove: null,
       text: body.text.trim(),
@@ -157,7 +157,7 @@ async function* streamTurnBody(
   throw new Error('The turn endpoint does not accept that event.')
 }
 
-async function* introduceTopic(
+async function* introduceModule(
   studentId: string,
   exerciseId: string,
   store: ConversationStore,
@@ -178,7 +178,7 @@ async function* introduceTopic(
   catch {
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', shieldTrace(null, null, [], snapshot)),
+      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
     }
     return
   }
@@ -186,7 +186,7 @@ async function* introduceTopic(
   const proposedVerdict = proposed
     ? decide([proposed], snapshot, roleTable, courseScope)[0]
     : undefined
-  const trace = shieldTrace(proposal, null, proposedVerdict ? [proposedVerdict] : [], snapshot)
+  const trace = verifyShieldTrace(proposal, null, proposedVerdict ? [proposedVerdict] : [], snapshot)
   const teaching = Boolean(proposal && isTeachingMove(proposal))
   const introduction = teaching
     ? null
@@ -208,7 +208,7 @@ async function* introduceTopic(
   else if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
     const text = yield* streamTeacherReply(model, context, verdict.move)
     if (text) {
-      await store.appendMessage(studentId, forLoopTopic.id, {
+      await store.appendMessage(studentId, forLoopModule.id, {
         author: 'teacher',
         approvedMove: moveKey(verdict.move),
         text,
@@ -223,7 +223,7 @@ async function* introduceTopic(
 function turnSnapshot(exerciseId: string, studentMessage: string, options?: TurnOptions): TurnSnapshot {
   const standing = standingForCurrentCourse()
   return {
-    topicId: forLoopTopic.id,
+    moduleId: forLoopModule.id,
     exerciseId,
     currentModuleId: standing.currentModuleId,
     masteries: standing.masteries,
@@ -239,7 +239,7 @@ async function speakRedirect(
   store: ConversationStore,
   text: string,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopTopic.id, {
+  await store.appendMessage(studentId, forLoopModule.id, {
     author: 'teacher',
     approvedMove: 'redirect_to_module',
     text,
@@ -298,7 +298,7 @@ async function* answerMessage(
     const proposed = proposals.find(item => item.agent === verdict.agent)
     return proposed ? [{ proposal: proposed, verdict }] : []
   }), snapshot, options?.decisions)
-  const trace = shieldTrace(teacherMove, deskmateMove, verdicts, snapshot)
+  const trace = verifyShieldTrace(teacherMove, deskmateMove, verdicts, snapshot)
   const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
@@ -318,7 +318,7 @@ async function* answerMessage(
       yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
     }
     else {
-      await store.appendMessage(studentId, forLoopTopic.id, {
+      await store.appendMessage(studentId, forLoopModule.id, {
         author: 'teacher',
         approvedMove: moveKey(teacherVerdict.move),
         text,
@@ -348,7 +348,7 @@ async function* answerMessage(
       await rememberDeskmateCouldNotAnswer(studentId, exerciseId, store)
     }
     else {
-      await store.appendMessage(studentId, forLoopTopic.id, {
+      await store.appendMessage(studentId, forLoopModule.id, {
         author: 'deskmate',
         approvedMove: moveKey(deskmateVerdict.move),
         text,
@@ -402,7 +402,7 @@ async function recordDecisions(
   }
 }
 
-function shieldTrace(
+function verifyShieldTrace(
   teacherMove: Move | null,
   deskmateMove: Move | null,
   verdicts: readonly Verdict[],
@@ -459,11 +459,11 @@ async function teacherContext(
   store: ConversationStore,
   seen: SeenWork,
 ): Promise<TeacherContext> {
-  const messages = await store.messages(studentId, forLoopTopic.id)
+  const messages = await store.messages(studentId, forLoopModule.id)
   return {
-    materials: { ...forLoopTopic.materials },
-    hintLadder: [...forLoopTopic.hintLadder],
-    misconceptionResponses: forLoopTopic.misconceptionResponses.map(response => ({ ...response })),
+    materials: { ...forLoopModule.materials },
+    hintLadder: [...forLoopModule.hintLadder],
+    misconceptionResponses: forLoopModule.misconceptionResponses.map(response => ({ ...response })),
     exercise: {
       id: exercise.id,
       title: exercise.title,
@@ -498,7 +498,7 @@ async function deskmateContextWithConversation(
   context: DeskmateContext,
   store: ConversationStore,
 ): Promise<DeskmateContext> {
-  const messages = await store.messages(studentId, forLoopTopic.id)
+  const messages = await store.messages(studentId, forLoopModule.id)
   return {
     ...context,
     conversation: messages.map(message => ({
@@ -514,7 +514,7 @@ async function rememberTeacherCouldNotAnswer(
   exerciseId: string,
   store: ConversationStore,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopTopic.id, {
+  await store.appendMessage(studentId, forLoopModule.id, {
     author: 'teacher',
     approvedMove: null,
     text: teacherFallback,
@@ -527,7 +527,7 @@ async function rememberDeskmateCouldNotAnswer(
   exerciseId: string,
   store: ConversationStore,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopTopic.id, {
+  await store.appendMessage(studentId, forLoopModule.id, {
     author: 'deskmate',
     approvedMove: null,
     text: deskmateFallback,
@@ -536,18 +536,18 @@ async function rememberDeskmateCouldNotAnswer(
 }
 
 function exerciseById(exerciseId: string): Exercise {
-  const exercise = forLoopTopic.exercises.find(choice => choice.id === exerciseId)
+  const exercise = forLoopModule.exercises.find(choice => choice.id === exerciseId)
   if (!exercise) throw new UnknownExerciseError()
   return exercise
 }
 
 async function currentExerciseId(studentId: string, store: ConversationStore): Promise<string> {
   const point = await store.resumePoint(studentId)
-  const resumeExercise = point && forLoopTopic.exercises.find(choice => choice.id === point.exerciseId)
+  const resumeExercise = point && forLoopModule.exercises.find(choice => choice.id === point.exerciseId)
   if (resumeExercise) return resumeExercise.id
 
-  const exerciseId = forLoopTopic.exercises[0].id
-  await store.saveResumePoint(studentId, { topicId: forLoopTopic.id, exerciseId })
+  const exerciseId = forLoopModule.exercises[0].id
+  await store.saveResumePoint(studentId, { moduleId: forLoopModule.id, exerciseId })
   return exerciseId
 }
 
@@ -557,22 +557,22 @@ async function redraw(
   store: ConversationStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
-  const exercise = forLoopTopic.exercises.find(choice => choice.id === exerciseId)
+  const exercise = forLoopModule.exercises.find(choice => choice.id === exerciseId)
   if (!exercise) throw new UnknownExerciseError()
-  const messages = await store.messages(studentId, forLoopTopic.id)
+  const messages = await store.messages(studentId, forLoopModule.id)
   const displayName = await store.displayName(studentId)
 
   return {
     displayName,
     course,
-    knowledgeMap: knowledgeMap.map(topic => ({ ...topic })),
+    courseRoadmap: courseRoadmap.map(module => ({ ...module })),
     workingArea: {
       mode,
-      topicId: forLoopTopic.id,
-      topicName: forLoopTopic.name,
-      materials: { ...forLoopTopic.materials },
+      moduleId: forLoopModule.id,
+      moduleName: forLoopModule.name,
+      materials: { ...forLoopModule.materials },
       exercise: presentExercise(exercise),
-      exercises: forLoopTopic.exercises.map(choice => ({
+      exercises: forLoopModule.exercises.map(choice => ({
         id: choice.id,
         title: choice.title,
       })),
@@ -611,7 +611,7 @@ function teacherMoveLabel(approvedMove: string | null): string {
   if (approvedMove?.startsWith('hint_level_')) return 'Hint'
   if (approvedMove?.startsWith('address_misconception')) return 'Misconception'
   if (approvedMove === 'reveal_answer') return 'Answer revealed'
-  if (approvedMove?.startsWith('advance_to_item')) return 'Next topic'
+  if (approvedMove?.startsWith('advance_to_item')) return 'Next module'
   if (approvedMove === 'stay_and_practise') return 'Keep practising'
   return ''
 }

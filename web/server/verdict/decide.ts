@@ -7,7 +7,7 @@ export interface ModuleMastery {
 }
 
 export interface TurnSnapshot {
-  topicId: string
+  moduleId: string
   exerciseId: string
   currentModuleId?: string
   masteries?: readonly ModuleMastery[]
@@ -63,7 +63,7 @@ export function decide(
     }))
   }
 
-  if (snapshot.topicId.length === 0 || snapshot.exerciseId.length === 0) {
+  if (snapshot.moduleId.length === 0 || snapshot.exerciseId.length === 0) {
     return proposals.map(proposal => ({
       agent: proposal.agent,
       decision: 'block',
@@ -152,7 +152,7 @@ function advanceDowngrade(
 ): Verdict | null {
   if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_item') return null
   if (!snapshot.unlockedModuleIds || !course) return null
-  const target = proposal.move.topicId
+  const target = proposal.move.moduleId
   const known = course.modules.some(module => module.id === target)
   if (!known || snapshot.unlockedModuleIds.includes(target)) return null
 

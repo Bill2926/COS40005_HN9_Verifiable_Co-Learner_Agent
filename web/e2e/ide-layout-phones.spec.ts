@@ -24,7 +24,7 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   await expect(page.locator('header').getByText('Verifiable Co-Learner', { exact: true })).toBeVisible()
   await expect(page.locator('header').getByText('Student', { exact: true })).toBeVisible()
   await expect(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: /^An$/ })).toBeVisible()
-  await expect(page.getByText('These materials belong to this topic alone.', { exact: true })).toBeVisible()
+  await expect(page.getByText('These materials belong to this module alone.', { exact: true })).toBeVisible()
   await expect(page.getByText('Teacher + Deskmate', { exact: true })).toBeVisible()
   await expectNoDocumentScroll(page)
 
@@ -52,10 +52,10 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   await expect(composer).toHaveCSS('font-size', '12px')
   await expect(composer).toHaveCSS('height', '34px')
 
-  const shield = await page.getByRole('switch', { name: 'Shield trace' }).boundingBox()
-  expect(shield).not.toBeNull()
-  expect(shield!.height).toBeCloseTo(16, 0)
-  expect(shield!.width).toBeCloseTo(28, 0)
+  const traceSwitch = await page.getByRole('switch', { name: 'VerifyShield trace' }).boundingBox()
+  expect(traceSwitch).not.toBeNull()
+  expect(traceSwitch!.height).toBeCloseTo(16, 0)
+  expect(traceSwitch!.width).toBeCloseTo(28, 0)
 
   const ideLink = await page.getByRole('link', { name: 'IDE', exact: true }).boundingBox()
   expect(ideLink).not.toBeNull()
@@ -69,7 +69,7 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   expect(await fontSize(editor)).toBe(14)
 })
 
-test('places the knowledge map in a strip above two columns on a tablet', async ({ page }) => {
+test('places the course roadmap in a strip above two columns on a tablet', async ({ page }) => {
   await openWorkspace(page, { width: 768, height: 1024 })
 
   await expect(page.getByRole('tab')).toHaveCount(0)
@@ -92,7 +92,7 @@ test('places the knowledge map in a strip above two columns on a tablet', async 
   expect(panels!.conversation.y + panels!.conversation.height).toBeGreaterThanOrEqual(viewport!.height - 2)
   expect(panels!.map.scrollWidth).toBeGreaterThan(panels!.map.clientWidth)
 
-  await expect(page.getByRole('heading', { name: 'Knowledge map', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toBeVisible()
   await expect(conversation(page)).toBeVisible()
 })
@@ -108,21 +108,21 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     const workingTab = page.getByRole('tab', { name: 'Working area', exact: true })
     await expect(workingTab).toHaveAttribute('aria-selected', 'true')
     await expectOnlyPanel(page, 'working')
-    await expect(page.getByText('These materials belong to this topic alone.', { exact: true })).toBeHidden()
+    await expect(page.getByText('These materials belong to this module alone.', { exact: true })).toBeHidden()
     await expectTapTarget(page.getByRole('button', { name: 'Learn', exact: true }))
     await expectTapTarget(page.getByRole('button', { name: 'Practice', exact: true }))
     await expect(page.getByRole('tab')).toHaveCount(3)
     for (const tab of [
-      page.getByRole('tab', { name: 'Map', exact: true }),
+      page.getByRole('tab', { name: 'Roadmap', exact: true }),
       workingTab,
       page.getByRole('tab', { name: 'Conversation', exact: true }),
     ]) {
       await expectTapTarget(tab)
     }
 
-    await page.getByRole('tab', { name: 'Map', exact: true }).click()
-    await expect(page.getByRole('tab', { name: 'Map', exact: true })).toHaveAttribute('aria-selected', 'true')
-    await expectOnlyPanel(page, 'map')
+    await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+    await expect(page.getByRole('tab', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await expectOnlyPanel(page, 'roadmap')
     await expectNoDocumentScroll(page)
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
@@ -135,12 +135,12 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     await expectReachable(page, send)
     expect(await fontSize(composer)).toBeGreaterThanOrEqual(16)
     await expectTapTarget(send)
-    await expectTapTarget(page.getByRole('switch', { name: 'Shield trace' }))
+    await expectTapTarget(page.getByRole('switch', { name: 'VerifyShield trace' }))
     await expectNoDocumentScroll(page)
 
     await composer.fill('still typing')
-    await page.getByRole('tab', { name: 'Map', exact: true }).click()
-    await expectOnlyPanel(page, 'map')
+    await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+    await expectOnlyPanel(page, 'roadmap')
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
     await expect(composer).toHaveValue('still typing')
     await composer.fill('')
@@ -193,8 +193,8 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await page.getByRole('textbox', { name: 'Message' }).fill('Where does the total live?')
     await page.getByRole('button', { name: 'Send', exact: true }).click()
     await sent
-    await page.getByRole('tab', { name: 'Map', exact: true }).click()
-    await expectOnlyPanel(page, 'map')
+    await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+    await expectOnlyPanel(page, 'roadmap')
     release()
 
     const dot = page.getByRole('img', { name: 'New reply', exact: true })
@@ -214,7 +214,7 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await expect(page.getByRole('textbox', { name: 'Python editor' })).toBeHidden()
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
-    await page.getByRole('link', { name: 'Map canvas', exact: true }).click()
+    await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
     await page.getByRole('link', { name: 'IDE', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Conversation', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expectOnlyPanel(page, 'conversation')
@@ -232,13 +232,13 @@ async function expectPhoneTopBar(page: Page) {
   await expectNotOnScreen(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: /^An$/ }))
   await expect(page.locator('header span[aria-hidden="true"]').filter({ hasText: /^An$/ })).toBeVisible()
   const ide = page.getByRole('link', { name: 'IDE', exact: true })
-  const mapCanvas = page.getByRole('link', { name: 'Map canvas', exact: true })
+  const roadmapCanvas = page.getByRole('link', { name: 'Roadmap canvas', exact: true })
   const signOut = page.getByRole('button', { name: 'Sign out', exact: true })
   await expect(ide).toBeVisible()
-  await expect(mapCanvas).toBeVisible()
+  await expect(roadmapCanvas).toBeVisible()
   await expect(signOut).toBeVisible()
   await expectTapTarget(ide)
-  await expectTapTarget(mapCanvas)
+  await expectTapTarget(roadmapCanvas)
   await expectTapTarget(signOut)
   const header = await page.locator('main > header').boundingBox()
   const viewport = page.viewportSize()
@@ -248,19 +248,19 @@ async function expectPhoneTopBar(page: Page) {
   expect(header!.x + header!.width).toBeLessThanOrEqual(viewport!.width + 1)
 }
 
-async function expectOnlyPanel(page: Page, panel: 'map' | 'working' | 'conversation') {
-  const map = page.getByRole('heading', { name: 'Knowledge map', exact: true })
+async function expectOnlyPanel(page: Page, panel: 'roadmap' | 'working' | 'conversation') {
+  const map = page.getByRole('heading', { name: 'Course roadmap', exact: true })
   const working = page.getByRole('region', { name: 'Working area', exact: true })
   const talk = conversation(page)
-  if (panel === 'map') await expect(map).toBeVisible()
+  if (panel === 'roadmap') await expect(map).toBeVisible()
   else await expect(map).toBeHidden()
   if (panel === 'working') await expect(working).toBeVisible()
   else await expect(working).toBeHidden()
   if (panel === 'conversation') await expect(talk).toBeVisible()
   else await expect(talk).toBeHidden()
 
-  const shown = panel === 'map' ? map : panel === 'working' ? working : talk
-  const box = panel === 'map' ? await knowledgeMapBox(page) : await shown.boundingBox()
+  const shown = panel === 'roadmap' ? map : panel === 'working' ? working : talk
+  const box = panel === 'roadmap' ? await courseRoadmapBox(page) : await shown.boundingBox()
   const viewport = page.viewportSize()
   expect(box).not.toBeNull()
   expect(viewport).not.toBeNull()
@@ -269,8 +269,8 @@ async function expectOnlyPanel(page: Page, panel: 'map' | 'working' | 'conversat
   expect(box!.width).toBeGreaterThanOrEqual(viewport!.width - 2)
 }
 
-async function knowledgeMapBox(page: Page) {
-  return page.getByRole('heading', { name: 'Knowledge map', exact: true }).evaluate((element) => {
+async function courseRoadmapBox(page: Page) {
+  return page.getByRole('heading', { name: 'Course roadmap', exact: true }).evaluate((element) => {
     const aside = element.closest('aside')
     if (!aside) return null
     const box = aside.getBoundingClientRect()
@@ -334,7 +334,7 @@ interface PanelBox {
 }
 
 async function panelBoxes(page: Page) {
-  const map = await page.getByRole('heading', { name: 'Knowledge map', exact: true }).evaluate((element) => {
+  const map = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).evaluate((element) => {
     const aside = element.closest('aside')
     if (!aside) return null
     const box = aside.getBoundingClientRect()

@@ -1,4 +1,4 @@
-import type { ExerciseCheck, TopicMaterials } from '../../shared/turn'
+import type { ExerciseCheck, ModuleMaterials } from '../../shared/turn'
 
 export interface Exercise {
   id: string
@@ -13,10 +13,10 @@ export interface MisconceptionResponse {
   response: string
 }
 
-export const forLoopTopic: {
+export const forLoopModule: {
   id: string
   name: string
-  materials: TopicMaterials
+  materials: ModuleMaterials
   exercises: readonly [Exercise, Exercise]
   hintLadder: readonly string[]
   misconceptionResponses: readonly MisconceptionResponse[]
@@ -28,7 +28,7 @@ export const forLoopTopic: {
     body: 'A running total needs a variable that survives every pass of the loop.',
     example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
     keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
-    scopeNote: 'These materials belong to this topic alone.',
+    scopeNote: 'These materials belong to this module alone.',
   },
   exercises: [
     {

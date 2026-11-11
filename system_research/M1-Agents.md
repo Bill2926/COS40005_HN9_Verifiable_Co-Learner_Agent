@@ -1,4 +1,4 @@
-# Module 1: Co-learner Agents
+# M1: Co-learner Agents
 
 ## What are the Co-learner Agents?
 
@@ -15,7 +15,7 @@ M1 holds two agents:
 
 | | Role | Knows |
 |---|---|---|
-| **Teacher agent** | sets the work, explains, guides | the full content of the current topic |
+| **Teacher agent** | sets the work, explains, guides | the full content of the current module |
 | **Deskmate agent** | learns alongside, reacts, sympathises | deliberately little — roughly what the student knows |
 
 The deskmate being weaker is the design, not a shortcoming. A companion that
@@ -127,7 +127,7 @@ offers a hint, the deskmate offers to share that it hit the same thing. M2
 approves what the spec allows at this point in the course, and only then does
 an agent write anything.
 
-Had the deskmate instead proposed moving on to the next topic, M2 would have
+Had the deskmate instead proposed moving on to the next module, M2 would have
 refused it, and the student would never have seen the suggestion.
 
 ## Agent state
@@ -158,7 +158,7 @@ because of where they come from.
 
 Written by hand and kept in the spec. Two parts:
 
-**Hint ladders** sit on each topic and run from vague to specific. They are for
+**Hint ladders** sit on each module and run from vague to specific. They are for
 when the student is stuck but the system does not know *what* they have got
 wrong — the first hint nudges, the next says more, the last comes close to
 telling.
@@ -177,11 +177,11 @@ once somebody has thought about that specific mistake.
 
 The ordinary material of the course: syntax, concepts, worked examples. This
 already exists in the lecture notes, so it is pulled from there rather than
-rewritten — but only from the material attached to the topic the student is
+rewritten — but only from the material attached to the module the student is
 currently on.
 
-Keeping the search inside one topic is not an optimisation. A search across the
-whole course could surface material from a topic the student has not unlocked,
+Keeping the search inside one module is not an optimisation. A search across the
+whole course could surface material from a module the student has not unlocked,
 which would walk straight around the gate the system exists to hold.
 
 ### Who gets what

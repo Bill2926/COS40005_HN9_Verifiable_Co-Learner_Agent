@@ -55,14 +55,14 @@ describe('conversation storage boundary', () => {
 
     const conversation = await supabase.from('conversations').insert({
       student_id: studentId,
-      topic_id: 'for_loop',
+      module_id: 'for_loop',
     })
     expect(conversation.error?.code).toBe('42501')
     expect(conversation.data).toBeNull()
 
     const resumePoint = await supabase.from('resume_points').insert({
       student_id: studentId,
-      topic_id: 'for_loop',
+      module_id: 'for_loop',
       exercise_id: 'sum_of_a_list',
     })
     expect(resumePoint.error?.code).toBe('42501')
@@ -71,7 +71,7 @@ describe('conversation storage boundary', () => {
     const admin = supabaseClient(url, secretKey)
     const probe = await admin.from('conversations').insert({
       student_id: studentId,
-      topic_id: `boundary-${crypto.randomUUID()}`,
+      module_id: `boundary-${crypto.randomUUID()}`,
     }).select('id').single()
     expect(probe.error).toBeNull()
 
@@ -96,7 +96,7 @@ describe('conversation storage boundary', () => {
 })
 
 describe('supabase conversation store', () => {
-  it('writes one conversation per topic and a resume point, then reads them back', async () => {
+  it('writes one conversation per module and a resume point, then reads them back', async () => {
     const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
     const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
     expect(url).toBeTruthy()
@@ -117,7 +117,7 @@ describe('supabase conversation store', () => {
       expect(await store.displayName(studentId)).toBe('Round trip')
 
       await store.saveResumePoint(studentId, {
-        topicId: 'for_loop',
+        moduleId: 'for_loop',
         exerciseId: 'count_the_even_numbers',
       })
       await store.appendMessage(studentId, 'for_loop', {
@@ -134,7 +134,7 @@ describe('supabase conversation store', () => {
       })
 
       expect(await store.resumePoint(studentId)).toEqual({
-        topicId: 'for_loop',
+        moduleId: 'for_loop',
         exerciseId: 'count_the_even_numbers',
       })
       expect((await store.messages(studentId, 'for_loop')).map(message => ({

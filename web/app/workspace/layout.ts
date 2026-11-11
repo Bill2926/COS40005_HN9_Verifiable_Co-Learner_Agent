@@ -1,6 +1,6 @@
 export const workspaceLayouts = [
   { id: 'ide', name: 'IDE' },
-  { id: 'map', name: 'Map canvas' },
+  { id: 'roadmap', name: 'Roadmap canvas' },
 ] as const
 
 export type WorkspaceLayoutId = (typeof workspaceLayouts)[number]['id']
@@ -15,7 +15,9 @@ export const workspaceLayoutCookieOptions = {
 
 export function workspaceLayoutFrom(value: unknown): WorkspaceLayoutId | null {
   const raw = Array.isArray(value) ? value[0] : value
-  return workspaceLayouts.find(layout => layout.id === raw)?.id ?? null
+  // Cookies and links saved before this layout was renamed still open the canvas.
+  const id = raw === 'map' ? 'roadmap' : raw
+  return workspaceLayouts.find(layout => layout.id === id)?.id ?? null
 }
 
 export function resolveWorkspaceLayout(requested: unknown, remembered: unknown): WorkspaceLayoutId {

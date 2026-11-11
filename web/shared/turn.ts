@@ -1,17 +1,17 @@
-export type TopicState = 'mastered' | 'open' | 'closed'
+export type ModuleState = 'mastered' | 'open' | 'closed'
 
-interface MapTopicBase {
+interface RoadmapModuleBase {
   id: string
   name: string
   summary: string
   current: boolean
 }
 
-export type MapTopic =
-  | (MapTopicBase & { state: 'mastered' | 'open' })
-  | (MapTopicBase & { state: 'closed'; closedReason: string })
+export type RoadmapModule =
+  | (RoadmapModuleBase & { state: 'mastered' | 'open' })
+  | (RoadmapModuleBase & { state: 'closed'; closedReason: string })
 
-export interface TopicMaterials {
+export interface ModuleMaterials {
   heading: string
   body: string
   example: string
@@ -40,9 +40,9 @@ export interface CurrentExercise {
 
 export interface WorkingAreaView {
   mode: 'learn' | null
-  topicId: string
-  topicName: string
-  materials: TopicMaterials
+  moduleId: string
+  moduleName: string
+  materials: ModuleMaterials
   exercise: CurrentExercise
   exercises: readonly ExerciseChoice[]
 }
@@ -104,7 +104,7 @@ export interface TurnTrace {
 export interface RedrawState {
   displayName: string
   course: string
-  knowledgeMap: MapTopic[]
+  courseRoadmap: RoadmapModule[]
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
   trace?: TurnTrace

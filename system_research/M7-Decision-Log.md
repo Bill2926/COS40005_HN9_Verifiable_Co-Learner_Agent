@@ -1,8 +1,8 @@
-# Module 7: Decision Log
+# M7: Decision Log
 
 ## What is the Decision Log?
 
-The record of what the shield did. One entry for every verdict M2 reached, kept
+The record of what the VerifyShield did. One entry for every verdict M2 reached, kept
 in order, never edited.
 
 It exists because a guarantee nobody can check afterwards is not a guarantee.
@@ -25,7 +25,7 @@ Separate stores, separate writers, separate purposes. A verdict is not a fact
 about a student and does not belong in their ledger.
 
 M7 is written by M2 alone and read by M5, which asserts against it, and by M4's
-shield trace, which displays it.
+VerifyShield trace, which displays it.
 
 ---
 
@@ -43,7 +43,7 @@ flowchart TB
     end
 
     M5["M5 · Benchmark harness<br/><i>asserts · verifies the chain</i>"]
-    M4["M4 · Shield trace<br/><i>displays verdicts</i>"]
+    M4["M4 · VerifyShield trace<br/><i>displays verdicts</i>"]
     REPLAY["Replay<br/><i>re-run decide() from a record</i>"]
 
     ADMIT -->|"rejected moves"| CHAIN

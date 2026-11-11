@@ -13,7 +13,7 @@ const moveSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('reveal_answer') }),
   z.object({ type: z.literal('peer_question') }),
   z.object({ type: z.literal('share_confusion') }),
-  z.object({ type: z.literal('advance_to_item'), topicId: z.string().min(1) }),
+  z.object({ type: z.literal('advance_to_item'), moduleId: z.string().min(1) }),
   z.object({ type: z.literal('stay_and_practise') }),
 ])
 
@@ -50,7 +50,7 @@ const deskmateProposeInstructions = [
   'You know little, and you are not a teacher.',
   'Propose one move, or no proposal.',
   'You may propose only peer_question or share_confusion.',
-  'Do not propose a hint, an explanation, a correction, or a change of topic.',
+  'Do not propose a hint, an explanation, a correction, or a change of module.',
   'Return proposal null when you should stay quiet.',
   'A proposal is the move, not the words the student will read.',
 ].join(' ')
@@ -148,7 +148,7 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
     ...context.roadmap.map(module =>
       `Module ${module.number}: ${module.name} (${module.id}), part ${module.part}, ${module.state}, mastery ${module.mastery}${module.current ? ', current module' : ''}`),
     '',
-    'Topic materials',
+    'Module materials',
     context.materials.heading,
     context.materials.body,
     context.materials.example,
@@ -179,8 +179,8 @@ function teacherPrompt(context: TeacherContext, move?: Move): string {
   ]
   if (context.conversation.length === 0) {
     lines.unshift(move
-      ? 'The student has just opened this topic for the first time. Introduce it from the topic materials.'
-      : 'The student has just opened this topic for the first time. Propose a teaching move that introduces the topic.')
+      ? 'The student has just opened this module for the first time. Introduce it from the module materials.'
+      : 'The student has just opened this module for the first time. Propose a teaching move that introduces the module.')
   }
   if (move) lines.push('', `Approved move: ${moveKey(move)}`)
   return lines.join('\n')
