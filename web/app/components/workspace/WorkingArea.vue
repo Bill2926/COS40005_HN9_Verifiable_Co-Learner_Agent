@@ -68,7 +68,7 @@ watch(() => props.mode, (mode) => {
           >ACTIVE</span>
         </p>
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.5px] text-slate-900">
-          {{ area.topicName }}
+          {{ area.moduleName }}
         </h1>
         <p
           v-if="mode === 'learn'"
@@ -109,7 +109,7 @@ watch(() => props.mode, (mode) => {
           @click="toggleExpanded"
         >
           <img
-            src="/map-canvas-collapse.svg"
+            src="/roadmap-canvas-collapse.svg"
             alt=""
             width="16"
             height="16"

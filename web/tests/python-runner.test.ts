@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { forLoopTopic } from '../server/content/for-loop'
+import { forLoopModule } from '../server/content/for-loop'
 import { createPythonRunner } from '../server/python/node-runner'
 import { RunStopped, type PythonRunner } from '../app/python/runner'
 
-const [sumOfAList, countTheEvenNumbers] = forLoopTopic.exercises
+const [sumOfAList, countTheEvenNumbers] = forLoopModule.exercises
 
 const correctSum = [
   'def total(ds):',

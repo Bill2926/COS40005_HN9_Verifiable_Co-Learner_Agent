@@ -1,4 +1,4 @@
-# Module 2: Verification Middleware
+# M2: Verification Middleware
 
 ## What is the Verification Middleware?
 
@@ -92,7 +92,7 @@ Every proposed move comes back with exactly one of three answers.
 | **block** | the move may not be made; nothing is said in its place |
 | **downgrade** | the move is replaced by a weaker one from the spec |
 
-`downgrade` is the one that earns its keep. A shield that can only say no makes
+`downgrade` is the one that earns its keep. A VerifyShield that can only say no makes
 the system useless at exactly the moments it matters most — the student asks
 for the answer, the agent is silenced, the turn dies. Downgrade keeps the
 conversation moving while still refusing the thing that was asked for.
@@ -187,7 +187,7 @@ Resolve: there is no downgrade for an advance request, so block stands. M4
 draws the locked edge and shows the reason. M7 records the snapshot alongside
 the verdict.
 
-Bình, one topic ahead, proposes the same move with `for_loop` at 0.89 and gets
+Bình, one module ahead, proposes the same move with `for_loop` at 0.89 and gets
 `allow`. Same function, same rule, same spec — the only difference is the
 snapshot.
 
@@ -224,7 +224,7 @@ Try moving your s = 0 above the for line — like this:
 ```
 
 The move was legal. The text is not: the spec's post-filter rules for this
-topic forbid a complete loop body in a level-one hint. `check_text()` returns
+module forbid a complete loop body in a level-one hint. `check_text()` returns
 fail, nothing is sent, and M1 renders again under the same approved move.
 
 ---

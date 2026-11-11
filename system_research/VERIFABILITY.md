@@ -7,12 +7,12 @@ reconstructible. It cannot prove that the pedagogical model is didactically *cor
 that generated content is *good*, or that learners *learn better*; those require
 validation with real students and are declared out of scope.
 
-The claims attach to the **pedagogical shield** (M2 + M3 + M6), never to the co-learner
+The claims attach to the **pedagogical VerifyShield** (M2 + M3 + M6), never to the co-learner
 agents (M1). The agents are non-deterministic and are deliberately not required to be
 verifiable; the contribution is a guaranteed envelope around unguaranteed agents.
 
 This approach relocates the unverifiable part rather than removing it: "do the agents
-behave correctly" (unverifiable) becomes "does the shield match its spec" (verifiable),
+behave correctly" (unverifiable) becomes "does the VerifyShield match its spec" (verifiable),
 leaving "is the spec complete" as a reviewable, human-readable artefact.
 
 ### Verification Methods
@@ -25,9 +25,9 @@ cases the author thought of. This is the only method that yields a guarantee in 
 sense, and it is where the word "semi-formal" in the capstone description is earned.
 
 **VM2. Decision-level — enforced in M2, agents constrained in M1**
-The shield is deterministic and non-bypassable: it never calls an LLM, and it is the
+The VerifyShield is deterministic and non-bypassable: it never calls an LLM, and it is the
 single mediation point between a proposed agent action and the learner. The agents are
-constrained on both sides of the shield — they propose only typed moves from a closed
+constrained on both sides of the VerifyShield — they propose only typed moves from a closed
 action space, and the utterance rendered for an approved move passes a deterministic
 structural post-filter before it is served. Verified by replay (identical input yields
 identical verdict across N runs) and by adversarial testing (M5). A technical guarantee
@@ -48,7 +48,7 @@ without passing the required practice states; the concept graph is acyclic and f
 reachable; declared thresholds are jointly satisfiable. A property of the model, asserted
 over all paths.
 
-**VC2. The shield cannot be bypassed**
+**VC2. The VerifyShield cannot be bypassed**
 No agent action, and no utterance rendered for one, reaches the learner except through
 M2. There is no alternative route, no direct handler, no fallback path that skips
 mediation, and no rendering path that escapes the post-filter. If VC2 fails, every other
@@ -85,7 +85,7 @@ Talk is content, not evidence. Only facts move the ledger.
 | Characteristic | Methods | How it is demonstrated |
 |---|---|---|
 | VC1 | VM1 | Graph traversal over the full model; seeded invalid curricula are rejected at import |
-| VC2 | VM2 | Single mediation point by architecture + adversarial prompt suite, reported as a pass rate against the `--no-shield` baseline |
+| VC2 | VM2 | Single mediation point by architecture + adversarial prompt suite, reported as a pass rate against the `VerifyShield-off` baseline |
 | VC3 | VM2, VM3 | N-run determinism check + replay script recomputing historical verdicts |
 | VC4 | VM3 | Append-only ledger with source allowlist; provenance traceable for every mastery value |
 

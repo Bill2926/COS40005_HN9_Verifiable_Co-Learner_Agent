@@ -10,7 +10,7 @@ export interface StoredMessage {
 }
 
 export interface ResumePoint {
-  topicId: string
+  moduleId: string
   exerciseId: string
 }
 
@@ -25,8 +25,8 @@ export interface ConversationStore {
   displayName: (studentId: string) => Promise<string>
   resumePoint: (studentId: string) => Promise<ResumePoint | null>
   saveResumePoint: (studentId: string, point: ResumePoint) => Promise<void>
-  messages: (studentId: string, topicId: string) => Promise<StoredMessage[]>
-  appendMessage: (studentId: string, topicId: string, message: NewMessage) => Promise<StoredMessage>
+  messages: (studentId: string, moduleId: string) => Promise<StoredMessage[]>
+  appendMessage: (studentId: string, moduleId: string, message: NewMessage) => Promise<StoredMessage>
 }
 
 export function createMemoryConversationStore(
@@ -35,8 +35,8 @@ export function createMemoryConversationStore(
   const resumePoints = new Map<string, ResumePoint>()
   const conversations = new Map<string, StoredMessage[]>()
 
-  function key(studentId: string, topicId: string) {
-    return `${studentId}\0${topicId}`
+  function key(studentId: string, moduleId: string) {
+    return `${studentId}\0${moduleId}`
   }
 
   return {
@@ -50,13 +50,13 @@ export function createMemoryConversationStore(
       return point ? { ...point } : null
     },
     async saveResumePoint(studentId, point) {
-      resumePoints.set(studentId, { topicId: point.topicId, exerciseId: point.exerciseId })
+      resumePoints.set(studentId, { moduleId: point.moduleId, exerciseId: point.exerciseId })
     },
-    async messages(studentId, topicId) {
-      return (conversations.get(key(studentId, topicId)) ?? []).map(message => ({ ...message }))
+    async messages(studentId, moduleId) {
+      return (conversations.get(key(studentId, moduleId)) ?? []).map(message => ({ ...message }))
     },
-    async appendMessage(studentId, topicId, message) {
-      const stored = conversations.get(key(studentId, topicId)) ?? []
+    async appendMessage(studentId, moduleId, message) {
+      const stored = conversations.get(key(studentId, moduleId)) ?? []
       const appended: StoredMessage = {
         id: crypto.randomUUID(),
         sequence: stored.length + 1,
@@ -66,7 +66,7 @@ export function createMemoryConversationStore(
         exerciseId: message.exerciseId,
       }
       stored.push(appended)
-      conversations.set(key(studentId, topicId), stored)
+      conversations.set(key(studentId, moduleId), stored)
       return { ...appended }
     },
   }

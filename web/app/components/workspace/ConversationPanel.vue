@@ -64,7 +64,7 @@ const roleClass = {
 
 const traceOpen = ref(false)
 const traceHeading = computed(() => {
-  if (!props.trace) return 'Shield: not active yet'
+  if (!props.trace) return 'VerifyShield: not active yet'
   return props.trace.verifyShieldOn ? 'VerifyShield: on' : 'VerifyShield: off'
 })
 const masteryLine = computed(() => {
@@ -198,16 +198,16 @@ watch(() => props.sending, (sending) => {
       </div>
       <div class="flex items-center gap-2">
         <span
-          id="conversation-shield-trace"
+          id="conversation-trace"
           class="text-[11px] leading-[16.5px] text-slate-400"
-        >Shield trace</span>
+        >VerifyShield trace</span>
         <button
           type="button"
           role="switch"
           class="relative h-11 w-11 shrink-0 md:h-4 md:w-7 md:rounded-full"
           :class="traceOpen ? 'md:bg-indigo-600' : 'md:bg-slate-200'"
           :aria-checked="traceOpen"
-          aria-labelledby="conversation-shield-trace"
+          aria-labelledby="conversation-trace"
           @click="traceOpen = !traceOpen"
         >
           <span
@@ -226,7 +226,7 @@ watch(() => props.sending, (sending) => {
     <section
       v-if="traceOpen"
       class="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-3"
-      aria-label="Shield trace"
+      aria-label="VerifyShield trace"
     >
       <h3 class="text-sm font-semibold">
         {{ traceHeading }}

@@ -2,11 +2,11 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { demoAccounts } from '../server/auth/demo-accounts'
 import { resetDemoAccounts } from './reset-demo-accounts'
 
-// The live Map canvas is the seam. Positions, scroll, and what a Student can
+// The live Roadmap canvas is the seam. Positions, scroll, and what a Student can
 // reach are observed in the browser.
 
 const anAccount = demoAccounts.find(account => account.displayName === 'An')
-const topicNames = ['Variables', 'If / else', 'For loops', 'Nested loops'] as const
+const moduleNames = ['Variables', 'If / else', 'For loops', 'Nested loops'] as const
 const phoneWidths = [320, 390, 430] as const
 
 test.beforeAll(async () => {
@@ -19,7 +19,7 @@ test.afterAll(async () => {
 
 test('places the canvas above two columns on a tablet', async ({ page }) => {
   await openWorkspace(page, { width: 768, height: 1024 })
-  await showMap(page)
+  await showRoadmap(page)
 
   await expect(page.getByRole('tab')).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
@@ -53,16 +53,16 @@ test('places the canvas above two columns on a tablet', async ({ page }) => {
   expect(conversationBox!.y + conversationBox!.height).toBeGreaterThanOrEqual(viewport!.height - 2)
   expect(Math.abs(working!.width - 520)).toBeGreaterThan(40)
 
-  await expectTopicsFit(page)
+  await expectModulesFit(page)
   await expectChromeFits(page)
 })
 
-test('shows the full-height canvas on the Map tab of a phone', async ({ page }) => {
+test('shows the full-height canvas on the Roadmap tab of a phone', async ({ page }) => {
   await openWorkspace(page, { width: 375, height: 812 })
-  await showMap(page)
-  await page.getByRole('tab', { name: 'Map', exact: true }).click()
+  await showRoadmap(page)
+  await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
 
-  await expect(page.getByRole('tab', { name: 'Map', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toBeHidden()
   await expect(conversation(page)).toBeHidden()
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
@@ -70,7 +70,7 @@ test('shows the full-height canvas on the Map tab of a phone', async ({ page }) 
   await expectNoDocumentScroll(page)
 
   const viewport = page.viewportSize()
-  const tab = await page.getByRole('tab', { name: 'Map', exact: true }).boundingBox()
+  const tab = await page.getByRole('tab', { name: 'Roadmap', exact: true }).boundingBox()
   const canvas = await canvasBox(page)
   expect(viewport).not.toBeNull()
   expect(tab).not.toBeNull()
@@ -81,11 +81,11 @@ test('shows the full-height canvas on the Map tab of a phone', async ({ page }) 
   expect(canvas!.y + canvas!.height).toBeGreaterThanOrEqual(viewport!.height - 2)
   expect(canvas!.height).toBeGreaterThan(viewport!.height * 0.7)
 
-  await expectTopicsFit(page)
+  await expectModulesFit(page)
   await expectChromeFits(page)
 })
 
-test('drags a topic by touch on a tablet and a phone, and the connector follows', async ({ browser }) => {
+test('drags a module by touch on a tablet and a phone, and the connector follows', async ({ browser }) => {
   const context = await browser.newContext({
     hasTouch: true,
     viewport: { width: 768, height: 1024 },
@@ -93,46 +93,46 @@ test('drags a topic by touch on a tablet and a phone, and the connector follows'
   const page = await context.newPage()
   try {
     await openWorkspace(page, { width: 768, height: 1024 })
-    await showMap(page)
-    await dragTopicByTouch(page, 'Variables')
+    await showRoadmap(page)
+    await dragModuleByTouch(page, 'Variables')
 
     await page.getByRole('button', { name: 'Reset arrangement', exact: true }).click()
     await page.setViewportSize({ width: 375, height: 812 })
-    await page.getByRole('tab', { name: 'Map', exact: true }).click()
-    await expect(topicCard(page, 'Variables')).toBeVisible()
-    await dragTopicByTouch(page, 'Variables')
+    await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+    await expect(moduleCard(page, 'Variables')).toBeVisible()
+    await dragModuleByTouch(page, 'Variables')
   }
   finally {
     await context.close()
   }
 })
 
-test('keeps the topics apart when the screen is turned sideways', async ({ page }) => {
+test('keeps the modules apart when the screen is turned sideways', async ({ page }) => {
   await openWorkspace(page, { width: 812, height: 375 })
-  await showMap(page)
-  await expectTopicsFit(page)
+  await showRoadmap(page)
+  await expectModulesFit(page)
   await expectChromeFits(page)
   await expectNoDocumentScroll(page)
 
   await page.setViewportSize({ width: 667, height: 375 })
-  await page.getByRole('tab', { name: 'Map', exact: true }).click()
-  await expectTopicsFit(page)
+  await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+  await expectModulesFit(page)
   await expectChromeFits(page)
   await expectNoDocumentScroll(page)
 })
 
 test('reaches the composer, Send, the editor, Run and Submit on a phone', async ({ page }) => {
   await openWorkspace(page, { width: 390, height: 800 })
-  await showMap(page)
+  await showRoadmap(page)
 
   for (const width of phoneWidths) {
     await page.setViewportSize({ width, height: 800 })
     await expectNoDocumentScroll(page)
 
-    await page.getByRole('tab', { name: 'Map', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Knowledge map', exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: 'Roadmap', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible()
     await expectNoDocumentScroll(page)
-    await expectTopicsFit(page)
+    await expectModulesFit(page)
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
     const composer = page.getByRole('textbox', { name: 'Message' })
@@ -151,9 +151,9 @@ test('reaches the composer, Send, the editor, Run and Submit on a phone', async 
   }
 })
 
-async function dragTopicByTouch(page: Page, name: string) {
+async function dragModuleByTouch(page: Page, name: string) {
   const canvas = await canvasBox(page)
-  const card = topicCard(page, name)
+  const card = moduleCard(page, name)
   await expect(card).toBeVisible()
   const before = await card.boundingBox()
   expect(canvas).not.toBeNull()
@@ -174,17 +174,17 @@ async function dragTopicByTouch(page: Page, name: string) {
   await expectNoDocumentScroll(page)
 }
 
-async function expectTopicsFit(page: Page) {
+async function expectModulesFit(page: Page) {
   const canvas = await canvasBox(page)
-  const label = await bandBox(page.getByRole('heading', { name: 'Knowledge map', exact: true }))
+  const label = await bandBox(page.getByRole('heading', { name: 'Course roadmap', exact: true }))
   const footer = await bandBox(page.getByRole('button', { name: 'Reset arrangement', exact: true }))
   expect(canvas).not.toBeNull()
   expect(label).not.toBeNull()
   expect(footer).not.toBeNull()
 
   const boxes = []
-  for (const name of topicNames) {
-    const card = topicCard(page, name)
+  for (const name of moduleNames) {
+    const card = moduleCard(page, name)
     await expect(card).toBeVisible()
     const box = await card.boundingBox()
     expect(box, name).not.toBeNull()
@@ -195,7 +195,7 @@ async function expectTopicsFit(page: Page) {
   }
   for (let left = 0; left < boxes.length; left += 1) {
     for (let right = left + 1; right < boxes.length; right += 1) {
-      expect(overlaps(boxes[left]!, boxes[right]!), `${topicNames[left]} overlaps ${topicNames[right]}`).toBe(false)
+      expect(overlaps(boxes[left]!, boxes[right]!), `${moduleNames[left]} overlaps ${moduleNames[right]}`).toBe(false)
     }
   }
 }
@@ -216,8 +216,8 @@ async function expectChromeFits(page: Page) {
   expect(pill!.y).toBeGreaterThan(canvas!.y + canvas!.height * 0.55)
 }
 
-function topicCard(page: Page, name: string): Locator {
-  return page.getByRole('list', { name: 'Topics' }).getByRole('listitem').filter({
+function moduleCard(page: Page, name: string): Locator {
+  return page.getByRole('list', { name: 'Modules' }).getByRole('listitem').filter({
     has: page.getByText(name, { exact: true }),
   })
 }
@@ -252,7 +252,7 @@ function within(card: Bounds, canvas: Bounds): boolean {
 }
 
 async function canvasBox(page: Page): Promise<Bounds | null> {
-  return page.getByRole('list', { name: 'Topics' }).boundingBox()
+  return page.getByRole('list', { name: 'Modules' }).boundingBox()
 }
 
 async function bandBox(locator: Locator): Promise<Bounds | null> {
@@ -265,7 +265,7 @@ async function bandBox(locator: Locator): Promise<Bounds | null> {
 }
 
 async function connectorPaths(page: Page): Promise<string[]> {
-  return page.getByRole('img', { name: 'Topic connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
+  return page.getByRole('img', { name: 'Module connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
 }
 
 async function scrollOffset(page: Page) {
@@ -327,12 +327,12 @@ async function expectReachable(page: Page, locator: Locator) {
   }).toPass()
 }
 
-async function showMap(page: Page) {
-  const mapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Map canvas', exact: true })
-  if (await mapLink.getAttribute('aria-current') !== 'page') await mapLink.click()
-  await expect(mapLink).toHaveAttribute('aria-current', 'page')
-  if (await page.getByRole('tab', { name: 'Map', exact: true }).count() > 0) return
-  await expect(page.getByRole('heading', { name: 'Knowledge map', exact: true })).toBeVisible()
+async function showRoadmap(page: Page) {
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap canvas', exact: true })
+  if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
+  await expect(roadmapLink).toHaveAttribute('aria-current', 'page')
+  if (await page.getByRole('tab', { name: 'Roadmap', exact: true }).count() > 0) return
+  await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible()
 }
 
 async function openWorkspace(page: Page, size: { width: number, height: number }) {

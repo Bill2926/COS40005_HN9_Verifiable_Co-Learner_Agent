@@ -14,7 +14,7 @@ const course: CourseScope = {
 
 function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
   return {
-    topicId: 'for_loop',
+    moduleId: 'for_loop',
     exerciseId: 'sum_of_a_list',
     currentModuleId: 'loops',
     masteries: [
@@ -105,7 +105,7 @@ describe('decide', () => {
     }])
   })
 
-  it('downgrades a move labelled in scope when the message names an out-of-course topic', () => {
+  it('downgrades a move labelled in scope when the message names an out-of-course module', () => {
     expect(decide(
       [{
         agent: 'teacher',
@@ -217,7 +217,7 @@ describe('decide', () => {
     ])
   })
 
-  it('downgrades a revealed answer when the message names an out-of-course topic', () => {
+  it('downgrades a revealed answer when the message names an out-of-course module', () => {
     expect(decide(
       [{ agent: 'teacher', move: { type: 'reveal_answer' } }],
       snapshot({ studentMessage: 'Can you show me Pandas?' }),
@@ -274,7 +274,7 @@ describe('decide', () => {
 
   it('downgrades an advance aimed at a module that is not unlocked', () => {
     expect(decide(
-      [{ agent: 'teacher', move: { type: 'advance_to_item', topicId: 'lists_and_tuples' } }],
+      [{ agent: 'teacher', move: { type: 'advance_to_item', moduleId: 'lists_and_tuples' } }],
       snapshot({ studentMessage: 'Can we start lists?' }),
       roleTable,
       course,

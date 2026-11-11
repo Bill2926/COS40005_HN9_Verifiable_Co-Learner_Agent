@@ -71,10 +71,10 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
   const save = saveBody(request.body)
   if (save) await request.store.save(await settingsToStore(save, request))
 
-  const shield = shieldBody(request.body)
-  if (shield) {
+  const verifyShieldSwitch = verifyShieldBody(request.body)
+  if (verifyShieldSwitch) {
     if (!request.verifyShield) throw new AdminRequestError('The VerifyShield setting is unavailable.')
-    await request.verifyShield.save(shield.enabled)
+    await request.verifyShield.save(verifyShieldSwitch.enabled)
   }
 
   return {
@@ -87,9 +87,9 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
   }
 }
 
-function shieldBody(body: unknown): { enabled: boolean } | null {
+function verifyShieldBody(body: unknown): { enabled: boolean } | null {
   if (typeof body !== 'object' || body === null) return null
-  if (!('event' in body) || body.event !== 'shield') return null
+  if (!('event' in body) || body.event !== 'verifyShield') return null
   if (!('enabled' in body) || typeof body.enabled !== 'boolean') {
     throw new AdminRequestError('The VerifyShield switch is missing.')
   }

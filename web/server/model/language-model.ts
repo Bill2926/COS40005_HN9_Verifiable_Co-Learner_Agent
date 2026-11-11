@@ -1,4 +1,4 @@
-import type { PracticeTestResult, RunOutput, TopicMaterials } from '../../shared/turn'
+import type { PracticeTestResult, RunOutput, ModuleMaterials } from '../../shared/turn'
 import type { Move } from './moves'
 
 export interface SubmissionCheck {
@@ -7,7 +7,7 @@ export interface SubmissionCheck {
 }
 
 export interface TeacherContext {
-  materials: TopicMaterials
+  materials: ModuleMaterials
   hintLadder: readonly string[]
   misconceptionResponses: readonly { id: string, response: string }[]
   exercise: {

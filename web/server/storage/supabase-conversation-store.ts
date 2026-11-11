@@ -12,19 +12,19 @@ export function createSupabaseConversationStore(options: {
     },
   })
 
-  async function conversationId(studentId: string, topicId: string): Promise<string> {
+  async function conversationId(studentId: string, moduleId: string): Promise<string> {
     const existing = await supabase
       .from('conversations')
       .select('id')
       .eq('student_id', studentId)
-      .eq('topic_id', topicId)
+      .eq('module_id', moduleId)
       .maybeSingle()
     if (existing.error) throw new Error(existing.error.message)
     if (existing.data) return existing.data.id
 
     const inserted = await supabase
       .from('conversations')
-      .insert({ student_id: studentId, topic_id: topicId })
+      .insert({ student_id: studentId, module_id: moduleId })
       .select('id')
       .single()
     if (!inserted.error) return inserted.data.id
@@ -34,7 +34,7 @@ export function createSupabaseConversationStore(options: {
       .from('conversations')
       .select('id')
       .eq('student_id', studentId)
-      .eq('topic_id', topicId)
+      .eq('module_id', moduleId)
       .single()
     if (again.error) throw new Error(again.error.message)
     return again.data.id
@@ -53,30 +53,30 @@ export function createSupabaseConversationStore(options: {
     async resumePoint(studentId) {
       const result = await supabase
         .from('resume_points')
-        .select('topic_id, exercise_id')
+        .select('module_id, exercise_id')
         .eq('student_id', studentId)
         .maybeSingle()
       if (result.error) throw new Error(result.error.message)
       if (!result.data) return null
       return {
-        topicId: result.data.topic_id,
+        moduleId: result.data.module_id,
         exerciseId: result.data.exercise_id,
       } satisfies ResumePoint
     },
     async saveResumePoint(studentId, point) {
       const result = await supabase.from('resume_points').upsert({
         student_id: studentId,
-        topic_id: point.topicId,
+        module_id: point.moduleId,
         exercise_id: point.exerciseId,
       }, { onConflict: 'student_id' })
       if (result.error) throw new Error(result.error.message)
     },
-    async messages(studentId, topicId) {
+    async messages(studentId, moduleId) {
       const conversation = await supabase
         .from('conversations')
         .select('id')
         .eq('student_id', studentId)
-        .eq('topic_id', topicId)
+        .eq('module_id', moduleId)
         .maybeSingle()
       if (conversation.error) throw new Error(conversation.error.message)
       if (!conversation.data) return []
@@ -89,8 +89,8 @@ export function createSupabaseConversationStore(options: {
       if (result.error) throw new Error(result.error.message)
       return (result.data ?? []).map(presentRow)
     },
-    async appendMessage(studentId, topicId, message) {
-      const id = await conversationId(studentId, topicId)
+    async appendMessage(studentId, moduleId, message) {
+      const id = await conversationId(studentId, moduleId)
       const result = await supabase
         .from('messages')
         .insert({

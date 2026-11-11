@@ -1,4 +1,4 @@
-# Module 6: Student Model
+# M6: Student Model
 
 ## What is a Student Model?
 
@@ -6,7 +6,7 @@ The part of the system that records what *this particular student* currently
 knows. The domain graph says what the course contains; the student model says
 where the student stands on it.
 
-It exists so the system can decide: unlock the next topic, or hold the student
+It exists so the system can decide: unlock the next module, or hold the student
 here and keep practising. Nothing else in the system is allowed to answer that
 question.
 
@@ -14,7 +14,7 @@ M6 has two halves:
 
 | | What it holds | Answers |
 |---|---|---|
-| **Mastery estimator** | one mastery score per topic | *Has the student got it?* |
+| **Mastery estimator** | one mastery per module | *Has the student got it?* |
 | **Misconception state** | which principles their code broke | *What are they getting wrong?* |
 
 The first decides **whether to move on**. The second decides **what to say**.
@@ -95,7 +95,7 @@ rather than something that needs interpreting.
 
 **Example use case**
 
-An submits a solution for the `print_basic` topic. Both evidence producers
+An submits a solution for the `print_basic` module. Both evidence producers
 append a line:
 
 ```
@@ -122,10 +122,10 @@ through them again a month later and the numbers come back identical.
 
 **Short definition**
 
-One copy of the course map per student, with a score from 0 to 1 on every
-topic. The map is the same for everyone; only the scores differ — the scores
-are the *overlay* laid over it. Each piece of evidence nudges a score up or
-down, and a topic unlocks once its score passes the threshold set in the spec.
+One copy of the course per student, with a mastery from 0 to 1 on every
+module. The course is the same for everyone; only the masteries differ — the masteries
+are the *overlay* laid over it. Each piece of evidence nudges a mastery up or
+down, and a module unlocks once its mastery passes the threshold set in the spec.
 
 Scores move gradually rather than flipping on a single result, so one lucky
 pass does not count as mastery and one careless slip does not erase it.
@@ -171,7 +171,7 @@ has to phrase it.
 
 **Example use case**
 
-An's ledger at the `for_loop` topic, across four attempts:
+An's ledger at the `for_loop` module, across four attempts:
 
 ```
 attempt 1 → broke: total reset inside the loop, returns inside the loop
@@ -181,7 +181,7 @@ attempt 4 → broke: total reset inside the loop
 ```
 
 Mastery estimator → `for_loop: 0.41`, below the 0.85 the spec asks for, so M2
-keeps An on this topic.
+keeps An on this module.
 
 Misconception state → still stuck on the reset; the return has been sorted
 since attempt 3.
@@ -214,7 +214,7 @@ Reads the code's structure and checks it against a short list of principles
 written for that exercise — does it use a loop, is the running total set up
 before the loop, is the result returned after it.
 
-Those lists are written by hand and only for the few topics that matter most,
+Those lists are written by hand and only for the few modules that matter most,
 which is what "lite" means here. They live in the spec alongside the
 thresholds, so they can be read and argued with by someone who does not read
 code — and so they are checked at import time like everything else in it.
@@ -231,7 +231,7 @@ def tong(ds):
 
 Test runner: passes everything. Constraint checker: no loop — the one principle
 the exercise exists to practise. Without the second producer this counts as a
-clean success, and the student advances on a topic they never touched.
+clean success, and the student advances on a module they never touched.
 
 ```python
 def tong(ds):

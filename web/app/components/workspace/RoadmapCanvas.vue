@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { MapTopic } from '#shared/turn'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedTopicWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/map/arrangement'
+import type { RoadmapModule } from '#shared/turn'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
 
 const props = defineProps<{
-  topics: MapTopic[]
+  modules: RoadmapModule[]
   course: string
   studentId: string
 }>()
@@ -50,7 +50,7 @@ const arrangement = computed(() => {
   const canvas = canvasSize.value
   if (!canvas) return null
   const points = mergeArrangement(
-    defaultArrangement(props.topics.map(topic => topic.id), canvas),
+    defaultArrangement(props.modules.map(module => module.id), canvas),
     savedArrangement.value,
   )
   const dragging = dragPoint.value
@@ -63,21 +63,21 @@ const boxes = computed(() => {
   const canvas = canvasSize.value
   const points = arrangement.value
   if (!canvas || !points) return placedBoxes
-  for (const topic of props.topics) {
-    const size = cardSizes.value[topic.id]
-    const point = points[topic.id]
+  for (const module of props.modules) {
+    const size = cardSizes.value[module.id]
+    const point = points[module.id]
     if (!size || !point) continue
-    placedBoxes[topic.id] = avoid(placeCard(point, size, canvas), obstacles.value, canvas)
+    placedBoxes[module.id] = avoid(placeCard(point, size, canvas), obstacles.value, canvas)
   }
   return placedBoxes
 })
 
-const lines = computed(() => connectors(props.topics, boxes.value))
-const placed = computed(() => props.topics.every(topic => boxes.value[topic.id]))
+const lines = computed(() => connectors(props.modules, boxes.value))
+const placed = computed(() => props.modules.every(module => boxes.value[module.id]))
 const cardScale = computed(() => {
   const canvas = canvasSize.value
   if (!canvas) return 1
-  return arrangementScale(canvas, props.topics.length)
+  return arrangementScale(canvas, props.modules.length)
 })
 
 function bindCard(id: string, element: unknown) {
@@ -142,7 +142,7 @@ function placement(id: string) {
   if (!box || !size) return { visibility: 'hidden' as const }
   const scale = cardScale.value
   const canvas = canvasSize.value
-  const fitted = canvas ? fittedTopicWidth(canvas, props.topics.length) : size.width
+  const fitted = canvas ? fittedModuleWidth(canvas, props.modules.length) : size.width
   const zoomed = scale < 0.999
   const settled = !zoomed || size.width <= fitted + 8
   // zoom scales the translate too, so the stored offset is in unzoomed pixels.
@@ -155,20 +155,20 @@ function placement(id: string) {
   }
 }
 
-function cardClass(topic: MapTopic): string {
-  const selected = selectedId.value === topic.id ? ' outline outline-2 outline-offset-2 outline-[#0f172a]' : ''
-  const face = topic.current
+function cardClass(module: RoadmapModule): string {
+  const selected = selectedId.value === module.id ? ' outline outline-2 outline-offset-2 outline-[#0f172a]' : ''
+  const face = module.current
     ? 'w-[248px] border-[1.5px] border-[#4f46e5] bg-white shadow-[0px_0px_0px_4px_rgba(99,102,241,0.12),0px_8px_24px_-6px_rgba(99,102,241,0.18)]'
-    : topic.state === 'closed'
+    : module.state === 'closed'
       ? 'w-[220px] border border-[#e2e8f0] bg-white/95 shadow-[0px_4px_16px_-4px_rgba(15,23,42,0.04)]'
       : 'w-[208px] border border-[rgba(226,232,240,0.9)] bg-white shadow-[0px_4px_16px_-4px_rgba(15,23,42,0.06)]'
   return `${face}${selected}`
 }
 
-function announcement(topic: MapTopic): string {
-  const state = topic.state === 'mastered' ? 'mastered' : topic.state === 'closed' ? 'closed' : 'open'
-  const current = topic.current ? 'current, ' : ''
-  return `${topic.name}, ${current}${state}. Drag to move.`
+function announcement(module: RoadmapModule): string {
+  const state = module.state === 'mastered' ? 'mastered' : module.state === 'closed' ? 'closed' : 'open'
+  const current = module.current ? 'current, ' : ''
+  return `${module.name}, ${current}${state}. Drag to move.`
 }
 
 function highlighted(line: Connector): boolean {
@@ -294,7 +294,7 @@ function commitDrag(id: string) {
   const box = boxes.value[id]
   dragPoint.value = null
   if (!limits || !size || !box) return
-  saveTopic(id, pointAt(box.x, box.y, size, limits))
+  saveModule(id, pointAt(box.x, box.y, size, limits))
 }
 
 function nudge(id: string, dx: number, dy: number) {
@@ -309,10 +309,10 @@ function nudge(id: string, dx: number, dy: number) {
     height: size.height,
   }
   const cleared = avoid(shifted, obstacles.value, limits)
-  saveTopic(id, pointAt(cleared.x, cleared.y, size, limits))
+  saveModule(id, pointAt(cleared.x, cleared.y, size, limits))
 }
 
-function saveTopic(id: string, point: Point) {
+function saveModule(id: string, point: Point) {
   const next = { ...savedArrangement.value, [id]: point }
   savedArrangement.value = next
   const canvas = canvasSize.value
@@ -417,7 +417,7 @@ onUnmounted(() => {
           class="size-2.5 shrink-0 rounded-full bg-[#4f46e5]"
           aria-hidden="true"
         />
-        Knowledge map
+        Course roadmap
       </h2>
       <p class="text-xs leading-[18px] text-[#64748b] max-lg:min-w-0 lg:whitespace-nowrap">
         {{ course }}
@@ -428,7 +428,7 @@ onUnmounted(() => {
       v-if="placed"
       class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
       role="img"
-      aria-label="Topic connectors"
+      aria-label="Module connectors"
     >
       <path
         v-for="line in lines"
@@ -444,29 +444,29 @@ onUnmounted(() => {
 
     <ul
       class="absolute inset-0"
-      aria-label="Topics"
+      aria-label="Modules"
     >
       <li
-        v-for="(topic, index) in topics"
-        :key="topic.id"
-        :ref="(element) => bindCard(topic.id, element)"
+        v-for="(module, index) in modules"
+        :key="module.id"
+        :ref="(element) => bindCard(module.id, element)"
         class="absolute top-0 left-0 rounded-[12px]"
-        :class="[cardClass(topic), dragging(topic.id) ? 'z-[3]' : 'z-[1]']"
-        :style="placement(topic.id)"
-        :aria-current="topic.current ? 'true' : undefined"
+        :class="[cardClass(module), dragging(module.id) ? 'z-[3]' : 'z-[1]']"
+        :style="placement(module.id)"
+        :aria-current="module.current ? 'true' : undefined"
       >
         <button
           type="button"
           class="block w-full cursor-grab rounded-[12px] px-[17px] py-[15px] text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] active:cursor-grabbing"
-          :aria-pressed="selectedId === topic.id"
-          :aria-label="announcement(topic)"
-          @pointerdown="onPointerDown($event, topic.id)"
+          :aria-pressed="selectedId === module.id"
+          :aria-label="announcement(module)"
+          @pointerdown="onPointerDown($event, module.id)"
           @lostpointercapture="onLostPointerCapture"
           @dragstart.prevent
-          @click="onClick(topic.id)"
-          @keydown="onKeyDown($event, topic.id)"
+          @click="onClick(module.id)"
+          @keydown="onKeyDown($event, module.id)"
         >
-          <template v-if="topic.current">
+          <template v-if="module.current">
             <div class="flex items-center justify-between gap-3">
               <div class="flex items-center gap-2">
                 <span
@@ -474,7 +474,7 @@ onUnmounted(() => {
                   aria-hidden="true"
                 />
                 <p class="text-[15px] leading-[15px] font-semibold text-[#0f172a]">
-                  {{ topic.name }}
+                  {{ module.name }}
                 </p>
               </div>
               <p class="shrink-0 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-semibold text-[#4338ca]">
@@ -490,19 +490,19 @@ onUnmounted(() => {
                 Open
               </p>
               <p class="text-[11px] leading-[16.5px] font-medium text-[#94a3b8]">
-                Topic {{ index + 1 }} of {{ topics.length }}
+                Module {{ index + 1 }} of {{ modules.length }}
               </p>
             </div>
           </template>
 
-          <template v-else-if="topic.state === 'mastered'">
+          <template v-else-if="module.state === 'mastered'">
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm leading-[19.25px] font-medium text-[#1e293b]">
-                {{ topic.name }}
+                {{ module.name }}
               </p>
               <p class="flex shrink-0 items-center gap-1 rounded-full border border-[rgba(167,243,208,0.7)] bg-[#ecfdf5] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-medium text-[#047857]">
                 <img
-                  src="/map-canvas-tick.svg"
+                  src="/roadmap-canvas-tick.svg"
                   alt=""
                   width="12"
                   height="12"
@@ -512,18 +512,18 @@ onUnmounted(() => {
               </p>
             </div>
             <p class="mt-2 text-xs leading-[15px] text-[#94a3b8]">
-              {{ topic.summary }}
+              {{ module.summary }}
             </p>
           </template>
 
-          <template v-else-if="topic.state === 'closed'">
+          <template v-else-if="module.state === 'closed'">
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm leading-[19.25px] font-medium text-[#475569]">
-                {{ topic.name }}
+                {{ module.name }}
               </p>
               <p class="flex shrink-0 items-center gap-1 rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-medium text-[#64748b]">
                 <img
-                  src="/map-canvas-lock.svg"
+                  src="/roadmap-canvas-lock.svg"
                   alt=""
                   width="12"
                   height="12"
@@ -534,7 +534,7 @@ onUnmounted(() => {
             </div>
             <div class="mt-1 border-t border-[#f1f5f9] pt-[7px]">
               <p class="text-xs leading-[15px] text-[#94a3b8]">
-                {{ topic.closedReason }}
+                {{ module.closedReason }}
               </p>
             </div>
           </template>
@@ -542,14 +542,14 @@ onUnmounted(() => {
           <template v-else>
             <div class="flex items-center justify-between gap-3">
               <p class="text-sm leading-[19.25px] font-medium text-[#1e293b]">
-                {{ topic.name }}
+                {{ module.name }}
               </p>
               <p class="shrink-0 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-semibold text-[#4338ca]">
                 Open
               </p>
             </div>
             <p class="mt-2 text-xs leading-[15px] text-[#94a3b8]">
-              {{ topic.summary }}
+              {{ module.summary }}
             </p>
           </template>
         </button>

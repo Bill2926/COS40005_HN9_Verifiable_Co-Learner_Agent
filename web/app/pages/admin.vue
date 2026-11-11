@@ -45,7 +45,7 @@ const verdict = ref<'' | 'allow' | 'block' | 'downgrade'>('')
 const studentId = ref('')
 const appliedVerdict = ref<'' | 'allow' | 'block' | 'downgrade'>('')
 const appliedStudentId = ref('')
-const shieldOn = ref(true)
+const verifyShieldOn = ref(true)
 const switching = ref(false)
 const switchError = ref('')
 
@@ -69,7 +69,7 @@ watch(data, (payload) => {
   provider.value = payload.model.provider
   baseUrl.value = payload.model.baseUrl
   modelName.value = payload.model.modelName
-  shieldOn.value = payload.verifyShieldOn
+  verifyShieldOn.value = payload.verifyShieldOn
 }, { immediate: true })
 
 const refused = computed(() => error.value?.statusCode === 403)
@@ -83,13 +83,13 @@ function applyFilters() {
   appliedStudentId.value = studentId.value.trim()
 }
 
-async function onShield(event: Event) {
+async function onVerifyShield(event: Event) {
   const enabled = event.target instanceof HTMLInputElement && event.target.checked
-  shieldOn.value = enabled
+  verifyShieldOn.value = enabled
   switchError.value = ''
   switching.value = true
   try {
-    await $fetch('/api/admin', { method: 'POST', body: { event: 'shield', enabled } })
+    await $fetch('/api/admin', { method: 'POST', body: { event: 'verifyShield', enabled } })
     await refresh()
   }
   catch (caught) {
@@ -200,14 +200,14 @@ function messageFrom(caught: unknown): string {
               type="checkbox"
               class="size-5"
               name="verifyShield"
-              :checked="shieldOn"
+              :checked="verifyShieldOn"
               :disabled="switching"
-              @change="onShield"
+              @change="onVerifyShield"
             >
-            VerifyShield is {{ shieldOn ? 'on' : 'off' }}
+            VerifyShield is {{ verifyShieldOn ? 'on' : 'off' }}
           </label>
           <p class="text-xs leading-4 text-muted">
-            {{ shieldOn
+            {{ verifyShieldOn
               ? 'On for every student. A closed module or anything out of course is redirected.'
               : 'Off for every student. The next turn allows every proposed move, and the decision log still records it.' }}
           </p>

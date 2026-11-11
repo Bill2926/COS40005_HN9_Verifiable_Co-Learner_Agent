@@ -1,4 +1,4 @@
-# Module 3: Graph Engine
+# M3: Graph Engine
 
 ## What is the Graph Engine?
 
@@ -34,7 +34,7 @@ state between calls, and does not know a student exists.
 
 ```mermaid
 flowchart TB
-    SPEC[/"Pedagogical Specification<br/>course map · surmise relation"/]
+    SPEC[/"Pedagogical Specification<br/>course · surmise relation"/]
 
     subgraph M3["M3 — Graph Engine — pure algorithms, zero pedagogy"]
         SOUND["check_soundness()<br/><i>exhaustive · at import</i>"]
@@ -77,7 +77,7 @@ formally since 1985 and there is no reason to invent names for it.
 
 | Term | Means |
 |---|---|
-| **item** | one topic |
+| **item** | one module |
 | **surmise relation** | the prerequisite relation between items |
 | **knowledge state** | the set of items a student has mastered |
 | **knowledge space** | the family of states the map permits |
@@ -106,7 +106,7 @@ Four error classes:
 | **Dangling reference** | a rule names an item the map does not contain |
 
 The middle two matter most, because they fail quietly. The system runs normally,
-the conformance suite passes, and a topic simply never appears in front of any
+the conformance suite passes, and a module simply never appears in front of any
 student. Nothing at runtime can detect this — which is exactly why it has to be
 caught before runtime.
 

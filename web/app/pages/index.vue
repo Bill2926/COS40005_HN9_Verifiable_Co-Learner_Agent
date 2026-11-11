@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
-import KnowledgeMap from '~/components/workspace/KnowledgeMap.vue'
-import MapCanvas from '~/components/workspace/MapCanvas.vue'
+import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
+import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
@@ -55,7 +55,7 @@ const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
 const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-white lg:shadow-[0_0_0_1px_#e2e8f0,0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = [
-  { id: 'map', name: 'Map' },
+  { id: 'roadmap', name: 'Roadmap' },
   { id: 'working', name: 'Working area' },
   { id: 'conversation', name: 'Conversation' },
 ] as const
@@ -89,7 +89,7 @@ function ideFrame(panel: 'working' | 'conversation') {
   return ['h-full min-h-0 min-w-0 flex-col overflow-hidden', place, display]
 }
 
-function mapFrame(panel: 'working' | 'conversation') {
+function roadmapFrame(panel: 'working' | 'conversation') {
   const shared = [
     'h-full min-h-0 min-w-0 flex-col overflow-hidden',
     floatingChrome,
@@ -255,7 +255,7 @@ async function streamAgentTurn(body: unknown, failure: string) {
 }
 
 useHead({
-  title: computed(() => workspace.value?.workingArea.topicName ?? 'Workspace'),
+  title: computed(() => workspace.value?.workingArea.moduleName ?? 'Workspace'),
 })
 
 function initialsOf(name: string): string {
@@ -360,20 +360,20 @@ function initialsOf(name: string): string {
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
         : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-[#f8fafc] md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
-      <MapCanvas
-        v-if="layout === 'map'"
-        :class="phonePanel === 'map' ? undefined : 'max-md:hidden'"
-        :topics="workspace.knowledgeMap"
+      <RoadmapCanvas
+        v-if="layout === 'roadmap'"
+        :class="phonePanel === 'roadmap' ? undefined : 'max-md:hidden'"
+        :modules="workspace.courseRoadmap"
         :course="workspace.course"
         :student-id="studentId"
       />
-      <KnowledgeMap
+      <CourseRoadmap
         v-else
         class="md:col-span-2 md:row-start-1 lg:col-span-1 lg:col-start-1 lg:row-start-1"
-        :class="phonePanel === 'map' ? 'max-md:flex' : 'max-md:hidden'"
-        :topics="workspace.knowledgeMap"
+        :class="phonePanel === 'roadmap' ? 'max-md:flex' : 'max-md:hidden'"
+        :modules="workspace.courseRoadmap"
       />
-      <div :class="layout === 'ide' ? ideFrame('working') : mapFrame('working')">
+      <div :class="layout === 'ide' ? ideFrame('working') : roadmapFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
           :mode="workingMode"
@@ -381,7 +381,7 @@ function initialsOf(name: string): string {
           :selecting="selecting"
           :select-error="selectError"
           :submitting="sending"
-          :floating="layout === 'map'"
+          :floating="layout === 'roadmap'"
           :expanded="workingAreaExpanded"
           @update:mode="workingMode = $event"
           @update:expanded="workingAreaExpanded = $event"
@@ -391,7 +391,7 @@ function initialsOf(name: string): string {
           @submit="submitCode"
         />
       </div>
-      <div :class="layout === 'ide' ? ideFrame('conversation') : mapFrame('conversation')">
+      <div :class="layout === 'ide' ? ideFrame('conversation') : roadmapFrame('conversation')">
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
@@ -400,7 +400,7 @@ function initialsOf(name: string): string {
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
-          :floating="layout === 'map'"
+          :floating="layout === 'roadmap'"
           @send="sendMessage"
           @open-learn="openInLearn"
         />

@@ -21,13 +21,13 @@ export type Move =
   | { type: 'reveal_answer' }
   | { type: 'peer_question' }
   | { type: 'share_confusion' }
-  | { type: 'advance_to_item', topicId: string }
+  | { type: 'advance_to_item', moduleId: string }
   | { type: 'stay_and_practise' }
   | { type: 'redirect_to_module', scope: string }
 
 export function moveKey(move: Move): string {
   if (move.type === 'hint_level_N') return `hint_level_${move.level}`
   if (move.type === 'address_misconception') return `address_misconception:${move.misconceptionId}`
-  if (move.type === 'advance_to_item') return `advance_to_item:${move.topicId}`
+  if (move.type === 'advance_to_item') return `advance_to_item:${move.moduleId}`
   return move.type
 }

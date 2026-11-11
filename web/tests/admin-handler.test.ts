@@ -444,31 +444,31 @@ describe('admin handler', () => {
   })
 
   it('switches the VerifyShield off and the next turn allows the proposed move', async () => {
-    const shield = createMemoryVerifyShieldStore()
+    const verifyShieldStore = createMemoryVerifyShieldStore()
     const decisions = createMemoryDecisionLogStore()
     const answer = 'A list keeps items in order.'
 
     const before = await handleAdmin(ownerRequest({
       decisions,
-      verifyShield: shield,
+      verifyShield: verifyShieldStore,
       verifyShieldEnv: 'on',
     }))
     expect(before.verifyShieldOn).toBe(true)
 
     const switched = await handleAdmin(ownerRequest({
       decisions,
-      verifyShield: shield,
+      verifyShield: verifyShieldStore,
       verifyShieldEnv: 'on',
-      body: { event: 'shield', enabled: false },
+      body: { event: 'verifyShield', enabled: false },
     }))
     expect(switched.verifyShieldOn).toBe(false)
 
     await expect(handleAdmin(ownerRequest({
       email: 'an@example.com',
-      verifyShield: shield,
-      body: { event: 'shield', enabled: true },
+      verifyShield: verifyShieldStore,
+      body: { event: 'verifyShield', enabled: true },
     }))).rejects.toMatchObject({ statusCode: 403 })
-    expect(await shield.read()).toBe(false)
+    expect(await verifyShieldStore.read()).toBe(false)
 
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
@@ -479,14 +479,14 @@ describe('admin handler', () => {
       proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
       text: answer,
     }), {
-      verifyShieldOn: await verifyShieldForTurn(shield, 'on'),
+      verifyShieldOn: await verifyShieldForTurn(verifyShieldStore, 'on'),
       decisions,
     })
 
     expect(state.conversation.find(message => message.author === 'teacher')?.text).toBe(answer)
     const viewed = await handleAdmin(ownerRequest({
       decisions,
-      verifyShield: shield,
+      verifyShield: verifyShieldStore,
       verifyShieldEnv: 'on',
     }))
     expect(viewed.verifyShieldOn).toBe(false)
