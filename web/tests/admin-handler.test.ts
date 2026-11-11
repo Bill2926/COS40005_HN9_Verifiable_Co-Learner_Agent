@@ -1,10 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleAdmin } from '../server/admin/handle-admin'
 import { productOwnerAccount } from '../server/auth/demo-accounts'
+import { createFakeLanguageModel } from '../server/model/fake-language-model'
 import { languageModelForTurn } from '../server/model/configured-language-model'
 import type { ModelSettings } from '../server/model/model-choice'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryModelSettingsStore } from '../server/storage/model-settings-store'
+import { createMemoryVerifyShieldStore, verifyShieldForTurn } from '../server/storage/verify-shield-store'
 import { handleTurn } from '../server/turn/handle-turn'
 
 const owner = productOwnerAccount.email
@@ -33,6 +36,9 @@ function ownerRequest(overrides: {
   email?: string | null
   env?: ModelSettings
   store?: ReturnType<typeof createMemoryModelSettingsStore>
+  decisions?: ReturnType<typeof createMemoryDecisionLogStore>
+  verifyShield?: ReturnType<typeof createMemoryVerifyShieldStore>
+  verifyShieldEnv?: string
   body?: unknown
 } = {}) {
   return {
@@ -40,6 +46,9 @@ function ownerRequest(overrides: {
     adminEmails,
     env: overrides.env ?? realEnv,
     store: overrides.store ?? createMemoryModelSettingsStore(),
+    decisions: overrides.decisions,
+    verifyShield: overrides.verifyShield,
+    verifyShieldEnv: overrides.verifyShieldEnv,
     body: overrides.body ?? { event: 'read' },
   }
 }
@@ -304,7 +313,325 @@ describe('admin handler', () => {
 
     expect(scripted.conversation.find(message => message.author === 'teacher')?.text).toBe(fakeSentence)
   })
+
+  it('shows the product owner one decision per agent proposal', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    const lesson = 'LISTS_LESSON_SHOULD_NOT_BE_LOGGED'
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What are lists?' },
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An Nguyen',
+    }), createFakeLanguageModel(
+      { proposal: { type: 'explain_concept', scope: 'lists_and_tuples' }, text: lesson },
+      { proposal: { type: 'peer_question' }, text: 'wait, are we still on loops?' },
+    ), { decisions })
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+    const teacher = viewed.decisions.find(decision => decision.agent === 'teacher')
+    const deskmate = viewed.decisions.find(decision => decision.agent === 'deskmate')
+
+    expect(viewed.decisions).toHaveLength(2)
+    expect(teacher?.turnId).toMatch(/^[0-9a-f-]{36}$/)
+    expect(teacher?.time).toMatch(/^\d{4}-\d{2}-\d{2}T/)
+    expect(deskmate?.turnId).toBe(teacher?.turnId)
+    expect(deskmate?.time).toBe(teacher?.time)
+    expect(Object.keys(teacher ?? {}).sort()).toEqual(decisionFields)
+    expect(teacher).toMatchObject({
+      studentId: signedInStudent,
+      agent: 'teacher',
+      proposedMove: 'explain_concept',
+      proposedScope: 'lists_and_tuples',
+      verdict: 'downgrade',
+      ruledMove: 'redirect_to_module',
+      ruledScope: 'lists_and_tuples',
+      ruleId: 'scope_requires_unlocked_module',
+      reasonCode: 'MODULE_CLOSED',
+      masteries: zeroMasteries,
+      unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
+      verifyShieldOn: true,
+    })
+    expect(deskmate).toMatchObject({
+      studentId: signedInStudent,
+      agent: 'deskmate',
+      proposedMove: 'peer_question',
+      proposedScope: null,
+      verdict: 'allow',
+      ruledMove: 'peer_question',
+      ruledScope: null,
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      verifyShieldOn: true,
+    })
+    expect(JSON.stringify(viewed.decisions)).not.toContain(lesson)
+    expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
+    expect(JSON.stringify(viewed.decisions)).not.toContain('What are lists?')
+  })
+
+  it('shows the newest hundred decisions first', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    for (let index = 0; index < 101; index += 1) {
+      await decisions.append(loggedDecision({
+        time: new Date(Date.UTC(2026, 0, 1, 0, 0, index)).toISOString(),
+        turnId: `turn-${index}`,
+      }))
+    }
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions).toHaveLength(100)
+    expect(viewed.decisions[0]?.turnId).toBe('turn-100')
+    expect(viewed.decisions[99]?.turnId).toBe('turn-1')
+    expect(viewed.decisions.map(decision => decision.turnId)).not.toContain('turn-0')
+  })
+
+  it('filters decisions by verdict and by student', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    const otherStudent = '6f1b0c1e-2222-4222-8222-222222222222'
+    await decisions.append(loggedDecision({
+      turnId: 'an-allow',
+      verdict: 'allow',
+      time: '2026-01-01T00:00:01.000Z',
+    }))
+    await decisions.append(loggedDecision({
+      turnId: 'an-block',
+      verdict: 'block',
+      ruledMove: null,
+      ruledScope: null,
+      reasonCode: 'ROLE_FORBIDDEN',
+      time: '2026-01-01T00:00:02.000Z',
+    }))
+    await decisions.append(loggedDecision({
+      turnId: 'other-block',
+      studentId: otherStudent,
+      verdict: 'block',
+      ruledMove: null,
+      ruledScope: null,
+      reasonCode: 'ROLE_FORBIDDEN',
+      time: '2026-01-01T00:00:03.000Z',
+    }))
+    await decisions.append(loggedDecision({
+      turnId: 'an-downgrade',
+      verdict: 'downgrade',
+      time: '2026-01-01T00:00:04.000Z',
+    }))
+    for (let index = 0; index < 100; index += 1) {
+      await decisions.append(loggedDecision({
+        turnId: `later-allow-${index}`,
+        verdict: 'allow',
+        time: new Date(Date.UTC(2026, 0, 2, 0, 0, index)).toISOString(),
+      }))
+    }
+
+    const byVerdict = await handleAdmin(ownerRequest({
+      decisions,
+      body: { event: 'read', verdict: 'block' },
+    }))
+    const byStudent = await handleAdmin(ownerRequest({
+      decisions,
+      body: { event: 'read', studentId: signedInStudent, verdict: '' },
+    }))
+    const byBoth = await handleAdmin(ownerRequest({
+      decisions,
+      body: { event: 'read', verdict: 'block', studentId: otherStudent },
+    }))
+
+    expect(byVerdict.decisions.map(decision => decision.turnId)).toEqual(['other-block', 'an-block'])
+    expect(byStudent.decisions.map(decision => decision.turnId)).not.toContain('other-block')
+    expect(byStudent.decisions).toHaveLength(100)
+    expect(byStudent.decisions[0]?.turnId).toBe('later-allow-99')
+    expect(byBoth.decisions.map(decision => decision.turnId)).toEqual(['other-block'])
+  })
+
+  it('switches the VerifyShield off and the next turn allows the proposed move', async () => {
+    const shield = createMemoryVerifyShieldStore()
+    const decisions = createMemoryDecisionLogStore()
+    const answer = 'A list keeps items in order.'
+
+    const before = await handleAdmin(ownerRequest({
+      decisions,
+      verifyShield: shield,
+      verifyShieldEnv: 'on',
+    }))
+    expect(before.verifyShieldOn).toBe(true)
+
+    const switched = await handleAdmin(ownerRequest({
+      decisions,
+      verifyShield: shield,
+      verifyShieldEnv: 'on',
+      body: { event: 'shield', enabled: false },
+    }))
+    expect(switched.verifyShieldOn).toBe(false)
+
+    await expect(handleAdmin(ownerRequest({
+      email: 'an@example.com',
+      verifyShield: shield,
+      body: { event: 'shield', enabled: true },
+    }))).rejects.toMatchObject({ statusCode: 403 })
+    expect(await shield.read()).toBe(false)
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What are lists?' },
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An Nguyen',
+    }), createFakeLanguageModel({
+      proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
+      text: answer,
+    }), {
+      verifyShieldOn: await verifyShieldForTurn(shield, 'on'),
+      decisions,
+    })
+
+    expect(state.conversation.find(message => message.author === 'teacher')?.text).toBe(answer)
+    const viewed = await handleAdmin(ownerRequest({
+      decisions,
+      verifyShield: shield,
+      verifyShieldEnv: 'on',
+    }))
+    expect(viewed.verifyShieldOn).toBe(false)
+    expect(viewed.decisions).toHaveLength(1)
+    expect(viewed.decisions[0]).toMatchObject({
+      verdict: 'allow',
+      ruleId: 'verify_shield',
+      reasonCode: 'VERIFYSHELD_OFF',
+      verifyShieldOn: false,
+      proposedScope: 'lists_and_tuples',
+    })
+    expect(JSON.stringify(viewed.decisions)).not.toContain(answer)
+    expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
+  })
+
+  it('refuses a student the decision log', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'kept' }))
+
+    await expect(handleAdmin(ownerRequest({
+      email: 'an@example.com',
+      decisions,
+      body: { event: 'read', verdict: 'allow', studentId: signedInStudent },
+    }))).rejects.toMatchObject({ statusCode: 403 })
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+    expect(viewed.decisions.map(decision => decision.turnId)).toEqual(['kept'])
+  })
+
+  it('does not log a turn that has no agent proposal', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An Nguyen',
+    }), undefined, { decisions })
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+    expect(viewed.decisions).toEqual([])
+  })
+
+  it('does not log the code from a submission', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: {
+        event: 'submission',
+        code: 'print("STUDENT_CODE_SHOULD_NOT_BE_LOGGED")\n',
+        results: [{ name: 'adds the numbers', passed: false, expected: '6', actual: '0' }],
+      },
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An Nguyen',
+    }), createFakeLanguageModel({
+      proposal: { type: 'explain_concept', scope: 'loops' },
+      text: 'Look at where the total is created.',
+    }), { decisions })
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+    expect(viewed.decisions).toHaveLength(1)
+    expect(JSON.stringify(viewed.decisions)).not.toContain('STUDENT_CODE_SHOULD_NOT_BE_LOGGED')
+    expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
+  })
+
+  it('logs the opening proposal and the introduction that is spoken', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, createMemoryConversationStore({
+      [signedInStudent]: 'An Nguyen',
+    }), createFakeLanguageModel({
+      proposal: { type: 'stay_and_practise' },
+      text: 'A running total survives every pass of the loop.',
+    }), { decisions })
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions.map(decision => decision.turnId)).toEqual([
+      viewed.decisions[0]?.turnId,
+      viewed.decisions[0]?.turnId,
+    ])
+    expect(viewed.decisions.map(decision => ({
+      agent: decision.agent,
+      proposedMove: decision.proposedMove,
+      verdict: decision.verdict,
+      ruledMove: decision.ruledMove,
+    }))).toEqual([
+      { agent: 'teacher', proposedMove: 'explain_concept', verdict: 'allow', ruledMove: 'explain_concept' },
+      { agent: 'teacher', proposedMove: 'stay_and_practise', verdict: 'allow', ruledMove: 'stay_and_practise' },
+    ])
+    expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
+  })
 })
+
+const decisionFields = [
+  'agent',
+  'masteries',
+  'proposedMove',
+  'proposedScope',
+  'reasonCode',
+  'ruleId',
+  'ruledMove',
+  'ruledScope',
+  'studentId',
+  'time',
+  'turnId',
+  'unlockedModuleIds',
+  'verdict',
+  'verifyShieldOn',
+]
+
+function loggedDecision(overrides: Partial<DecisionRecord> = {}): DecisionRecord {
+  return {
+    time: '2026-01-01T00:00:00.000Z',
+    studentId: signedInStudent,
+    turnId: 'turn-0',
+    agent: 'teacher',
+    proposedMove: 'explain_concept',
+    proposedScope: 'loops',
+    verdict: 'allow',
+    ruledMove: 'explain_concept',
+    ruledScope: 'loops',
+    ruleId: 'role_table',
+    reasonCode: 'ROLE_PERMITTED',
+    masteries: zeroMasteries,
+    unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
+    verifyShieldOn: true,
+    ...overrides,
+  }
+}
+
+const zeroMasteries = [
+  { moduleId: 'getting_started', mastery: 0 },
+  { moduleId: 'variables', mastery: 0 },
+  { moduleId: 'strings', mastery: 0 },
+  { moduleId: 'conditionals', mastery: 0 },
+  { moduleId: 'loops', mastery: 0 },
+  { moduleId: 'lists_and_tuples', mastery: 0 },
+  { moduleId: 'dictionaries_and_sets', mastery: 0 },
+  { moduleId: 'functions', mastery: 0 },
+  { moduleId: 'modules_and_library', mastery: 0 },
+  { moduleId: 'file_handling', mastery: 0 },
+  { moduleId: 'error_handling', mastery: 0 },
+]
 
 function sse(text: string): Response {
   const chunks = [

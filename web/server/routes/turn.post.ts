@@ -1,6 +1,7 @@
 import { sessionStudentId } from '../../shared/student-id'
 import { languageModelForTurn } from '../model/configured-language-model'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
+import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
 import { verifyShieldForTurn } from '../storage/verify-shield-store'
@@ -13,26 +14,27 @@ export default defineEventHandler(async (event) => {
   }
 
   const config = useRuntimeConfig()
-  const store = createSupabaseConversationStore({
+  const connection = {
     url: config.public.supabaseUrl,
     secretKey: config.supabaseSecretKey,
-  })
-  const model = await languageModelForTurn(createSupabaseModelSettingsStore({
-    url: config.public.supabaseUrl,
-    secretKey: config.supabaseSecretKey,
-  }), {
+  }
+  const store = createSupabaseConversationStore(connection)
+  const model = await languageModelForTurn(createSupabaseModelSettingsStore(connection), {
     provider: config.model,
     apiKey: config.modelApiKey,
     baseUrl: config.modelBaseUrl,
     modelName: config.modelName,
   })
-  const verifyShieldOn = await verifyShieldForTurn(createSupabaseVerifyShieldStore({
-    url: config.public.supabaseUrl,
-    secretKey: config.supabaseSecretKey,
-  }), config.verifyShield)
+  const verifyShieldOn = await verifyShieldForTurn(
+    createSupabaseVerifyShieldStore(connection),
+    config.verifyShield,
+  )
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
-  const options = { verifyShieldOn }
+  const options = {
+    verifyShieldOn,
+    decisions: createSupabaseDecisionLogStore(connection),
+  }
 
   try {
     if (!isStreamedTurn(body)) return await handleTurn(request, store, model, options)
