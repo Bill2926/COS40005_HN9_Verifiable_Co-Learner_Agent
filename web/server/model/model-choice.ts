@@ -1,57 +1,48 @@
 export interface ModelSettings {
-  model: string
-  deepseekApiKey: string
-  deepseekModel: string
-  ollamaBaseUrl: string
-  ollamaModel: string
+  provider: string
+  apiKey: string
+  baseUrl: string
+  modelName: string
 }
 
 export type ModelChoice =
   | { kind: 'fake' }
-  | { kind: 'deepseek', apiKey: string, model: string }
-  | { kind: 'ollama', baseUrl: string, model: string }
+  | { kind: 'real', apiKey: string, baseUrl: string, model: string }
 
-const providers = ['deepseek', 'fake', 'ollama'] as const
+const providers = ['real', 'fake'] as const
 
-// NUXT_MODEL names the provider outright; the settings below it only supply
-// that provider's credentials. Nothing here reads the environment, touches the
-// network, or pings the Ollama host.
+// The provider is named outright. A blank name means the real
+// OpenAI-compatible client, which is how DeepSeek is reached. Nothing here
+// reads the environment or the network.
 export function resolveModelChoice(settings: ModelSettings): ModelChoice {
-  const provider = settings.model.trim() === '' ? 'deepseek' : settings.model.trim()
+  const provider = settings.provider.trim().toLowerCase() || 'real'
 
   if (provider === 'fake') return { kind: 'fake' }
 
-  if (provider === 'deepseek') {
+  if (provider === 'real') {
     return {
-      kind: 'deepseek',
-      apiKey: required(settings.deepseekApiKey, 'NUXT_DEEPSEEK_API_KEY'),
-      model: required(settings.deepseekModel, 'NUXT_DEEPSEEK_MODEL'),
+      kind: 'real',
+      apiKey: required(settings.apiKey, 'API key'),
+      baseUrl: baseUrl(required(settings.baseUrl, 'base URL')),
+      model: required(settings.modelName, 'model name'),
     }
   }
 
-  if (provider === 'ollama') {
-    return {
-      kind: 'ollama',
-      baseUrl: ollamaBaseUrl(required(settings.ollamaBaseUrl, 'NUXT_OLLAMA_BASE_URL')),
-      model: required(settings.ollamaModel, 'NUXT_OLLAMA_MODEL'),
-    }
-  }
-
-  throw new Error(`NUXT_MODEL is "${provider}": name one of ${providers.join(', ')}.`)
+  throw new Error(`The model provider is "${provider}": name one of ${providers.join(', ')}.`)
 }
 
-// A credential the chosen provider needs cannot be repaired here, and a model
-// name carrying stray whitespace would travel all the way to the provider and
-// come back as a 404. Fail at the moment of resolution, naming the setting to
-// fix, instead of at the student's first turn.
-function required(value: string, setting: string): string {
+// A real model cannot be called without these, and a value carrying stray
+// whitespace would travel to the provider and come back as a 404. Fail at the
+// moment of resolution, naming the field to fix.
+function required(value: string, field: string): string {
   const trimmed = value.trim()
-  if (trimmed === '') throw new Error(`${setting} is blank, and NUXT_MODEL needs it.`)
+  if (trimmed === '') throw new Error(`The ${field} is blank, and a real model needs it.`)
   return trimmed
 }
 
-// A developer may write the bare host, with or without a trailing slash.
-function ollamaBaseUrl(baseUrl: string): string {
-  const host = baseUrl.replace(/\/+$/, '')
-  return host.endsWith('/v1') ? host : `${host}/v1`
+// The client appends /chat/completions itself, so the base URL is the root the
+// provider documents. DeepSeek's is https://api.deepseek.com. A trailing slash
+// would make that path miss.
+function baseUrl(value: string): string {
+  return value.replace(/\/+$/, '')
 }

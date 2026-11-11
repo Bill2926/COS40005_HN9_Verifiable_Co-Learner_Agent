@@ -1,4 +1,3 @@
-import type { DeepSeekLanguageModelChatOptions } from '@ai-sdk/deepseek'
 import { generateText, Output, streamText, type LanguageModel as ProviderModel } from 'ai'
 import { z } from 'zod'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from './language-model'
@@ -19,14 +18,6 @@ const moveSchema = z.discriminatedUnion('type', [
 const proposalSchema = z.object({
   proposal: z.union([z.null(), moveSchema]),
 })
-
-// Provider options are namespaced by provider identity, so a provider that is
-// not DeepSeek ignores this one.
-const providerOptions = {
-  deepseek: {
-    thinking: { type: 'disabled' },
-  } satisfies DeepSeekLanguageModelChatOptions,
-}
 
 const proposeInstructions = [
   'You are the Teacher in a first-year Python course.',
@@ -76,7 +67,6 @@ export function createAgentLanguageModel(model: ProviderModel): LanguageModel {
       output: Output.object({ schema: proposalSchema }),
       instructions,
       prompt,
-      providerOptions,
     })
     if (!output) throw new Error('The language model returned no proposal.')
     return output.proposal
@@ -87,7 +77,6 @@ export function createAgentLanguageModel(model: ProviderModel): LanguageModel {
       model,
       instructions,
       prompt,
-      providerOptions,
     })
     for await (const part of result.stream) {
       if (part.type === 'error' || part.type === 'abort') {

@@ -5,11 +5,13 @@ export default defineNuxtConfig({
   modules: ['@nuxt/ui'],
   runtimeConfig: {
     supabaseSecretKey: '',
-    model: 'deepseek',
-    deepseekApiKey: '',
-    deepseekModel: 'deepseek-flash',
-    ollamaBaseUrl: 'http://localhost:11434',
-    ollamaModel: 'llama3.1',
+    // real is the OpenAI-compatible client. DeepSeek is that client with
+    // base URL https://api.deepseek.com. A saved record on /admin replaces these.
+    model: 'real',
+    modelApiKey: '',
+    modelBaseUrl: 'https://api.deepseek.com',
+    modelName: 'deepseek-flash',
+    adminEmails: 'owner@example.com',
     public: {
       supabaseUrl: '',
       supabasePublishableKey: '',

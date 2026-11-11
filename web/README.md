@@ -11,7 +11,10 @@ Copy `.env.example` to `.env` and fill in the keys for the team's Supabase proje
 
 Demo accounts, reproducible from `supabase/seed.sql`:
 
-| Student | Email | Password |
+| Who | Email | Password |
 |---|---|---|
 | An | an@example.com | an-demo-password |
 | Bình | binh@example.com | binh-demo-password |
+| Product owner | owner@example.com | owner-demo-password |
+
+The product owner opens `/admin` to choose a real OpenAI-compatible model or fake responses. `NUXT_ADMIN_EMAILS` lists who may open that page. A saved choice is used on the next turn. Until one is saved, the server environment supplies the model.

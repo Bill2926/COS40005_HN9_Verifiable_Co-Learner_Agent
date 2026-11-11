@@ -1,8 +1,8 @@
-import { createDeepSeekLanguageModel } from './deepseek-language-model'
 import { createFakeLanguageModel } from './fake-language-model'
 import type { LanguageModel } from './language-model'
 import { resolveModelChoice, type ModelSettings } from './model-choice'
-import { createOllamaLanguageModel } from './ollama-language-model'
+import { createRealLanguageModel } from './real-language-model'
+import type { ModelSettingsStore } from '../storage/model-settings-store'
 
 export type { ModelSettings } from './model-choice'
 
@@ -19,15 +19,14 @@ function logOnce(line: string): void {
 export function createConfiguredLanguageModel(settings: ModelSettings): LanguageModel {
   const choice = resolveModelChoice(settings)
 
-  if (choice.kind === 'deepseek') {
+  if (choice.kind === 'real') {
     // The key is never logged and never named in an error.
-    logOnce(`Language model: deepseek, model ${choice.model}.`)
-    return createDeepSeekLanguageModel({ apiKey: choice.apiKey, model: choice.model })
-  }
-
-  if (choice.kind === 'ollama') {
-    logOnce(`Language model: ollama at ${choice.baseUrl}, model ${choice.model}.`)
-    return createOllamaLanguageModel({ baseUrl: choice.baseUrl, model: choice.model })
+    logOnce(`Language model: real, ${choice.baseUrl}, model ${choice.model}.`)
+    return createRealLanguageModel({
+      apiKey: choice.apiKey,
+      baseUrl: choice.baseUrl,
+      model: choice.model,
+    })
   }
 
   logOnce('Language model: fake, scripted Teacher and Deskmate replies.')
@@ -38,4 +37,14 @@ export function createConfiguredLanguageModel(settings: ModelSettings): Language
     proposal: { type: 'peer_question' },
     text: 'wait, does the total live outside the loop? i\'m lost too.',
   })
+}
+
+// A saved record replaces the environment for this turn. An empty store leaves
+// the environment in charge, so a server that has never been saved keeps working.
+export async function languageModelForTurn(
+  store: ModelSettingsStore,
+  env: ModelSettings,
+): Promise<LanguageModel> {
+  const saved = await store.read()
+  return createConfiguredLanguageModel(saved ?? env)
 }
