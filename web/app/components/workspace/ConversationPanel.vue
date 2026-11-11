@@ -45,21 +45,28 @@ const bubbleClass = {
   deskmate: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-amber-200/80 bg-amber-50 px-[15px] py-[11px] text-amber-950',
 } as const
 
-const avatarClass = {
-  teacher: 'bg-indigo-600',
-  deskmate: 'bg-amber-500',
+const portraitSrc = {
+  student: '/portraits/student.png',
+  teacher: '/portraits/teacher.png',
+  deskmate: '/portraits/deskmate.png',
+} as const
+
+const portraitClass = {
+  student: 'border-slate-300 bg-slate-100 shadow-[-2px_2px_0_0_var(--color-slate-400)]',
+  teacher: 'border-indigo-200 bg-indigo-50 shadow-[2px_2px_0_0_var(--color-indigo-300)]',
+  deskmate: 'border-amber-200 bg-amber-50 shadow-[2px_2px_0_0_var(--color-amber-300)]',
 } as const
 
 const nameClass = {
-  student: 'text-slate-700',
+  student: 'text-white',
   teacher: 'text-indigo-900',
   deskmate: 'text-amber-950',
 } as const
 
 const roleClass = {
-  student: 'font-mono text-slate-400',
-  teacher: 'font-mono text-indigo-500',
-  deskmate: 'font-mono text-amber-600',
+  student: 'text-slate-300',
+  teacher: 'text-indigo-600',
+  deskmate: 'text-amber-700',
 } as const
 
 const traceOpen = ref(false)
@@ -294,33 +301,36 @@ watch(() => props.sending, (sending) => {
           </p>
           <div
             v-else
-            class="flex max-w-[85%] flex-col"
-            :class="row.author === 'student' ? 'items-end' : 'items-start'"
+            class="flex max-w-[96%] items-start gap-3"
+            :class="row.author === 'student' ? 'flex-row-reverse' : 'flex-row'"
           >
-            <p
-              class="flex items-center gap-1.5"
-              :class="row.author === 'student' ? 'pr-1' : 'pl-1'"
+            <span
+              class="mt-0.5 size-11 shrink-0 overflow-hidden rounded-[4px] border"
+              :class="portraitClass[row.author]"
+              :data-portrait="row.author"
+              aria-hidden="true"
             >
-              <span
-                v-if="row.author !== 'student'"
-                class="flex size-4 shrink-0 items-center justify-center rounded-full text-[9px] leading-[13.5px] font-bold text-white"
-                :class="avatarClass[row.author]"
-                aria-hidden="true"
-              >{{ row.name.slice(0, 1) }}</span>
-              <span
-                class="text-[11px] leading-[16.5px] font-medium"
-                :class="nameClass[row.author]"
-              >{{ row.name }}</span>
-              <span
-                v-if="row.role"
-                class="text-[10px] leading-[15px]"
-                :class="roleClass[row.author]"
-              >{{ row.role }}</span>
-            </p>
+              <img
+                :src="portraitSrc[row.author]"
+                alt=""
+                class="size-full object-cover [image-rendering:pixelated]"
+              >
+            </span>
             <article
-              class="mt-1 w-fit max-w-full text-[12px] leading-[19.5px] break-words"
+              class="w-fit max-w-full min-w-0 text-[12px] leading-[19.5px] break-words"
               :class="bubbleClass[row.author]"
             >
+              <p class="mb-0.5 flex items-baseline gap-1.5">
+                <span
+                  class="text-[12px] leading-4 font-semibold"
+                  :class="nameClass[row.author]"
+                >{{ row.name }}</span>
+                <span
+                  v-if="row.role"
+                  class="text-[11px] leading-4"
+                  :class="roleClass[row.author]"
+                >{{ row.role }}</span>
+              </p>
               <p>{{ row.text }}</p>
               <button
                 v-if="row.openInLearn"
