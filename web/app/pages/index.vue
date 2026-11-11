@@ -156,7 +156,7 @@ async function selectModule(moduleId: string) {
   const current = workspace.value
   if (!current || selecting.value || sending.value) return
   const chosen = current.courseRoadmap.find(module => module.id === moduleId)
-  if (!chosen || chosen.current) return
+  if (!chosen || chosen.current || chosen.state === 'closed') return
 
   selecting.value = true
   selectError.value = ''

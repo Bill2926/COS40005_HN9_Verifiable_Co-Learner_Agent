@@ -97,7 +97,7 @@ async function* streamTurnBody(
   const placement = await viewPlacement(studentId, store)
 
   if (isOpenEvent(body)) {
-    const existing = await messagesFor(store, studentId, placement.module.id)
+    const existing = await store.messages(studentId, placement.module.id)
     if (existing.length === 0 && model) {
       yield* introduceModule(studentId, placement, store, model, options)
       return
@@ -121,7 +121,7 @@ async function* streamTurnBody(
       : chosen.exercises[0]
     const next = { module: chosen, exercise }
     await adoptPlacement(studentId, store, next)
-    const existing = await messagesFor(store, studentId, chosen.id)
+    const existing = await store.messages(studentId, chosen.id)
     yield {
       type: 'state',
       state: await redraw(studentId, next, store, existing.length === 0 ? 'learn' : null),
@@ -482,7 +482,7 @@ async function teacherContext(
   store: ConversationStore,
   seen: SeenWork,
 ): Promise<TeacherContext> {
-  const messages = await messagesFor(store, studentId, placement.module.id)
+  const messages = await store.messages(studentId, placement.module.id)
   return {
     materials: { ...placement.module.materials },
     hintLadder: [...placement.module.hintLadder],
@@ -522,7 +522,7 @@ async function deskmateContextWithConversation(
   context: DeskmateContext,
   store: ConversationStore,
 ): Promise<DeskmateContext> {
-  const messages = await messagesFor(store, studentId, placement.module.id)
+  const messages = await store.messages(studentId, placement.module.id)
   return {
     ...context,
     conversation: messages.map(message => ({
@@ -592,23 +592,13 @@ async function adoptPlacement(
   })
 }
 
-async function messagesFor(
-  store: ConversationStore,
-  studentId: string,
-  moduleId: string,
-) {
-  const messages = await store.messages(studentId, moduleId)
-  if (messages.length > 0 || moduleId !== 'loops') return messages
-  return store.messages(studentId, 'for_loop')
-}
-
 async function redraw(
   studentId: string,
   placement: Placement,
   store: ConversationStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
-  const messages = await messagesFor(store, studentId, placement.module.id)
+  const messages = await store.messages(studentId, placement.module.id)
   const displayName = await store.displayName(studentId)
 
   return {

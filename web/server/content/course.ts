@@ -199,10 +199,6 @@ export function standingFor(currentModuleId: string): CourseStanding {
   }
 }
 
-export function standingForCurrentCourse(): CourseStanding {
-  return standingFor('getting_started')
-}
-
 export function closedReasonFor(module: CourseModule): string {
   if (!module.available) return 'Not available yet'
   const previous = courseModules.find(item => item.number === module.number - 1)
