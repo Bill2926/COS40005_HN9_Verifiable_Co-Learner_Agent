@@ -105,7 +105,7 @@ describe('admin handler', () => {
       })
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
       return Response.json({
         id: 'chatcmpl-test',
         choices: [{
@@ -201,7 +201,7 @@ describe('admin handler', () => {
       })
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
       return Response.json({
         choices: [{
           message: { role: 'assistant', content: JSON.stringify({ proposal }) },
@@ -276,7 +276,7 @@ describe('admin handler', () => {
       calls.push(request.url)
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse('From the environment.')
-      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept' }
+      const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'loops' }
       return Response.json({
         choices: [{
           message: { role: 'assistant', content: JSON.stringify({ proposal }) },

@@ -2,6 +2,8 @@ import { sessionStudentId } from '../../shared/student-id'
 import { languageModelForTurn } from '../model/configured-language-model'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
+import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
+import { verifyShieldForTurn } from '../storage/verify-shield-store'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
@@ -24,11 +26,16 @@ export default defineEventHandler(async (event) => {
     baseUrl: config.modelBaseUrl,
     modelName: config.modelName,
   })
+  const verifyShieldOn = await verifyShieldForTurn(createSupabaseVerifyShieldStore({
+    url: config.public.supabaseUrl,
+    secretKey: config.supabaseSecretKey,
+  }), config.verifyShield)
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
+  const options = { verifyShieldOn }
 
   try {
-    if (!isStreamedTurn(body)) return await handleTurn(request, store, model)
+    if (!isStreamedTurn(body)) return await handleTurn(request, store, model, options)
 
     setResponseHeader(event, 'content-type', 'application/x-ndjson; charset=utf-8')
     setResponseHeader(event, 'cache-control', 'no-cache, no-transform')
@@ -36,7 +43,7 @@ export default defineEventHandler(async (event) => {
     const stream = new ReadableStream({
       async start(controller) {
         try {
-          for await (const turnEvent of streamTurn(request, store, model)) {
+          for await (const turnEvent of streamTurn(request, store, model, options)) {
             controller.enqueue(encoder.encode(`${JSON.stringify(turnEvent)}\n`))
           }
           controller.close()

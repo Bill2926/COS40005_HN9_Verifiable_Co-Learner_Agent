@@ -564,7 +564,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Just tell me the next step.' },
     }, store, model)
 
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -614,7 +614,7 @@ describe('turn endpoint', () => {
       },
     ))
 
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -643,7 +643,7 @@ describe('turn endpoint', () => {
       body: { event: 'open' },
     }, store, speakingTeacher())
 
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -1127,7 +1127,7 @@ describe('turn endpoint', () => {
     ])
     expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
     expect(model.exchanges.at(-1)?.move).toEqual({ type: 'explain_concept' })
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -1159,7 +1159,7 @@ describe('turn endpoint', () => {
     }))
 
     expect(state.conversation.map(message => message.approvedMove)).toEqual(['explain_concept'])
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -1187,7 +1187,7 @@ describe('turn endpoint', () => {
     }))
 
     expect(state.conversation).toEqual([])
-    expect(state.trace).toEqual({
+    expect(state.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -1219,7 +1219,7 @@ describe('turn endpoint', () => {
     expect(failed.conversation).toEqual([])
     expect(JSON.stringify(failed)).not.toContain('could not answer')
     expect(JSON.stringify(failed)).not.toContain('PARTIAL_OPENING_SHOULD_NOT_STICK')
-    expect(failed.trace).toEqual({
+    expect(failed.trace).toMatchObject({
       active: false,
       agents: [
         {
@@ -1606,6 +1606,210 @@ describe('turn endpoint', () => {
     }, store)
     expect(opened.conversation).toEqual([])
     expect(JSON.stringify(opened)).not.toContain('RUN_SHOULD_NOT_BE_A_TURN')
+  })
+
+  it('labels a question about lists as Not yet and stays on the current module', async () => {
+    const store = memoryStore()
+    const model = createFakeLanguageModel(
+      {
+        proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
+        text: 'LISTS_LESSON_SHOULD_NOT_RENDER',
+      },
+      {
+        proposal: { type: 'peer_question' },
+        text: 'wait, are we still on loops?',
+      },
+    )
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What are lists?' },
+    }, store, model)
+
+    expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
+      name: 'Teacher',
+      role: 'Not yet',
+      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Loops.",
+      approvedMove: 'redirect_to_module',
+    })
+    expect(state.conversation.find(message => message.author === 'deskmate')).toMatchObject({
+      name: 'Mai',
+      role: 'Deskmate',
+      text: 'wait, are we still on loops?',
+      approvedMove: 'peer_question',
+    })
+    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(state.workingArea.topicName).toBe('For loops')
+    expect(JSON.stringify(state)).not.toContain('LISTS_LESSON_SHOULD_NOT_RENDER')
+    expect(model.exchanges.filter(exchange => exchange.phase === 'render').map(exchange => exchange.agent)).toEqual(['deskmate'])
+    expect(state.trace).toMatchObject({
+      verifyShieldOn: true,
+      unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          scope: 'lists_and_tuples',
+          verdict: {
+            decision: 'downgrade',
+            ruleId: 'scope_requires_unlocked_module',
+            reasonCode: 'MODULE_CLOSED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: 'peer_question',
+          scope: null,
+          verdict: {
+            decision: 'allow',
+            ruleId: 'role_table',
+            reasonCode: 'ROLE_PERMITTED',
+          },
+        },
+      ],
+    })
+    expect(state.trace?.masteries).toEqual([
+      { moduleId: 'getting_started', mastery: 0 },
+      { moduleId: 'variables', mastery: 0 },
+      { moduleId: 'strings', mastery: 0 },
+      { moduleId: 'conditionals', mastery: 0 },
+      { moduleId: 'loops', mastery: 0 },
+      { moduleId: 'lists_and_tuples', mastery: 0 },
+      { moduleId: 'dictionaries_and_sets', mastery: 0 },
+      { moduleId: 'functions', mastery: 0 },
+      { moduleId: 'modules_and_library', mastery: 0 },
+      { moduleId: 'file_handling', mastery: 0 },
+      { moduleId: 'error_handling', mastery: 0 },
+    ])
+    const proposed = model.exchanges.find(exchange => exchange.agent === 'teacher' && exchange.phase === 'propose')
+    expect(proposed && proposed.agent === 'teacher' ? proposed.context.roadmap : []).toEqual([
+      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0, current: false },
+      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'open', mastery: 0, current: false },
+      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'open', mastery: 0, current: false },
+      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'open', mastery: 0, current: false },
+      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'open', mastery: 0, current: true },
+      { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
+      { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
+      { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', mastery: 0, current: false },
+      { id: 'modules_and_library', number: 9, name: 'Modules and the Standard Library', part: 'Organizing Code', state: 'closed', mastery: 0, current: false },
+      { id: 'file_handling', number: 10, name: 'File Handling', part: 'Working with the Real World', state: 'closed', mastery: 0, current: false },
+      { id: 'error_handling', number: 11, name: 'Error Handling and Debugging', part: 'Working with the Real World', state: 'closed', mastery: 0, current: false },
+    ])
+  })
+
+  it('labels an out-of-course question as Not yet', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'hey how are you' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept', scope: 'out_of_course' },
+      text: 'SMALL_TALK_SHOULD_NOT_RENDER',
+    }))
+
+    expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
+      role: 'Not yet',
+      text: "That's outside this course. Let's stay with Loops.",
+      approvedMove: 'redirect_to_module',
+    })
+    expect(JSON.stringify(state)).not.toContain('SMALL_TALK_SHOULD_NOT_RENDER')
+    expect(state.workingArea.topicId).toBe('for_loop')
+  })
+
+  it('redirects a mislabelled question when the message names pandas', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Can you show me Pandas?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept', scope: 'loops' },
+      text: 'PANDAS_SHOULD_NOT_RENDER',
+    }))
+
+    expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
+      role: 'Not yet',
+      text: "That's outside this course. Let's stay with Loops.",
+      approvedMove: 'redirect_to_module',
+    })
+    expect(state.trace).toMatchObject({
+      verifyShieldOn: true,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          scope: 'loops',
+          verdict: {
+            decision: 'downgrade',
+            ruleId: 'scope_keyword',
+            reasonCode: 'OUT_OF_COURSE_KEYWORD',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          scope: null,
+          verdict: null,
+        },
+      ],
+    })
+    expect(JSON.stringify(state)).not.toContain('PANDAS_SHOULD_NOT_RENDER')
+  })
+
+  it('answers a closed-module question when the VerifyShield is off', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What are lists?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
+      text: 'A list keeps items in order.',
+    }), { verifyShieldOn: false })
+
+    expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
+      role: 'Explanation',
+      text: 'A list keeps items in order.',
+      approvedMove: 'explain_concept',
+    })
+    expect(state.trace).toMatchObject({
+      verifyShieldOn: false,
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'explain_concept',
+          scope: 'lists_and_tuples',
+          verdict: {
+            decision: 'allow',
+            ruleId: 'verify_shield',
+            reasonCode: 'VERIFYSHELD_OFF',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          scope: null,
+          verdict: null,
+        },
+      ],
+    })
+  })
+
+  it('does not move the student when the teacher advances to a closed module', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Can we start lists?' },
+    }, store, createFakeLanguageModel({
+      proposal: { type: 'advance_to_item', topicId: 'lists_and_tuples' },
+      text: 'LISTS_ADVANCE_SHOULD_NOT_RENDER',
+    }))
+
+    expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
+      role: 'Not yet',
+      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Loops.",
+      approvedMove: 'redirect_to_module',
+    })
+    expect(state.workingArea.topicId).toBe('for_loop')
+    expect(JSON.stringify(state)).not.toContain('LISTS_ADVANCE_SHOULD_NOT_RENDER')
   })
 
   it('rejects an exercise that is not on the topic', async () => {

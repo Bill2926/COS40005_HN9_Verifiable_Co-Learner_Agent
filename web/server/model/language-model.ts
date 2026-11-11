@@ -24,6 +24,15 @@ export interface TeacherContext {
     text: string
     approvedMove: string | null
   }[]
+  roadmap: readonly {
+    id: string
+    number: number
+    name: string
+    part: string
+    state: 'mastered' | 'open' | 'closed'
+    mastery: number
+    current: boolean
+  }[]
 }
 
 export interface DeskmateContext {
