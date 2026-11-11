@@ -62,74 +62,83 @@ async function signIn() {
       </p>
     </header>
     <main class="phone-safe-bottom grid flex-1 place-items-center p-4 md:p-6">
-      <form
-        class="flex w-full flex-col gap-6 rounded-lg border border-default bg-default p-4 shadow-xs md:max-w-sm md:p-8"
-        @submit.prevent="signIn"
-      >
-        <div class="flex flex-col gap-1">
-          <h1 class="text-xl font-semibold tracking-tight text-highlighted">
-            Sign in
-          </h1>
-          <p class="text-xs leading-4 text-muted">
-            Sign in to continue where you left off.
-          </p>
-        </div>
-        <p
-          v-if="errorMessage"
-          role="alert"
-          class="flex items-start gap-2.5 rounded-sm border border-rose-200/80 bg-rose-50 px-[13px] py-[11px] text-xs leading-[19.5px] text-rose-700"
+      <div class="flex w-full flex-col items-center gap-4 md:max-w-sm md:gap-6">
+        <img
+          src="/swinburne-logo.svg"
+          alt="Swinburne University of Technology"
+          width="500"
+          height="253"
+          class="block h-12 w-auto max-w-full md:h-16"
         >
-          <span class="inline-flex shrink-0 pt-0.5">
-            <img
-              src="/sign-in-error.svg"
-              alt=""
-              width="16"
-              height="16"
-            >
-          </span>
-          {{ errorMessage }}
-        </p>
-        <div class="flex flex-col gap-4">
-          <label class="flex flex-col gap-1.5 text-xs font-medium leading-4 text-default">
-            <span>Email</span>
-            <UInput
-              v-model="email"
-              type="email"
-              name="email"
-              autocomplete="username"
-              required
-              color="neutral"
-              fixed
-              class="w-full"
-              :ui="{ base: inputClass }"
-            />
-          </label>
-          <label class="flex flex-col gap-1.5 pb-2 text-xs font-medium leading-4 text-default">
-            <span>Password</span>
-            <UInput
-              v-model="password"
-              type="password"
-              name="password"
-              autocomplete="current-password"
-              required
-              color="neutral"
-              fixed
-              class="w-full"
-              :aria-invalid="credentialsRejected || undefined"
-              :ui="{ base: credentialsRejected ? `${inputClass} ring-rose-300 focus-visible:ring-rose-300` : inputClass }"
-            />
-          </label>
-          <UButton
-            type="submit"
-            block
-            size="lg"
-            :loading="pending"
-            class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600 md:min-h-0"
+        <form
+          class="flex w-full flex-col gap-6 rounded-lg border border-default bg-default p-4 shadow-xs md:p-8"
+          @submit.prevent="signIn"
+        >
+          <div class="flex flex-col gap-1">
+            <h1 class="text-xl font-semibold tracking-tight text-highlighted">
+              Sign in
+            </h1>
+            <p class="text-xs leading-4 text-muted">
+              Sign in to continue where you left off.
+            </p>
+          </div>
+          <p
+            v-if="errorMessage"
+            role="alert"
+            class="flex items-start gap-2.5 rounded-sm border border-rose-200/80 bg-rose-50 px-[13px] py-[11px] text-xs leading-[19.5px] text-rose-700"
           >
-            Sign in
-          </UButton>
-        </div>
-      </form>
+            <span class="inline-flex shrink-0 pt-0.5">
+              <img
+                src="/sign-in-error.svg"
+                alt=""
+                width="16"
+                height="16"
+              >
+            </span>
+            {{ errorMessage }}
+          </p>
+          <div class="flex flex-col gap-4">
+            <label class="flex flex-col gap-1.5 text-xs font-medium leading-4 text-default">
+              <span>Email</span>
+              <UInput
+                v-model="email"
+                type="email"
+                name="email"
+                autocomplete="username"
+                required
+                color="neutral"
+                fixed
+                class="w-full"
+                :ui="{ base: inputClass }"
+              />
+            </label>
+            <label class="flex flex-col gap-1.5 pb-2 text-xs font-medium leading-4 text-default">
+              <span>Password</span>
+              <UInput
+                v-model="password"
+                type="password"
+                name="password"
+                autocomplete="current-password"
+                required
+                color="neutral"
+                fixed
+                class="w-full"
+                :aria-invalid="credentialsRejected || undefined"
+                :ui="{ base: credentialsRejected ? `${inputClass} ring-rose-300 focus-visible:ring-rose-300` : inputClass }"
+              />
+            </label>
+            <UButton
+              type="submit"
+              block
+              size="lg"
+              :loading="pending"
+              class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600 md:min-h-0"
+            >
+              Sign in
+            </UButton>
+          </div>
+        </form>
+      </div>
     </main>
   </div>
 </template>
