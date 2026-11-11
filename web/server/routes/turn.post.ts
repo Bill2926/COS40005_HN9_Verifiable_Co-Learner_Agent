@@ -2,6 +2,7 @@ import { sessionStudentId } from '../../shared/student-id'
 import { languageModelForTurn } from '../model/configured-language-model'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
+import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
 import { verifyShieldForTurn } from '../storage/verify-shield-store'
@@ -34,6 +35,7 @@ export default defineEventHandler(async (event) => {
   const options = {
     verifyShieldOn,
     decisions: createSupabaseDecisionLogStore(connection),
+    evidence: createSupabaseEvidenceStore(connection),
   }
 
   try {

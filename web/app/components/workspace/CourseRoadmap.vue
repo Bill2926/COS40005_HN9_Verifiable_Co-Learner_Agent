@@ -3,6 +3,7 @@ import type { RoadmapModule } from '#shared/turn'
 
 const props = defineProps<{
   modules: RoadmapModule[]
+  masteryThreshold: number
 }>()
 
 const emit = defineEmits<{
@@ -10,6 +11,12 @@ const emit = defineEmits<{
 }>()
 
 const masteredCount = computed(() => props.modules.filter(module => module.state === 'mastered').length)
+const thresholdPercent = computed(() => Math.round(props.masteryThreshold * 100))
+
+// A closed module shows no mastery, so only an unlocked one reaches the bar.
+function masteryPercent(module: RoadmapModule): number {
+  return module.state === 'closed' ? 0 : Math.round(module.mastery * 100)
+}
 
 const groups = computed(() => {
   const grouped: { part: string, label: string, modules: RoadmapModule[] }[] = []
@@ -127,6 +134,28 @@ function cardClass(module: RoadmapModule): string {
                     aria-hidden="true"
                   />
                   {{ module.current ? 'Open · Current' : 'Open' }}
+                </p>
+              </div>
+              <div
+                v-if="module.state !== 'closed'"
+                class="mt-2 flex items-center gap-2"
+              >
+                <span
+                  class="relative h-1.5 min-w-0 flex-1 rounded-full bg-slate-200/80"
+                  aria-hidden="true"
+                >
+                  <span
+                    class="absolute inset-y-0 left-0 rounded-full"
+                    :class="module.state === 'mastered' ? 'bg-emerald-500' : 'bg-indigo-500'"
+                    :style="{ width: `${masteryPercent(module)}%` }"
+                  />
+                  <span
+                    class="absolute -top-0.5 -bottom-0.5 w-px bg-slate-400"
+                    :style="{ left: `${thresholdPercent}%` }"
+                  />
+                </span>
+                <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-500 tabular-nums">
+                  {{ masteryPercent(module) }}%
                 </p>
               </div>
             </button>

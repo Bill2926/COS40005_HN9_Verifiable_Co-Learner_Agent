@@ -1,0 +1,178 @@
+import { describe, expect, it } from 'vitest'
+import { courseModules, masteryParameters } from '../server/content/course'
+import { estimateMastery, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/mastery/estimate'
+
+const moduleIds = courseModules.map(module => module.id)
+
+describe('mastery estimator', () => {
+  it('gives every module the prior when there is no evidence', () => {
+    const estimated = estimateMastery([], moduleIds, masteryParameters)
+
+    expect(estimated).toEqual(moduleIds.map(moduleId => ({
+      moduleId,
+      mastery: 0.1,
+      everMastered: false,
+    })))
+  })
+
+  it('raises the mastery of the module a first-time pass belongs to, and no other', () => {
+    const estimated = estimateMastery(
+      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(estimated, 'getting_started')).toBeCloseTo(0.433333, 6)
+    expect(masteryOf(estimated, 'variables')).toBe(0.1)
+  })
+
+  it('ignores a pass of an exercise the student has already passed', () => {
+    const once = estimateMastery(
+      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      moduleIds,
+      masteryParameters,
+    )
+    const again = estimateMastery(
+      [
+        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+      ],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(again, 'getting_started')).toBe(masteryOf(once, 'getting_started'))
+  })
+
+  it('counts a first-time pass of a second exercise in the same module', () => {
+    const estimated = estimateMastery(
+      [
+        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', exerciseId: 'join_words', allPassed: true },
+      ],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(estimated, 'getting_started')).toBeCloseTo(0.808609, 6)
+  })
+
+  it('crosses the threshold on the third first-time pass', () => {
+    const twice = estimateMastery(passes(2), moduleIds, masteryParameters)
+    const thrice = estimateMastery(passes(3), moduleIds, masteryParameters)
+
+    expect(masteryOf(twice, 'getting_started')).toBeLessThan(masteryParameters.threshold)
+    expect(masteryOf(thrice, 'getting_started')).toBeCloseTo(0.957526, 6)
+    expect(thrice).toContainEqual({
+      moduleId: 'getting_started',
+      mastery: masteryOf(thrice, 'getting_started'),
+      everMastered: true,
+    })
+  })
+
+  it('lowers a mastered module when a later submission fails', () => {
+    const mastered = estimateMastery(passes(3), moduleIds, masteryParameters)
+    const failed = estimateMastery(
+      [...passes(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false }],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(failed, 'getting_started')).toBeCloseTo(0.777368, 6)
+    expect(masteryOf(failed, 'getting_started')).toBeLessThan(masteryOf(mastered, 'getting_started'))
+  })
+
+  it('remembers that a module was mastered after its mastery falls back', () => {
+    const failed = estimateMastery(
+      [...passes(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false }],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(failed, 'getting_started')).toBeLessThan(masteryParameters.threshold)
+    expect(failed.find(item => item.moduleId === 'getting_started')?.everMastered).toBe(true)
+  })
+
+  it('gives the same numbers every time it reads the same ledger', () => {
+    const ledger = [
+      ...passes(3),
+      { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+      { moduleId: 'variables', exerciseId: 'total_cost', allPassed: true },
+    ]
+
+    expect(estimateMastery(ledger, moduleIds, masteryParameters))
+      .toEqual(estimateMastery(ledger, moduleIds, masteryParameters))
+  })
+
+  it('leaves evidence for a module the course no longer lists out of the estimate', () => {
+    const estimated = estimateMastery(
+      [{ moduleId: 'for_loop', exerciseId: 'sum_of_a_list', allPassed: true }],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(estimated.map(item => item.moduleId)).toEqual(moduleIds)
+    expect(estimated.every(item => item.mastery === masteryParameters.prior)).toBe(true)
+  })
+})
+
+describe('unlocking', () => {
+  it('opens Module 1 alone when there is no evidence', () => {
+    expect(unlocked([])).toEqual(['getting_started'])
+  })
+
+  it('opens the next module once the module before it is mastered', () => {
+    expect(unlocked(passes(3))).toEqual(['getting_started', 'variables'])
+  })
+
+  it('keeps a module unlocked after the mastery that opened it falls back', () => {
+    const ledger = [
+      ...passes(3),
+      { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+    ]
+
+    expect(unlocked(ledger)).toEqual(['getting_started', 'variables'])
+  })
+
+  it('leaves a module with no content closed even when the module before it is mastered', () => {
+    const ledger = [
+      ...passes(3),
+      ...masters('variables', ['total_cost', 'whole_number', 'old_enough']),
+      ...masters('strings', ['first_character', 'shout', 'greeting']),
+      ...masters('conditionals', ['sign_of', 'ticket', 'marked_result']),
+      ...masters('loops', ['sum_of_a_list', 'count_the_even_numbers', 'count_the_items']),
+    ]
+
+    expect(unlocked(ledger)).toEqual([
+      'getting_started',
+      'variables',
+      'strings',
+      'conditionals',
+      'loops',
+    ])
+  })
+})
+
+function unlocked(ledger: readonly Observation[]): string[] {
+  return unlockedModuleIds(courseModules, estimateMastery(ledger, moduleIds, masteryParameters))
+}
+
+// Three first-time passes, which is what mastering a module takes.
+function masters(moduleId: string, exerciseIds: readonly string[]): Observation[] {
+  return exerciseIds.map(exerciseId => ({ moduleId, exerciseId, allPassed: true }))
+}
+
+// Passing submissions on the first `count` exercises of Module 1.
+function passes(count: number) {
+  return ['say_hello', 'join_words', 'sign_the_program'].slice(0, count).map(exerciseId => ({
+    moduleId: 'getting_started',
+    exerciseId,
+    allPassed: true,
+  }))
+}
+
+function masteryOf(estimated: readonly ModuleMastery[], moduleId: string): number {
+  const found = estimated.find(item => item.moduleId === moduleId)
+  if (!found) throw new Error(`The estimate has no module ${moduleId}.`)
+  return found.mastery
+}

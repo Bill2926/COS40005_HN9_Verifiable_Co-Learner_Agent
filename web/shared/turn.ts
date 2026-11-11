@@ -8,8 +8,11 @@ interface RoadmapModuleBase {
   current: boolean
 }
 
+// An unlocked module carries the mastery the student is shown, from 0 to 1,
+// rounded to whole percentage points. A closed module carries the reason it is
+// closed and no mastery.
 export type RoadmapModule =
-  | (RoadmapModuleBase & { state: 'mastered' | 'open' })
+  | (RoadmapModuleBase & { state: 'mastered' | 'open'; mastery: number })
   | (RoadmapModuleBase & { state: 'closed'; closedReason: string })
 
 export interface ModuleMaterials {
@@ -106,6 +109,8 @@ export interface RedrawState {
   displayName: string
   course: string
   courseRoadmap: RoadmapModule[]
+  // Where the mark on every mastery bar sits, from the course spec.
+  masteryThreshold: number
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
   trace?: TurnTrace

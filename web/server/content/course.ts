@@ -1,4 +1,5 @@
 import type { RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
+import { estimateMastery, unlockedModuleIds, type MasteryParameters, type Observation } from '../mastery/estimate'
 import type { CourseScope } from '../verdict/decide'
 
 export const courseTitle = 'Introduction to Programming with Python'
@@ -152,12 +153,52 @@ export const courseScope: CourseScope = {
   outOfCourseKeywords,
 }
 
-export const masteryThreshold = 0.9
+// The four Bayesian Knowledge Tracing parameters and the mastery threshold are
+// course content, the same for every module, so they are written here and not
+// in the estimator.
+export const masteryParameters: MasteryParameters = {
+  prior: 0.1,
+  learning: 0.15,
+  slip: 0.1,
+  guess: 0.2,
+  threshold: 0.9,
+}
 
-export interface CourseStanding {
-  currentModuleId: string
+export const masteryThreshold = masteryParameters.threshold
+
+// What the evidence says about the course, before anything is known about
+// where the student is sitting right now.
+export interface CourseEstimate {
   masteries: readonly { moduleId: string, mastery: number }[]
   unlockedModuleIds: readonly string[]
+}
+
+export interface CourseStanding extends CourseEstimate {
+  currentModuleId: string
+}
+
+// Mastery and unlocking are derived from the evidence ledger every time the
+// course roadmap is drawn; nothing about them is stored.
+export function estimateCourse(evidence: readonly Observation[]): CourseEstimate {
+  const estimated = estimateMastery(
+    evidence,
+    courseModules.map(module => module.id),
+    masteryParameters,
+  )
+  return {
+    masteries: estimated.map(item => ({ moduleId: item.moduleId, mastery: item.mastery })),
+    unlockedModuleIds: unlockedModuleIds(courseModules, estimated),
+  }
+}
+
+export function standingFor(estimate: CourseEstimate, currentModuleId: string): CourseStanding {
+  return { ...estimate, currentModuleId }
+}
+
+// Where a student with no resume point starts: the furthest module their
+// evidence has unlocked, which is Module 1 when they have no evidence.
+export function furthestUnlockedModuleId(estimate: CourseEstimate): string {
+  return estimate.unlockedModuleIds.at(-1) ?? courseModules[0]!.id
 }
 
 export interface RoadmapModule {
@@ -172,31 +213,38 @@ export interface RoadmapModule {
 
 export function roadmapForStanding(standing: CourseStanding): RoadmapModule[] {
   return courseModules.map((module) => {
-    const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
-    const unlocked = standing.unlockedModuleIds.includes(module.id)
-    let state: RoadmapModule['state'] = 'closed'
-    if (unlocked && mastery >= masteryThreshold) state = 'mastered'
-    else if (unlocked) state = 'open'
+    const placed = placeOnRoadmap(module, standing)
     return {
       id: module.id,
       number: module.number,
       name: module.name,
       part: module.part,
-      state,
-      mastery,
-      current: module.id === standing.currentModuleId,
+      state: placed.state,
+      mastery: placed.mastery,
+      current: placed.current,
     }
   })
 }
 
-// Mastery is not estimated yet. With no evidence, Module 1 is open and every
-// later module is closed. Modules 6–11 stay closed as not available.
-export function standingFor(currentModuleId: string): CourseStanding {
-  return {
-    currentModuleId,
-    masteries: courseModules.map(module => ({ moduleId: module.id, mastery: 0 })),
-    unlockedModuleIds: ['getting_started'],
-  }
+interface RoadmapPlace {
+  state: 'mastered' | 'open' | 'closed'
+  mastery: number
+  current: boolean
+}
+
+function placeOnRoadmap(module: CourseModule, standing: CourseStanding): RoadmapPlace {
+  const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
+  const unlocked = standing.unlockedModuleIds.includes(module.id)
+  const state = !unlocked ? 'closed' : mastery >= masteryThreshold ? 'mastered' : 'open'
+  return { state, mastery, current: module.id === standing.currentModuleId }
+}
+
+// The mastery a student is shown, in whole percentage points because that is
+// how it is read off the bar. It rounds down, so the bar never reaches the mark
+// at the threshold on a module that is still open. The unrounded estimate stays
+// in the VerifyShield trace and the decision log, where the exact number counts.
+function shownMastery(mastery: number): number {
+  return Math.floor(mastery * 100) / 100
 }
 
 export function closedReasonFor(module: CourseModule): string {
@@ -206,31 +254,22 @@ export function closedReasonFor(module: CourseModule): string {
   return `Needs Module ${previous.number}: ${previous.name} mastered`
 }
 
-export function presentedRoadmap(currentModuleId: string): StudentRoadmapModule[] {
-  const standing = standingFor(currentModuleId)
+export function presentedRoadmap(standing: CourseStanding): StudentRoadmapModule[] {
   return courseModules.map((module) => {
-    const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
-    const unlocked = standing.unlockedModuleIds.includes(module.id)
-    const current = module.id === currentModuleId
-    if (!unlocked) {
-      return {
-        id: module.id,
-        name: module.name,
-        part: module.part,
-        summary: module.summary,
-        state: 'closed',
-        current,
-        closedReason: closedReasonFor(module),
-      }
-    }
-    return {
+    const placed = placeOnRoadmap(module, standing)
+    const named = {
       id: module.id,
       name: module.name,
       part: module.part,
       summary: module.summary,
-      state: mastery >= masteryThreshold ? 'mastered' : 'open',
-      current,
+      current: placed.current,
     }
+    // A closed module shows the lock and the reason, and no mastery: a number
+    // is only shown where it means something.
+    if (placed.state === 'closed') {
+      return { ...named, state: 'closed', closedReason: closedReasonFor(module) }
+    }
+    return { ...named, state: placed.state, mastery: shownMastery(placed.mastery) }
   })
 }
 

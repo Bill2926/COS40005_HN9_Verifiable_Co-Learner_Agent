@@ -109,3 +109,34 @@ select private.seed_demo_student(
 );
 
 drop function private.seed_demo_student(uuid, text, text, text);
+
+-- Demo evidence for Bình: one passing submission on every exercise of Modules
+-- 1 to 4. Three first-time passes master a module, so that evidence alone
+-- masters those four and opens Module 5, which is where she starts. No mastery
+-- is stored anywhere; it is estimated from these rows every time the course
+-- roadmap is drawn. An has no evidence and starts on Module 1.
+delete from public.evidence
+where student_id = 'b22b22b2-2222-4222-8222-222222222222';
+
+insert into public.evidence (recorded_at, student_id, module_id, exercise_id, tests_passed, tests_total)
+select
+  timestamptz '2026-11-01 09:00:00+00' + (passed.step - 1) * interval '5 minutes',
+  'b22b22b2-2222-4222-8222-222222222222'::uuid,
+  passed.module_id,
+  passed.exercise_id,
+  3,
+  3
+from (values
+  (1, 'getting_started', 'say_hello'),
+  (2, 'getting_started', 'join_words'),
+  (3, 'getting_started', 'sign_the_program'),
+  (4, 'variables', 'total_cost'),
+  (5, 'variables', 'whole_number'),
+  (6, 'variables', 'old_enough'),
+  (7, 'strings', 'first_character'),
+  (8, 'strings', 'shout'),
+  (9, 'strings', 'greeting'),
+  (10, 'conditionals', 'sign_of'),
+  (11, 'conditionals', 'ticket'),
+  (12, 'conditionals', 'marked_result')
+) as passed (step, module_id, exercise_id);

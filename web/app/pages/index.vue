@@ -388,6 +388,7 @@ function initialsOf(name: string): string {
         :modules="workspace.courseRoadmap"
         :course="workspace.course"
         :student-id="studentId"
+        :mastery-threshold="workspace.masteryThreshold"
         @select-module="selectModule"
       />
       <CourseRoadmap
@@ -395,6 +396,7 @@ function initialsOf(name: string): string {
         class="md:col-span-2 md:row-start-1 lg:col-span-1 lg:col-start-1 lg:row-start-1"
         :class="phonePanel === 'roadmap' ? 'max-md:flex' : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
+        :mastery-threshold="workspace.masteryThreshold"
         @select-module="selectModule"
       />
       <div :class="layout === 'ide' ? ideFrame('working') : roadmapFrame('working')">
