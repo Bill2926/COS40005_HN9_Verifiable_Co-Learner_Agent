@@ -1,6 +1,7 @@
 import { sessionStudentId } from '../../shared/student-id'
-import { createConfiguredLanguageModel } from '../model/configured-language-model'
+import { languageModelForTurn } from '../model/configured-language-model'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
+import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
@@ -14,12 +15,14 @@ export default defineEventHandler(async (event) => {
     url: config.public.supabaseUrl,
     secretKey: config.supabaseSecretKey,
   })
-  const model = createConfiguredLanguageModel({
-    model: config.model,
-    deepseekApiKey: config.deepseekApiKey,
-    deepseekModel: config.deepseekModel,
-    ollamaBaseUrl: config.ollamaBaseUrl,
-    ollamaModel: config.ollamaModel,
+  const model = await languageModelForTurn(createSupabaseModelSettingsStore({
+    url: config.public.supabaseUrl,
+    secretKey: config.supabaseSecretKey,
+  }), {
+    provider: config.model,
+    apiKey: config.modelApiKey,
+    baseUrl: config.modelBaseUrl,
+    modelName: config.modelName,
   })
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }

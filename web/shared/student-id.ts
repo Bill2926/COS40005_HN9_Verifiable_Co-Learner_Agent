@@ -21,3 +21,20 @@ export async function sessionStudentId(event: H3Event): Promise<string | null> {
 
   return studentIdFromAuth(createRequestClient(event, url, publishableKey))
 }
+
+export async function sessionEmail(event: H3Event): Promise<string | null> {
+  const config = useRuntimeConfig()
+  const url = config.public.supabaseUrl
+  const publishableKey = config.public.supabasePublishableKey
+  if (!url || !publishableKey) return null
+
+  try {
+    const { data, error } = await createRequestClient(event, url, publishableKey).auth.getClaims()
+    if (error || !data?.claims.sub) return null
+    const email = data.claims.email
+    return typeof email === 'string' && email.length > 0 ? email : null
+  }
+  catch {
+    return null
+  }
+}

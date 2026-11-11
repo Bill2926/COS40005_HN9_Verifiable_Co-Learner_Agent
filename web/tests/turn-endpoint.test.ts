@@ -1003,11 +1003,10 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
     }, memoryStore(), createConfiguredLanguageModel({
-      model: 'fake',
-      deepseekApiKey: '',
-      deepseekModel: 'deepseek-flash',
-      ollamaBaseUrl: '',
-      ollamaModel: 'llama3.1',
+      provider: 'fake',
+      apiKey: '',
+      baseUrl: '',
+      modelName: '',
     }))
 
     expect(state.conversation.map(message => ({

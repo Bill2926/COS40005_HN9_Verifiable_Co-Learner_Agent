@@ -19,7 +19,6 @@
     ]
   },
   "dependencies": {
-    "@ai-sdk/deepseek": "^3.0.80",
     "@ai-sdk/openai-compatible": "^3.0.85",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/language": "^6.13.1",

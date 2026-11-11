@@ -1,5 +1,5 @@
--- Demo students An and Bình. Keep emails, passwords, and display names
--- aligned with web/server/auth/demo-accounts.ts.
+-- Demo students An and Bình, and the product owner. Keep emails, passwords,
+-- and display names aligned with web/server/auth/demo-accounts.ts.
 
 create or replace function private.seed_demo_student(
   student_id uuid,
@@ -99,6 +99,13 @@ select private.seed_demo_student(
   'binh@example.com',
   'binh-demo-password',
   'Bình'
+);
+
+select private.seed_demo_student(
+  'c33c33c3-3333-4333-8333-333333333333',
+  'owner@example.com',
+  'owner-demo-password',
+  'Owner'
 );
 
 drop function private.seed_demo_student(uuid, text, text, text);

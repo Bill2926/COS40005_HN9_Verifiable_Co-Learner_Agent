@@ -22,9 +22,10 @@ export default defineConfig({
     },
   ],
   // Always starts its own app with the fake model forced, and never reuses one
-  // already on the port. A developer with a DeepSeek key or an Ollama base URL
-  // configured serves a live model from `pnpm dev`, and these tests assert on
-  // the exact scripted sentences, so a reused server would test the wrong thing.
+  // already on the port. A developer with a real model key configured serves a
+  // live model from `pnpm dev`, and a choice saved on /admin overrides the
+  // environment. These tests assert on the exact scripted sentences, so a
+  // reused server or a saved record would test the wrong thing.
   webServer: {
     command: 'pnpm dev --port 3000 --strictPort --no-tui',
     url: `${baseURL}/sign-in`,

@@ -10,3 +10,9 @@ export const demoAccounts = [
     displayName: 'Bình',
   },
 ] as const
+
+export const productOwnerAccount = {
+  email: 'owner@example.com',
+  password: 'owner-demo-password',
+  displayName: 'Owner',
+} as const

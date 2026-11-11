@@ -66,6 +66,12 @@
 | US30 | As an assessor, I want an optional shield-trace panel (off by default), so that I can see when a move was blocked or downgraded. | Should |
 | US31 | As an assessor, I want the system deployed on AWS and reachable through a public URL, so that I can try it without any local setup. | Could |
 
+### Product owner
+
+| ID | User story | MoSCoW |
+|---|---|---|
+| US32 | As a product owner, I want to choose a real language model or fake responses, so that I can point the app at an OpenAI-compatible model without editing the server and restarting. | Must |
+
 ---
 
 ## 3. Core features
@@ -103,7 +109,7 @@ In one line: two AI agents help the student learn Python, and a deterministic sh
 
 ## 5. MoSCoW summary
 
-- **Must (15 stories + 5 NFR):** US1–US13, US27, US28, NFR1, NFR3, NFR4, NFR6, NFR8 — the core loop (learn → practice → guided help), topics that open only on mastery, and the evidence that the shield works.
+- **Must (16 stories + 5 NFR):** US1–US13, US27, US28, US32, NFR1, NFR3, NFR4, NFR6, NFR8 — the core loop (learn → practice → guided help), topics that open only on mastery, the evidence that the shield works, and a product owner choice of language model.
 - **Should (11 stories + 3 NFR):** US14–US19, US23–US25, US29, US30, NFR2, NFR5, NFR7 — important, but the product still works without them.
 - **Could (5):** US20, US21, US22, US26, US31 — only if time remains.
 - **Won't (this release):**
@@ -161,6 +167,6 @@ flowchart TB
 
 | Sprint | Weeks | What goes in |
 |---|---|---|
-| Sprint 1 | 7–9 | **Must:** US1, US2, US3, US6, US7, US8, US10, US12, US28, NFR1, NFR8. **Should:** US23 (the spec is the base for all rules). |
+| Sprint 1 | 7–9 | **Must:** US1, US2, US3, US6, US7, US8, US10, US12, US28, US32, NFR1, NFR8. **Should:** US23 (the spec is the base for all rules). |
 | Sprint 2 | 10–12 | **Must:** US4, US5, US9, US11, US13, US27, NFR3, NFR4, NFR6. **Should (by capacity):** US14–US19, US24, US25, US29, US30, NFR2, NFR5, NFR7. |
 | Later | after 12 | **Could:** US20, US21, US22, US26, US31. |
