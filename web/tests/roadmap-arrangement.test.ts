@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf } from '../app/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf, spread } from '../app/roadmap/arrangement'
 import type { RoadmapModule } from '../shared/turn'
 
 const an = 'a11a11a1-1111-4111-8111-111111111111'
@@ -33,30 +33,70 @@ describe('roadmap arrangement', () => {
     })
   })
 
-  it('starts a wide canvas from frame 18:444, and flows any module the frame leaves out', () => {
-    const arrangement = defaultArrangement(
-      ['variable', 'if_else', 'for_loop', 'nested_loop', 'while_loop'],
-      { width: 1440, height: 900 },
-    )
+  it('places the 11 course modules on a wide canvas without overlap', () => {
+    const canvas = { width: 1440, height: 900 }
+    const scale = arrangementScale(canvas, 11)
+    const card = { width: 248 * scale, height: 176 * scale }
+    const modules = [
+      'getting_started',
+      'variables',
+      'strings',
+      'conditionals',
+      'loops',
+      'lists_and_tuples',
+      'dictionaries_and_sets',
+      'functions',
+      'modules_and_library',
+      'file_handling',
+      'error_handling',
+    ]
+    const arrangement = defaultArrangement(modules, canvas)
+    const boxes = modules.map((id) => {
+      const point = arrangement[id]
+      expect(point, id).toBeDefined()
+      return placeCard(point!, card, canvas)
+    })
 
-    // Frame 18:444, kept as fractions of the room a card can move in.
-    expect(arrangement.variable).toEqual({ x: 0.082, y: 0.162 })
-    expect(arrangement.if_else).toEqual({ x: 0.42, y: 0.116 })
-    expect(arrangement.for_loop).toEqual({ x: 0.144, y: 0.352 })
-    expect(arrangement.nested_loop).toEqual({ x: 0.541, y: 0.705 })
-    // Fifth module, one row of five, last column: left 1179.2 of a 1232-wide room, top 64 of an 820-tall room.
-    expect(arrangement.while_loop).toEqual({ x: 0.9571428571428572, y: 0.07804878048780488 })
+    for (const box of boxes) {
+      expect(box.x).toBeGreaterThanOrEqual(0)
+      expect(box.y).toBeGreaterThanOrEqual(64)
+      expect(box.x + box.width).toBeLessThanOrEqual(canvas.width)
+      expect(box.y + box.height).toBeLessThanOrEqual(canvas.height - 56)
+    }
+    for (let left = 0; left < boxes.length; left += 1) {
+      for (let right = left + 1; right < boxes.length; right += 1) {
+        const a = boxes[left]!
+        const b = boxes[right]!
+        const apart = a.x + a.width <= b.x
+          || b.x + b.width <= a.x
+          || a.y + a.height <= b.y
+          || b.y + b.height <= a.y
+        expect(apart, `${modules[left]} overlaps ${modules[right]}`).toBe(true)
+      }
+    }
   })
 
-  it('places four modules on a compact canvas without overlap at 375px and 768px', () => {
-    // The current module card is the widest and tallest card on the canvas.
-    const card = { width: 248, height: 88 }
-    const modules = ['variable', 'if_else', 'for_loop', 'nested_loop']
+  it('places the 11 course modules on a compact canvas without overlap at 375px and 768px', () => {
+    const modules = [
+      'getting_started',
+      'variables',
+      'strings',
+      'conditionals',
+      'loops',
+      'lists_and_tuples',
+      'dictionaries_and_sets',
+      'functions',
+      'modules_and_library',
+      'file_handling',
+      'error_handling',
+    ]
 
     for (const canvas of [
       { width: 375, height: 700 },
       { width: 768, height: 440 },
     ]) {
+      const scale = arrangementScale(canvas, modules.length)
+      const card = { width: 248 * scale, height: 112 * scale }
       const arrangement = defaultArrangement(modules, canvas)
       const boxes = modules.map((id) => {
         const point = arrangement[id]
@@ -74,21 +114,33 @@ describe('roadmap arrangement', () => {
         for (let right = left + 1; right < boxes.length; right += 1) {
           const a = boxes[left]!
           const b = boxes[right]!
-          const separated = a.x + a.width <= b.x
-            || b.x + b.width <= a.x
-            || a.y + a.height <= b.y
-            || b.y + b.height <= a.y
+          const separated = a.x + a.width <= b.x + 1
+            || b.x + b.width <= a.x + 1
+            || a.y + a.height <= b.y + 1
+            || b.y + b.height <= a.y + 1
           expect(separated, `${modules[left]} overlaps ${modules[right]} on ${canvas.width}px`).toBe(true)
         }
       }
     }
   })
 
-  it('keeps four modules apart when a compact canvas is too short for full-size cards', () => {
+  it('keeps eleven modules apart when a compact canvas is too short for full-size cards', () => {
     const canvas = { width: 667, height: 220 }
-    const modules = ['variable', 'if_else', 'for_loop', 'nested_loop']
+    const modules = [
+      'getting_started',
+      'variables',
+      'strings',
+      'conditionals',
+      'loops',
+      'lists_and_tuples',
+      'dictionaries_and_sets',
+      'functions',
+      'modules_and_library',
+      'file_handling',
+      'error_handling',
+    ]
     const scale = arrangementScale(canvas, modules.length)
-    const card = { width: 248 * scale, height: 88 * scale }
+    const card = { width: 248 * scale, height: 112 * scale }
     const arrangement = defaultArrangement(modules, canvas)
     const boxes = modules.map((id) => {
       const point = arrangement[id]
@@ -118,12 +170,13 @@ describe('roadmap arrangement', () => {
 
   it('draws one connector for each consecutive pair, in course order, styled by the module it leads into', () => {
     const modules: RoadmapModule[] = [
-      { id: 'variable', name: 'Variables', summary: 'Foundation', state: 'mastered', current: false },
-      { id: 'if_else', name: 'If / else', summary: 'Branching logic', state: 'mastered', current: false },
-      { id: 'for_loop', name: 'For loops', summary: 'Repeating with a running total', state: 'open', current: true },
+      { id: 'variable', name: 'Variables', part: 'Foundations', summary: 'Foundation', state: 'mastered', current: false },
+      { id: 'if_else', name: 'If / else', part: 'Foundations', summary: 'Branching logic', state: 'mastered', current: false },
+      { id: 'for_loop', name: 'For loops', part: 'Control Flow', summary: 'Repeating with a running total', state: 'open', current: true },
       {
         id: 'nested_loop',
         name: 'Nested loops',
+        part: 'Control Flow',
         summary: 'Loops inside loops',
         state: 'closed',
         current: false,
@@ -175,6 +228,19 @@ describe('roadmap arrangement', () => {
     const panel = { x: 0, y: 0, width: 220, height: 180 }
 
     expect(avoid(card, [panel], canvas)).toEqual({ x: 60, y: 50, width: 100, height: 80 })
+  })
+
+  it('moves a card off another card and leaves a clear card where it is', () => {
+    const canvas = { width: 800, height: 600 }
+    const first = { x: 40, y: 40, width: 100, height: 80 }
+    const stacked = { x: 40, y: 40, width: 100, height: 80 }
+    const clear = { x: 400, y: 400, width: 100, height: 80 }
+
+    const [kept, moved, stayed] = spread([first, stacked, clear], canvas)
+
+    expect(kept).toEqual(first)
+    expect(stayed).toEqual(clear)
+    expect(moved).toEqual({ x: 40, y: 132, width: 100, height: 80 })
   })
 
   it('leaves a card that is already clear of every panel where it is', () => {
@@ -279,8 +345,9 @@ describe('saved roadmap arrangement', () => {
     })
 
     expect(shown.for_loop).toEqual({ x: 0.5, y: 0.25 })
-    expect(shown.variable).toEqual({ x: 0.082, y: 0.162 })
-    expect(shown.while_loop).toEqual({ x: 0.9571428571428572, y: 0.07804878048780488 })
+    // Five cards on a 1440 × 900 canvas, kept clear of the floating panels.
+    expect(shown.variable).toEqual({ x: 0.10626398210290827, y: 0.08839779005524862 })
+    expect(shown.while_loop).toEqual({ x: 0.5, y: 0.3812154696132597 })
     expect(shown.not_a_module).toBeUndefined()
     expect(mergeArrangement(starting, { variable: { x: 0, y: 0 } }).variable).toEqual({ x: 0, y: 0 })
   })

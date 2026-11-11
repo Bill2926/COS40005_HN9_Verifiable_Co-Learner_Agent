@@ -47,58 +47,237 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(state)).not.toContain(otherStudent)
   })
 
-  it('open returns the module states, the closed reason, Learn mode, and the current exercise', async () => {
+  it('open returns the course roadmap, Learn mode, and Module 1', async () => {
+    const store = createMemoryConversationStore({
+      [signedInStudent]: 'An',
+    })
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
-    }, createMemoryConversationStore({
-      [signedInStudent]: 'An',
-    }))
+    }, store)
 
-    expect(state.course).toBe('CS 101: Introduction to Python · Semester 1')
+    expect(state.course).toBe('Introduction to Programming with Python')
     expect(state.courseRoadmap).toEqual([
-      { id: 'variable', name: 'Variables', summary: 'Foundation', state: 'mastered', current: false },
-      { id: 'if_else', name: 'If / else', summary: 'Branching logic', state: 'mastered', current: false },
-      { id: 'for_loop', name: 'For loops', summary: 'Repeating with a running total', state: 'open', current: true },
       {
-        id: 'nested_loop',
-        name: 'Nested loops',
-        summary: 'Loops inside loops',
+        id: 'getting_started',
+        name: 'Getting Started with Programming and Python',
+        part: 'Foundations',
+        summary: 'What programming is, algorithms as steps, and a first program with print() and comments',
+        state: 'open',
+        current: true,
+      },
+      {
+        id: 'variables',
+        name: 'Variables, Data Types, and Operators',
+        part: 'Foundations',
+        summary: 'Variables, data types, operators, input(), and type casting',
         state: 'closed',
         current: false,
-        closedReason: 'Needs For loops.',
+        closedReason: 'Needs Module 1: Getting Started with Programming and Python mastered',
+      },
+      {
+        id: 'strings',
+        name: 'Working with Strings',
+        part: 'Foundations',
+        summary: 'Indexing, slicing, string methods, and f-strings',
+        state: 'closed',
+        current: false,
+        closedReason: 'Needs Module 2: Variables, Data Types, and Operators mastered',
+      },
+      {
+        id: 'conditionals',
+        name: 'Conditional Statements',
+        part: 'Control Flow',
+        summary: 'if, elif, else, nested conditions, and logical operators',
+        state: 'closed',
+        current: false,
+        closedReason: 'Needs Module 3: Working with Strings mastered',
+      },
+      {
+        id: 'loops',
+        name: 'Loops',
+        part: 'Control Flow',
+        summary: 'for, range(), while, break, continue, and nested loops',
+        state: 'closed',
+        current: false,
+        closedReason: 'Needs Module 4: Conditional Statements mastered',
+      },
+      {
+        id: 'lists_and_tuples',
+        name: 'Lists and Tuples',
+        part: 'Built-in Data Structures',
+        summary: 'Creating, changing, and looping over lists and tuples',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
+      },
+      {
+        id: 'dictionaries_and_sets',
+        name: 'Dictionaries and Sets',
+        part: 'Built-in Data Structures',
+        summary: 'Dictionaries, sets, and basic list comprehensions',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
+      },
+      {
+        id: 'functions',
+        name: 'Functions',
+        part: 'Organizing Code',
+        summary: 'Defining functions, parameters, return values, and scope',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
+      },
+      {
+        id: 'modules_and_library',
+        name: 'Modules and the Standard Library',
+        part: 'Organizing Code',
+        summary: 'import, the standard library, pip, and virtual environments',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
+      },
+      {
+        id: 'file_handling',
+        name: 'File Handling',
+        part: 'Working with the Real World',
+        summary: 'Reading and writing text, CSV, and JSON files',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
+      },
+      {
+        id: 'error_handling',
+        name: 'Error Handling and Debugging',
+        part: 'Working with the Real World',
+        summary: 'Errors, try / except / finally, tracebacks, and simple tests',
+        state: 'closed',
+        current: false,
+        closedReason: 'Not available yet',
       },
     ])
     expect(state.workingArea).toEqual({
       mode: 'learn',
-      moduleId: 'for_loop',
-      moduleName: 'For loops',
+      moduleId: 'getting_started',
+      moduleName: 'Getting Started with Programming and Python',
       materials: {
-        heading: 'Accumulating a total',
-        body: 'A running total needs a variable that survives every pass of the loop.',
-        example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
-        keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
+        heading: 'A first program',
+        body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
+        example: '# Show a greeting\nprint("Hello, world")',
+        keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
         scopeNote: 'These materials belong to this module alone.',
       },
       exercise: {
-        id: 'sum_of_a_list',
-        title: 'Sum of a list',
-        statement:
-          'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
-        starterCode: 'def total(ds):\n    pass\n',
+        id: 'say_hello',
+        title: 'Say hello',
+        statement: 'Write hello(name) so it returns a greeting: Hello, then a space, then the name. Put a comment above the return that says what the function does.',
+        starterCode: 'def hello(name):\n    pass\n',
         tests: [
-          { name: 'three numbers', expression: 'total([1, 2, 3])', expected: '6' },
-          { name: 'one number', expression: 'total([10])', expected: '10' },
-          { name: 'empty list', expression: 'total([])', expected: '0' },
+          { name: 'greeting for An', expression: 'hello("An")', expected: 'Hello, An' },
+          { name: 'greeting for Mai', expression: 'hello("Mai")', expected: 'Hello, Mai' },
+          { name: 'greeting for world', expression: 'hello("world")', expected: 'Hello, world' },
         ],
       },
       exercises: [
-        { id: 'sum_of_a_list', title: 'Sum of a list' },
-        { id: 'count_the_even_numbers', title: 'Count the even numbers' },
+        { id: 'say_hello', title: 'Say hello' },
+        { id: 'join_words', title: 'Join two words' },
+        { id: 'sign_the_program', title: 'Sign the program' },
       ],
     })
     expect(state.conversation).toEqual([])
     expect(state.displayName).toBe('An')
+    expect(JSON.stringify(state)).not.toContain('return "Hello, " + name')
+    expect(await store.resumePoint(signedInStudent)).toEqual({
+      moduleId: 'getting_started',
+      exerciseId: 'say_hello',
+    })
+  })
+
+  it('stays on the open module when the student chooses a closed one', async () => {
+    const store = memoryStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What is a program?' },
+    }, store, speakingTeacher())
+    const before = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store)
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_module', moduleId: 'lists_and_tuples' },
+    }, store)
+
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(state.workingArea.exercise.id).toBe(before.workingArea.exercise.id)
+    expect(state.conversation.map(message => message.text)).toEqual(before.conversation.map(message => message.text))
+    expect(state.courseRoadmap.find(module => module.id === 'lists_and_tuples')).toMatchObject({
+      state: 'closed',
+      current: false,
+      closedReason: 'Not available yet',
+    })
+    expect(state.courseRoadmap.find(module => module.id === 'getting_started')).toMatchObject({
+      state: 'open',
+      current: true,
+    })
+    expect(await store.resumePoint(signedInStudent)).toEqual({
+      moduleId: 'getting_started',
+      exerciseId: 'say_hello',
+    })
+  })
+
+  it('opens the unlocked module on its conversation and resume-point exercise', async () => {
+    const store = memoryStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What is a program?' },
+    }, store, speakingTeacher())
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_exercise', exerciseId: 'join_words' },
+    }, store)
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_module', moduleId: 'getting_started' },
+    }, store)
+
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(state.workingArea.moduleName).toBe('Getting Started with Programming and Python')
+    expect(state.workingArea.exercise.id).toBe('join_words')
+    expect(state.conversation.some(message => message.text === 'What is a program?')).toBe(true)
+    expect(state.courseRoadmap.filter(module => module.current).map(module => module.id)).toEqual(['getting_started'])
+  })
+
+  it('keeps a stored for_loop conversation when Module 5 is closed', async () => {
+    const store = memoryStore()
+    await store.saveResumePoint(signedInStudent, {
+      moduleId: 'for_loop',
+      exerciseId: 'sum_of_a_list',
+    })
+    await store.appendMessage(signedInStudent, 'for_loop', {
+      author: 'student',
+      approvedMove: null,
+      text: 'OLD_LOOP_CONVERSATION',
+      exerciseId: 'sum_of_a_list',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store)
+
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(JSON.stringify(state)).not.toContain('OLD_LOOP_CONVERSATION')
+    expect(await store.resumePoint(signedInStudent)).toEqual({
+      moduleId: 'for_loop',
+      exerciseId: 'sum_of_a_list',
+    })
+    expect((await store.messages(signedInStudent, 'for_loop')).map(message => message.text)).toEqual([
+      'OLD_LOOP_CONVERSATION',
+    ])
   })
 
   it('select_exercise redraws the chosen exercise and does not keep a draft', async () => {
@@ -112,7 +291,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: {
         event: 'select_exercise',
-        exerciseId: 'count_the_even_numbers',
+        exerciseId: 'join_words',
         draft: 'def count_even(ds):\n    return 999\n',
       },
     }, store)
@@ -120,20 +299,21 @@ describe('turn endpoint', () => {
     expect(state.displayName).toBe('An')
     expect(state.courseRoadmap).toEqual(opened.courseRoadmap)
     expect(state.workingArea.mode).toBeNull()
-    expect(state.workingArea.moduleId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('getting_started')
     expect(state.workingArea.exercises).toEqual([
-      { id: 'sum_of_a_list', title: 'Sum of a list' },
-      { id: 'count_the_even_numbers', title: 'Count the even numbers' },
+      { id: 'say_hello', title: 'Say hello' },
+      { id: 'join_words', title: 'Join two words' },
+      { id: 'sign_the_program', title: 'Sign the program' },
     ])
     expect(state.workingArea.exercise).toEqual({
-      id: 'count_the_even_numbers',
-      title: 'Count the even numbers',
-      statement: 'Count how many numbers in a list are even. Use a `for` loop.',
-      starterCode: 'def count_even(ds):\n    pass\n',
+      id: 'join_words',
+      title: 'Join two words',
+      statement: 'Write join_words(first, second) so it returns the two words with a space between them.',
+      starterCode: 'def join_words(first, second):\n    pass\n',
       tests: [
-        { name: 'two evens', expression: 'count_even([1, 2, 3, 4])', expected: '2' },
-        { name: 'all even', expression: 'count_even([2, 4, 6])', expected: '3' },
-        { name: 'none even', expression: 'count_even([1, 3, 5])', expected: '0' },
+        { name: 'hello and a name', expression: 'join_words("Hello", "An")', expected: 'Hello An' },
+        { name: 'two words', expression: 'join_words("Python", "program")', expected: 'Python program' },
+        { name: 'a short start', expression: 'join_words("Good", "start")', expected: 'Good start' },
       ],
     })
     expect(state.conversation.map(message => ({
@@ -143,8 +323,8 @@ describe('turn endpoint', () => {
     }))).toEqual([
       {
         author: 'event',
-        text: 'Count the even numbers',
-        exerciseId: 'count_the_even_numbers',
+        text: 'Join two words',
+        exerciseId: 'join_words',
       },
     ])
     expect(JSON.stringify(state)).not.toContain('return 999')
@@ -181,31 +361,31 @@ describe('turn endpoint', () => {
       {
         author: 'student',
         text: 'Where does the total live?',
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: null,
       },
       {
         author: 'teacher',
         text: teacherReply,
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: 'explain_concept',
       },
       {
         author: 'student',
         text: 'Inside the loop, I think.',
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: null,
       },
       {
         author: 'teacher',
         text: teacherReply,
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: 'explain_concept',
       },
     ])
     expect(state.conversation.some(message => message.author === 'deskmate')).toBe(false)
     expect(JSON.stringify(state)).not.toContain('return 999')
-    expect(state.workingArea.exercise.id).toBe('sum_of_a_list')
+    expect(state.workingArea.exercise.id).toBe('say_hello')
     expect(sent.conversation.map(message => message.text)).toEqual([
       'Where does the total live?',
       teacherReply,
@@ -236,8 +416,8 @@ describe('turn endpoint', () => {
 
     expect(other.displayName).toBe('Bình')
     expect(other.conversation).toEqual([])
-    expect(other.workingArea.moduleId).toBe('for_loop')
-    expect(other.workingArea.exercise.id).toBe('sum_of_a_list')
+    expect(other.workingArea.moduleId).toBe('getting_started')
+    expect(other.workingArea.exercise.id).toBe('say_hello')
   })
 
   it('select_exercise moves the resume point and leaves an exercise marker', async () => {
@@ -250,10 +430,10 @@ describe('turn endpoint', () => {
 
     const selected = await handleTurn({
       sessionStudentId: signedInStudent,
-      body: { event: 'select_exercise', exerciseId: 'count_the_even_numbers' },
+      body: { event: 'select_exercise', exerciseId: 'join_words' },
     }, store)
 
-    expect(selected.workingArea.exercise.id).toBe('count_the_even_numbers')
+    expect(selected.workingArea.exercise.id).toBe('join_words')
     expect(selected.conversation.map(message => ({
       author: message.author,
       text: message.text,
@@ -263,19 +443,19 @@ describe('turn endpoint', () => {
       {
         author: 'student',
         text: 'Where does the total live?',
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: null,
       },
       {
         author: 'teacher',
         text: teacherReply,
-        exerciseId: 'sum_of_a_list',
+        exerciseId: 'say_hello',
         approvedMove: 'explain_concept',
       },
       {
         author: 'event',
-        text: 'Count the even numbers',
-        exerciseId: 'count_the_even_numbers',
+        text: 'Join two words',
+        exerciseId: 'join_words',
         approvedMove: null,
       },
     ])
@@ -287,8 +467,8 @@ describe('turn endpoint', () => {
     }, store)
 
     expect(reopened.displayName).toBe('An')
-    expect(reopened.workingArea.moduleId).toBe('for_loop')
-    expect(reopened.workingArea.exercise.id).toBe('count_the_even_numbers')
+    expect(reopened.workingArea.moduleId).toBe('getting_started')
+    expect(reopened.workingArea.exercise.id).toBe('join_words')
     expect(reopened.conversation).toEqual(selected.conversation)
     expect(reopened.conversation.find(message => message.author === 'student')).toMatchObject({
       name: 'An',
@@ -302,13 +482,13 @@ describe('turn endpoint', () => {
     expect(followed.conversation.at(-2)).toMatchObject({
       author: 'student',
       text: 'Are evens the ones that divide by two?',
-      exerciseId: 'count_the_even_numbers',
+      exerciseId: 'join_words',
       approvedMove: null,
     })
     expect(followed.conversation.at(-1)).toMatchObject({
       author: 'teacher',
       text: teacherReply,
-      exerciseId: 'count_the_even_numbers',
+      exerciseId: 'join_words',
       approvedMove: 'explain_concept',
     })
   })
@@ -362,10 +542,10 @@ describe('turn endpoint', () => {
         approvedMove: 'explain_concept',
       },
     ])
-    expect(finished.state.workingArea.moduleId).toBe('for_loop')
-    expect(finished.state.courseRoadmap.find(module => module.id === 'nested_loop')).toMatchObject({
+    expect(finished.state.workingArea.moduleId).toBe('getting_started')
+    expect(finished.state.courseRoadmap.find(module => module.id === 'lists_and_tuples')).toMatchObject({
       state: 'closed',
-      closedReason: 'Needs For loops.',
+      closedReason: 'Not available yet',
     })
   })
 
@@ -465,28 +645,28 @@ describe('turn endpoint', () => {
       expect(exchange.context.draft).toBe(draft)
       expect(exchange.context.runOutput).toEqual(run)
       expect(exchange.context.materials).toEqual({
-        heading: 'Accumulating a total',
-        body: 'A running total needs a variable that survives every pass of the loop.',
-        example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
-        keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
+        heading: 'A first program',
+        body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
+        example: '# Show a greeting\nprint("Hello, world")',
+        keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
         scopeNote: 'These materials belong to this module alone.',
       })
       expect(exchange.context.hintLadder).toEqual([
-        'A running total has to be created before the loop. A variable created inside the loop starts again on every pass.',
-        'Add each number to that same total. Do not set the total back to zero inside the loop.',
-        'When the loop finishes, return the total. It should hold every number you added.',
+        'Text you want to show or return sits between quotes, like "Hello".',
+        'Join two pieces of text with +. A space is text as well: " ".',
+        'Return the text you built. A comment starts with # and does not change what is returned.',
       ])
       expect(exchange.context.misconceptionResponses).toEqual([
         {
-          id: 'accumulator_reset_inside_loop',
-          response: 'The total is set back to zero inside the loop, so each pass forgets the numbers before it. Create the total once, before the loop starts.',
+          id: 'missing_quotes',
+          response: 'The words are missing their quotes, so Python looks for a variable instead of using the text. Put the text between quotes.',
         },
       ])
       expect(exchange.context.exercise).toEqual({
-        id: 'sum_of_a_list',
-        title: 'Sum of a list',
-        statement: 'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
-        starterCode: 'def total(ds):\n    pass\n',
+        id: 'say_hello',
+        title: 'Say hello',
+        statement: 'Write hello(name) so it returns a greeting: Hello, then a space, then the name. Put a comment above the return that says what the function does.',
+        starterCode: 'def hello(name):\n    pass\n',
       })
       expect(exchange.context.conversation.map(message => message.text)).toContain('Why is this zero?')
     }
@@ -695,11 +875,11 @@ describe('turn endpoint', () => {
     const allowed = {
       misconceptionResponses: [
         {
-          id: 'accumulator_reset_inside_loop',
-          response: 'The total is set back to zero inside the loop, so each pass forgets the numbers before it. Create the total once, before the loop starts.',
+          id: 'missing_quotes',
+          response: 'The words are missing their quotes, so Python looks for a variable instead of using the text. Put the text between quotes.',
         },
       ],
-      exerciseStatement: 'Add up every number in a list. Use a `for` loop, and create the total before the loop so it survives every pass.',
+      exerciseStatement: 'Write hello(name) so it returns a greeting: Hello, then a space, then the name. Put a comment above the return that says what the function does.',
       draft,
       runOutput: run,
       submission: null,
@@ -897,7 +1077,7 @@ describe('turn endpoint', () => {
       },
     ])
     expect(state.courseRoadmap.length).toBeGreaterThan(0)
-    expect(state.workingArea.moduleId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('getting_started')
   })
 
   it('stores a friendly Mai line, with no move, when she cannot answer', async () => {
@@ -1095,7 +1275,7 @@ describe('turn endpoint', () => {
       expect(exchange.agent).toBe('teacher')
       if (exchange.agent !== 'teacher') continue
       expect(exchange.context.conversation).toEqual([])
-      expect(exchange.context.materials.heading).toBe('Accumulating a total')
+      expect(exchange.context.materials.heading).toBe('A first program')
     }
   })
 
@@ -1574,14 +1754,14 @@ describe('turn endpoint', () => {
 
     const selected = await handleTurn({
       sessionStudentId: signedInStudent,
-      body: { event: 'select_exercise', exerciseId: 'count_the_even_numbers' },
+      body: { event: 'select_exercise', exerciseId: 'join_words' },
     }, store)
 
     expect(selected.conversation.at(-1)).toMatchObject({
       author: 'event',
       name: 'Exercise',
       role: 'Marker',
-      text: 'Count the even numbers',
+      text: 'Join two words',
     })
     expect(JSON.stringify(selected)).not.toContain('Instructor')
   })
@@ -1629,7 +1809,7 @@ describe('turn endpoint', () => {
     expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
       name: 'Teacher',
       role: 'Not yet',
-      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Loops.",
+      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Getting Started with Programming and Python.",
       approvedMove: 'redirect_to_module',
     })
     expect(state.conversation.find(message => message.author === 'deskmate')).toMatchObject({
@@ -1638,13 +1818,13 @@ describe('turn endpoint', () => {
       text: 'wait, are we still on loops?',
       approvedMove: 'peer_question',
     })
-    expect(state.workingArea.moduleId).toBe('for_loop')
-    expect(state.workingArea.moduleName).toBe('For loops')
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(state.workingArea.moduleName).toBe('Getting Started with Programming and Python')
     expect(JSON.stringify(state)).not.toContain('LISTS_LESSON_SHOULD_NOT_RENDER')
     expect(model.exchanges.filter(exchange => exchange.phase === 'render').map(exchange => exchange.agent)).toEqual(['deskmate'])
     expect(state.trace).toMatchObject({
       verifyShieldOn: true,
-      unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
+      unlockedModuleIds: ['getting_started'],
       agents: [
         {
           agent: 'teacher',
@@ -1683,11 +1863,11 @@ describe('turn endpoint', () => {
     ])
     const proposed = model.exchanges.find(exchange => exchange.agent === 'teacher' && exchange.phase === 'propose')
     expect(proposed && proposed.agent === 'teacher' ? proposed.context.roadmap : []).toEqual([
-      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0, current: false },
-      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'open', mastery: 0, current: false },
-      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'open', mastery: 0, current: false },
-      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'open', mastery: 0, current: false },
-      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'open', mastery: 0, current: true },
+      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0, current: true },
+      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'closed', mastery: 0, current: false },
+      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'closed', mastery: 0, current: false },
+      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'closed', mastery: 0, current: false },
+      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'closed', mastery: 0, current: false },
       { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
       { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', mastery: 0, current: false },
       { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', mastery: 0, current: false },
@@ -1709,11 +1889,11 @@ describe('turn endpoint', () => {
 
     expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
       role: 'Not yet',
-      text: "That's outside this course. Let's stay with Loops.",
+      text: "That's outside this course. Let's stay with Getting Started with Programming and Python.",
       approvedMove: 'redirect_to_module',
     })
     expect(JSON.stringify(state)).not.toContain('SMALL_TALK_SHOULD_NOT_RENDER')
-    expect(state.workingArea.moduleId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('getting_started')
   })
 
   it('redirects a mislabelled question when the message names pandas', async () => {
@@ -1722,13 +1902,13 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Can you show me Pandas?' },
     }, store, createFakeLanguageModel({
-      proposal: { type: 'explain_concept', scope: 'loops' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'PANDAS_SHOULD_NOT_RENDER',
     }))
 
     expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
       role: 'Not yet',
-      text: "That's outside this course. Let's stay with Loops.",
+      text: "That's outside this course. Let's stay with Getting Started with Programming and Python.",
       approvedMove: 'redirect_to_module',
     })
     expect(state.trace).toMatchObject({
@@ -1737,7 +1917,7 @@ describe('turn endpoint', () => {
         {
           agent: 'teacher',
           proposal: 'explain_concept',
-          scope: 'loops',
+          scope: 'getting_started',
           verdict: {
             decision: 'downgrade',
             ruleId: 'scope_keyword',
@@ -1805,10 +1985,10 @@ describe('turn endpoint', () => {
 
     expect(state.conversation.find(message => message.author === 'teacher')).toMatchObject({
       role: 'Not yet',
-      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Loops.",
+      text: "That's part of Module 6: Lists and Tuples, which is not available yet. Let's stay with Getting Started with Programming and Python.",
       approvedMove: 'redirect_to_module',
     })
-    expect(state.workingArea.moduleId).toBe('for_loop')
+    expect(state.workingArea.moduleId).toBe('getting_started')
     expect(JSON.stringify(state)).not.toContain('LISTS_ADVANCE_SHOULD_NOT_RENDER')
   })
 

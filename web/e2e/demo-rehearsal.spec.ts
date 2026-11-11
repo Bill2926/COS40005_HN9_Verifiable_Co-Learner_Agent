@@ -6,15 +6,12 @@ const anAccount = demoAccounts.find(account => account.displayName === 'An')
 const teacherReply = 'A running total has to be created before the loop, so each pass can add to the same number.'
 const maiReply = 'wait, does the total live outside the loop? i\'m lost too.'
 const studentMessage = 'Where does the total live?'
-const resumedExercise = 'Count the even numbers'
-const sumThatPrints = [
+const resumedExercise = 'Join two words'
+const helloThatPrints = [
   'print("hello")',
   '',
-  'def total(ds):',
-  '    s = 0',
-  '    for x in ds:',
-  '        s = s + x',
-  '    return s',
+  'def hello(name):',
+  '    return "Hello, " + name',
 ].join('\n')
 
 test.beforeAll(async () => {
@@ -46,7 +43,7 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
     await signIn(page, anAccount)
 
-    await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
     const topBar = page.locator('main > header')
     await expect(topBar).toContainText(anAccount.displayName)
     await expect(topBar).toContainText('Student')
@@ -54,11 +51,11 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
     const editor = page.getByRole('textbox', { name: 'Python editor' })
     await expect(editor).toBeVisible()
-    await expect(editor).toContainText('def total')
-    await expect(page.getByRole('button', { name: 'Sum of a list', exact: true })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('heading', { name: 'Sum of a list' })).toHaveCount(0)
+    await expect(editor).toContainText('def hello')
+    await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('heading', { name: 'Say hello' })).toHaveCount(0)
     await expect(page.getByText('Problem statement')).toBeVisible()
-    await expect(page.getByText('Add up every number in a list. Use a for loop, and create the total before the loop so it survives every pass.')).toBeVisible()
+    await expect(page.getByText('Write hello(name) so it returns a greeting: Hello, then a space, then the name. Put a comment above the return that says what the function does.')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Run', exact: true })).toBeEnabled()
 
     const clicks = await page.evaluate(() => Number(sessionStorage.getItem('demo-clicks')))
@@ -70,9 +67,9 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     const editor = page.getByRole('textbox', { name: 'Python editor' })
     await editor.click()
     await page.keyboard.press('ControlOrMeta+a')
-    await page.keyboard.insertText(sumThatPrints)
+    await page.keyboard.insertText(helloThatPrints)
     await expect(editor).toContainText('print("hello")')
-    await expect(editor).toContainText('return s')
+    await expect(editor).toContainText('return "Hello, " + name')
 
     await page.getByRole('button', { name: 'Run', exact: true }).click()
     const printed = page.getByRole('heading', { name: 'Printed output' }).locator('xpath=following-sibling::pre')
@@ -80,9 +77,9 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
 
     await page.getByRole('button', { name: 'Submit', exact: true }).click()
     const practiceCheck = page.getByRole('region', { name: 'Practice check' })
-    await expect(practiceCheck).toContainText('Passed: three numbers', { timeout: 60_000 })
-    await expect(practiceCheck).toContainText('Passed: one number')
-    await expect(practiceCheck).toContainText('Passed: empty list')
+    await expect(practiceCheck).toContainText('Passed: greeting for An', { timeout: 60_000 })
+    await expect(practiceCheck).toContainText('Passed: greeting for Mai')
+    await expect(practiceCheck).toContainText('Passed: greeting for world')
     await expect(conversation(page)).toContainText('3/3 tests passed', { timeout: 60_000 })
   })
 
@@ -168,7 +165,7 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     await expect.poll(async () => conversationLines(conversation(page)), { timeout: 60_000 }).toEqual(savedConversation)
     await page.getByRole('button', { name: 'Practice', exact: true }).click()
     await expect(page.getByRole('button', { name: resumedExercise, exact: true })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Sum of a list', exact: true })).toHaveAttribute('aria-pressed', 'false')
+    await expect(page.getByRole('button', { name: 'Say hello', exact: true })).toHaveAttribute('aria-pressed', 'false')
   })
 
   await test.step('demo accounts are left clear', async () => {

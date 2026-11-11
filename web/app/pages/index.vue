@@ -152,6 +152,28 @@ else {
   studentId.value = (await studentIdFromAuth(useNuxtApp().$supabase)) ?? ''
 }
 
+async function selectModule(moduleId: string) {
+  const current = workspace.value
+  if (!current || selecting.value || sending.value) return
+  const chosen = current.courseRoadmap.find(module => module.id === moduleId)
+  if (!chosen || chosen.current) return
+
+  selecting.value = true
+  selectError.value = ''
+  try {
+    showWorkspace(await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: { event: 'select_module', moduleId },
+    }))
+  }
+  catch {
+    selectError.value = 'That module could not be opened.'
+  }
+  finally {
+    selecting.value = false
+  }
+}
+
 async function selectExercise(exerciseId: string) {
   const current = workspace.value
   if (!current || selecting.value || sending.value) return
@@ -366,12 +388,14 @@ function initialsOf(name: string): string {
         :modules="workspace.courseRoadmap"
         :course="workspace.course"
         :student-id="studentId"
+        @select-module="selectModule"
       />
       <CourseRoadmap
         v-else
         class="md:col-span-2 md:row-start-1 lg:col-span-1 lg:col-start-1 lg:row-start-1"
         :class="phonePanel === 'roadmap' ? 'max-md:flex' : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
+        @select-module="selectModule"
       />
       <div :class="layout === 'ide' ? ideFrame('working') : roadmapFrame('working')">
         <WorkingArea

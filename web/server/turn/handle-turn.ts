@@ -1,7 +1,6 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
-import { courseScope, redirectText, roadmapForStanding, standingForCurrentCourse } from '../content/course'
-import { forLoopModule, type Exercise } from '../content/for-loop'
-import { course, courseRoadmap } from '../content/course-roadmap'
+import { courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, standingFor } from '../content/course'
+import { canonicalModuleId, studyModule, type Exercise, type StudyModule } from '../content/study-module'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
@@ -28,6 +27,11 @@ export class UnknownExerciseError extends Error {
     super('That exercise is not part of this module.')
     this.name = 'UnknownExerciseError'
   }
+}
+
+interface Placement {
+  module: StudyModule
+  exercise: Exercise
 }
 
 export interface TurnRequest {
@@ -90,46 +94,66 @@ async function* streamTurnBody(
 ): AsyncGenerator<TurnEvent> {
   const studentId = studentIdForTurn(request)
   const body = request.body
+  const placement = await viewPlacement(studentId, store)
 
   if (isOpenEvent(body)) {
-    const exerciseId = await currentExerciseId(studentId, store)
-    const existing = await store.messages(studentId, forLoopModule.id)
+    const existing = await messagesFor(store, studentId, placement.module.id)
     if (existing.length === 0 && model) {
-      yield* introduceModule(studentId, exerciseId, store, model, options)
+      yield* introduceModule(studentId, placement, store, model, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
-    yield { type: 'state', state: await redraw(studentId, exerciseId, store, mode) }
+    yield { type: 'state', state: await redraw(studentId, placement, store, mode) }
+    return
+  }
+
+  if (isSelectModule(body)) {
+    const chosen = studyModule(canonicalModuleId(body.moduleId))
+    const standing = standingFor(placement.module.id)
+    if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
+      yield { type: 'state', state: await redraw(studentId, placement, store, null) }
+      return
+    }
+    const point = await store.resumePoint(studentId)
+    const sameModule = point !== null && canonicalModuleId(point.moduleId) === chosen.id
+    const exercise = sameModule
+      ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
+      : chosen.exercises[0]
+    const next = { module: chosen, exercise }
+    await adoptPlacement(studentId, store, next)
+    const existing = await messagesFor(store, studentId, chosen.id)
+    yield {
+      type: 'state',
+      state: await redraw(studentId, next, store, existing.length === 0 ? 'learn' : null),
+    }
     return
   }
 
   if (isSelectExercise(body)) {
-    const exercise = forLoopModule.exercises.find(choice => choice.id === body.exerciseId)
+    const exercise = placement.module.exercises.find(choice => choice.id === body.exerciseId)
     if (!exercise) throw new UnknownExerciseError()
-    await store.saveResumePoint(studentId, {
-      moduleId: forLoopModule.id,
-      exerciseId: exercise.id,
-    })
-    await store.appendMessage(studentId, forLoopModule.id, {
+    const next = { module: placement.module, exercise }
+    await adoptPlacement(studentId, store, next)
+    await store.appendMessage(studentId, next.module.id, {
       author: 'event',
       approvedMove: null,
       text: exercise.title,
       exerciseId: exercise.id,
     })
-    yield { type: 'state', state: await redraw(studentId, exercise.id, store, null) }
+    yield { type: 'state', state: await redraw(studentId, next, store, null) }
     return
   }
 
   if (isSubmission(body)) {
     if (!model) throw new Error('The agents have no language model.')
-    const exerciseId = await currentExerciseId(studentId, store)
-    await store.appendMessage(studentId, forLoopModule.id, {
+    await adoptPlacement(studentId, store, placement)
+    await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
       approvedMove: null,
       text: submissionSummary(body.results),
-      exerciseId,
+      exerciseId: placement.exercise.id,
     })
-    yield* answerMessage(studentId, exerciseId, {
+    yield* answerMessage(studentId, placement, {
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
@@ -139,14 +163,14 @@ async function* streamTurnBody(
 
   if (isMessage(body)) {
     if (!model) throw new Error('The agents have no language model.')
-    const exerciseId = await currentExerciseId(studentId, store)
-    await store.appendMessage(studentId, forLoopModule.id, {
+    await adoptPlacement(studentId, store, placement)
+    await store.appendMessage(studentId, placement.module.id, {
       author: 'student',
       approvedMove: null,
       text: body.text.trim(),
-      exerciseId,
+      exerciseId: placement.exercise.id,
     })
-    yield* answerMessage(studentId, exerciseId, {
+    yield* answerMessage(studentId, placement, {
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
@@ -159,18 +183,18 @@ async function* streamTurnBody(
 
 async function* introduceModule(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
   model: LanguageModel,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const context = await teacherContext(studentId, exerciseById(exerciseId), store, {
+  const context = await teacherContext(studentId, placement, store, {
     draft: null,
     runOutput: null,
     submission: null,
   })
 
-  const snapshot = turnSnapshot(exerciseId, '', options)
+  const snapshot = turnSnapshot(placement, '', options)
   let proposal: Move | null = null
   try {
     proposal = await model.teacher.propose(context)
@@ -178,7 +202,7 @@ async function* introduceModule(
   catch {
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
+      state: await redrawWithTrace(studentId, placement, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
     }
     return
   }
@@ -201,30 +225,30 @@ async function* introduceModule(
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(verdict.move.scope, snapshot.currentModuleId ?? 'loops')
+    const text = redirectText(verdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
     yield { type: 'text', author: 'teacher', delta: text }
-    await speakRedirect(studentId, exerciseId, store, text)
+    await speakRedirect(studentId, placement, store, text)
   }
   else if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
     const text = yield* streamTeacherReply(model, context, verdict.move)
     if (text) {
-      await store.appendMessage(studentId, forLoopModule.id, {
+      await store.appendMessage(studentId, placement.module.id, {
         author: 'teacher',
         approvedMove: moveKey(verdict.move),
         text,
-        exerciseId,
+        exerciseId: placement.exercise.id,
       })
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, 'learn', trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, 'learn', trace) }
 }
 
-function turnSnapshot(exerciseId: string, studentMessage: string, options?: TurnOptions): TurnSnapshot {
-  const standing = standingForCurrentCourse()
+function turnSnapshot(placement: Placement, studentMessage: string, options?: TurnOptions): TurnSnapshot {
+  const standing = standingFor(placement.module.id)
   return {
-    moduleId: forLoopModule.id,
-    exerciseId,
+    moduleId: placement.module.id,
+    exerciseId: placement.exercise.id,
     currentModuleId: standing.currentModuleId,
     masteries: standing.masteries,
     unlockedModuleIds: standing.unlockedModuleIds,
@@ -235,15 +259,15 @@ function turnSnapshot(exerciseId: string, studentMessage: string, options?: Turn
 
 async function speakRedirect(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
   text: string,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopModule.id, {
+  await store.appendMessage(studentId, placement.module.id, {
     author: 'teacher',
     approvedMove: 'redirect_to_module',
     text,
-    exerciseId,
+    exerciseId: placement.exercise.id,
   })
 }
 
@@ -271,15 +295,14 @@ async function* streamTeacherReply(
 
 async function* answerMessage(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   seen: SeenWork,
   store: ConversationStore,
   model: LanguageModel,
   studentMessage: string,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const exercise = exerciseById(exerciseId)
-  const context = await teacherContext(studentId, exercise, store, seen)
+  const context = await teacherContext(studentId, placement, store, seen)
   const deskmate = deskmateContext(context)
   const [teacherSettled, deskmateSettled] = await Promise.allSettled([
     model.teacher.propose(context),
@@ -292,7 +315,7 @@ async function* answerMessage(
     ...(teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []),
     ...(deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []),
   ]
-  const snapshot = turnSnapshot(exerciseId, studentMessage, options)
+  const snapshot = turnSnapshot(placement, studentMessage, options)
   const verdicts = decide(proposals, snapshot, roleTable, courseScope)
   await recordDecisions(studentId, verdicts.flatMap((verdict) => {
     const proposed = proposals.find(item => item.agent === verdict.agent)
@@ -303,35 +326,35 @@ async function* answerMessage(
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherSettled.status === 'rejected') {
-    await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-    yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+    await rememberTeacherCouldNotAnswer(studentId, placement, store)
+    yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? 'loops')
+    const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
     yield { type: 'text', author: 'teacher', delta: text }
-    await speakRedirect(studentId, exerciseId, store, text)
+    await speakRedirect(studentId, placement, store, text)
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
     if (!text) {
-      await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
-      yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+      await rememberTeacherCouldNotAnswer(studentId, placement, store)
+      yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
     }
     else {
-      await store.appendMessage(studentId, forLoopModule.id, {
+      await store.appendMessage(studentId, placement.module.id, {
         author: 'teacher',
         approvedMove: moveKey(teacherVerdict.move),
         text,
-        exerciseId,
+        exerciseId: placement.exercise.id,
       })
     }
   }
 
   if (deskmateSettled.status === 'rejected') {
-    await rememberDeskmateCouldNotAnswer(studentId, exerciseId, store)
+    await rememberDeskmateCouldNotAnswer(studentId, placement, store)
   }
   else if (deskmateVerdict?.decision === 'allow' && deskmateVerdict.move) {
-    const renderContext = await deskmateContextWithConversation(studentId, deskmate, store)
+    const renderContext = await deskmateContextWithConversation(studentId, placement, deskmate, store)
     let text = ''
     let failed = false
     try {
@@ -345,30 +368,30 @@ async function* answerMessage(
     }
 
     if (failed || text.trim().length === 0) {
-      await rememberDeskmateCouldNotAnswer(studentId, exerciseId, store)
+      await rememberDeskmateCouldNotAnswer(studentId, placement, store)
     }
     else {
-      await store.appendMessage(studentId, forLoopModule.id, {
+      await store.appendMessage(studentId, placement.module.id, {
         author: 'deskmate',
         approvedMove: moveKey(deskmateVerdict.move),
         text,
-        exerciseId,
+        exerciseId: placement.exercise.id,
       })
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, store, null, trace) }
 }
 
 async function redrawWithTrace(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
   mode: 'learn' | null,
   trace: TurnTrace,
 ): Promise<RedrawState> {
   return {
-    ...await redraw(studentId, exerciseId, store, mode),
+    ...await redraw(studentId, placement, store, mode),
     trace,
   }
 }
@@ -455,20 +478,20 @@ function proposedScope(move: Move): string | null {
 
 async function teacherContext(
   studentId: string,
-  exercise: Exercise,
+  placement: Placement,
   store: ConversationStore,
   seen: SeenWork,
 ): Promise<TeacherContext> {
-  const messages = await store.messages(studentId, forLoopModule.id)
+  const messages = await messagesFor(store, studentId, placement.module.id)
   return {
-    materials: { ...forLoopModule.materials },
-    hintLadder: [...forLoopModule.hintLadder],
-    misconceptionResponses: forLoopModule.misconceptionResponses.map(response => ({ ...response })),
+    materials: { ...placement.module.materials },
+    hintLadder: [...placement.module.hintLadder],
+    misconceptionResponses: placement.module.misconceptionResponses.map(response => ({ ...response })),
     exercise: {
-      id: exercise.id,
-      title: exercise.title,
-      statement: exercise.statement,
-      starterCode: exercise.starterCode,
+      id: placement.exercise.id,
+      title: placement.exercise.title,
+      statement: placement.exercise.statement,
+      starterCode: placement.exercise.starterCode,
     },
     draft: seen.draft,
     runOutput: seen.runOutput,
@@ -478,7 +501,7 @@ async function teacherContext(
       text: message.text,
       approvedMove: message.approvedMove,
     })),
-    roadmap: roadmapForStanding(standingForCurrentCourse()),
+    roadmap: roadmapForStanding(standingFor(placement.module.id)),
   }
 }
 
@@ -495,10 +518,11 @@ function deskmateContext(context: TeacherContext): DeskmateContext {
 
 async function deskmateContextWithConversation(
   studentId: string,
+  placement: Placement,
   context: DeskmateContext,
   store: ConversationStore,
 ): Promise<DeskmateContext> {
-  const messages = await store.messages(studentId, forLoopModule.id)
+  const messages = await messagesFor(store, studentId, placement.module.id)
   return {
     ...context,
     conversation: messages.map(message => ({
@@ -511,68 +535,93 @@ async function deskmateContextWithConversation(
 
 async function rememberTeacherCouldNotAnswer(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopModule.id, {
+  await store.appendMessage(studentId, placement.module.id, {
     author: 'teacher',
     approvedMove: null,
     text: teacherFallback,
-    exerciseId,
+    exerciseId: placement.exercise.id,
   })
 }
 
 async function rememberDeskmateCouldNotAnswer(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
 ): Promise<void> {
-  await store.appendMessage(studentId, forLoopModule.id, {
+  await store.appendMessage(studentId, placement.module.id, {
     author: 'deskmate',
     approvedMove: null,
     text: deskmateFallback,
-    exerciseId,
+    exerciseId: placement.exercise.id,
   })
 }
 
-function exerciseById(exerciseId: string): Exercise {
-  const exercise = forLoopModule.exercises.find(choice => choice.id === exerciseId)
-  if (!exercise) throw new UnknownExerciseError()
-  return exercise
+async function viewPlacement(studentId: string, store: ConversationStore): Promise<Placement> {
+  const opening = studyModule('getting_started')
+  if (!opening) throw new Error('Module 1 is missing.')
+  const point = await store.resumePoint(studentId)
+  const moduleId = point ? canonicalModuleId(point.moduleId) : opening.id
+  const module = studyModule(moduleId)
+  const standing = standingFor(module?.id ?? opening.id)
+  if (module && standing.unlockedModuleIds.includes(module.id)) {
+    const exercise = module.exercises.find(item => item.id === point?.exerciseId) ?? module.exercises[0]
+    if (!point || point.moduleId !== module.id || point.exerciseId !== exercise.id) {
+      await store.saveResumePoint(studentId, { moduleId: module.id, exerciseId: exercise.id })
+    }
+    return { module, exercise }
+  }
+
+  const exercise = opening.exercises[0]
+  if (!point) {
+    await store.saveResumePoint(studentId, { moduleId: opening.id, exerciseId: exercise.id })
+  }
+  return { module: opening, exercise }
 }
 
-async function currentExerciseId(studentId: string, store: ConversationStore): Promise<string> {
-  const point = await store.resumePoint(studentId)
-  const resumeExercise = point && forLoopModule.exercises.find(choice => choice.id === point.exerciseId)
-  if (resumeExercise) return resumeExercise.id
+async function adoptPlacement(
+  studentId: string,
+  store: ConversationStore,
+  placement: Placement,
+): Promise<void> {
+  await store.saveResumePoint(studentId, {
+    moduleId: placement.module.id,
+    exerciseId: placement.exercise.id,
+  })
+}
 
-  const exerciseId = forLoopModule.exercises[0].id
-  await store.saveResumePoint(studentId, { moduleId: forLoopModule.id, exerciseId })
-  return exerciseId
+async function messagesFor(
+  store: ConversationStore,
+  studentId: string,
+  moduleId: string,
+) {
+  const messages = await store.messages(studentId, moduleId)
+  if (messages.length > 0 || moduleId !== 'loops') return messages
+  return store.messages(studentId, 'for_loop')
 }
 
 async function redraw(
   studentId: string,
-  exerciseId: string,
+  placement: Placement,
   store: ConversationStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
-  const exercise = forLoopModule.exercises.find(choice => choice.id === exerciseId)
-  if (!exercise) throw new UnknownExerciseError()
-  const messages = await store.messages(studentId, forLoopModule.id)
+  const messages = await messagesFor(store, studentId, placement.module.id)
   const displayName = await store.displayName(studentId)
 
   return {
     displayName,
-    course,
-    courseRoadmap: courseRoadmap.map(module => ({ ...module })),
+    course: courseTitle,
+    courseRoadmap: presentedRoadmap(placement.module.id),
     workingArea: {
       mode,
-      moduleId: forLoopModule.id,
-      moduleName: forLoopModule.name,
-      materials: { ...forLoopModule.materials },
-      exercise: presentExercise(exercise),
-      exercises: forLoopModule.exercises.map(choice => ({
+      moduleId: placement.module.id,
+      moduleName: placement.module.name,
+      materials: { ...placement.module.materials },
+      exercise: presentExercise(placement.exercise),
+      exercises: placement.module.exercises.map(choice => ({
         id: choice.id,
         title: choice.title,
       })),
@@ -725,6 +774,16 @@ function isOpenEvent(input: unknown): input is { event: 'open' } {
     && input !== null
     && 'event' in input
     && input.event === 'open'
+}
+
+function isSelectModule(input: unknown): input is { event: 'select_module', moduleId: string } {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'select_module'
+    && 'moduleId' in input
+    && typeof input.moduleId === 'string'
+    && input.moduleId.length > 0
 }
 
 function isSelectExercise(input: unknown): input is { event: 'select_exercise', exerciseId: string } {

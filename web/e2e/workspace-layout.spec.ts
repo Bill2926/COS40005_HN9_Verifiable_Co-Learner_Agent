@@ -140,26 +140,23 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
   await expectRoadmapCanvas(page)
 
-  await expect(page.getByText('CS 101: Introduction to Python · Semester 1', { exact: true })).toBeVisible()
+  await expect(page.getByText('Introduction to Programming with Python', { exact: true })).toBeVisible()
   const modules = page.getByRole('list', { name: 'Modules' })
-  await expect(modules.getByRole('listitem')).toHaveCount(4)
-  const variables = moduleCard(page, 'Variables')
-  const branching = moduleCard(page, 'If / else')
-  const current = moduleCard(page, 'For loops')
-  const closed = moduleCard(page, 'Nested loops')
-  await expect(variables).toBeVisible()
-  await expect(variables).toContainText('Mastered')
-  await expect(variables).toContainText('Foundation')
-  await expect(branching).toContainText('Mastered')
-  await expect(branching).toContainText('Branching logic')
+  await expect(modules.getByRole('listitem')).toHaveCount(11)
+  const current = moduleCard(page, 'Getting Started with Programming and Python')
+  const closed = moduleCard(page, 'Lists and Tuples')
+  await expect(current).toBeVisible()
+  await expect(current).toContainText('Part 1: Foundations')
   await expect(current).toContainText('Current')
   await expect(current).toContainText('Open')
-  await expect(current).toContainText('Module 3 of 4')
+  await expect(current).toContainText('Module 1 of 11')
+  await expect(closed).toContainText('Part 3: Built-in Data Structures')
   await expect(closed).toContainText('Closed')
-  await expect(closed).toContainText('Needs For loops.')
+  await expect(closed).toContainText('Not available yet')
+  await expect(page.getByText('Part 2: Control Flow', { exact: true }).first()).toBeVisible()
 
   const connectors = page.getByRole('img', { name: 'Module connectors' })
-  await expect(connectors.locator('path')).toHaveCount(3)
+  await expect(connectors.locator('path')).toHaveCount(10)
   const drawn = await connectors.locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
   expect(drawn.every(path => path.startsWith('M '))).toBe(true)
 
@@ -172,14 +169,14 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
 
   const expand = page.getByRole('button', { name: 'Expand working area', exact: true })
   await expect(expand).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeHidden()
+  await expect(page.getByRole('heading', { name: 'A first program' })).toBeHidden()
   const collapsed = await working.boundingBox()
   expect(collapsed).not.toBeNull()
   expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
 
   await expand.click()
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
   const restored = await working.boundingBox()
   expect(restored).not.toBeNull()
   expect(Math.abs(restored!.height - expanded!.height)).toBeLessThanOrEqual(2)
@@ -189,40 +186,40 @@ test('drags a module with the mouse and leaves the current module and working ar
   await openWorkspace(page)
   await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
   await expectRoadmapCanvas(page)
-  await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(3)
+  await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
 
   const paths = await connectorPaths(page)
-  const before = await dragCard(page, 'For loops', { dx: 160, dy: 24 })
-  const after = await moduleCard(page, 'For loops').boundingBox()
+  const before = await dragCard(page, 'Working with Strings', { dx: 160, dy: 24 })
+  const after = await moduleCard(page, 'Working with Strings').boundingBox()
   expect(after).not.toBeNull()
   expect(Math.hypot(after!.x - before.x, after!.y - before.y)).toBeGreaterThan(80)
 
   const moved = await connectorPaths(page)
   expect(moved[1]).not.toBe(paths[1])
   expect(moved[0]).toBe(paths[0])
-  await expect(moduleCard(page, 'For loops').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
-  await expect(moduleCard(page, 'For loops')).toHaveAttribute('aria-current', 'true')
-  await expect(page.getByRole('heading', { name: 'For loops', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+  await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
+  await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-  const tick = moduleCard(page, 'Variables').locator('img')
+  const tick = moduleCard(page, 'Variables, Data Types, and Operators').locator('img')
   const tickBox = await tick.boundingBox()
-  const variablesBefore = await moduleCard(page, 'Variables').boundingBox()
+  const variablesBefore = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
   expect(tickBox).not.toBeNull()
   expect(variablesBefore).not.toBeNull()
   await page.mouse.move(tickBox!.x + tickBox!.width / 2, tickBox!.y + tickBox!.height / 2)
   await page.mouse.down()
   await page.mouse.move(tickBox!.x + 160, tickBox!.y, { steps: 12 })
   await page.mouse.up()
-  const variablesAfter = await moduleCard(page, 'Variables').boundingBox()
+  const variablesAfter = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
   expect(variablesAfter).not.toBeNull()
   expect(variablesAfter!.x - variablesBefore!.x).toBeGreaterThan(40)
 
-  const branchingBefore = await moduleCard(page, 'If / else').boundingBox()
+  const branchingBefore = await moduleCard(page, 'Working with Strings').boundingBox()
   expect(branchingBefore).not.toBeNull()
-  await dragCard(page, 'If / else', { dx: 80, dy: 0 })
-  const branchingAfter = await moduleCard(page, 'If / else').boundingBox()
+  await dragCard(page, 'Working with Strings', { dx: 80, dy: 0 })
+  const branchingAfter = await moduleCard(page, 'Working with Strings').boundingBox()
   expect(branchingAfter).not.toBeNull()
   expect(branchingAfter!.x - branchingBefore!.x).toBeGreaterThan(40)
 })
@@ -238,7 +235,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
     await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
     await expectRoadmapCanvas(page)
 
-    const card = moduleCard(page, 'If / else')
+    const card = moduleCard(page, 'Working with Strings')
     await expect(card).toBeVisible()
     const before = await card.boundingBox()
     expect(before).not.toBeNull()
@@ -263,15 +260,15 @@ test('keeps a dragged module inside the canvas and clear of the panels', async (
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
   expect(canvas).not.toBeNull()
-  await dragCard(page, 'Variables', { x: -80, y: -80 })
-  const clamped = await moduleCard(page, 'Variables').boundingBox()
+  await dragCard(page, 'Variables, Data Types, and Operators', { x: -80, y: -80 })
+  const clamped = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
   expect(clamped).not.toBeNull()
   expect(within(clamped!, canvas!)).toBe(true)
 
   const heading = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
   expect(heading).not.toBeNull()
-  await dragCard(page, 'Variables', centerOf(heading!))
-  const clearOfLabel = await moduleCard(page, 'Variables').boundingBox()
+  await dragCard(page, 'Variables, Data Types, and Operators', centerOf(heading!))
+  const clearOfLabel = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
   expect(clearOfLabel).not.toBeNull()
   expect(overlaps(clearOfLabel!, heading!)).toBe(false)
   expect(within(clearOfLabel!, canvas!)).toBe(true)
@@ -284,14 +281,14 @@ test('keeps a dragged module inside the canvas and clear of the panels', async (
   expect(collapsed).not.toBeNull()
   expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
 
-  await dragCard(page, 'If / else', { x: expanded!.x + 140, y: expanded!.y + 36 })
-  const parked = await moduleCard(page, 'If / else').boundingBox()
+  await dragCard(page, 'Working with Strings', { x: expanded!.x + 140, y: expanded!.y + 36 })
+  const parked = await moduleCard(page, 'Working with Strings').boundingBox()
   expect(parked).not.toBeNull()
   expect(overlaps(parked!, collapsed!)).toBe(false)
 
   await page.getByRole('button', { name: 'Expand working area', exact: true }).click()
   await expect.poll(async () => {
-    const card = await moduleCard(page, 'If / else').boundingBox()
+    const card = await moduleCard(page, 'Working with Strings').boundingBox()
     const panel = await working.boundingBox()
     if (!card || !panel) return false
     return !overlaps(card, panel) && within(card, canvas!)
@@ -299,24 +296,24 @@ test('keeps a dragged module inside the canvas and clear of the panels', async (
 
   const workingBox = await working.boundingBox()
   expect(workingBox).not.toBeNull()
-  await dragCard(page, 'If / else', centerOf(workingBox!))
-  const clearOfWorking = await moduleCard(page, 'If / else').boundingBox()
+  await dragCard(page, 'Working with Strings', centerOf(workingBox!))
+  const clearOfWorking = await moduleCard(page, 'Working with Strings').boundingBox()
   expect(clearOfWorking).not.toBeNull()
   expect(overlaps(clearOfWorking!, workingBox!)).toBe(false)
   expect(within(clearOfWorking!, canvas!)).toBe(true)
 
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
   expect(conversation).not.toBeNull()
-  await dragCard(page, 'Nested loops', { x: conversation!.x + conversation!.width / 2, y: conversation!.y + 80 })
-  const clearOfConversation = await moduleCard(page, 'Nested loops').boundingBox()
+  await dragCard(page, 'Lists and Tuples', { x: conversation!.x + conversation!.width / 2, y: conversation!.y + 80 })
+  const clearOfConversation = await moduleCard(page, 'Lists and Tuples').boundingBox()
   expect(clearOfConversation).not.toBeNull()
   expect(overlaps(clearOfConversation!, conversation!)).toBe(false)
   expect(within(clearOfConversation!, canvas!)).toBe(true)
 
   const pill = await page.getByText('Studio canvas', { exact: true }).boundingBox()
   expect(pill).not.toBeNull()
-  await dragCard(page, 'Nested loops', centerOf(pill!))
-  const clearOfPill = await moduleCard(page, 'Nested loops').boundingBox()
+  await dragCard(page, 'Lists and Tuples', centerOf(pill!))
+  const clearOfPill = await moduleCard(page, 'Lists and Tuples').boundingBox()
   expect(clearOfPill).not.toBeNull()
   expect(overlaps(clearOfPill!, pill!)).toBe(false)
   expect(within(clearOfPill!, canvas!)).toBe(true)
@@ -327,11 +324,11 @@ test('selects a module without moving it, and arrow keys move the focused module
   await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
   await expectRoadmapCanvas(page)
 
-  const variables = moduleCard(page, 'Variables')
+  const variables = moduleCard(page, 'Variables, Data Types, and Operators')
   const button = variables.getByRole('button')
-  await expect(button).toHaveAccessibleName('Variables, mastered. Drag to move.')
-  await expect(moduleCard(page, 'For loops').getByRole('button')).toHaveAccessibleName('For loops, current, open. Drag to move.')
-  await expect(moduleCard(page, 'Nested loops').getByRole('button')).toHaveAccessibleName('Nested loops, closed. Drag to move.')
+  await expect(button).toHaveAccessibleName('Variables, Data Types, and Operators, closed. Drag to move.')
+  await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAccessibleName('Getting Started with Programming and Python, current, open. Drag to move.')
+  await expect(moduleCard(page, 'Lists and Tuples').getByRole('button')).toHaveAccessibleName('Lists and Tuples, closed. Drag to move.')
   await expect(button).toHaveAttribute('aria-pressed', 'false')
 
   const before = await variables.boundingBox()
@@ -342,16 +339,16 @@ test('selects a module without moving it, and arrow keys move the focused module
   await page.mouse.move(start.x + 2, start.y + 1)
   await page.mouse.up()
   await expect(button).toHaveAttribute('aria-pressed', 'true')
-  await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(3)
+  await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
   const afterClick = await variables.boundingBox()
   expect(afterClick).not.toBeNull()
   expect(Math.hypot(afterClick!.x - before!.x, afterClick!.y - before!.y)).toBeLessThan(1)
 
-  const beforeStrokes = ['#94a3b8', '#6366f1', '#94a3b8']
+  const closedStroke = '#94a3b8'
   const strokes = await connectorStrokes(page)
-  expect(strokes[0]).not.toBe(beforeStrokes[0])
-  expect(strokes[1]).toBe(beforeStrokes[1])
-  expect(strokes[2]).toBe(beforeStrokes[2])
+  expect(strokes[0]).not.toBe(closedStroke)
+  expect(strokes[1]).not.toBe(closedStroke)
+  expect(strokes[2]).toBe(closedStroke)
 
   await button.focus()
   await page.keyboard.press('Escape')
@@ -375,9 +372,9 @@ test('selects a module without moving it, and arrow keys move the focused module
   expect(leapt!.y - nudged!.y).toBeGreaterThan(40)
   expect(leapt!.y - nudged!.y).toBeLessThan(56)
 
-  await expect(moduleCard(page, 'For loops')).toHaveAttribute('aria-current', 'true')
-  await expect(page.getByRole('heading', { name: 'For loops', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Accumulating a total' })).toBeVisible()
+  await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python', level: 1 })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
 })
 
 test('keeps a moved module on this device, and reset arrangement restores the starting arrangement', async ({ page }) => {
@@ -387,10 +384,10 @@ test('keeps a moved module on this device, and reset arrangement restores the st
   await expectResetBesidePill(page)
 
   const start = await moduleOrigins(page)
-  await dragCard(page, 'For loops', { dx: 160, dy: 24 })
+  await dragCard(page, 'Getting Started with Programming and Python', { dx: 160, dy: 24 })
   const dragged = await moduleOrigins(page)
-  expect(Math.hypot(dragged['For loops'].x - start['For loops'].x, dragged['For loops'].y - start['For loops'].y)).toBeGreaterThan(80)
-  for (const name of ['Variables', 'If / else', 'Nested loops']) {
+  expect(Math.hypot(dragged['Getting Started with Programming and Python'].x - start['Getting Started with Programming and Python'].x, dragged['Getting Started with Programming and Python'].y - start['Getting Started with Programming and Python'].y)).toBeGreaterThan(80)
+  for (const name of ['Variables, Data Types, and Operators', 'Working with Strings', 'Lists and Tuples']) {
     expect(Math.hypot(dragged[name].x - start[name].x, dragged[name].y - start[name].y)).toBeLessThanOrEqual(2)
   }
 
@@ -399,15 +396,15 @@ test('keeps a moved module on this device, and reset arrangement restores the st
   await showRoadmap(page)
   await expectArrangement(page, dragged)
 
-  await moduleCard(page, 'Variables').getByRole('button').focus()
+  await moduleCard(page, 'Variables, Data Types, and Operators').getByRole('button').focus()
   await page.keyboard.press('ArrowRight')
   const moved = await moduleOrigins(page)
-  expect(moved.Variables.x - start.Variables.x).toBeGreaterThan(12)
-  expect(Math.hypot(moved['For loops'].x - dragged['For loops'].x, moved['For loops'].y - dragged['For loops'].y)).toBeLessThanOrEqual(2)
+  expect(moved['Variables, Data Types, and Operators'].x - start['Variables, Data Types, and Operators'].x).toBeGreaterThan(12)
+  expect(Math.hypot(moved['Getting Started with Programming and Python'].x - dragged['Getting Started with Programming and Python'].x, moved['Getting Started with Programming and Python'].y - dragged['Getting Started with Programming and Python'].y)).toBeLessThanOrEqual(2)
 
   await page.reload()
   await waitForApp(page)
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await expectArrangement(page, moved)
 
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
@@ -434,7 +431,7 @@ test('keeps a moved module on this device, and reset arrangement restores the st
 
   await page.reload()
   await waitForApp(page)
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await expectArrangement(page, start)
 })
 
@@ -557,7 +554,7 @@ async function showRoadmap(page: Page) {
   const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap canvas', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expectRoadmapCanvas(page)
-  await expect(moduleCard(page, 'For loops')).toBeVisible()
+  await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()
 }
 
 function expectSignedInAs(page: Page, displayName: string) {
@@ -568,13 +565,13 @@ async function signInAs(page: Page, account: { email: string, password: string }
   await page.getByLabel('Email').fill(account.email)
   await page.getByLabel('Password').fill(account.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 
 async function moduleOrigins(page: Page) {
   const origins: Record<string, { x: number, y: number }> = {}
-  for (const name of ['Variables', 'If / else', 'For loops', 'Nested loops']) {
+  for (const name of ['Variables, Data Types, and Operators', 'Working with Strings', 'Getting Started with Programming and Python', 'Lists and Tuples']) {
     const card = moduleCard(page, name)
     await expect(card).toBeVisible()
     const box = await card.boundingBox()
@@ -616,7 +613,7 @@ async function openWorkspace(page: Page) {
   await page.getByLabel('Email').fill(anAccount.email)
   await page.getByLabel('Password').fill(anAccount.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'For loops' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 
