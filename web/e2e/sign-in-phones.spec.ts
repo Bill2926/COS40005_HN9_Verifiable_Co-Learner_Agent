@@ -7,6 +7,36 @@ import { resetDemoAccounts } from './reset-demo-accounts'
 
 const widths = [320, 375, 390, 430, 768, 1024, 1440] as const
 
+test('the Swinburne logo sits above the sign-in card on a desktop and a phone', async ({ page }) => {
+  for (const size of [
+    { width: 1440, height: 900 },
+    { width: 375, height: 667 },
+  ]) {
+    await page.setViewportSize(size)
+    await page.goto('/sign-in')
+
+    const logo = page.getByRole('img', { name: 'Swinburne University of Technology' })
+    const form = page.locator('form')
+    await expect(logo).toBeVisible()
+
+    const logoBox = await logo.boundingBox()
+    const formBox = await form.boundingBox()
+    expect(logoBox).not.toBeNull()
+    expect(formBox).not.toBeNull()
+    expect(logoBox!.y + logoBox!.height).toBeLessThanOrEqual(formBox!.y)
+
+    const email = page.getByLabel('Email')
+    const password = page.getByLabel('Password')
+    const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
+    for (const control of [email, password, signIn]) {
+      const box = await control.boundingBox()
+      expect(box).not.toBeNull()
+      expect(box!.y).toBeGreaterThanOrEqual(0)
+      expect(box!.y + box!.height).toBeLessThanOrEqual(size.height)
+    }
+  }
+})
+
 test('sign-in fits the listed widths and the desktop page stays as it is', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 })
   await page.goto('/sign-in')
