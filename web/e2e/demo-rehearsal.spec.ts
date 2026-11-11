@@ -143,8 +143,8 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     expect(await background(label(teacher).locator('span').first())).not.toBe('rgba(0, 0, 0, 0)')
   })
 
-  await test.step('toggling the shield trace shows that the shield is not active yet', async () => {
-    const trace = page.getByRole('heading', { name: 'Shield: not active yet' })
+  await test.step('toggling the shield trace shows that the VerifyShield was on', async () => {
+    const trace = page.getByRole('heading', { name: 'VerifyShield: on' })
     await expect(trace).toHaveCount(0)
     await page.getByRole('switch', { name: 'Shield trace' }).click()
     await expect(trace).toBeVisible()

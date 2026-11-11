@@ -84,11 +84,20 @@ export interface TraceVerdict {
 export interface AgentTrace {
   agent: 'teacher' | 'deskmate'
   proposal: string | null
+  scope: string | null
   verdict: TraceVerdict | null
+}
+
+export interface TraceMastery {
+  moduleId: string
+  mastery: number
 }
 
 export interface TurnTrace {
   active: boolean
+  verifyShieldOn: boolean
+  masteries: readonly TraceMastery[]
+  unlockedModuleIds: readonly string[]
   agents: readonly [AgentTrace, AgentTrace]
 }
 

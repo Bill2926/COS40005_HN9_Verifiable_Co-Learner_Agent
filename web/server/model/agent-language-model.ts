@@ -3,11 +3,13 @@ import { z } from 'zod'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from './language-model'
 import { moveKey, type Move } from './moves'
 
+const scopeSchema = z.string().min(1)
+
 const moveSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('explain_concept') }),
-  z.object({ type: z.literal('answer_question') }),
-  z.object({ type: z.literal('hint_level_N'), level: z.int().min(1) }),
-  z.object({ type: z.literal('address_misconception'), misconceptionId: z.string().min(1) }),
+  z.object({ type: z.literal('explain_concept'), scope: scopeSchema }),
+  z.object({ type: z.literal('answer_question'), scope: scopeSchema }),
+  z.object({ type: z.literal('hint_level_N'), level: z.int().min(1), scope: scopeSchema }),
+  z.object({ type: z.literal('address_misconception'), misconceptionId: z.string().min(1), scope: scopeSchema }),
   z.object({ type: z.literal('reveal_answer') }),
   z.object({ type: z.literal('peer_question') }),
   z.object({ type: z.literal('share_confusion') }),
@@ -24,6 +26,10 @@ const proposeInstructions = [
   'Propose one move, or no proposal.',
   'You may propose explain_concept, answer_question, hint_level_N, address_misconception, reveal_answer, advance_to_item, or stay_and_practise.',
   'hint_level_N needs a level starting at 1.',
+  'explain_concept, answer_question, hint_level_N, and address_misconception need a scope.',
+  'Scope is the module id the question is about, taken from the course roadmap, or out_of_course.',
+  'Use out_of_course for anything this course does not cover, including small talk.',
+  'A closed module and anything out of course must be labelled that way. Do not teach them.',
   'Do not propose peer_question or share_confusion. Return proposal null instead.',
   'Return proposal null when you should stay quiet.',
   'Do not hand over a full solution. A proposal is the move, not the words the student will read.',
@@ -138,6 +144,10 @@ function formatRun(run: TeacherContext['runOutput']): string {
 function teacherPrompt(context: TeacherContext, move?: Move): string {
   const run = context.runOutput
   const lines = [
+    'Course roadmap',
+    ...context.roadmap.map(module =>
+      `Module ${module.number}: ${module.name} (${module.id}), part ${module.part}, ${module.state}, mastery ${module.mastery}${module.current ? ', current module' : ''}`),
+    '',
     'Topic materials',
     context.materials.heading,
     context.materials.body,

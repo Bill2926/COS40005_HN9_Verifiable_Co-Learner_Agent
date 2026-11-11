@@ -63,6 +63,14 @@ const roleClass = {
 } as const
 
 const traceOpen = ref(false)
+const traceHeading = computed(() => {
+  if (!props.trace) return 'Shield: not active yet'
+  return props.trace.verifyShieldOn ? 'VerifyShield: on' : 'VerifyShield: off'
+})
+const masteryLine = computed(() => {
+  if (!props.trace) return ''
+  return props.trace.masteries.map(item => `${item.moduleId} ${item.mastery}`).join(', ')
+})
 const text = ref('')
 const pending = ref('')
 const scroller = ref<HTMLElement | null>(null)
@@ -221,8 +229,14 @@ watch(() => props.sending, (sending) => {
       aria-label="Shield trace"
     >
       <h3 class="text-sm font-semibold">
-        Shield: not active yet
+        {{ traceHeading }}
       </h3>
+      <p
+        v-if="trace"
+        class="mt-1 text-xs leading-4 text-slate-600"
+      >
+        Mastery: {{ masteryLine }}. Unlocked: {{ trace.unlockedModuleIds.join(', ') }}
+      </p>
       <ul
         v-if="trace"
         class="mt-2 space-y-1 text-sm"
@@ -235,6 +249,10 @@ watch(() => props.sending, (sending) => {
           <template v-if="entry.proposal">
             proposed
             <code class="font-mono text-xs">{{ entry.proposal }}</code>
+            <template v-if="entry.scope">
+              · scope
+              <code class="font-mono text-xs">{{ entry.scope }}</code>
+            </template>
             <template v-if="entry.verdict">
               · {{ entry.verdict.decision }}
               · {{ entry.verdict.ruleId }}

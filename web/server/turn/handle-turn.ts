@@ -1,11 +1,12 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import { courseScope, redirectText, roadmapForStanding, standingForCurrentCourse } from '../content/course'
 import { forLoopTopic, type Exercise } from '../content/for-loop'
 import { course, knowledgeMap } from '../content/knowledge-map'
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
 import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
-import { decide, type Verdict } from '../verdict/decide'
+import { decide, type TurnSnapshot, type Verdict } from '../verdict/decide'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -33,6 +34,10 @@ export interface TurnRequest {
   body: unknown
 }
 
+export interface TurnOptions {
+  verifyShieldOn?: boolean
+}
+
 export function studentIdForTurn(request: TurnRequest): string {
   if (typeof request.sessionStudentId !== 'string' || request.sessionStudentId.length === 0) {
     throw new SignInRequiredError()
@@ -45,27 +50,30 @@ export function handleTurn(
   request: TurnRequest,
   store: ConversationStore,
   model?: LanguageModel,
+  options?: TurnOptions,
 ): Promise<RedrawState> {
   studentIdForTurn(request)
-  return collectTurn(request, store, model)
+  return collectTurn(request, store, model, options)
 }
 
 export function streamTurn(
   request: TurnRequest,
   store: ConversationStore,
   model?: LanguageModel,
+  options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   studentIdForTurn(request)
-  return streamTurnBody(request, store, model)
+  return streamTurnBody(request, store, model, options)
 }
 
 async function collectTurn(
   request: TurnRequest,
   store: ConversationStore,
   model?: LanguageModel,
+  options?: TurnOptions,
 ): Promise<RedrawState> {
   let state: RedrawState | undefined
-  for await (const event of streamTurnBody(request, store, model)) {
+  for await (const event of streamTurnBody(request, store, model, options)) {
     if (event.type === 'state') state = event.state
   }
   if (!state) throw new Error('The turn did not finish.')
@@ -76,6 +84,7 @@ async function* streamTurnBody(
   request: TurnRequest,
   store: ConversationStore,
   model?: LanguageModel,
+  options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const studentId = studentIdForTurn(request)
   const body = request.body
@@ -84,7 +93,7 @@ async function* streamTurnBody(
     const exerciseId = await currentExerciseId(studentId, store)
     const existing = await store.messages(studentId, forLoopTopic.id)
     if (existing.length === 0 && model) {
-      yield* introduceTopic(studentId, exerciseId, store, model)
+      yield* introduceTopic(studentId, exerciseId, store, model, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
@@ -122,7 +131,7 @@ async function* streamTurnBody(
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
-    }, store, model)
+    }, store, model, '', options)
     return
   }
 
@@ -139,7 +148,7 @@ async function* streamTurnBody(
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, model)
+    }, store, model, body.text.trim(), options)
     return
   }
 
@@ -151,6 +160,7 @@ async function* introduceTopic(
   exerciseId: string,
   store: ConversationStore,
   model: LanguageModel,
+  options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const context = await teacherContext(studentId, exerciseById(exerciseId), store, {
     draft: null,
@@ -158,6 +168,7 @@ async function* introduceTopic(
     submission: null,
   })
 
+  const snapshot = turnSnapshot(exerciseId, '', options)
   let proposal: Move | null = null
   try {
     proposal = await model.teacher.propose(context)
@@ -165,23 +176,26 @@ async function* introduceTopic(
   catch {
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', shieldTrace(null, null, [])),
+      state: await redrawWithTrace(studentId, exerciseId, store, 'learn', shieldTrace(null, null, [], snapshot)),
     }
     return
   }
-
-  const snapshot = { topicId: forLoopTopic.id, exerciseId }
   const proposedVerdicts = proposal
-    ? decide([{ agent: 'teacher', move: proposal }], snapshot, roleTable)
+    ? decide([{ agent: 'teacher', move: proposal }], snapshot, roleTable, courseScope)
     : []
-  const trace = shieldTrace(proposal, null, proposedVerdicts)
+  const trace = shieldTrace(proposal, null, proposedVerdicts, snapshot)
   const ruledMove = proposal && isTeachingMove(proposal) ? proposal : { type: 'explain_concept' as const }
   const verdict = (proposal && isTeachingMove(proposal)
     ? proposedVerdicts
-    : decide([{ agent: 'teacher', move: ruledMove }], snapshot, roleTable)
+    : decide([{ agent: 'teacher', move: ruledMove }], snapshot, roleTable, courseScope)
   ).find(item => item.agent === 'teacher')
 
-  if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
+  if (verdict?.move?.type === 'redirect_to_module') {
+    const text = redirectText(verdict.move.scope, snapshot.currentModuleId ?? 'loops')
+    yield { type: 'text', author: 'teacher', delta: text }
+    await speakRedirect(studentId, exerciseId, store, text)
+  }
+  else if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
     const text = yield* streamTeacherReply(model, context, verdict.move)
     if (text) {
       await store.appendMessage(studentId, forLoopTopic.id, {
@@ -194,6 +208,33 @@ async function* introduceTopic(
   }
 
   yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, 'learn', trace) }
+}
+
+function turnSnapshot(exerciseId: string, studentMessage: string, options?: TurnOptions): TurnSnapshot {
+  const standing = standingForCurrentCourse()
+  return {
+    topicId: forLoopTopic.id,
+    exerciseId,
+    currentModuleId: standing.currentModuleId,
+    masteries: standing.masteries,
+    unlockedModuleIds: standing.unlockedModuleIds,
+    studentMessage,
+    verifyShieldOn: options?.verifyShieldOn !== false,
+  }
+}
+
+async function speakRedirect(
+  studentId: string,
+  exerciseId: string,
+  store: ConversationStore,
+  text: string,
+): Promise<void> {
+  await store.appendMessage(studentId, forLoopTopic.id, {
+    author: 'teacher',
+    approvedMove: 'redirect_to_module',
+    text,
+    exerciseId,
+  })
 }
 
 function isTeachingMove(move: Move): boolean {
@@ -224,6 +265,8 @@ async function* answerMessage(
   seen: SeenWork,
   store: ConversationStore,
   model: LanguageModel,
+  studentMessage: string,
+  options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const exercise = exerciseById(exerciseId)
   const context = await teacherContext(studentId, exercise, store, seen)
@@ -239,14 +282,20 @@ async function* answerMessage(
     ...(teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []),
     ...(deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []),
   ]
-  const verdicts = decide(proposals, { topicId: forLoopTopic.id, exerciseId }, roleTable)
-  const trace = shieldTrace(teacherMove, deskmateMove, verdicts)
+  const snapshot = turnSnapshot(exerciseId, studentMessage, options)
+  const verdicts = decide(proposals, snapshot, roleTable, courseScope)
+  const trace = shieldTrace(teacherMove, deskmateMove, verdicts, snapshot)
   const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherSettled.status === 'rejected') {
     await rememberTeacherCouldNotAnswer(studentId, exerciseId, store)
     yield { type: 'state', state: await redrawWithTrace(studentId, exerciseId, store, null, trace) }
+  }
+  else if (teacherVerdict?.move?.type === 'redirect_to_module') {
+    const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? 'loops')
+    yield { type: 'text', author: 'teacher', delta: text }
+    await speakRedirect(studentId, exerciseId, store, text)
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
@@ -314,9 +363,13 @@ function shieldTrace(
   teacherMove: Move | null,
   deskmateMove: Move | null,
   verdicts: readonly Verdict[],
+  snapshot: TurnSnapshot,
 ): TurnTrace {
   return {
     active: false,
+    verifyShieldOn: snapshot.verifyShieldOn !== false,
+    masteries: (snapshot.masteries ?? []).map(item => ({ ...item })),
+    unlockedModuleIds: [...(snapshot.unlockedModuleIds ?? [])],
     agents: [
       tracedAgent('teacher', teacherMove, verdicts),
       tracedAgent('deskmate', deskmateMove, verdicts),
@@ -329,18 +382,32 @@ function tracedAgent(
   move: Move | null,
   verdicts: readonly Verdict[],
 ): AgentTrace {
-  if (!move) return { agent, proposal: null, verdict: null }
+  if (!move) return { agent, proposal: null, scope: null, verdict: null }
   const verdict = verdicts.find(item => item.agent === agent)
-  if (!verdict) return { agent, proposal: moveKey(move), verdict: null }
+  if (!verdict) return { agent, proposal: moveKey(move), scope: proposedScope(move), verdict: null }
   return {
     agent,
     proposal: moveKey(move),
+    scope: proposedScope(move),
     verdict: {
       decision: verdict.decision,
       ruleId: verdict.ruleId,
       reasonCode: verdict.reasonCode,
     },
   }
+}
+
+function proposedScope(move: Move): string | null {
+  if (
+    move.type === 'explain_concept'
+    || move.type === 'answer_question'
+    || move.type === 'hint_level_N'
+    || move.type === 'address_misconception'
+    || move.type === 'redirect_to_module'
+  ) {
+    return move.scope ?? null
+  }
+  return null
 }
 
 async function teacherContext(
@@ -368,6 +435,7 @@ async function teacherContext(
       text: message.text,
       approvedMove: message.approvedMove,
     })),
+    roadmap: roadmapForStanding(standingForCurrentCourse()),
   }
 }
 
@@ -494,6 +562,7 @@ function presentMessage(message: StoredMessage, displayName: string): Conversati
 }
 
 function teacherMoveLabel(approvedMove: string | null): string {
+  if (approvedMove === 'redirect_to_module') return 'Not yet'
   if (approvedMove === 'explain_concept') return 'Explanation'
   if (approvedMove === 'answer_question') return 'Answer'
   if (approvedMove?.startsWith('hint_level_')) return 'Hint'
