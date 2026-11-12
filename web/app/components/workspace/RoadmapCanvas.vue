@@ -23,6 +23,9 @@ function onHover(event: PointerEvent, module: RoadmapModule) {
 const clickSlop = 4
 const nudgeStep = 16
 const nudgeLeap = 48
+const minZoom = 0.4
+const maxZoom = 2
+const zoomStep = 1.2
 
 const canvasEl = ref<HTMLElement | null>(null)
 const labelEl = ref<HTMLElement | null>(null)
@@ -33,6 +36,10 @@ const obstacles = ref<Box[]>([])
 const savedArrangement = ref<Arrangement>({})
 const dragPoint = ref<{ id: string, point: Point } | null>(null)
 const selectedId = ref<string | null>(null)
+// The view: the arrangement lives in world pixels, the canvas shows it scaled then shifted.
+const zoom = ref(1)
+const pan = ref<Point>({ x: 0, y: 0 })
+let panGesture: { pointerId: number, startX: number, startY: number, originX: number, originY: number } | null = null
 const cardEls = new Map<string, HTMLElement>()
 let observer: ResizeObserver | undefined
 let loadedClass: SizeClass | null = null
@@ -141,7 +148,7 @@ function measure() {
   for (const [id, element] of cardEls) {
     const box = element.getBoundingClientRect()
     if (box.width === 0 || box.height === 0) continue
-    sizes[id] = { width: box.width, height: box.height }
+    sizes[id] = { width: box.width / zoom.value, height: box.height / zoom.value }
   }
   const blocks: Box[] = []
   for (const element of obstacleElements()) {
@@ -237,8 +244,8 @@ function onPointerDown(event: PointerEvent, id: string) {
     handle,
     startX: event.clientX,
     startY: event.clientY,
-    offsetX: event.clientX - rect.left - box.x,
-    offsetY: event.clientY - rect.top - box.y,
+    offsetX: toWorldX(event.clientX - rect.left) - box.x,
+    offsetY: toWorldY(event.clientY - rect.top) - box.y,
     dragged: false,
   }
   trackPointer()
@@ -320,7 +327,7 @@ function moveToPointer(active: Gesture, clientX: number, clientY: number) {
   const rect = element.getBoundingClientRect()
   dragPoint.value = {
     id: active.id,
-    point: pointAt(clientX - rect.left - active.offsetX, clientY - rect.top - active.offsetY, size, limits),
+    point: pointAt(toWorldX(clientX - rect.left) - active.offsetX, toWorldY(clientY - rect.top) - active.offsetY, size, limits),
   }
 }
 
@@ -398,6 +405,82 @@ function cancelGesture() {
   }
 }
 
+function toWorldX(x: number): number {
+  return (x - pan.value.x) / zoom.value
+}
+
+function toWorldY(y: number): number {
+  return (y - pan.value.y) / zoom.value
+}
+
+const zoomPercent = computed(() => Math.round(zoom.value * 100))
+const worldStyle = computed(() => ({
+  transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+  transformOrigin: '0 0',
+}))
+
+// Zoom keeping the point (screen pixels inside the canvas) fixed under the cursor.
+function zoomTo(next: number, anchorX?: number, anchorY?: number) {
+  const canvas = canvasSize.value
+  const target = clamp(next, minZoom, maxZoom)
+  const current = zoom.value
+  if (target === current) return
+  const ax = anchorX ?? (canvas ? canvas.width / 2 : 0)
+  const ay = anchorY ?? (canvas ? canvas.height / 2 : 0)
+  const ratio = target / current
+  pan.value = { x: ax - (ax - pan.value.x) * ratio, y: ay - (ay - pan.value.y) * ratio }
+  zoom.value = target
+}
+
+function resetView() {
+  zoom.value = 1
+  pan.value = { x: 0, y: 0 }
+}
+
+function onWheel(event: WheelEvent) {
+  const element = canvasEl.value
+  if (!element) return
+  const rect = element.getBoundingClientRect()
+  if (event.ctrlKey || event.metaKey) {
+    zoomTo(zoom.value * Math.exp(-event.deltaY * 0.002), event.clientX - rect.left, event.clientY - rect.top)
+    return
+  }
+  pan.value = { x: pan.value.x - event.deltaX, y: pan.value.y - event.deltaY }
+}
+
+function onCanvasKeyDown(event: KeyboardEvent) {
+  if (event.target instanceof HTMLElement && event.target.closest('li')) return
+  if (event.key === '+' || event.key === '=') zoomTo(zoom.value * zoomStep)
+  else if (event.key === '-') zoomTo(zoom.value / zoomStep)
+  else if (event.key === '0') resetView()
+  else return
+  event.preventDefault()
+}
+
+function onCanvasPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || gesture || panGesture) return
+  const target = event.target
+  if (!(target instanceof Element) || target.closest('button, h2, p')) return
+  panGesture = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pan.value.x, originY: pan.value.y }
+  window.addEventListener('pointermove', onPanMove, true)
+  window.addEventListener('pointerup', endPan, true)
+  window.addEventListener('pointercancel', endPan, true)
+}
+
+function onPanMove(event: PointerEvent) {
+  const active = panGesture
+  if (!active || event.pointerId !== active.pointerId) return
+  pan.value = { x: active.originX + event.clientX - active.startX, y: active.originY + event.clientY - active.startY }
+}
+
+function endPan(event: PointerEvent) {
+  if (!panGesture || event.pointerId !== panGesture.pointerId) return
+  panGesture = null
+  window.removeEventListener('pointermove', onPanMove, true)
+  window.removeEventListener('pointerup', endPan, true)
+  window.removeEventListener('pointercancel', endPan, true)
+}
+
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
 }
@@ -430,13 +513,21 @@ onMounted(() => {
 onUnmounted(() => {
   observer?.disconnect()
   stopTracking()
+  panGesture = null
+  window.removeEventListener('pointermove', onPanMove, true)
+  window.removeEventListener('pointerup', endPan, true)
+  window.removeEventListener('pointercancel', endPan, true)
 })
 </script>
 
 <template>
   <div
     ref="canvasEl"
-    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 touch-none overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    tabindex="-1"
+    @wheel.prevent="onWheel"
+    @keydown="onCanvasKeyDown"
+    @pointerdown="onCanvasPointerDown"
   >
     <div
       class="pointer-events-none absolute inset-0"
@@ -460,6 +551,10 @@ onUnmounted(() => {
       </p>
     </div>
 
+    <div
+      class="absolute inset-0"
+      :style="worldStyle"
+    >
     <svg
       v-if="placed"
       class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -624,6 +719,7 @@ onUnmounted(() => {
         </button>
       </li>
     </ul>
+    </div>
 
     <div
       ref="footerEl"
@@ -636,11 +732,43 @@ onUnmounted(() => {
       >
         Reset arrangement
       </button>
+      <div
+        class="flex shrink-0 items-center rounded-lg border border-slate-200/80 bg-white/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
+        role="group"
+        aria-label="Zoom"
+      >
+        <button
+          type="button"
+          class="min-h-11 min-w-9 cursor-pointer rounded-l-lg text-sm text-[#475569] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          aria-label="Zoom out"
+          :disabled="zoom <= minZoom"
+          @click="zoomTo(zoom / zoomStep)"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          class="min-h-11 min-w-12 cursor-pointer px-1 font-mono text-[11px] text-[#64748b] tabular-nums hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+          aria-label="Reset zoom and position"
+          @click="resetView"
+        >
+          {{ zoomPercent }}%
+        </button>
+        <button
+          type="button"
+          class="min-h-11 min-w-9 cursor-pointer rounded-r-lg text-sm text-[#475569] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          aria-label="Zoom in"
+          :disabled="zoom >= maxZoom"
+          @click="zoomTo(zoom * zoomStep)"
+        >
+          +
+        </button>
+      </div>
       <p
         class="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-[#64748b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
         aria-hidden="true"
       >
-        <span>100%</span>
+        <span>Ctrl+scroll to zoom</span>
         <span class="text-[#cbd5e1]">|</span>
         <span>Studio canvas</span>
       </p>
