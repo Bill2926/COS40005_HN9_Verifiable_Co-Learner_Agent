@@ -3,14 +3,20 @@ import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 
 // Public: no signed-in middleware. A signed-in student is sent to their workspace instead of sign-in.
 
-// The HN9 team, from the repository's contributors. Real names and roles are not
-// recorded anywhere in the repo yet: fill `name` and `role` here when the team supplies them.
-const team: { handle: string, name?: string, role?: string }[] = [
-  { handle: 'atuan1605' },
-  { handle: 'Bill2926' },
-  { handle: 'daotheone' },
-  { handle: 'nnqtrung' },
+// The HN9 team. `handle` gives the GitHub link; a member without one shows only a name.
+const team: { handle?: string, name?: string, role?: string }[] = [
+  { handle: 'atuan1605', name: 'Le Anh Tuan' },
+  { handle: 'Bill2926', name: 'Nguyen Duc Manh' },
+  { handle: 'daotheone', name: 'Nguyen Xuan Doanh' },
+  { handle: 'nnqtrung', name: 'Nguyen Quoc Trung' },
+  { name: 'Do Trinh Thuan Minh' },
 ]
+
+const supervisor = {
+  name: 'Le Minh Duc',
+  role: 'Project supervisor',
+  href: 'https://www.linkedin.com/in/leminhduc77',
+}
 
 const repository = 'https://github.com/Bill2926/COS40005_HN9_Verifiable_Co-Learner_Agent'
 
@@ -89,7 +95,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
     <header class="sticky top-0 z-40 border-b border-default/80 bg-default/90 backdrop-blur">
       <div :class="wrap" class="flex h-16 items-center justify-between gap-4">
         <NuxtLink to="/about" class="flex min-h-11 items-center gap-3 text-base font-semibold tracking-tight text-highlighted">
-          <img src="/swinburne-crest.png" alt="Swinburne University of Technology" width="190" height="288" class="block h-10 w-auto shrink-0">
+          <img src="/swinburne-fpt-logo.webp" alt="Swinburne University of Technology, in alliance with FPT Education" width="871" height="705" class="block h-10 w-auto shrink-0">
           <span class="max-sm:sr-only">Verifiable Co-Learner</span>
         </NuxtLink>
         <nav aria-label="About" class="flex items-center gap-1 text-sm">
@@ -240,29 +246,41 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
               </a>
             </div>
           </div>
-          <ul class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <li v-for="member in team" :key="member.handle">
+          <div class="grid gap-10 lg:grid-cols-2 lg:gap-16">
+            <div class="flex flex-col gap-4">
+              <h3 class="text-sm font-medium text-muted">
+                Supervisor
+              </h3>
               <a
-                :href="`https://github.com/${member.handle}`"
-                class="group flex h-full flex-col overflow-hidden rounded-lg border border-default bg-default shadow-xs transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+                :href="supervisor.href"
+                class="group flex flex-1 flex-col justify-between gap-8 rounded-lg border border-default bg-default p-6 shadow-xs transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md md:p-8"
               >
-                <span class="block aspect-square overflow-hidden bg-slate-100">
-                  <img
-                    :src="`https://github.com/${member.handle}.png?size=480`"
-                    :alt="member.name ?? member.handle"
-                    width="480"
-                    height="480"
-                    loading="lazy"
-                    class="size-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-                  >
+                <span class="flex flex-col gap-2">
+                  <span class="text-3xl/tight font-semibold tracking-tight text-highlighted">{{ supervisor.name }}</span>
+                  <span class="text-base text-muted">{{ supervisor.role }}</span>
                 </span>
-                <span class="block p-4">
-                  <span class="block truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
-                  <span class="block truncate text-sm text-muted">{{ member.role ?? `@${member.handle} on GitHub` }}</span>
-                </span>
+                <span class="w-fit text-sm font-medium text-primary-700 underline decoration-primary-300 underline-offset-4 group-hover:decoration-primary-700">View on LinkedIn</span>
               </a>
-            </li>
-          </ul>
+            </div>
+            <div class="flex flex-col gap-4">
+              <h3 class="text-sm font-medium text-muted">
+                COS40005 team
+              </h3>
+              <ul class="flex flex-1 flex-col divide-y divide-default overflow-hidden rounded-lg border border-default bg-default shadow-xs">
+                <li v-for="member in team" :key="member.handle ?? member.name" class="flex flex-1">
+                  <component
+                    :is="member.handle ? 'a' : 'div'"
+                    :href="member.handle ? `https://github.com/${member.handle}` : undefined"
+                    class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3 transition"
+                    :class="member.handle && 'hover:bg-slate-50'"
+                  >
+                    <span class="truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
+                    <span v-if="member.handle" class="shrink-0 text-sm text-muted">@{{ member.handle }} on GitHub</span>
+                  </component>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -440,10 +440,10 @@ function initialsOf(name: string): string {
     <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:grid md:h-12 md:grid-cols-[1fr_auto_1fr] md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <img
-          src="/swinburne-crest.png"
+          src="/swinburne-fpt-logo.webp"
           alt=""
-          width="190"
-          height="288"
+          width="871"
+          height="705"
           class="block h-8 w-auto shrink-0"
         >
         <span class="max-md:sr-only">Verifiable Co-Learner</span>
