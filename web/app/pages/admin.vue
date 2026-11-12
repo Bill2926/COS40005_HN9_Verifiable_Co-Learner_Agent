@@ -162,10 +162,13 @@ function messageFrom(caught: unknown): string {
   <div class="flex min-h-dvh flex-col bg-muted">
     <header class="phone-safe-top flex shrink-0 items-center justify-between border-b border-default/80 bg-default px-4 py-4 md:px-8">
       <p class="flex items-center gap-2 text-sm font-semibold tracking-tight text-highlighted">
-        <span
-          class="size-2.5 shrink-0 rounded-sm bg-primary-600"
-          aria-hidden="true"
-        />
+        <img
+          src="/swinburne-logo.svg"
+          alt=""
+          width="500"
+          height="253"
+          class="block h-6 w-auto shrink-0"
+        >
         Verifiable Co-Learner
       </p>
       <NuxtLink
