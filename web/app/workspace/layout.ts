@@ -1,6 +1,6 @@
 export const workspaceLayouts = [
-  { id: 'ide', name: 'IDE' },
-  { id: 'roadmap', name: 'Roadmap canvas' },
+  { id: 'ide', name: 'Study' },
+  { id: 'roadmap', name: 'Roadmap' },
 ] as const
 
 export type WorkspaceLayoutId = (typeof workspaceLayouts)[number]['id']

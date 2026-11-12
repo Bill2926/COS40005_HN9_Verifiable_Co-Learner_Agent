@@ -57,7 +57,7 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   expect(traceSwitch!.height).toBeCloseTo(16, 0)
   expect(traceSwitch!.width).toBeCloseTo(28, 0)
 
-  const ideLink = await page.getByRole('link', { name: 'IDE', exact: true }).boundingBox()
+  const ideLink = await page.getByRole('link', { name: 'Study', exact: true }).boundingBox()
   expect(ideLink).not.toBeNull()
   expect(ideLink!.height).toBeLessThan(32)
 
@@ -222,8 +222,8 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await expect(page.getByRole('textbox', { name: 'Python editor' })).toBeHidden()
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
-    await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
-    await page.getByRole('link', { name: 'IDE', exact: true }).click()
+    await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+    await page.getByRole('link', { name: 'Study', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Conversation', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expectOnlyPanel(page, 'conversation')
     await expect(conversation(page).getByText(maiReply, { exact: true })).toBeVisible()
@@ -239,8 +239,8 @@ async function expectPhoneTopBar(page: Page) {
   await expect(page.locator('header').getByText('Student', { exact: true })).toBeHidden()
   await expectNotOnScreen(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: /^An$/ }))
   await expect(page.locator('header span[aria-hidden="true"]').filter({ hasText: /^An$/ })).toBeVisible()
-  const ide = page.getByRole('link', { name: 'IDE', exact: true })
-  const roadmapCanvas = page.getByRole('link', { name: 'Roadmap canvas', exact: true })
+  const ide = page.getByRole('link', { name: 'Study', exact: true })
+  const roadmapCanvas = page.getByRole('link', { name: 'Roadmap', exact: true })
   const signOut = page.getByRole('button', { name: 'Sign out', exact: true })
   await expect(ide).toBeVisible()
   await expect(roadmapCanvas).toBeVisible()

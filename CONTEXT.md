@@ -60,13 +60,13 @@ Anything the student asks about that is not part of any module, such as classes 
 _Avoid_: off-topic, irrelevant
 
 **Roadmap arrangement**:
-Where the student has placed each module on the course roadmap in the Roadmap canvas layout. Personal to the student and their device; it is neither evidence nor part of the resume point, and it never changes a module's state or the current module.
+Where the student has placed each module on the course roadmap in the Roadmap layout. Personal to the student and their device; it is neither evidence nor part of the resume point, and it never changes a module's state or the current module.
 _Avoid_: map arrangement, layout, positions
 
 ### Workspace
 
 **Workspace layout**:
-How the course roadmap, working area and conversation are arranged on screen. There are two, chosen by the student: the IDE layout (the course roadmap as a list beside the working area and conversation) and the Roadmap canvas layout (the course roadmap as a canvas with the working area and conversation over it). Switching layouts changes nothing but the arrangement on screen.
+How the course roadmap, working area and conversation are arranged on screen. There are two, chosen by the student: the Study layout (the course roadmap as a list beside the working area and conversation) and the Roadmap layout (the course roadmap as a canvas with the working area and conversation over it). Switching layouts changes nothing but the arrangement on screen.
 _Avoid_: screen, view, variant, Map canvas
 
 **Conversation**:
