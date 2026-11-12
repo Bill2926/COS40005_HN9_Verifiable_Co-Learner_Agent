@@ -144,7 +144,7 @@ const rows = computed(() => {
       writing: true,
     })
   }
-  else if (props.sending && !props.streamingDeskmate) {
+  else if (props.sending) {
     shown.push({
       key: 'typing-teacher',
       kind: 'typing',
@@ -162,6 +162,14 @@ const rows = computed(() => {
       text: props.streamingDeskmate,
       openInLearn: false,
       writing: true,
+    })
+  }
+  else if (props.sending) {
+    shown.push({
+      key: 'typing-deskmate',
+      kind: 'typing',
+      author: 'deskmate',
+      name: 'Mai',
     })
   }
   return shown
