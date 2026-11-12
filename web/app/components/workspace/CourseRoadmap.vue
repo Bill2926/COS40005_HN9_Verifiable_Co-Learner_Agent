@@ -63,7 +63,7 @@ function cardClass(module: RoadmapModule): string {
           Course roadmap
         </h2>
         <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-400">
-          {{ masteredCount }}/{{ modules.length }} mastered
+          {{ masteredCount }}/{{ modules.length }} modules mastered
         </p>
       </div>
       <ul class="flex flex-col gap-1.5 md:max-lg:flex-row md:max-lg:flex-nowrap">

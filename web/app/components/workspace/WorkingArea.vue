@@ -33,6 +33,8 @@ function toggleExpanded() {
 }
 
 const practiceOpened = ref(false)
+// The Roadmap canvas is for reading a module, so it only ever shows Learn.
+const shownMode = computed(() => props.floating ? 'learn' : props.mode)
 
 function choose(next: 'learn' | 'practice') {
   if (next === 'practice') practiceOpened.value = true
@@ -80,19 +82,21 @@ watch(() => props.mode, (mode) => {
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <div
+          v-if="!floating"
           class="flex rounded-[6px] border border-slate-200/80 bg-slate-100 p-[5px]"
           role="group"
           aria-label="Working area mode"
         >
           <button
             type="button"
-            :class="modeClass(mode === 'learn')"
-            :aria-pressed="mode === 'learn'"
+            :class="modeClass(shownMode === 'learn')"
+            :aria-pressed="shownMode === 'learn'"
             @click="choose('learn')"
           >
             Learn
           </button>
           <button
+            v-if="!floating"
             type="button"
             :class="modeClass(mode === 'practice')"
             :aria-pressed="mode === 'practice'"
@@ -138,14 +142,14 @@ watch(() => props.mode, (mode) => {
         <div class="h-16 animate-pulse rounded-lg bg-slate-100" />
       </div>
       <p
-        v-else-if="selectError && mode === 'learn'"
+        v-else-if="selectError && shownMode === 'learn'"
         role="alert"
         class="mx-auto w-full max-w-[720px] px-4 pt-4 text-sm text-rose-600 md:px-8"
       >
         {{ selectError }}
       </p>
       <article
-        v-if="!pendingName && mode === 'learn'"
+        v-if="!pendingName && shownMode === 'learn'"
         class="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
         <div class="flex flex-col gap-2">
@@ -187,14 +191,14 @@ watch(() => props.mode, (mode) => {
 
       <div
         v-if="!pendingName && practiceOpened && studentId"
-        v-show="mode === 'practice'"
+        v-show="shownMode === 'practice'"
         class="mx-auto w-full max-w-[720px] px-4 py-6 md:p-8"
       >
         <PracticePanel
           :exercise="area.exercise"
           :exercises="area.exercises"
           :student-id="studentId"
-          :active="mode === 'practice'"
+          :active="shownMode === 'practice'"
           :selecting="selecting"
           :select-error="selectError"
           :submitting="submitting"

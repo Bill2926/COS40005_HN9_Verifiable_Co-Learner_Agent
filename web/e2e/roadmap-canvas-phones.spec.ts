@@ -133,7 +133,7 @@ test('keeps the modules apart when the screen is turned sideways', async ({ page
   await expectNoDocumentScroll(page)
 })
 
-test('reaches the composer, Send, the editor, Run and Submit on a phone', async ({ page }) => {
+test('reaches the composer and Send, and shows Learn only, on a phone', async ({ page }) => {
   await openWorkspace(page, { width: 390, height: 800 })
   await showRoadmap(page)
 
@@ -154,12 +154,9 @@ test('reaches the composer, Send, the editor, Run and Submit on a phone', async 
     await expectNoDocumentScroll(page)
 
     await page.getByRole('tab', { name: 'Working area', exact: true }).click()
-    await page.getByRole('button', { name: 'Practice', exact: true }).click()
-    await expectReachable(page, page.getByRole('textbox', { name: 'Python editor' }))
-    await expectReachable(page, page.getByRole('button', { name: 'Run', exact: true }))
-    await expectReachable(page, page.getByRole('button', { name: 'Submit', exact: true }))
+    await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
     await expectNoDocumentScroll(page)
-    await page.getByRole('button', { name: 'Learn', exact: true }).click()
   }
 })
 

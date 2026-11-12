@@ -121,7 +121,9 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await expect(editor).toContainText('print("hello")')
   await expect(composer).toHaveValue(unsent)
   await expect(printed).toContainText('hello')
-  await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  // The Roadmap canvas shows Learn only, and keeps the practice draft for Study.
+  await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
 
   await switcher.getByRole('link', { name: 'Study', exact: true }).click()
   await expectIde(page)
@@ -146,14 +148,12 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   const current = moduleCard(page, 'Getting Started with Programming and Python')
   const closed = moduleCard(page, 'Lists and Tuples')
   await expect(current).toBeVisible()
-  await expect(current).toContainText('Part 1: Foundations')
   await expect(current).toContainText('Current')
-  await expect(current).toContainText('Open')
-  await expect(current).toContainText('Module 1 of 11')
-  await expect(closed).toContainText('Part 3: Built-in Data Structures')
-  await expect(closed).toContainText('Closed')
-  await expect(closed).toContainText('Not available yet')
-  await expect(page.getByText('Part 2: Control Flow', { exact: true }).first()).toBeVisible()
+  await expect(current.getByRole('button')).toHaveAccessibleName(/current, open/)
+  await expect(closed.getByRole('button')).toHaveAccessibleName(/closed/)
+  // A card shows its name only, never the module's description.
+  await expect(closed).not.toContainText('Not available yet')
+  await expect(modules).not.toContainText('Part 1: Foundations')
 
   const connectors = page.getByRole('img', { name: 'Module connectors' })
   await expect(connectors.locator('path')).toHaveCount(10)
@@ -201,7 +201,7 @@ test('drags a module with the mouse and leaves the current module and working ar
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
   await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python', level: 1 })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
 
   const tick = moduleCard(page, 'Variables, Data Types, and Operators').locator('img')
   const tickBox = await tick.boundingBox()
@@ -253,70 +253,48 @@ test('drags a module with touch without scrolling the page', async ({ browser })
   }
 })
 
-test('keeps a dragged module inside the canvas and clear of the panels', async ({ page }) => {
+test('moves a module anywhere on the board, and fit all brings every module back into view', async ({ page }) => {
   await openWorkspace(page)
   await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
   expect(canvas).not.toBeNull()
-  await dragCard(page, 'Variables, Data Types, and Operators', { x: -80, y: -80 })
-  const clamped = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
-  expect(clamped).not.toBeNull()
-  expect(within(clamped!, canvas!)).toBe(true)
+  for (let step = 0; step < 3; step += 1) await page.getByRole('button', { name: 'Zoom out', exact: true }).click()
 
-  const heading = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
-  expect(heading).not.toBeNull()
-  await dragCard(page, 'Variables, Data Types, and Operators', centerOf(heading!))
-  const clearOfLabel = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
-  expect(clearOfLabel).not.toBeNull()
-  expect(overlaps(clearOfLabel!, heading!)).toBe(false)
-  expect(within(clearOfLabel!, canvas!)).toBe(true)
+  // Zoomed out, the left of the canvas lies past the edge of the starting board.
+  // The card follows the pointer there instead of stopping at an invisible wall.
+  const farPoint = { x: canvas!.x + 80, y: canvas!.y + 220 }
+  await dragCard(page, 'Variables, Data Types, and Operators', farPoint)
+  const far = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
+  expect(far).not.toBeNull()
+  expect(Math.abs(centerOf(far!).x - farPoint.x)).toBeLessThanOrEqual(4)
+  expect(Math.abs(centerOf(far!).y - farPoint.y)).toBeLessThanOrEqual(4)
 
-  const working = page.getByRole('region', { name: 'Working area', exact: true })
-  const expanded = await working.boundingBox()
-  expect(expanded).not.toBeNull()
-  await page.getByRole('button', { name: 'Collapse working area', exact: true }).click()
-  const collapsed = await working.boundingBox()
-  expect(collapsed).not.toBeNull()
-  expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
+  await dragCard(page, 'Working with Strings', centerOf(far!))
+  const dropped = await moduleCard(page, 'Working with Strings').boundingBox()
+  const under = await moduleCard(page, 'Variables, Data Types, and Operators').boundingBox()
+  expect(dropped).not.toBeNull()
+  expect(under).not.toBeNull()
+  expect(overlaps(dropped!, under!)).toBe(false)
 
-  await dragCard(page, 'Working with Strings', { x: expanded!.x + 140, y: expanded!.y + 36 })
-  const parked = await moduleCard(page, 'Working with Strings').boundingBox()
-  expect(parked).not.toBeNull()
-  expect(overlaps(parked!, collapsed!)).toBe(false)
-
-  await page.getByRole('button', { name: 'Expand working area', exact: true }).click()
-  await expect.poll(async () => {
-    const card = await moduleCard(page, 'Working with Strings').boundingBox()
-    const panel = await working.boundingBox()
-    if (!card || !panel) return false
-    return !overlaps(card, panel) && within(card, canvas!)
-  }).toBe(true)
-
-  const workingBox = await working.boundingBox()
-  expect(workingBox).not.toBeNull()
-  await dragCard(page, 'Working with Strings', centerOf(workingBox!))
-  const clearOfWorking = await moduleCard(page, 'Working with Strings').boundingBox()
-  expect(clearOfWorking).not.toBeNull()
-  expect(overlaps(clearOfWorking!, workingBox!)).toBe(false)
-  expect(within(clearOfWorking!, canvas!)).toBe(true)
-
+  await page.reload()
+  await expectRoadmapCanvas(page)
+  await page.getByRole('button', { name: 'Fit all modules', exact: true }).click()
+  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+  expect(working).not.toBeNull()
   expect(conversation).not.toBeNull()
-  await dragCard(page, 'Lists and Tuples', { x: conversation!.x + conversation!.width / 2, y: conversation!.y + 80 })
-  const clearOfConversation = await moduleCard(page, 'Lists and Tuples').boundingBox()
-  expect(clearOfConversation).not.toBeNull()
-  expect(overlaps(clearOfConversation!, conversation!)).toBe(false)
-  expect(within(clearOfConversation!, canvas!)).toBe(true)
-
-  const pill = await page.getByText('Studio canvas', { exact: true }).boundingBox()
-  expect(pill).not.toBeNull()
-  await dragCard(page, 'Lists and Tuples', centerOf(pill!))
-  const clearOfPill = await moduleCard(page, 'Lists and Tuples').boundingBox()
-  expect(clearOfPill).not.toBeNull()
-  expect(overlaps(clearOfPill!, pill!)).toBe(false)
-  expect(within(clearOfPill!, canvas!)).toBe(true)
+  const cards = page.getByRole('list', { name: 'Modules' }).getByRole('listitem')
+  await expect(cards).toHaveCount(11)
+  for (const box of await cards.evaluateAll(nodes => nodes.map((node) => {
+    const rect = node.getBoundingClientRect()
+    return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+  }))) {
+    expect(within(box, canvas!)).toBe(true)
+    expect(overlaps(box, working!)).toBe(false)
+    expect(overlaps(box, conversation!)).toBe(false)
+  }
 })
 
 test('selects a module without moving it, and arrow keys move the focused module', async ({ page }) => {

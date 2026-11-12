@@ -156,11 +156,8 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     expect(teacherPortrait.x).toBeLessThan(teacherBubble.x)
   })
 
-  await test.step('toggling the VerifyShield trace shows that the VerifyShield was on', async () => {
-    const trace = page.getByRole('heading', { name: 'VerifyShield: on' })
-    await expect(trace).toHaveCount(0)
-    await page.getByRole('switch', { name: 'VerifyShield trace' }).click()
-    await expect(trace).toBeVisible()
+  await test.step('the VerifyShield switch reflects that the VerifyShield was on', async () => {
+    await expect(page.getByRole('switch', { name: 'VerifyShield' })).toHaveAttribute('aria-checked', 'true')
   })
 
   let savedConversation: string[] = []

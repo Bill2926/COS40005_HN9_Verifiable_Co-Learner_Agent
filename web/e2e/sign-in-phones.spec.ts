@@ -7,13 +7,14 @@ import { resetDemoAccounts } from './reset-demo-accounts'
 
 const widths = [320, 375, 390, 430, 768, 1024, 1440] as const
 
-test('the Swinburne logo sits above the sign-in card on a desktop and a phone', async ({ page }) => {
+test('the Swinburne logo sits beside the form on a desktop and above it on a phone', async ({ page }) => {
   for (const size of [
     { width: 1440, height: 900 },
     { width: 375, height: 667 },
   ]) {
     await page.setViewportSize(size)
     await page.goto('/sign-in')
+    await page.evaluate(() => Promise.allSettled(document.getAnimations().map(animation => animation.finished)))
 
     const logo = page.getByRole('img', { name: 'Swinburne University of Technology' })
     const form = page.locator('form')
@@ -23,7 +24,12 @@ test('the Swinburne logo sits above the sign-in card on a desktop and a phone', 
     const formBox = await form.boundingBox()
     expect(logoBox).not.toBeNull()
     expect(formBox).not.toBeNull()
-    expect(logoBox!.y + logoBox!.height).toBeLessThanOrEqual(formBox!.y)
+    if (size.width >= 1024) {
+      expect(logoBox!.x + logoBox!.width).toBeLessThanOrEqual(formBox!.x)
+    }
+    else {
+      expect(logoBox!.y + logoBox!.height).toBeLessThanOrEqual(formBox!.y)
+    }
 
     const email = page.getByLabel('Email')
     const password = page.getByLabel('Password')
@@ -35,6 +41,20 @@ test('the Swinburne logo sits above the sign-in card on a desktop and a phone', 
       expect(box!.y + box!.height).toBeLessThanOrEqual(size.height)
     }
   }
+})
+
+test('the logo intro plays on the first visit only and the form works throughout', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.goto('/sign-in')
+  await expect(page.locator('html')).not.toHaveAttribute('data-intro')
+  const running = await page.locator('aside [data-intro-lockup]').evaluate(element => element.getAnimations().length)
+  expect(running).toBeGreaterThan(0)
+  await page.getByLabel('Email').fill('typed-during-intro@example.com')
+  await expect(page.getByLabel('Email')).toHaveValue('typed-during-intro@example.com')
+
+  await page.reload()
+  const again = await page.locator('aside [data-intro-lockup]').evaluate(element => element.getAnimations().length)
+  expect(again).toBe(0)
 })
 
 test('sign-in fits the listed widths and the desktop page stays as it is', async ({ page }) => {
@@ -165,24 +185,27 @@ test('the workspace failure screen fits at every width', async ({ page }) => {
 })
 
 async function expectDesktopSignIn(page: Page) {
-  const header = page.locator('header')
+  const panel = page.locator('aside')
   const main = page.locator('main')
   const form = page.locator('form')
   const email = page.getByLabel('Email')
   const password = page.getByLabel('Password')
   const signIn = page.getByRole('button', { name: 'Sign in', exact: true })
 
-  await expect(header).toHaveCSS('padding', '16px 32px')
+  await expect(page.locator('header')).toBeHidden()
+  await expect(panel).toHaveCSS('padding', '48px')
   await expect(main).toHaveCSS('padding', '24px')
   await expect(form).toHaveCSS('padding', '32px')
+
+  const panelBox = await panel.boundingBox()
+  expect(panelBox).not.toBeNull()
+  expect(panelBox!.width).toBe(720)
+  expect(panelBox!.height).toBe(900)
 
   const formBox = await form.boundingBox()
   expect(formBox).not.toBeNull()
   expect(formBox!.width).toBe(384)
-  expect(formBox!.x).toBeCloseTo(528, 0)
-
-  const shellHeight = await header.evaluate(element => element.parentElement?.getBoundingClientRect().height ?? 0)
-  expect(shellHeight).toBe(900)
+  expect(formBox!.x).toBeCloseTo(888, 0)
 
   for (const field of [email, password]) {
     await expect(field).toHaveCSS('font-size', '14px')
