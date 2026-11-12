@@ -46,20 +46,20 @@ const groups = computed(() => {
 function cardClass(module: RoadmapModule): string {
   const cursor = module.state === 'closed' ? 'cursor-default' : 'cursor-pointer'
   if (module.state === 'closed') {
-    return `${cursor} flex flex-col gap-1 bg-slate-100/70 opacity-80 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)]`
+    return `${cursor} bg-slate-100/70 opacity-80 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)] active:!translate-y-0`
   }
   if (module.current) {
     return `${cursor} bg-indigo-50/60 shadow-[inset_0_0_0_1px_#a5b4fc,0px_0px_0px_1px_rgba(199,210,254,0.6)]`
   }
-  return `${cursor} bg-white shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)]`
+  return `${cursor} bg-white shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)] hover:-translate-y-px hover:shadow-[inset_0_0_0_1px_rgba(165,180,252,0.9),0px_2px_6px_rgba(15,23,42,0.06)]`
 }
 </script>
 
 <template>
   <aside class="h-full min-h-0 min-w-0 flex-col border-r border-slate-200 bg-slate-50/80 md:max-lg:block md:max-lg:h-auto md:max-lg:overflow-x-auto md:max-lg:overflow-y-hidden md:max-lg:border-r-0 md:max-lg:border-b lg:flex">
-    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:max-lg:w-max md:max-lg:min-w-full md:max-lg:flex-none md:max-lg:flex-row md:max-lg:items-center md:max-lg:overflow-visible">
-      <div class="flex items-center justify-between gap-2 md:max-lg:w-36 md:max-lg:shrink-0 md:max-lg:flex-col md:max-lg:items-start">
-        <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-400 uppercase">
+    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-4 md:max-lg:w-max md:max-lg:min-w-full md:max-lg:flex-none md:max-lg:flex-row md:max-lg:items-center md:max-lg:overflow-visible lg:gap-3 lg:px-3 lg:pt-0">
+      <div class="flex items-center justify-between gap-2 md:max-lg:w-36 md:max-lg:shrink-0 md:max-lg:flex-col md:max-lg:items-start lg:sticky lg:top-0 lg:z-10 lg:-mx-3 lg:h-14 lg:shrink-0 lg:flex-col lg:items-start lg:justify-center lg:gap-0.5 lg:border-b lg:border-slate-200 lg:bg-white lg:px-6">
+        <h2 class="text-xs leading-4 font-semibold tracking-[-0.2px] text-slate-800">
           Course roadmap
         </h2>
         <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-400">
@@ -73,7 +73,7 @@ function cardClass(module: RoadmapModule): string {
         >
           <li
             role="presentation"
-            class="px-1 pt-2 md:max-lg:flex md:max-lg:w-40 md:max-lg:shrink-0 md:max-lg:items-center md:max-lg:pt-0"
+            class="px-1 pt-2 md:max-lg:flex md:max-lg:w-40 md:max-lg:shrink-0 md:max-lg:items-center md:max-lg:pt-0 lg:px-3 lg:pt-3 lg:pb-0.5 first:lg:pt-1"
           >
             <h3 class="text-[10px] font-semibold tracking-[0.4px] text-slate-400 uppercase">
               {{ group.label }}
@@ -87,37 +87,35 @@ function cardClass(module: RoadmapModule): string {
           >
             <button
               type="button"
-              class="w-full rounded-[4px] p-[11px] text-left"
+              class="w-full rounded-[6px] px-3 py-2.5 text-left"
               :class="cardClass(module)"
               :aria-busy="pendingModuleId === module.id ? true : undefined"
               @pointerenter="onHover($event, module)"
               @click="emit('selectModule', module.id)"
             >
               <template v-if="module.state === 'closed'">
-                <div class="flex items-center justify-between gap-2">
-                  <p class="flex min-w-0 items-center gap-1.5 text-xs font-medium leading-4 text-slate-600">
-                    <img
-                      src="/course-roadmap-lock.svg"
-                      alt=""
-                      width="12"
-                      height="12"
-                    >
-                    {{ module.name }}
-                  </p>
-                  <p class="shrink-0 font-mono text-[10px] leading-[15px] text-slate-400">
-                    Closed
-                  </p>
-                </div>
-                <p class="min-h-[17px] text-[11px] leading-[16.5px] text-slate-400">
+                <p class="flex min-w-0 items-start gap-1.5 text-xs leading-4 font-medium text-slate-600">
+                  <img
+                    src="/course-roadmap-lock.svg"
+                    alt=""
+                    width="12"
+                    height="12"
+                    class="mt-0.5 shrink-0"
+                  >
+                  {{ module.name }}
+                </p>
+                <p class="mt-1.5 flex items-center gap-1.5 text-[11px] leading-4 text-slate-400">
+                  <span class="font-mono text-[10px]">Closed</span>
+                  <span aria-hidden="true">·</span>
                   {{ module.closedReason }}
                 </p>
               </template>
               <div
                 v-else
-                class="flex items-center justify-between gap-2"
+                class="flex flex-col items-start gap-1.5"
               >
                 <p
-                  class="min-w-0 text-xs leading-4"
+                  class="min-w-0 text-xs leading-4 text-pretty"
                   :class="module.current ? 'font-semibold text-indigo-950' : 'font-medium text-slate-800'"
                 >
                   {{ module.name }}

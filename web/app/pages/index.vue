@@ -406,7 +406,7 @@ function initialsOf(name: string): string {
     :data-layout="layout"
     class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-elevated"
   >
-    <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:h-12 md:flex-nowrap md:gap-4">
+    <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:grid md:h-12 md:grid-cols-[1fr_auto_1fr] md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <img
           src="/swinburne-logo.svg"
@@ -431,13 +431,13 @@ function initialsOf(name: string): string {
           <a
             :href="href ?? undefined"
             class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 md:inline md:min-h-0 md:min-w-0"
-            :class="layout === option.id ? 'bg-white font-medium text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-slate-500'"
+            :class="layout === option.id ? 'bg-white font-medium text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'"
             :aria-current="layout === option.id ? 'page' : undefined"
             @click="navigate"
           >{{ option.name }}</a>
         </NuxtLink>
       </nav>
-      <div class="flex shrink-0 items-center gap-2 md:gap-4">
+      <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
         <div class="flex items-center gap-2 border-r border-slate-200 pr-2 md:pr-[13px]">
           <span
             class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-medium leading-4 text-slate-700"
@@ -451,7 +451,7 @@ function initialsOf(name: string): string {
           color="neutral"
           variant="ghost"
           size="xs"
-          class="min-h-11 min-w-11 px-2 text-xs font-medium text-slate-500 md:min-h-0 md:min-w-0 md:px-0"
+          class="min-h-11 min-w-11 px-2 text-xs font-medium text-slate-500 hover:bg-transparent hover:text-slate-900 md:min-h-0 md:min-w-0 md:px-0"
           @click="signOut"
         >
           Sign out

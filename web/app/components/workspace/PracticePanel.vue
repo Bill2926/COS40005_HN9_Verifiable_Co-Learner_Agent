@@ -137,8 +137,8 @@ async function onSubmit() {
 function chipClass(selected: boolean): string {
   const shape = 'rounded-[4px] px-3 py-1.5 text-center text-xs leading-4 font-medium disabled:cursor-not-allowed max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center'
   return selected
-    ? `${shape} bg-slate-800 text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-slate-800 disabled:text-white`
-    : `${shape} border border-slate-200 bg-slate-100 text-slate-600 disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-600`
+    ? `${shape} border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] disabled:border-indigo-200 disabled:bg-indigo-50 disabled:text-indigo-800`
+    : `${shape} border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 disabled:border-slate-200 disabled:bg-white disabled:text-slate-600`
 }
 
 function onStop() {
@@ -182,7 +182,7 @@ function onStop() {
     </div>
 
     <section
-      class="flex flex-col gap-[3.5px] rounded-[8px] border border-slate-200 bg-slate-50 p-[17px]"
+      class="flex flex-col gap-1 rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3.5"
       aria-labelledby="exercise-statement"
     >
       <p
@@ -191,7 +191,7 @@ function onStop() {
       >
         Problem statement
       </p>
-      <p class="text-xs leading-[19.5px] text-slate-700">
+      <p class="text-[13px] leading-5 text-slate-700">
         <InlineText
           :text="exercise.statement"
           code-style="statement"
@@ -200,10 +200,10 @@ function onStop() {
     </section>
 
     <div>
-      <p class="text-sm font-medium">
+      <p class="text-xs leading-4 font-semibold text-slate-800">
         Draft
       </p>
-      <div class="mt-1 h-72 overflow-hidden rounded-md border border-default bg-default">
+      <div class="mt-2 h-72 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04)]">
         <PythonEditor
           :key="exercise.id"
           v-model="draft"
@@ -223,7 +223,7 @@ function onStop() {
       />
       <UButton
         label="Submit"
-        color="neutral"
+        color="primary"
         class="max-md:min-h-11 max-md:min-w-11"
         :disabled="busy || submitting"
         @click="onSubmit"

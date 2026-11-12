@@ -65,7 +65,7 @@ async function signIn() {
       </p>
     </header>
     <main class="phone-safe-bottom grid flex-1 place-items-center p-4 md:p-6">
-      <div class="flex w-full flex-col items-center gap-4 md:max-w-sm md:gap-6">
+      <div class="page-enter flex w-full flex-col items-center gap-4 md:max-w-sm md:gap-6">
         <img
           src="/swinburne-logo.svg"
           alt="Swinburne University of Technology"

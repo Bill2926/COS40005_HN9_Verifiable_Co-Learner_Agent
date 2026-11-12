@@ -61,8 +61,12 @@ watch(() => props.mode, (mode) => {
     aria-label="Working area"
     :aria-busy="pendingName.length > 0"
   >
-    <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 md:gap-4 md:px-8 md:pt-5 md:pb-[21px]">
-      <div class="flex min-w-0 flex-col gap-0.5">
+    <header
+      class="shrink-0 overflow-hidden border-b border-slate-200 bg-white px-4 py-3 [scrollbar-gutter:stable_both-edges] md:px-8"
+      :class="floating ? 'md:py-4' : 'md:flex md:min-h-14 md:items-center md:py-0'"
+    >
+      <div class="mx-auto flex w-full max-w-[656px] flex-wrap items-center justify-between gap-3 md:gap-4">
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5 max-md:basis-full">
         <p class="flex items-center gap-2 font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-slate-400 uppercase">
           Working area
           <span
@@ -70,15 +74,9 @@ watch(() => props.mode, (mode) => {
             class="hidden rounded-[4px] bg-[#f1f5f9] px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-[#475569] lg:inline"
           >ACTIVE</span>
         </p>
-        <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.5px] text-slate-900">
+        <h1 class="text-[18px] leading-6 font-semibold tracking-[-0.4px] text-balance text-slate-900">
           {{ pendingName || area.moduleName }}
         </h1>
-        <p
-          v-if="mode === 'learn' && pendingName.length === 0"
-          class="pt-0.5 text-xs leading-4 text-slate-500 max-md:hidden"
-        >
-          <InlineText :text="area.materials.scopeNote" />
-        </p>
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <div
@@ -106,7 +104,7 @@ watch(() => props.mode, (mode) => {
         <button
           v-if="floating"
           type="button"
-          class="hidden rounded-[4px] p-1 lg:block"
+          class="hidden rounded-[4px] p-1 hover:bg-slate-100 lg:block"
           :aria-expanded="expanded !== false"
           :aria-label="bodyShown ? 'Collapse working area' : 'Expand working area'"
           @click="toggleExpanded"
@@ -119,15 +117,16 @@ watch(() => props.mode, (mode) => {
           >
         </button>
       </div>
+      </div>
     </header>
 
     <div
-      class="min-h-0 min-w-0 flex-1 overflow-y-auto"
+      class="min-h-0 min-w-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
       :class="floating && expanded === false ? 'lg:hidden' : ''"
     >
       <div
         v-if="pendingName"
-        class="flex w-full max-w-[672px] flex-col gap-4 p-8"
+        class="mx-auto flex w-full max-w-[720px] flex-col gap-4 px-4 py-6 md:p-8"
         role="status"
         aria-live="polite"
       >
@@ -141,25 +140,28 @@ watch(() => props.mode, (mode) => {
       <p
         v-else-if="selectError && mode === 'learn'"
         role="alert"
-        class="px-8 pt-4 text-sm text-rose-600"
+        class="mx-auto w-full max-w-[720px] px-4 pt-4 text-sm text-rose-600 md:px-8"
       >
         {{ selectError }}
       </p>
       <article
         v-if="!pendingName && mode === 'learn'"
-        class="flex w-full max-w-[672px] flex-col gap-6 p-8"
+        class="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
-        <div class="flex flex-col gap-[7px]">
+        <div class="flex flex-col gap-2">
+          <p class="text-xs leading-4 text-slate-500 max-md:hidden">
+            <InlineText :text="area.materials.scopeNote" />
+          </p>
           <h2 class="text-base leading-6 font-semibold tracking-[-0.4px] text-slate-900">
             <InlineText :text="area.materials.heading" />
           </h2>
-          <p class="text-sm leading-[22.75px] text-slate-600">
+          <p class="text-sm leading-6 text-slate-600">
             <InlineText :text="area.materials.body" />
           </p>
         </div>
 
         <div class="overflow-hidden rounded-[8px] border border-slate-200 bg-slate-50/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-          <div class="flex items-center justify-between border-b border-slate-200 bg-slate-100/60 px-4 pt-2 pb-[9px]">
+          <div class="flex h-9 items-center justify-between border-b border-slate-200 bg-slate-100/60 px-4">
             <p class="font-mono text-[11px] leading-[16.5px] text-slate-500">
               Example
             </p>
@@ -171,13 +173,13 @@ watch(() => props.mode, (mode) => {
         </div>
 
         <section
-          class="flex flex-col gap-1.5 rounded-[6px] border border-slate-200/70 bg-slate-50 p-[17px]"
+          class="flex flex-col gap-1 rounded-[8px] border border-slate-200 border-l-indigo-400 border-l-2 bg-slate-50 px-4 py-3.5"
           aria-label="Key point"
         >
-          <h3 class="text-xs leading-[19.5px] font-medium text-slate-800">
+          <h3 class="text-xs leading-5 font-semibold text-slate-800">
             Key point
           </h3>
-          <p class="text-xs leading-[19.5px] text-slate-600">
+          <p class="text-[13px] leading-5 text-slate-600">
             <InlineText :text="area.materials.keyPoint" />
           </p>
         </section>
@@ -186,7 +188,7 @@ watch(() => props.mode, (mode) => {
       <div
         v-if="!pendingName && practiceOpened && studentId"
         v-show="mode === 'practice'"
-        class="w-full max-w-[768px] p-8"
+        class="mx-auto w-full max-w-[720px] px-4 py-6 md:p-8"
       >
         <PracticePanel
           :exercise="area.exercise"
