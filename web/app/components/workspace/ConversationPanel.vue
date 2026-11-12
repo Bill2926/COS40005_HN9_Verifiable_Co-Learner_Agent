@@ -210,24 +210,26 @@ watch(() => props.sending, (sending) => {
     class="flex h-full min-h-0 min-w-0 flex-col bg-slate-50/40"
     aria-label="Conversation"
   >
-    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 md:h-14">
-      <div class="flex min-w-0 items-center gap-[10px]">
-        <h2 class="text-xs font-semibold leading-4 tracking-[-0.3px] text-slate-800">
-          Conversation
-        </h2>
-        <span
-          v-if="floating"
-          class="hidden size-1.5 shrink-0 rounded-full bg-[#10b981] lg:block"
-          aria-hidden="true"
-        />
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 md:h-14 md:flex-nowrap lg:px-6">
+      <div class="flex min-w-0 flex-col gap-0.5">
+        <div class="flex items-center gap-2">
+          <h2 class="text-xs leading-4 font-semibold tracking-[-0.2px] text-slate-800">
+            Conversation
+          </h2>
+          <span
+            v-if="floating"
+            class="hidden size-1.5 shrink-0 rounded-full bg-[#10b981] lg:block"
+            aria-hidden="true"
+          />
+        </div>
         <p class="font-mono text-[10px] leading-[15px] text-slate-400 max-md:hidden">
           Teacher + Deskmate
         </p>
       </div>
-      <div class="flex items-center gap-2">
+      <div class="flex shrink-0 items-center gap-2">
         <span
           id="conversation-trace"
-          class="text-[11px] leading-[16.5px] text-slate-400"
+          class="text-[11px] leading-[16.5px] text-slate-500"
         >VerifyShield trace</span>
         <button
           type="button"
@@ -296,7 +298,7 @@ watch(() => props.sending, (sending) => {
 
     <div
       ref="scroller"
-      class="min-h-0 flex-1 overflow-y-auto p-4"
+      class="min-h-0 flex-1 overflow-y-auto px-4 py-5"
     >
       <p
         v-if="loading"
@@ -323,7 +325,7 @@ watch(() => props.sending, (sending) => {
         >
           <p
             v-if="row.kind === 'event'"
-            class="rounded-[4px] bg-slate-100 px-2 text-center font-mono text-[10px] leading-[15px] text-slate-400"
+            class="rounded-full bg-slate-100 px-2.5 py-0.5 text-center font-mono text-[10px] leading-[15px] text-slate-500"
           >
             {{ row.name }} · {{ row.text }}
           </p>
@@ -345,7 +347,7 @@ watch(() => props.sending, (sending) => {
               >
             </span>
             <article
-              class="w-fit max-w-full min-w-0 text-[12px] leading-[19.5px]"
+              class="w-fit max-w-full min-w-0 text-[13px] leading-5"
               :class="bubbleClass[row.author]"
             >
               <p class="mb-0.5 text-[12px] leading-4 font-semibold" :class="nameClass[row.author]">
@@ -376,7 +378,7 @@ watch(() => props.sending, (sending) => {
               >
             </span>
             <article
-              class="w-fit max-w-full min-w-0 text-[12px] leading-[19.5px] break-words"
+              class="w-fit max-w-full min-w-0 text-[13px] leading-5 break-words"
               :class="bubbleClass[row.author]"
             >
               <p class="mb-0.5 flex items-baseline gap-1.5">
@@ -400,7 +402,7 @@ watch(() => props.sending, (sending) => {
               <button
                 v-if="row.openInLearn"
                 type="button"
-                class="mt-2 text-[11px] leading-4 font-medium text-indigo-700"
+                class="mt-2 text-[11px] leading-4 font-medium text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-700"
                 @click="emit('openLearn')"
               >
                 Open in Learn
@@ -412,7 +414,7 @@ watch(() => props.sending, (sending) => {
     </div>
 
     <form
-      class="shrink-0 border-t border-slate-200 bg-white px-3 pt-[13px] pb-3"
+      class="shrink-0 border-t border-slate-200 bg-white p-3 md:px-4"
       @submit.prevent="submit"
     >
       <div class="flex items-center gap-2">
@@ -428,7 +430,7 @@ watch(() => props.sending, (sending) => {
         </label>
         <button
           type="submit"
-          class="h-11 min-w-11 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] disabled:bg-indigo-600 disabled:text-white disabled:opacity-100 md:h-8 md:min-w-0"
+          class="h-11 min-w-11 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-indigo-700 disabled:bg-indigo-600 disabled:text-white disabled:opacity-100 md:h-[34px] md:min-w-0 md:px-3.5"
           :disabled="sending || text.trim().length === 0"
           :aria-busy="sending"
         >

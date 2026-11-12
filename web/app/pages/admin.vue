@@ -160,7 +160,8 @@ function messageFrom(caught: unknown): string {
 
 <template>
   <div class="flex min-h-dvh flex-col bg-muted">
-    <header class="phone-safe-top flex shrink-0 items-center justify-between border-b border-default/80 bg-default px-4 py-4 md:px-8">
+    <header class="phone-safe-top shrink-0 border-b border-default/80 bg-default px-4 py-4 md:px-8">
+      <div class="mx-auto flex w-full max-w-[86rem] items-center justify-between">
       <p class="flex items-center gap-2 text-sm font-semibold tracking-tight text-highlighted">
         <img
           src="/swinburne-logo.svg"
@@ -173,12 +174,13 @@ function messageFrom(caught: unknown): string {
       </p>
       <NuxtLink
         to="/"
-        class="text-sm text-muted hover:text-highlighted"
+        class="text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current"
       >
         Back to the course
       </NuxtLink>
+      </div>
     </header>
-    <main class="phone-safe-bottom flex flex-1 flex-col gap-6 p-4 md:p-8">
+    <main class="phone-safe-bottom mx-auto flex w-full max-w-[90rem] flex-1 flex-col gap-6 p-4 md:p-8">
       <p
         v-if="refused"
         role="alert"
@@ -194,7 +196,9 @@ function messageFrom(caught: unknown): string {
         This page is unavailable right now.
       </p>
       <template v-else-if="data">
-        <section class="flex flex-col gap-2 rounded-lg border border-default bg-default p-4 shadow-xs md:max-w-md md:p-6">
+        <div class="grid gap-6 2xl:grid-cols-[24rem_minmax(0,1fr)] 2xl:items-start">
+        <div class="page-enter grid divide-y divide-default overflow-hidden rounded-lg border border-default bg-default shadow-xs lg:grid-cols-2 lg:divide-x lg:divide-y-0 2xl:sticky 2xl:top-8 2xl:grid-cols-1 2xl:divide-x-0 2xl:divide-y">
+        <section class="flex flex-col gap-2 p-4 md:p-8">
           <h1 class="text-xl font-semibold tracking-tight text-highlighted">
             Decisions
           </h1>
@@ -222,157 +226,9 @@ function messageFrom(caught: unknown): string {
             {{ switchError }}
           </p>
         </section>
-        <section class="flex flex-col gap-4">
-          <form
-            class="flex flex-col gap-3 md:flex-row md:items-end"
-            @submit.prevent="applyFilters"
-          >
-            <label class="flex flex-col gap-1.5 text-xs font-medium leading-4 text-default">
-              <span>Verdict</span>
-              <select
-                v-model="verdict"
-                name="verdict"
-                class="min-h-11 rounded-sm border border-default bg-default px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5"
-              >
-                <option value="">
-                  All
-                </option>
-                <option value="allow">
-                  Allow
-                </option>
-                <option value="block">
-                  Block
-                </option>
-                <option value="downgrade">
-                  Downgrade
-                </option>
-              </select>
-            </label>
-            <label class="flex min-w-0 flex-1 flex-col gap-1.5 text-xs font-medium leading-4 text-default">
-              <span>Student</span>
-              <UInput
-                v-model="studentId"
-                type="text"
-                name="studentId"
-                autocomplete="off"
-                color="neutral"
-                fixed
-                class="w-full"
-                :ui="{ base: inputClass }"
-              />
-            </label>
-            <UButton
-              type="submit"
-              size="lg"
-              class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 md:min-h-0"
-            >
-              Filter
-            </UButton>
-          </form>
-          <div class="overflow-x-auto rounded-lg border border-default bg-default shadow-xs">
-            <table class="w-full min-w-[64rem] border-collapse text-left text-xs leading-4 text-default">
-              <caption class="px-4 py-3 text-left text-sm font-medium text-highlighted">
-                Newest 100 decisions
-              </caption>
-              <thead class="border-y border-default bg-muted text-muted">
-                <tr>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Time
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Student
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Turn
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Agent
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Proposed move
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Verdict
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Rule
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Reason
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Masteries
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    Unlocked modules
-                  </th>
-                  <th scope="col" class="px-3 py-2 font-medium">
-                    VerifyShield
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-if="data.decisions.length === 0">
-                  <td
-                    colspan="11"
-                    class="px-3 py-6 text-muted"
-                  >
-                    No decisions.
-                  </td>
-                </tr>
-                <tr
-                  v-for="decision in data.decisions"
-                  :key="`${decision.turnId}-${decision.agent}`"
-                  class="border-t border-default align-top"
-                >
-                  <td class="px-3 py-2 whitespace-nowrap">
-                    <time :datetime="decision.time">{{ timeText(decision.time) }}</time>
-                  </td>
-                  <td class="px-3 py-2 font-mono break-all">
-                    {{ decision.studentId }}
-                  </td>
-                  <td class="px-3 py-2 font-mono break-all">
-                    {{ decision.turnId }}
-                  </td>
-                  <td class="px-3 py-2 whitespace-nowrap">
-                    {{ decision.agent === 'teacher' ? 'Teacher' : 'Deskmate' }}
-                  </td>
-                  <td class="px-3 py-2">
-                    {{ proposedText(decision) }}
-                  </td>
-                  <td class="px-3 py-2">
-                    {{ verdictText(decision) }}
-                  </td>
-                  <td class="px-3 py-2">
-                    {{ decision.ruleId }}
-                  </td>
-                  <td class="px-3 py-2">
-                    {{ decision.reasonCode }}
-                  </td>
-                  <td class="px-3 py-2">
-                    <ul>
-                      <li
-                        v-for="item in decision.masteries"
-                        :key="item.moduleId"
-                      >
-                        {{ item.moduleId }} {{ item.mastery.toFixed(2) }}
-                      </li>
-                    </ul>
-                  </td>
-                  <td class="px-3 py-2">
-                    {{ decision.unlockedModuleIds.join(', ') }}
-                  </td>
-                  <td class="px-3 py-2 whitespace-nowrap">
-                    {{ decision.verifyShieldOn ? 'On' : 'Off' }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
         <form
           method="post"
-          class="flex w-full flex-col gap-6 rounded-lg border border-default bg-default p-4 shadow-xs md:max-w-md md:p-8"
+          class="flex w-full flex-col gap-6 p-4 md:p-8"
           @submit.prevent="save"
         >
           <div class="flex flex-col gap-1">
@@ -486,6 +342,164 @@ function messageFrom(caught: unknown): string {
           Save
         </UButton>
         </form>
+        </div>
+        <section class="flex min-w-0 flex-col gap-4">
+          <form
+            class="flex flex-col gap-3 md:flex-row md:items-end"
+            @submit.prevent="applyFilters"
+          >
+            <label class="flex flex-col gap-1.5 text-xs font-medium leading-4 text-default">
+              <span>Verdict</span>
+              <select
+                v-model="verdict"
+                name="verdict"
+                class="min-h-11 rounded-sm border border-default bg-default px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5"
+              >
+                <option value="">
+                  All
+                </option>
+                <option value="allow">
+                  Allow
+                </option>
+                <option value="block">
+                  Block
+                </option>
+                <option value="downgrade">
+                  Downgrade
+                </option>
+              </select>
+            </label>
+            <label class="flex min-w-0 flex-1 flex-col gap-1.5 text-xs font-medium leading-4 text-default">
+              <span>Student</span>
+              <UInput
+                v-model="studentId"
+                type="text"
+                name="studentId"
+                autocomplete="off"
+                color="neutral"
+                fixed
+                class="w-full"
+                :ui="{ base: inputClass }"
+              />
+            </label>
+            <UButton
+              type="submit"
+              size="lg"
+              class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 md:min-h-0"
+            >
+              Filter
+            </UButton>
+          </form>
+          <div class="overflow-x-auto rounded-lg border border-default bg-default shadow-xs">
+            <table class="w-full min-w-[56rem] border-collapse text-left text-xs leading-4 text-default">
+              <caption class="px-4 py-3 text-left text-sm font-medium text-highlighted">
+                Newest 100 decisions
+              </caption>
+              <thead class="border-y border-default bg-muted text-muted">
+                <tr>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Time
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Student
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Turn
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Agent
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Proposed move
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Verdict
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Rule
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Reason
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Masteries
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Unlocked modules
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    VerifyShield
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="data.decisions.length === 0">
+                  <td
+                    colspan="11"
+                    class="px-3 py-6 text-muted"
+                  >
+                    No decisions.
+                  </td>
+                </tr>
+                <tr
+                  v-for="decision in data.decisions"
+                  :key="`${decision.turnId}-${decision.agent}`"
+                  class="border-t border-default align-top hover:bg-elevated/60"
+                >
+                  <td class="px-3 py-2 whitespace-nowrap">
+                    <time :datetime="decision.time">{{ timeText(decision.time) }}</time>
+                  </td>
+                  <td class="px-3 py-2 font-mono">
+                    <span
+                      class="block max-w-[9ch] truncate"
+                      :title="decision.studentId"
+                    >{{ decision.studentId }}</span>
+                  </td>
+                  <td class="px-3 py-2 font-mono">
+                    <span
+                      class="block max-w-[9ch] truncate"
+                      :title="decision.turnId"
+                    >{{ decision.turnId }}</span>
+                  </td>
+                  <td class="px-3 py-2 whitespace-nowrap">
+                    {{ decision.agent === 'teacher' ? 'Teacher' : 'Deskmate' }}
+                  </td>
+                  <td class="px-3 py-2">
+                    {{ proposedText(decision) }}
+                  </td>
+                  <td class="px-3 py-2">
+                    {{ verdictText(decision) }}
+                  </td>
+                  <td class="px-3 py-2 [overflow-wrap:anywhere]">
+                    {{ decision.ruleId }}
+                  </td>
+                  <td class="px-3 py-2 [overflow-wrap:anywhere]">
+                    {{ decision.reasonCode }}
+                  </td>
+                  <td class="px-3 py-2">
+                    <ul class="flex flex-col gap-0.5">
+                      <li
+                        v-for="item in decision.masteries"
+                        :key="item.moduleId"
+                        class="flex justify-between gap-3"
+                      >
+                        <span class="min-w-0 [overflow-wrap:anywhere]">{{ item.moduleId }}</span>
+                        <span class="font-mono text-muted tabular-nums">{{ item.mastery.toFixed(2) }}</span>
+                      </li>
+                    </ul>
+                  </td>
+                  <td class="px-3 py-2">
+                    {{ decision.unlockedModuleIds.join(', ') }}
+                  </td>
+                  <td class="px-3 py-2 whitespace-nowrap">
+                    {{ decision.verifyShieldOn ? 'On' : 'Off' }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+        </div>
       </template>
     </main>
   </div>
