@@ -11,7 +11,7 @@ defineProps<{ nodes: InlineNode[] }>()
   >
     <code
       v-if="node.type === 'code'"
-      class="rounded-[4px] border border-black/10 bg-white/70 px-1 py-px font-mono text-[12px] leading-5 break-words"
+      class="rounded-[4px] border border-ink-950/10 bg-paper/70 px-1 py-px font-mono text-[12px] leading-5 break-words"
     >{{ node.value }}</code>
     <strong
       v-else-if="node.type === 'strong'"

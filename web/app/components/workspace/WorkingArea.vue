@@ -44,8 +44,8 @@ function choose(next: 'learn' | 'practice') {
 function modeClass(selected: boolean): string {
   const shape = 'rounded-[4px] px-[14px] py-1.5 text-xs leading-4 font-medium max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center'
   return selected
-    ? `${shape} bg-white text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]`
-    : `${shape} text-slate-500`
+    ? `${shape} bg-paper text-ink-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]`
+    : `${shape} text-ink-500`
 }
 
 watch(() => props.mode, (mode) => {
@@ -55,35 +55,35 @@ watch(() => props.mode, (mode) => {
 
 <template>
   <section
-    class="flex min-h-0 min-w-0 flex-col bg-white"
+    class="flex min-h-0 min-w-0 flex-col bg-paper"
     :class="[
-      floating ? 'md:max-lg:border-r md:max-lg:border-slate-200' : 'border-r border-slate-200',
+      floating ? 'md:max-lg:border-r md:max-lg:border-ink-200' : 'border-r border-ink-200',
       floating && expanded === false ? 'h-full lg:h-auto' : 'h-full',
     ]"
     aria-label="Working area"
     :aria-busy="pendingName.length > 0"
   >
     <header
-      class="shrink-0 overflow-hidden border-b border-slate-200 bg-white px-4 py-3 [scrollbar-gutter:stable_both-edges] md:px-8"
+      class="shrink-0 overflow-hidden border-b border-ink-200 bg-paper px-4 py-3 [scrollbar-gutter:stable_both-edges] md:px-8"
       :class="floating ? 'md:py-4' : 'md:flex md:min-h-14 md:items-center md:py-0'"
     >
       <div class="mx-auto flex w-full max-w-[656px] flex-wrap items-center justify-between gap-3 md:gap-4">
       <div class="flex min-w-0 flex-1 flex-col gap-0.5 max-md:basis-full">
-        <p class="flex items-center gap-2 font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-slate-400 uppercase">
+        <p class="flex items-center gap-2 font-mono text-[11px] leading-[16.5px] tracking-[0.55px] text-ink-400 uppercase">
           Working area
           <span
             v-if="floating"
-            class="hidden rounded-[4px] bg-[#f1f5f9] px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-[#475569] lg:inline"
+            class="hidden rounded-[4px] bg-ink-100 px-1.5 py-0.5 font-sans text-[10px] leading-[15px] font-medium tracking-[0.25px] text-ink-600 lg:inline"
           >ACTIVE</span>
         </p>
-        <h1 class="text-[18px] leading-6 font-semibold tracking-[-0.4px] text-balance text-slate-900">
+        <h1 class="text-[18px] leading-6 font-semibold tracking-[-0.4px] text-balance text-ink-900">
           {{ pendingName || area.moduleName }}
         </h1>
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <div
           v-if="!floating"
-          class="flex rounded-[6px] border border-slate-200/80 bg-slate-100 p-[5px]"
+          class="flex rounded-[6px] border border-ink-200/80 bg-ink-100 p-[5px]"
           role="group"
           aria-label="Working area mode"
         >
@@ -108,7 +108,7 @@ watch(() => props.mode, (mode) => {
         <button
           v-if="floating"
           type="button"
-          class="hidden rounded-[4px] p-1 hover:bg-slate-100 lg:block"
+          class="hidden rounded-[4px] p-1 hover:bg-ink-100 lg:block"
           :aria-expanded="expanded !== false"
           :aria-label="bodyShown ? 'Collapse working area' : 'Expand working area'"
           @click="toggleExpanded"
@@ -134,12 +134,12 @@ watch(() => props.mode, (mode) => {
         role="status"
         aria-live="polite"
       >
-        <p class="text-sm text-slate-500">
+        <p class="text-sm text-ink-500">
           Loading {{ pendingName }}
         </p>
-        <div class="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
-        <div class="h-28 animate-pulse rounded-lg bg-slate-100" />
-        <div class="h-16 animate-pulse rounded-lg bg-slate-100" />
+        <div class="h-4 w-2/3 animate-pulse rounded bg-ink-200" />
+        <div class="h-28 animate-pulse rounded-lg bg-ink-100" />
+        <div class="h-16 animate-pulse rounded-lg bg-ink-100" />
       </div>
       <p
         v-else-if="selectError && shownMode === 'learn'"
@@ -153,23 +153,23 @@ watch(() => props.mode, (mode) => {
         class="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
         <div class="flex flex-col gap-2">
-          <p class="text-xs leading-4 text-slate-500 max-md:hidden">
+          <p class="text-xs leading-4 text-ink-500 max-md:hidden">
             <InlineText :text="area.materials.scopeNote" />
           </p>
-          <h2 class="text-base leading-6 font-semibold tracking-[-0.4px] text-slate-900">
+          <h2 class="text-base leading-6 font-semibold tracking-[-0.4px] text-ink-900">
             <InlineText :text="area.materials.heading" />
           </h2>
-          <p class="text-sm leading-6 text-slate-600">
+          <p class="text-sm leading-6 text-ink-600">
             <InlineText :text="area.materials.body" />
           </p>
         </div>
 
-        <div class="overflow-hidden rounded-[8px] border border-slate-200 bg-slate-50/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-          <div class="flex h-9 items-center justify-between border-b border-slate-200 bg-slate-100/60 px-4">
-            <p class="font-mono text-[11px] leading-[16.5px] text-slate-500">
+        <div class="overflow-hidden rounded-[8px] border border-ink-200 bg-ink-50/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
+          <div class="flex h-9 items-center justify-between border-b border-ink-200 bg-ink-100/60 px-4">
+            <p class="font-mono text-[11px] leading-[16.5px] text-ink-500">
               Example
             </p>
-            <p class="font-mono text-[10px] leading-[15px] text-slate-400">
+            <p class="font-mono text-[10px] leading-[15px] text-ink-400">
               Python
             </p>
           </div>
@@ -177,13 +177,13 @@ watch(() => props.mode, (mode) => {
         </div>
 
         <section
-          class="flex flex-col gap-1 rounded-[8px] border border-slate-200 border-l-indigo-400 border-l-2 bg-slate-50 px-4 py-3.5"
+          class="flex flex-col gap-1 rounded-[8px] border border-ink-200 border-l-brand-400 border-l-2 bg-ink-50 px-4 py-3.5"
           aria-label="Key point"
         >
-          <h3 class="text-xs leading-5 font-semibold text-slate-800">
+          <h3 class="text-xs leading-5 font-semibold text-ink-800">
             Key point
           </h3>
-          <p class="text-[13px] leading-5 text-slate-600">
+          <p class="text-[13px] leading-5 text-ink-600">
             <InlineText :text="area.materials.keyPoint" />
           </p>
         </section>

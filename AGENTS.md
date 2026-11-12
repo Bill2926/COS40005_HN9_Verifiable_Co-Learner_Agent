@@ -8,6 +8,10 @@ Issues and specs live in GitHub Issues on `Bill2926/COS40005_HN9_Verifiable_Co-L
 
 The five default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
 
+### Colour palette
+
+Before styling any web UI (colour classes, hex values, buttons, chat bubbles), read `docs/agents/palette.md`.
+
 ### Domain docs
 
 Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.

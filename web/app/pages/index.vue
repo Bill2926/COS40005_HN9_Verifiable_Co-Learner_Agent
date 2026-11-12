@@ -85,7 +85,7 @@ const streamingDeskmate = ref('')
 const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
-const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-white lg:shadow-[0_0_0_1px_#e2e8f0,0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
+const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = [
   { id: 'roadmap', name: 'Roadmap' },
   { id: 'working', name: 'Working area' },
@@ -449,7 +449,7 @@ function initialsOf(name: string): string {
         <span class="max-md:sr-only">Verifiable Co-Learner</span>
       </p>
       <nav
-        class="flex items-center rounded-[6px] border border-slate-200/80 bg-slate-100 p-0.5"
+        class="flex items-center rounded-[6px] border border-ink-200/80 bg-ink-100 p-0.5"
         aria-label="Workspace layout"
       >
         <NuxtLink
@@ -462,27 +462,27 @@ function initialsOf(name: string): string {
           <a
             :href="href ?? undefined"
             class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 md:inline md:min-h-0 md:min-w-0"
-            :class="layout === option.id ? 'bg-white font-medium text-slate-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-slate-500 hover:bg-white/60 hover:text-slate-800'"
+            :class="layout === option.id ? 'bg-paper font-medium text-ink-900 shadow-[0px_1px_1px_rgba(0,0,0,0.05)]' : 'text-ink-500 hover:bg-paper/60 hover:text-ink-800'"
             :aria-current="layout === option.id ? 'page' : undefined"
             @click="navigate"
           >{{ option.name }}</a>
         </NuxtLink>
       </nav>
       <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
-        <div class="flex items-center gap-2 border-r border-slate-200 pr-2 md:pr-[13px]">
+        <div class="flex items-center gap-2 border-r border-ink-200 pr-2 md:pr-[13px]">
           <span
-            class="flex size-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-medium leading-4 text-slate-700"
+            class="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-[11px] font-medium leading-4 text-ink-700"
             aria-hidden="true"
           >{{ initialsOf(workspace.displayName) }}</span>
-          <span class="text-xs font-medium leading-4 text-slate-700 max-md:sr-only">{{ workspace.displayName }}</span>
-          <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-slate-400 uppercase max-md:hidden">Student</span>
+          <span class="text-xs font-medium leading-4 text-ink-700 max-md:sr-only">{{ workspace.displayName }}</span>
+          <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-ink-400 uppercase max-md:hidden">Student</span>
         </div>
         <UButton
           type="button"
           color="neutral"
           variant="ghost"
           size="xs"
-          class="min-h-11 min-w-11 px-2 text-xs font-medium text-slate-500 hover:bg-transparent hover:text-slate-900 md:min-h-0 md:min-w-0 md:px-0"
+          class="min-h-11 min-w-11 px-2 text-xs font-medium text-ink-500 hover:bg-transparent hover:text-ink-900 md:min-h-0 md:min-w-0 md:px-0"
           @click="signOut"
         >
           Sign out
@@ -490,7 +490,7 @@ function initialsOf(name: string): string {
       </div>
     </header>
     <div
-      class="flex shrink-0 border-b border-slate-200 bg-white md:hidden"
+      class="flex shrink-0 border-b border-ink-200 bg-paper md:hidden"
       role="tablist"
       aria-label="Panels"
     >
@@ -500,14 +500,14 @@ function initialsOf(name: string): string {
         type="button"
         role="tab"
         class="relative min-h-11 min-w-0 flex-1 truncate border-b-2 px-1 text-sm"
-        :class="phonePanel === panel.id ? 'border-indigo-600 font-medium text-slate-900' : 'border-transparent font-normal text-slate-500'"
+        :class="phonePanel === panel.id ? 'border-brand-600 font-medium text-ink-900' : 'border-transparent font-normal text-ink-500'"
         :aria-selected="phonePanel === panel.id"
         @click="choosePanel(panel.id)"
       >
         {{ panel.name }}
         <span
           v-if="panel.id === 'conversation' && conversationUnread"
-          class="absolute top-1.5 right-1.5 size-2 rounded-full bg-indigo-600"
+          class="absolute top-1.5 right-1.5 size-2 rounded-full bg-brand-600"
           role="img"
           aria-label="New reply"
         />
@@ -517,7 +517,7 @@ function initialsOf(name: string): string {
       class="min-h-0 min-w-0 flex-1"
       :class="layout === 'ide'
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
-        : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-[#f8fafc] md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
+        : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
       <RoadmapCanvas
         v-if="layout === 'roadmap'"

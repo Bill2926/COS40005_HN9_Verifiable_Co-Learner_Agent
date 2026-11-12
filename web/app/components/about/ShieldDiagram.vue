@@ -2,7 +2,7 @@
 // One turn through the VerifyShield: a student message, the two proposed moves,
 // the verdict, and the three ways it can go. Wording follows server/verdict/decide.ts.
 const proposals = [
-  { name: 'Teacher', move: 'explain_concept', portrait: '/portraits/teacher.png', frame: 'border-indigo-200 bg-indigo-50' },
+  { name: 'Teacher', move: 'explain_concept', portrait: '/portraits/teacher.png', frame: 'border-brand-200 bg-brand-50' },
   { name: 'Deskmate', move: 'peer_question', portrait: '/portraits/deskmate.png', frame: 'border-amber-200 bg-amber-50' },
 ] as const
 
@@ -17,9 +17,9 @@ const lanes = [
   <div
     role="img"
     aria-label="A student message goes to the teacher and deskmate, whose proposed moves pass through the VerifyShield, which allows, downgrades or blocks each one."
-    class="grid gap-3 rounded-xl border border-default bg-slate-50/60 p-4 md:grid-cols-[1fr_auto_1.1fr_auto_1fr_auto_1.6fr] md:items-center md:gap-0 md:p-6"
+    class="grid gap-3 rounded-xl border border-default bg-ink-50/60 p-4 md:grid-cols-[1fr_auto_1.1fr_auto_1fr_auto_1.6fr] md:items-center md:gap-0 md:p-6"
   >
-    <div class="rounded-lg border border-slate-200 bg-white p-3 text-[13px] leading-5 shadow-xs">
+    <div class="rounded-lg border border-ink-200 bg-paper p-3 text-[13px] leading-5 shadow-xs">
       <p class="text-[11px] font-semibold tracking-wide text-muted uppercase">
         Student
       </p>
@@ -34,7 +34,7 @@ const lanes = [
       <div
         v-for="proposal in proposals"
         :key="proposal.name"
-        class="flex items-center gap-2.5 rounded-lg border border-slate-200 bg-white p-2.5 shadow-xs"
+        class="flex items-center gap-2.5 rounded-lg border border-ink-200 bg-paper p-2.5 shadow-xs"
       >
         <span class="size-8 shrink-0 overflow-hidden rounded-[4px] border" :class="proposal.frame">
           <img :src="proposal.portrait" alt="" width="32" height="32" class="size-full object-cover [image-rendering:pixelated]">
@@ -48,13 +48,13 @@ const lanes = [
 
     <span class="shield-wire" aria-hidden="true"><i style="animation-delay: 0.9s" /></span>
 
-    <div class="flex flex-col items-center gap-2 rounded-lg bg-slate-900 p-4 text-center text-white shadow-sm">
-      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-indigo-300">
+    <div class="flex flex-col items-center gap-2 rounded-lg bg-feature p-4 text-center text-on-feature shadow-sm">
+      <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="text-feature-accent">
         <path d="M12 3 5 6v5c0 4.4 3 8.3 7 9.5 4-1.2 7-5.1 7-9.5V6l-7-3Z" />
         <path d="m9 12 2 2 4-4" />
       </svg>
       <span class="text-sm font-semibold">VerifyShield</span>
-      <span class="text-[11px] leading-4 text-slate-300">Same rules, same verdict, every time</span>
+      <span class="text-[11px] leading-4 text-feature-muted">Same rules, same verdict, every time</span>
     </div>
 
     <span class="shield-wire" aria-hidden="true"><i style="animation-delay: 1.8s" /></span>
@@ -63,7 +63,7 @@ const lanes = [
       <li
         v-for="lane in lanes"
         :key="lane.verdict"
-        class="flex items-start gap-2.5 rounded-lg border border-slate-200 bg-white p-2.5 text-[12px] leading-[18px] text-default shadow-xs"
+        class="flex items-start gap-2.5 rounded-lg border border-ink-200 bg-paper p-2.5 text-[12px] leading-[18px] text-default shadow-xs"
       >
         <span class="mt-px shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1" :class="lane.ring">
           {{ lane.verdict }}
@@ -81,7 +81,7 @@ const lanes = [
   justify-self: center;
   width: 2px;
   height: 20px;
-  background: var(--color-slate-300);
+  background: var(--color-ink-300);
   overflow: hidden;
 }
 .shield-wire i {
@@ -91,7 +91,7 @@ const lanes = [
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: var(--color-indigo-500);
+  background: var(--color-brand-500);
   animation: wire-down 2.7s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 @media (width >= 48rem) {

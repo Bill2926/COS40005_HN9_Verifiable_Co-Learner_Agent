@@ -27,7 +27,7 @@ const lastIndex = computed(() => blocks.value.length - 1)
       </p>
       <pre
         v-else-if="block.type === 'codeblock'"
-        class="overflow-x-auto rounded-[6px] border border-black/10 bg-white/70 px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre"
+        class="overflow-x-auto rounded-[6px] border border-ink-950/10 bg-paper/70 px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre"
       ><code>{{ block.value }}</code></pre>
       <component
         :is="block.ordered ? 'ol' : 'ul'"
