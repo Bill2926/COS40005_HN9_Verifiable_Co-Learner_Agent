@@ -20,18 +20,25 @@ export default defineEventHandler(async (event) => {
     secretKey: config.supabaseSecretKey,
   }
   const store = createSupabaseConversationStore(connection)
-  const model = await languageModelForTurn(createSupabaseModelSettingsStore(connection), {
-    provider: config.model,
-    apiKey: config.modelApiKey,
-    baseUrl: config.modelBaseUrl,
-    modelName: config.modelName,
-  })
-  const verifyShieldOn = await verifyShieldForTurn(
-    createSupabaseVerifyShieldStore(connection),
-    config.verifyShield,
-  )
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
+  // Opening a module does not call the model. Skip those reads so the click
+  // is not waiting on settings it will never use.
+  const navigation = isNavigationTurn(body)
+  const [model, verifyShieldOn] = navigation
+    ? [undefined, true] as const
+    : await Promise.all([
+        languageModelForTurn(createSupabaseModelSettingsStore(connection), {
+          provider: config.model,
+          apiKey: config.modelApiKey,
+          baseUrl: config.modelBaseUrl,
+          modelName: config.modelName,
+        }),
+        verifyShieldForTurn(
+          createSupabaseVerifyShieldStore(connection),
+          config.verifyShield,
+        ),
+      ])
   const options = {
     verifyShieldOn,
     decisions: createSupabaseDecisionLogStore(connection),
@@ -43,14 +50,18 @@ export default defineEventHandler(async (event) => {
 
     setResponseHeader(event, 'content-type', 'application/x-ndjson; charset=utf-8')
     setResponseHeader(event, 'cache-control', 'no-cache, no-transform')
+    setResponseHeader(event, 'x-accel-buffering', 'no')
     const encoder = new TextEncoder()
-    const stream = new ReadableStream({
-      async start(controller) {
+    const turns = streamTurn(request, store, model, options)
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
         try {
-          for await (const turnEvent of streamTurn(request, store, model, options)) {
-            controller.enqueue(encoder.encode(`${JSON.stringify(turnEvent)}\n`))
+          const next = await turns.next()
+          if (next.done) {
+            controller.close()
+            return
           }
-          controller.close()
+          controller.enqueue(encoder.encode(`${JSON.stringify(next.value)}\n`))
         }
         catch (error) {
           controller.error(error)
@@ -72,4 +83,11 @@ function isStreamedTurn(input: unknown): boolean {
     && input !== null
     && 'event' in input
     && (input.event === 'message' || input.event === 'submission')
+}
+
+function isNavigationTurn(input: unknown): boolean {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && (input.event === 'select_module' || input.event === 'select_exercise' || input.event === 'preview_module')
 }

@@ -4,7 +4,7 @@ import { canonicalModuleId, studyModule, type Exercise, type StudyModule } from 
 import { roleTable } from '../content/role-table'
 import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
 import { moveKey, type Move } from '../model/moves'
-import type { ConversationStore, StoredMessage } from '../storage/conversation-store'
+import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import { createMemoryEvidenceStore, type EvidenceStore } from '../storage/evidence-store'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verdict/decide'
@@ -109,8 +109,14 @@ async function* streamTurnBody(
   // estimate is taken again, so the roadmap the student gets back already
   // counts the submission they just made.
   const ledger = options?.evidence ?? createMemoryEvidenceStore()
-  let estimate = estimateCourse(await ledger.forStudent(studentId))
-  const placement = await viewPlacement(studentId, store, estimate)
+  const [rows, knownPoint] = await Promise.all([
+    ledger.forStudent(studentId),
+    store.resumePoint(studentId),
+  ])
+  let estimate = estimateCourse(rows)
+  const settled = await viewPlacement(studentId, store, estimate, knownPoint)
+  let placement = settled.placement
+  const openedPoint = settled.point
   let standing = standingFor(estimate, placement.module.id)
 
   if (isOpenEvent(body)) {
@@ -124,24 +130,27 @@ async function* streamTurnBody(
     return
   }
 
-  if (isSelectModule(body)) {
+  if (isSelectModule(body) || isPreviewModule(body)) {
     const chosen = studyModule(canonicalModuleId(body.moduleId))
-    // Choosing a closed module changes nothing.
+    // Choosing a closed module changes nothing. A preview never writes the resume point.
     if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
       yield { type: 'state', state: await redraw(studentId, placement, standing, store, null) }
       return
     }
-    const point = await store.resumePoint(studentId)
+    const point = openedPoint
     const sameModule = point !== null && canonicalModuleId(point.moduleId) === chosen.id
     const exercise = sameModule
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
     const next = { module: chosen, exercise }
-    await adoptPlacement(studentId, store, next)
-    const existing = await store.messages(studentId, chosen.id)
+    const [existing, displayName] = await Promise.all([
+      store.messages(studentId, chosen.id),
+      store.displayName(studentId),
+      isPreviewModule(body) ? Promise.resolve() : adoptPlacement(studentId, store, next),
+    ])
     yield {
       type: 'state',
-      state: await redraw(studentId, next, standingFor(estimate, next.module.id), store, existing.length === 0 ? 'learn' : null),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null),
     }
     return
   }
@@ -339,31 +348,26 @@ async function* answerMessage(
 ): AsyncGenerator<TurnEvent> {
   const context = await teacherContext(studentId, placement, standing, store, seen)
   const deskmate = deskmateContext(context)
-  const [teacherSettled, deskmateSettled] = await Promise.allSettled([
-    model.teacher.propose(context),
-    model.deskmate.propose(deskmate),
-  ])
+  // Mai's proposal runs while the Teacher is already writing, so the first
+  // words are not held back for the second model call.
+  const teacherTask = settleCall(model.teacher.propose(context))
+  const deskmateTask = settleCall(model.deskmate.propose(deskmate))
+  const teacherSettled = await teacherTask
 
   const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
-  const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
-  const proposals = [
-    ...(teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []),
-    ...(deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []),
-  ]
   const snapshot = turnSnapshot(placement, standing, studentMessage, options)
-  const verdicts = decide(proposals, snapshot, roleTable, courseScope)
-  await recordDecisions(studentId, verdicts.flatMap((verdict) => {
-    const proposed = proposals.find(item => item.agent === verdict.agent)
-    return proposed ? [{ proposal: proposed, verdict }] : []
-  }), snapshot, options?.decisions)
-  const trace = verifyShieldTrace(teacherMove, deskmateMove, verdicts, snapshot)
-  const teacherVerdict = verdicts.find(verdict => verdict.agent === 'teacher')
-  const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
+  const turnId = crypto.randomUUID()
+  const recordedAt = new Date().toISOString()
+  const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
+  const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, courseScope)
+  await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, options?.decisions, turnId, recordedAt)
+  const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
+  let teacherFailed = false
   if (teacherSettled.status === 'rejected') {
     logModelFailure('teacher propose', teacherSettled.reason)
     await rememberTeacherCouldNotAnswer(studentId, placement, store)
-    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
+    teacherFailed = true
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
     const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
@@ -374,7 +378,7 @@ async function* answerMessage(
     const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, placement, store)
-      yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
+      teacherFailed = true
     }
     else {
       await store.appendMessage(studentId, placement.module.id, {
@@ -384,6 +388,18 @@ async function* answerMessage(
         exerciseId: placement.exercise.id,
       })
     }
+  }
+
+  const deskmateSettled = await deskmateTask
+  const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
+  const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
+  const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, courseScope)
+  await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, options?.decisions, turnId, recordedAt)
+  const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
+  const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
+
+  if (teacherFailed) {
+    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
   }
 
   if (deskmateSettled.status === 'rejected') {
@@ -435,15 +451,32 @@ async function redrawWithTrace(
   }
 }
 
+function settleCall<T>(work: Promise<T>): Promise<PromiseSettledResult<T>> {
+  return work.then(
+    value => ({ status: 'fulfilled', value }),
+    (reason: unknown) => ({ status: 'rejected', reason }),
+  )
+}
+
+function ruledPairs(
+  proposals: readonly Proposal[],
+  verdicts: readonly Verdict[],
+): { proposal: Proposal, verdict: Verdict }[] {
+  return verdicts.flatMap((verdict) => {
+    const proposed = proposals.find(item => item.agent === verdict.agent)
+    return proposed ? [{ proposal: proposed, verdict }] : []
+  })
+}
+
 async function recordDecisions(
   studentId: string,
   ruled: readonly { proposal: Proposal, verdict: Verdict }[],
   snapshot: TurnSnapshot,
   decisions: DecisionLogStore | undefined,
+  turnId = crypto.randomUUID(),
+  time = new Date().toISOString(),
 ): Promise<void> {
   if (!decisions || ruled.length === 0) return
-  const time = new Date().toISOString()
-  const turnId = crypto.randomUUID()
   for (const { proposal, verdict } of ruled) {
     await decisions.append({
       time,
@@ -603,27 +636,30 @@ async function viewPlacement(
   studentId: string,
   store: ConversationStore,
   estimate: CourseEstimate,
-): Promise<Placement> {
+  knownPoint: ResumePoint | null,
+): Promise<{ placement: Placement, point: ResumePoint | null }> {
   // With no resume point the student starts on the furthest module their
   // evidence has unlocked, which is Module 1 when they have no evidence.
   const opening = studyModule(furthestUnlockedModuleId(estimate))
   if (!opening) throw new Error('The first module of the course is missing.')
-  const point = await store.resumePoint(studentId)
+  let point = knownPoint
   const moduleId = point ? canonicalModuleId(point.moduleId) : opening.id
   const module = studyModule(moduleId)
   if (module && estimate.unlockedModuleIds.includes(module.id)) {
     const exercise = module.exercises.find(item => item.id === point?.exerciseId) ?? module.exercises[0]
     if (!point || point.moduleId !== module.id || point.exerciseId !== exercise.id) {
-      await store.saveResumePoint(studentId, { moduleId: module.id, exerciseId: exercise.id })
+      point = { moduleId: module.id, exerciseId: exercise.id }
+      await store.saveResumePoint(studentId, point)
     }
-    return { module, exercise }
+    return { placement: { module, exercise }, point }
   }
 
   const exercise = opening.exercises[0]
   if (!point) {
-    await store.saveResumePoint(studentId, { moduleId: opening.id, exerciseId: exercise.id })
+    point = { moduleId: opening.id, exerciseId: exercise.id }
+    await store.saveResumePoint(studentId, point)
   }
-  return { module: opening, exercise }
+  return { placement: { module: opening, exercise }, point }
 }
 
 async function adoptPlacement(
@@ -644,9 +680,20 @@ async function redraw(
   store: ConversationStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
-  const messages = await store.messages(studentId, placement.module.id)
-  const displayName = await store.displayName(studentId)
+  const [messages, displayName] = await Promise.all([
+    store.messages(studentId, placement.module.id),
+    store.displayName(studentId),
+  ])
+  return composeState(placement, standing, messages, displayName, mode)
+}
 
+function composeState(
+  placement: Placement,
+  standing: CourseStanding,
+  messages: readonly StoredMessage[],
+  displayName: string,
+  mode: 'learn' | null,
+): RedrawState {
   return {
     displayName,
     course: courseTitle,
@@ -814,10 +861,21 @@ function isOpenEvent(input: unknown): input is { event: 'open' } {
 }
 
 function isSelectModule(input: unknown): input is { event: 'select_module', moduleId: string } {
+  return isModuleEvent(input, 'select_module')
+}
+
+function isPreviewModule(input: unknown): input is { event: 'preview_module', moduleId: string } {
+  return isModuleEvent(input, 'preview_module')
+}
+
+function isModuleEvent(
+  input: unknown,
+  event: 'select_module' | 'preview_module',
+): input is { event: 'select_module' | 'preview_module', moduleId: string } {
   return typeof input === 'object'
     && input !== null
     && 'event' in input
-    && input.event === 'select_module'
+    && input.event === event
     && 'moduleId' in input
     && typeof input.moduleId === 'string'
     && input.moduleId.length > 0

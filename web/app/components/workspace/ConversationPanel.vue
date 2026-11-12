@@ -9,6 +9,7 @@ const props = defineProps<{
   sendError: string
   streamingTeacher: string
   streamingDeskmate: string
+  loading?: boolean
   floating?: boolean
 }>()
 
@@ -30,6 +31,14 @@ interface BubbleRow {
   role: string
   text: string
   openInLearn: boolean
+  writing: boolean
+}
+
+interface TypingRow {
+  key: string
+  kind: 'typing'
+  author: 'teacher' | 'deskmate'
+  name: string
 }
 
 interface EventRow {
@@ -90,7 +99,7 @@ function scrollToNewest() {
 }
 
 const rows = computed(() => {
-  const shown: Array<BubbleRow | EventRow> = props.messages.map((message) => {
+  const shown: Array<BubbleRow | EventRow | TypingRow> = props.messages.map((message) => {
     if (message.author === 'event') {
       return {
         key: message.id,
@@ -107,6 +116,7 @@ const rows = computed(() => {
       role: message.role,
       text: message.text,
       openInLearn: message.openInLearn,
+      writing: false,
     }
   })
 
@@ -119,6 +129,7 @@ const rows = computed(() => {
       role: 'Student',
       text: pending.value,
       openInLearn: false,
+      writing: false,
     })
   }
   if (props.streamingTeacher) {
@@ -130,6 +141,15 @@ const rows = computed(() => {
       role: '',
       text: props.streamingTeacher,
       openInLearn: false,
+      writing: true,
+    })
+  }
+  else if (props.sending && !props.streamingDeskmate) {
+    shown.push({
+      key: 'typing-teacher',
+      kind: 'typing',
+      author: 'teacher',
+      name: 'Teacher',
     })
   }
   if (props.streamingDeskmate) {
@@ -141,12 +161,13 @@ const rows = computed(() => {
       role: 'Deskmate',
       text: props.streamingDeskmate,
       openInLearn: false,
+      writing: true,
     })
   }
   return shown
 })
 
-watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate] as const, () => {
+watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate, props.sending] as const, () => {
   nextTick(scrollToNewest)
 })
 
@@ -278,7 +299,14 @@ watch(() => props.sending, (sending) => {
       class="min-h-0 flex-1 overflow-y-auto p-4"
     >
       <p
-        v-if="rows.length === 0"
+        v-if="loading"
+        role="status"
+        class="text-sm text-slate-400"
+      >
+        Loading conversation
+      </p>
+      <p
+        v-else-if="rows.length === 0"
         class="text-sm text-slate-400"
       >
         No messages yet.
@@ -299,6 +327,37 @@ watch(() => props.sending, (sending) => {
           >
             {{ row.name }} · {{ row.text }}
           </p>
+          <div
+            v-else-if="row.kind === 'typing'"
+            class="flex max-w-[96%] items-start gap-3"
+            role="status"
+            :aria-label="`${row.name} is writing`"
+          >
+            <span
+              class="mt-0.5 size-11 shrink-0 overflow-hidden rounded-[4px] border"
+              :class="portraitClass[row.author]"
+              aria-hidden="true"
+            >
+              <img
+                :src="portraitSrc[row.author]"
+                alt=""
+                class="size-full object-cover [image-rendering:pixelated]"
+              >
+            </span>
+            <article
+              class="w-fit max-w-full min-w-0 text-[12px] leading-[19.5px]"
+              :class="bubbleClass[row.author]"
+            >
+              <p class="mb-0.5 text-[12px] leading-4 font-semibold" :class="nameClass[row.author]">
+                {{ row.name }}
+              </p>
+              <p class="flex items-center gap-1 py-1" aria-hidden="true">
+                <span class="size-1.5 animate-pulse rounded-full bg-current opacity-70" />
+                <span class="size-1.5 animate-pulse rounded-full bg-current opacity-70 [animation-delay:150ms]" />
+                <span class="size-1.5 animate-pulse rounded-full bg-current opacity-70 [animation-delay:300ms]" />
+              </p>
+            </article>
+          </div>
           <div
             v-else
             class="flex max-w-[96%] items-start gap-3"
@@ -331,7 +390,13 @@ watch(() => props.sending, (sending) => {
                   :class="roleClass[row.author]"
                 >{{ row.role }}</span>
               </p>
-              <p>{{ row.text }}</p>
+              <p>
+                {{ row.text }}<span
+                  v-if="row.writing"
+                  class="ml-0.5 inline-block h-[1em] w-px animate-pulse bg-current align-middle"
+                  aria-hidden="true"
+                />
+              </p>
               <button
                 v-if="row.openInLearn"
                 type="button"

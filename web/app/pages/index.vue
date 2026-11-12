@@ -46,6 +46,11 @@ const workingMode = ref<'learn' | 'practice'>('learn')
 const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
+const pendingModuleId = ref('')
+const pendingModuleName = ref('')
+const moduleViews = new Map<string, RedrawState>()
+const moduleLoads = new Map<string, Promise<RedrawState>>()
+let selectGeneration = 0
 const sending = ref(false)
 const sendError = ref('')
 const streamingTeacher = ref('')
@@ -130,16 +135,66 @@ onMounted(() => {
   phoneMedia = window.matchMedia('(width < 48rem)')
   syncPhone()
   phoneMedia.addEventListener('change', syncPhone)
+  warmModules()
 })
 
 onBeforeUnmount(() => {
   phoneMedia?.removeEventListener('change', syncPhone)
 })
 
+function rememberModule(state: RedrawState) {
+  moduleViews.set(state.workingArea.moduleId, state)
+}
+
+function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
+  return {
+    ...state,
+    courseRoadmap: state.courseRoadmap.map(module => (
+      module.current === (module.id === moduleId)
+        ? module
+        : { ...module, current: module.id === moduleId }
+    )),
+  }
+}
+
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
   if (state.trace) latestTrace.value = state.trace
   workspace.value = state
+  rememberModule(state)
+}
+
+function prefetchModule(moduleId: string): Promise<RedrawState> | null {
+  if (!import.meta.client || moduleViews.has(moduleId)) return null
+  const existing = moduleLoads.get(moduleId)
+  if (existing) return existing
+  const current = workspace.value
+  const chosen = current?.courseRoadmap.find(module => module.id === moduleId)
+  if (!chosen || chosen.current || chosen.state === 'closed') return null
+  const pending = $fetch<RedrawState>('/turn', {
+    method: 'POST',
+    body: { event: 'preview_module', moduleId },
+  }).then((state) => {
+    if (state.workingArea.moduleId === moduleId) moduleViews.set(moduleId, state)
+    return state
+  }).finally(() => {
+    moduleLoads.delete(moduleId)
+  })
+  moduleLoads.set(moduleId, pending)
+  return pending
+}
+
+function warmModules() {
+  const current = workspace.value
+  if (!current) return
+  const next = current.courseRoadmap.find(module =>
+    module.state !== 'closed'
+    && !module.current
+    && !moduleViews.has(module.id)
+    && !moduleLoads.has(module.id),
+  )
+  if (!next) return
+  prefetchModule(next.id)?.then(() => warmModules()).catch(() => {})
 }
 
 if (data.value) showWorkspace(data.value)
@@ -158,8 +213,31 @@ async function selectModule(moduleId: string) {
   const chosen = current.courseRoadmap.find(module => module.id === moduleId)
   if (!chosen || chosen.current || chosen.state === 'closed') return
 
+  const snapshot = current
+  const modeBeforeSelect = workingMode.value
+  const generation = ++selectGeneration
+  rememberModule(snapshot)
   selecting.value = true
   selectError.value = ''
+  const cached = moduleViews.get(moduleId)
+  if (cached) {
+    pendingModuleId.value = ''
+    pendingModuleName.value = ''
+    showWorkspace(withCurrentModule(cached, moduleId))
+  }
+  else {
+    pendingModuleId.value = moduleId
+    pendingModuleName.value = chosen.name
+    workspace.value = withCurrentModule(snapshot, moduleId)
+    moduleLoads.get(moduleId)?.then((state) => {
+      if (generation !== selectGeneration || pendingModuleId.value !== moduleId) return
+      if (state.workingArea.moduleId !== moduleId) return
+      pendingModuleId.value = ''
+      pendingModuleName.value = ''
+      showWorkspace(withCurrentModule(state, moduleId))
+    }).catch(() => {})
+  }
+
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
       method: 'POST',
@@ -167,10 +245,14 @@ async function selectModule(moduleId: string) {
     }))
   }
   catch {
+    workingMode.value = modeBeforeSelect
+    showWorkspace(snapshot)
     selectError.value = 'That module could not be opened.'
   }
   finally {
     selecting.value = false
+    pendingModuleId.value = ''
+    pendingModuleName.value = ''
   }
 }
 
@@ -212,26 +294,47 @@ async function readTurn(body: unknown): Promise<boolean> {
   let sawState = false
   while (true) {
     const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
+    if (value) buffer += decoder.decode(value, { stream: !done })
+    if (done) buffer += decoder.decode()
     const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
+    buffer = done ? '' : (lines.pop() ?? '')
+    const events: TurnEvent[] = []
     for (const line of lines) {
       if (line.trim().length === 0) continue
-      const turnEvent = JSON.parse(line) as TurnEvent
-      if (turnEvent.type === 'text') {
-        if (turnEvent.author === 'deskmate') streamingDeskmate.value += turnEvent.delta
-        else streamingTeacher.value += turnEvent.delta
-      }
-      if (turnEvent.type === 'state') {
-        showWorkspace(turnEvent.state)
-        streamingTeacher.value = ''
-        streamingDeskmate.value = ''
-        sawState = true
-      }
+      events.push(JSON.parse(line) as TurnEvent)
+    }
+    if (await applyTurnEvents(events)) sawState = true
+    if (done) break
+  }
+  return sawState
+}
+
+async function applyTurnEvents(events: TurnEvent[]): Promise<boolean> {
+  const textCount = events.filter(event => event.type === 'text').length
+  // A buffered reply arrives as one chunk. Reveal it a word at a time so the
+  // student sees it being written. Live chunks already contain one piece.
+  const buffered = textCount > 1 && events.some(event => event.type === 'state')
+  let sawState = false
+  for (const turnEvent of events) {
+    if (turnEvent.type === 'text') {
+      if (turnEvent.author === 'deskmate') streamingDeskmate.value += turnEvent.delta
+      else streamingTeacher.value += turnEvent.delta
+      if (buffered) await nextPaint()
+    }
+    if (turnEvent.type === 'state') {
+      showWorkspace(turnEvent.state)
+      streamingTeacher.value = ''
+      streamingDeskmate.value = ''
+      sawState = true
     }
   }
   return sawState
+}
+
+function nextPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => resolve())
+  })
 }
 
 async function sendMessage(text: string) {
@@ -305,10 +408,13 @@ function initialsOf(name: string): string {
   >
     <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:h-12 md:flex-nowrap md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
-        <span
-          class="size-2.5 shrink-0 rounded-sm bg-primary-600"
-          aria-hidden="true"
-        />
+        <img
+          src="/swinburne-logo.svg"
+          alt=""
+          width="500"
+          height="253"
+          class="block h-6 w-auto shrink-0"
+        >
         <span class="max-md:sr-only">Verifiable Co-Learner</span>
       </p>
       <nav
@@ -389,7 +495,9 @@ function initialsOf(name: string): string {
         :course="workspace.course"
         :student-id="studentId"
         :mastery-threshold="workspace.masteryThreshold"
+        :pending-module-id="pendingModuleId"
         @select-module="selectModule"
+        @prefetch-module="prefetchModule"
       />
       <CourseRoadmap
         v-else
@@ -397,7 +505,9 @@ function initialsOf(name: string): string {
         :class="phonePanel === 'roadmap' ? 'max-md:flex' : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
         :mastery-threshold="workspace.masteryThreshold"
+        :pending-module-id="pendingModuleId"
         @select-module="selectModule"
+        @prefetch-module="prefetchModule"
       />
       <div :class="layout === 'ide' ? ideFrame('working') : roadmapFrame('working')">
         <WorkingArea
@@ -406,6 +516,7 @@ function initialsOf(name: string): string {
           :student-id="studentId"
           :selecting="selecting"
           :select-error="selectError"
+          :pending-module-name="pendingModuleName"
           :submitting="sending"
           :floating="layout === 'roadmap'"
           :expanded="workingAreaExpanded"
@@ -426,6 +537,7 @@ function initialsOf(name: string): string {
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
+          :loading="pendingModuleName.length > 0"
           :floating="layout === 'roadmap'"
           @send="sendMessage"
           @open-learn="openInLearn"
