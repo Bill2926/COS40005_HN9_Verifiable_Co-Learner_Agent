@@ -7,11 +7,18 @@ const props = defineProps<{
   course: string
   studentId: string
   masteryThreshold: number
+  pendingModuleId?: string
 }>()
 
 const emit = defineEmits<{
   selectModule: [moduleId: string]
+  prefetchModule: [moduleId: string]
 }>()
+
+function onHover(event: PointerEvent, module: RoadmapModule) {
+  if (event.pointerType !== 'mouse' || module.state === 'closed') return
+  emit('prefetchModule', module.id)
+}
 
 const clickSlop = 4
 const nudgeStep = 16
@@ -486,9 +493,12 @@ onUnmounted(() => {
       >
         <button
           type="button"
-          class="block w-full cursor-grab rounded-[12px] px-[17px] py-[15px] text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] active:cursor-grabbing"
+          class="block w-full rounded-[12px] px-[17px] py-[15px] text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a]"
+          :class="dragging(module.id) ? 'cursor-grabbing' : 'cursor-pointer'"
           :aria-pressed="selectedId === module.id"
+          :aria-busy="pendingModuleId === module.id ? true : undefined"
           :aria-label="announcement(module)"
+          @pointerenter="onHover($event, module)"
           @pointerdown="onPointerDown($event, module.id)"
           @lostpointercapture="onLostPointerCapture"
           @dragstart.prevent

@@ -4,11 +4,18 @@ import type { RoadmapModule } from '#shared/turn'
 const props = defineProps<{
   modules: RoadmapModule[]
   masteryThreshold: number
+  pendingModuleId?: string
 }>()
 
 const emit = defineEmits<{
   selectModule: [moduleId: string]
+  prefetchModule: [moduleId: string]
 }>()
+
+function onHover(event: PointerEvent, module: RoadmapModule) {
+  if (event.pointerType !== 'mouse' || module.state === 'closed') return
+  emit('prefetchModule', module.id)
+}
 
 const masteredCount = computed(() => props.modules.filter(module => module.state === 'mastered').length)
 const thresholdPercent = computed(() => Math.round(props.masteryThreshold * 100))
@@ -37,13 +44,14 @@ const groups = computed(() => {
 })
 
 function cardClass(module: RoadmapModule): string {
+  const cursor = module.state === 'closed' ? 'cursor-default' : 'cursor-pointer'
   if (module.state === 'closed') {
-    return 'flex flex-col gap-1 bg-slate-100/70 opacity-80 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)]'
+    return `${cursor} flex flex-col gap-1 bg-slate-100/70 opacity-80 shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)]`
   }
   if (module.current) {
-    return 'bg-indigo-50/60 shadow-[inset_0_0_0_1px_#a5b4fc,0px_0px_0px_1px_rgba(199,210,254,0.6)]'
+    return `${cursor} bg-indigo-50/60 shadow-[inset_0_0_0_1px_#a5b4fc,0px_0px_0px_1px_rgba(199,210,254,0.6)]`
   }
-  return 'bg-white shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)]'
+  return `${cursor} bg-white shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)]`
 }
 </script>
 
@@ -81,6 +89,8 @@ function cardClass(module: RoadmapModule): string {
               type="button"
               class="w-full rounded-[4px] p-[11px] text-left"
               :class="cardClass(module)"
+              :aria-busy="pendingModuleId === module.id ? true : undefined"
+              @pointerenter="onHover($event, module)"
               @click="emit('selectModule', module.id)"
             >
               <template v-if="module.state === 'closed'">

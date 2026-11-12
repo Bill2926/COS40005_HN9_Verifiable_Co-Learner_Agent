@@ -230,6 +230,30 @@ describe('turn endpoint', () => {
     })
   })
 
+  it('previews an unlocked module without moving the resume point', async () => {
+    const store = memoryStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, store)
+    await store.saveResumePoint(signedInStudent, {
+      moduleId: 'getting_started',
+      exerciseId: 'join_words',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'preview_module', moduleId: 'getting_started' },
+    }, store)
+
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(state.workingArea.exercise.id).toBe('join_words')
+    expect(await store.resumePoint(signedInStudent)).toEqual({
+      moduleId: 'getting_started',
+      exerciseId: 'join_words',
+    })
+  })
+
   it('opens the unlocked module on its conversation and resume-point exercise', async () => {
     const store = memoryStore()
     await handleTurn({

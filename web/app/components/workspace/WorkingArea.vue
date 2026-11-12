@@ -10,6 +10,7 @@ const props = defineProps<{
   studentId: string
   selecting: boolean
   selectError: string
+  pendingModuleName?: string
   submitting: boolean
   floating?: boolean
   expanded?: boolean
@@ -25,6 +26,7 @@ const emit = defineEmits<{
 }>()
 
 const bodyShown = computed(() => !props.floating || props.expanded !== false)
+const pendingName = computed(() => props.pendingModuleName ?? '')
 
 function toggleExpanded() {
   emit('update:expanded', props.expanded === false)
@@ -57,6 +59,7 @@ watch(() => props.mode, (mode) => {
       floating && expanded === false ? 'h-full lg:h-auto' : 'h-full',
     ]"
     aria-label="Working area"
+    :aria-busy="pendingName.length > 0"
   >
     <header class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-4 md:gap-4 md:px-8 md:pt-5 md:pb-[21px]">
       <div class="flex min-w-0 flex-col gap-0.5">
@@ -68,10 +71,10 @@ watch(() => props.mode, (mode) => {
           >ACTIVE</span>
         </p>
         <h1 class="text-[20px] leading-7 font-semibold tracking-[-0.5px] text-slate-900">
-          {{ area.moduleName }}
+          {{ pendingName || area.moduleName }}
         </h1>
         <p
-          v-if="mode === 'learn'"
+          v-if="mode === 'learn' && pendingName.length === 0"
           class="pt-0.5 text-xs leading-4 text-slate-500 max-md:hidden"
         >
           <InlineText :text="area.materials.scopeNote" />
@@ -122,8 +125,28 @@ watch(() => props.mode, (mode) => {
       class="min-h-0 min-w-0 flex-1 overflow-y-auto"
       :class="floating && expanded === false ? 'lg:hidden' : ''"
     >
+      <div
+        v-if="pendingName"
+        class="flex w-full max-w-[672px] flex-col gap-4 p-8"
+        role="status"
+        aria-live="polite"
+      >
+        <p class="text-sm text-slate-500">
+          Loading {{ pendingName }}
+        </p>
+        <div class="h-4 w-2/3 animate-pulse rounded bg-slate-200" />
+        <div class="h-28 animate-pulse rounded-lg bg-slate-100" />
+        <div class="h-16 animate-pulse rounded-lg bg-slate-100" />
+      </div>
+      <p
+        v-else-if="selectError && mode === 'learn'"
+        role="alert"
+        class="px-8 pt-4 text-sm text-rose-600"
+      >
+        {{ selectError }}
+      </p>
       <article
-        v-if="mode === 'learn'"
+        v-if="!pendingName && mode === 'learn'"
         class="flex w-full max-w-[672px] flex-col gap-6 p-8"
       >
         <div class="flex flex-col gap-[7px]">
@@ -161,7 +184,7 @@ watch(() => props.mode, (mode) => {
       </article>
 
       <div
-        v-if="practiceOpened && studentId"
+        v-if="!pendingName && practiceOpened && studentId"
         v-show="mode === 'practice'"
         class="w-full max-w-[768px] p-8"
       >
