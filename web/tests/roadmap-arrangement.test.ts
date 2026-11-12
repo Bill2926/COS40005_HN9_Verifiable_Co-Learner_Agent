@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, mergeArrangement, placeCard, pointAt, sizeClassOf, spread } from '../app/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread } from '../app/roadmap/arrangement'
 import type { RoadmapModule } from '../shared/turn'
 
 const an = 'a11a11a1-1111-4111-8111-111111111111'
@@ -9,7 +9,7 @@ const card = { width: 200, height: 100 }
 const canvas = { width: 1000, height: 500 }
 
 describe('roadmap arrangement', () => {
-  it('converts between a point and a box, and clamps both inside the canvas', () => {
+  it('converts between a point and a box, including a card past the starting canvas', () => {
     expect(placeCard({ x: 0.25, y: 0.5 }, card, canvas)).toEqual({
       x: 200,
       y: 200,
@@ -17,13 +17,14 @@ describe('roadmap arrangement', () => {
       height: 100,
     })
     expect(placeCard({ x: -0.2, y: 3 }, card, canvas)).toEqual({
-      x: 0,
-      y: 400,
+      x: -160,
+      y: 1200,
       width: 200,
       height: 100,
     })
     expect(pointAt(200, 200, card, canvas)).toEqual({ x: 0.25, y: 0.5 })
-    expect(pointAt(-50, 1000, card, canvas)).toEqual({ x: 0, y: 1 })
+    expect(pointAt(-50, 1000, card, canvas)).toEqual({ x: -0.0625, y: 2.5 })
+    expect(placeCard(pointAt(-50, 1000, card, canvas), card, canvas)).toMatchObject({ x: -50, y: 1000 })
     expect(pointAt(10, 10, { width: 1200, height: 800 }, canvas)).toEqual({ x: 0, y: 0 })
     expect(placeCard({ x: 0.4, y: 0.6 }, { width: 1200, height: 800 }, canvas)).toEqual({
       x: 0,
@@ -36,7 +37,7 @@ describe('roadmap arrangement', () => {
   it('places the 11 course modules on a wide canvas without overlap', () => {
     const canvas = { width: 1440, height: 900 }
     const scale = arrangementScale(canvas, 11)
-    const card = { width: 248 * scale, height: 176 * scale }
+    const card = { width: 232 * scale, height: 136 * scale }
     const modules = [
       'getting_started',
       'variables',
@@ -243,6 +244,19 @@ describe('roadmap arrangement', () => {
     expect(moved).toEqual({ x: 40, y: 132, width: 100, height: 80 })
   })
 
+  it('moves a card off another card past the canvas edge without pulling it back on', () => {
+    const canvas = { width: 800, height: 600 }
+    const first = { x: -300, y: 40, width: 100, height: 80 }
+    const stacked = { x: -300, y: 40, width: 100, height: 80 }
+
+    const [, bounded] = spread([first, stacked], canvas)
+    const [, unbounded] = spread([first, stacked], canvas, 12, [], false)
+
+    // No spot off the card lies on the canvas, so the bounded spread gives up.
+    expect(bounded).toEqual(stacked)
+    expect(unbounded).toEqual({ x: -300, y: 132, width: 100, height: 80 })
+  })
+
   it('leaves a card that is already clear of every panel where it is', () => {
     const canvas = { width: 800, height: 600 }
     const card = { x: 20, y: 20, width: 100, height: 80 }
@@ -305,15 +319,21 @@ describe('saved roadmap arrangement', () => {
     expect(store.read()).toEqual({ for_loop: { x: 0.4, y: 0.6 } })
   })
 
-  it('ignores an out-of-range or non-finite point and keeps one inside the canvas', () => {
+  it('keeps a point past the starting canvas, and ignores a far-off or non-finite one', () => {
     const store = createArrangementStore(storageHolding(JSON.stringify({
       for_loop: { x: -0.2, y: 0.4 },
       variable: { x: 0.2, y: 1.8 },
       if_else: { x: 0, y: 1 },
+      loops: { x: 51, y: 0 },
+      strings: { x: 0, y: -51 },
     })), an, 'wide')
     const overflow = createArrangementStore(storageHolding('{"nested_loop":{"x":1e309,"y":0.2}}'), an, 'compact')
 
-    expect(store.read()).toEqual({ if_else: { x: 0, y: 1 } })
+    expect(store.read()).toEqual({
+      for_loop: { x: -0.2, y: 0.4 },
+      variable: { x: 0.2, y: 1.8 },
+      if_else: { x: 0, y: 1 },
+    })
     expect(overflow.read()).toEqual({})
   })
 
@@ -346,8 +366,8 @@ describe('saved roadmap arrangement', () => {
 
     expect(shown.for_loop).toEqual({ x: 0.5, y: 0.25 })
     // Five cards on a 1440 × 900 canvas, kept clear of the floating panels.
-    expect(shown.variable).toEqual({ x: 0.10626398210290827, y: 0.08839779005524862 })
-    expect(shown.while_loop).toEqual({ x: 0.5, y: 0.3812154696132597 })
+    expect(shown.variable).toEqual({ x: 0.06291390728476821, y: 0.08376963350785341 })
+    expect(shown.while_loop).toEqual({ x: 0.9370860927152318, y: 0.33507853403141363 })
     expect(shown.not_a_module).toBeUndefined()
     expect(mergeArrangement(starting, { variable: { x: 0, y: 0 } }).variable).toEqual({ x: 0, y: 0 })
   })
@@ -377,3 +397,43 @@ function storageHolding(raw: string) {
     removeItem() {},
   }
 }
+
+describe('fit all modules', () => {
+  const limits = { min: 0.4, max: 1 }
+
+  it('centres the cards at full size when they already fit', () => {
+    const view = fitView([{ x: 100, y: 100, width: 200, height: 100 }], { width: 1000, height: 600 }, [], limits)
+
+    expect(view.zoom).toBe(1)
+    expect(view.pan).toEqual({ x: 300, y: 150 })
+  })
+
+  it('zooms out to bring a card dragged far off the board back into view, clear of the panels', () => {
+    const canvas = { width: 1000, height: 600 }
+    const conversation = { x: 640, y: 0, width: 360, height: 600 }
+    const cards = [
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: -1400, y: 900, width: 200, height: 100 },
+    ]
+    const { zoom, pan } = fitView(cards, canvas, [conversation], limits)
+
+    expect(zoom).toBeLessThan(1)
+    for (const card of cards) {
+      const left = card.x * zoom + pan.x
+      const top = card.y * zoom + pan.y
+      expect(left).toBeGreaterThanOrEqual(0)
+      expect(top).toBeGreaterThanOrEqual(0)
+      expect(left + card.width * zoom).toBeLessThanOrEqual(conversation.x)
+      expect(top + card.height * zoom).toBeLessThanOrEqual(canvas.height)
+    }
+  })
+
+  it('stops at the smallest zoom when the cards are too spread out to fit', () => {
+    const cards = [
+      { x: 0, y: 0, width: 200, height: 100 },
+      { x: 20000, y: 0, width: 200, height: 100 },
+    ]
+
+    expect(fitView(cards, { width: 1000, height: 600 }, [], limits).zoom).toBe(0.4)
+  })
+})

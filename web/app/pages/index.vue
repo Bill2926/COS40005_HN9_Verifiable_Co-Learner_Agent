@@ -42,6 +42,33 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 
 const workspace = ref<RedrawState | null>(null)
 const latestTrace = ref<TurnTrace | null>(null)
+const verifyShieldOn = ref(true)
+const verifyShieldBusy = ref(false)
+const verifyShieldError = ref('')
+
+async function saveVerifyShield(enabled: boolean | null) {
+  verifyShieldBusy.value = true
+  verifyShieldError.value = ''
+  try {
+    const payload = await $fetch<{ verifyShieldOn: boolean }>('/api/admin', {
+      method: 'POST',
+      body: enabled === null ? {} : { event: 'verifyShield', enabled },
+    })
+    verifyShieldOn.value = payload.verifyShieldOn
+  }
+  catch (caught) {
+    const status = (caught as { statusCode?: number }).statusCode
+    // Only product owners may change or read the saved setting; others keep the turn-reported state.
+    if (enabled !== null) {
+      verifyShieldError.value = status === 403 || status === 401
+        ? 'Only the product owner can change VerifyShield.'
+        : 'Could not save the VerifyShield setting. Try again.'
+    }
+  }
+  finally {
+    verifyShieldBusy.value = false
+  }
+}
 const workingMode = ref<'learn' | 'practice'>('learn')
 const studentId = ref('')
 const selecting = ref(false)
@@ -132,6 +159,7 @@ function syncPhone() {
 }
 
 onMounted(() => {
+  void saveVerifyShield(null)
   phoneMedia = window.matchMedia('(width < 48rem)')
   syncPhone()
   phoneMedia.addEventListener('change', syncPhone)
@@ -159,7 +187,10 @@ function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
 
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
-  if (state.trace) latestTrace.value = state.trace
+  if (state.trace) {
+    latestTrace.value = state.trace
+    verifyShieldOn.value = state.trace.verifyShieldOn
+  }
   workspace.value = state
   rememberModule(state)
 }
@@ -409,11 +440,11 @@ function initialsOf(name: string): string {
     <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:grid md:h-12 md:grid-cols-[1fr_auto_1fr] md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <img
-          src="/swinburne-logo.svg"
+          src="/swinburne-crest.png"
           alt=""
-          width="500"
-          height="253"
-          class="block h-6 w-auto shrink-0"
+          width="190"
+          height="288"
+          class="block h-8 w-auto shrink-0"
         >
         <span class="max-md:sr-only">Verifiable Co-Learner</span>
       </p>
@@ -533,6 +564,9 @@ function initialsOf(name: string): string {
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
           :trace="latestTrace"
+          :verify-shield-on="verifyShieldOn"
+          :verify-shield-busy="verifyShieldBusy"
+          :verify-shield-error="verifyShieldError"
           :sending="sending"
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
@@ -541,6 +575,7 @@ function initialsOf(name: string): string {
           :floating="layout === 'roadmap'"
           @send="sendMessage"
           @open-learn="openInLearn"
+          @toggle-verify-shield="saveVerifyShield"
         />
       </div>
     </div>

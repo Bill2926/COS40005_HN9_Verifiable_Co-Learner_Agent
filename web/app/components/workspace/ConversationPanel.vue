@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ConversationMessage, TurnTrace } from '#shared/turn'
+import ChatMarkdown from './ChatMarkdown.vue'
 
 const props = defineProps<{
   messages: ConversationMessage[]
@@ -11,16 +12,15 @@ const props = defineProps<{
   streamingDeskmate: string
   loading?: boolean
   floating?: boolean
+  verifyShieldOn: boolean
+  verifyShieldBusy?: boolean
+  verifyShieldError?: string
 }>()
-
-const agentName = {
-  teacher: 'Teacher',
-  deskmate: 'Mai',
-} as const
 
 const emit = defineEmits<{
   send: [text: string]
   openLearn: []
+  toggleVerifyShield: [enabled: boolean]
 }>()
 
 interface BubbleRow {
@@ -78,15 +78,6 @@ const roleClass = {
   deskmate: 'text-amber-700',
 } as const
 
-const traceOpen = ref(false)
-const traceHeading = computed(() => {
-  if (!props.trace) return 'VerifyShield: not active yet'
-  return props.trace.verifyShieldOn ? 'VerifyShield: on' : 'VerifyShield: off'
-})
-const masteryLine = computed(() => {
-  if (!props.trace) return ''
-  return props.trace.masteries.map(item => `${item.moduleId} ${item.mastery.toFixed(2)}`).join(', ')
-})
 const text = ref('')
 const pending = ref('')
 const scroller = ref<HTMLElement | null>(null)
@@ -236,73 +227,39 @@ watch(() => props.sending, (sending) => {
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <span
-          id="conversation-trace"
+          id="conversation-shield"
           class="text-[11px] leading-[16.5px] text-slate-500"
-        >VerifyShield trace</span>
+        >VerifyShield</span>
         <button
           type="button"
           role="switch"
           class="relative h-11 w-11 shrink-0 md:h-4 md:w-7 md:rounded-full"
-          :class="traceOpen ? 'md:bg-indigo-600' : 'md:bg-slate-200'"
-          :aria-checked="traceOpen"
-          aria-labelledby="conversation-trace"
-          @click="traceOpen = !traceOpen"
+          :class="verifyShieldOn ? 'md:bg-indigo-600' : 'md:bg-slate-200'"
+          :aria-checked="verifyShieldOn"
+          :disabled="verifyShieldBusy"
+          aria-labelledby="conversation-shield"
+          @click="emit('toggleVerifyShield', !verifyShieldOn)"
         >
           <span
             class="absolute top-1/2 left-1/2 h-4 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full md:hidden"
-            :class="traceOpen ? 'bg-indigo-600' : 'bg-slate-200'"
+            :class="verifyShieldOn ? 'bg-indigo-600' : 'bg-slate-200'"
             aria-hidden="true"
           />
           <span
             class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
-            :class="traceOpen ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
+            :class="verifyShieldOn ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
           />
         </button>
       </div>
     </header>
 
-    <section
-      v-if="traceOpen"
-      class="shrink-0 border-b border-amber-300 bg-amber-50 px-4 py-3"
-      aria-label="VerifyShield trace"
+    <p
+      v-if="verifyShieldError"
+      class="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700"
+      role="alert"
     >
-      <h3 class="text-sm font-semibold">
-        {{ traceHeading }}
-      </h3>
-      <p
-        v-if="trace"
-        class="mt-1 text-xs leading-4 text-slate-600"
-      >
-        Mastery: {{ masteryLine }}. Unlocked: {{ trace.unlockedModuleIds.join(', ') }}
-      </p>
-      <ul
-        v-if="trace"
-        class="mt-2 space-y-1 text-sm"
-      >
-        <li
-          v-for="entry in trace.agents"
-          :key="entry.agent"
-        >
-          <span class="font-medium">{{ agentName[entry.agent] }}</span>
-          <template v-if="entry.proposal">
-            proposed
-            <code class="font-mono text-xs">{{ entry.proposal }}</code>
-            <template v-if="entry.scope">
-              · scope
-              <code class="font-mono text-xs">{{ entry.scope }}</code>
-            </template>
-            <template v-if="entry.verdict">
-              · {{ entry.verdict.decision }}
-              · {{ entry.verdict.ruleId }}
-              · {{ entry.verdict.reasonCode }}
-            </template>
-          </template>
-          <template v-else>
-            made no proposal
-          </template>
-        </li>
-      </ul>
-    </section>
+      {{ verifyShieldError }}
+    </p>
 
     <div
       ref="scroller"
@@ -400,13 +357,14 @@ watch(() => props.sending, (sending) => {
                   :class="roleClass[row.author]"
                 >{{ row.role }}</span>
               </p>
-              <p>
-                {{ row.text }}<span
-                  v-if="row.writing"
-                  class="ml-0.5 inline-block h-[1em] w-px animate-pulse bg-current align-middle"
-                  aria-hidden="true"
-                />
+              <p v-if="row.author === 'student'">
+                {{ row.text }}
               </p>
+              <ChatMarkdown
+                v-else
+                :text="row.text"
+                :writing="row.writing"
+              />
               <button
                 v-if="row.openInLearn"
                 type="button"

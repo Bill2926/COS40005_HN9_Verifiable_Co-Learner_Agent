@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { RoadmapModule } from '#shared/turn'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
 
 const props = defineProps<{
   modules: RoadmapModule[]
@@ -23,6 +23,9 @@ function onHover(event: PointerEvent, module: RoadmapModule) {
 const clickSlop = 4
 const nudgeStep = 16
 const nudgeLeap = 48
+const minZoom = 0.4
+const maxZoom = 2
+const zoomStep = 1.2
 
 const canvasEl = ref<HTMLElement | null>(null)
 const labelEl = ref<HTMLElement | null>(null)
@@ -33,6 +36,10 @@ const obstacles = ref<Box[]>([])
 const savedArrangement = ref<Arrangement>({})
 const dragPoint = ref<{ id: string, point: Point } | null>(null)
 const selectedId = ref<string | null>(null)
+// The view: the arrangement lives in world pixels, the canvas shows it scaled then shifted.
+const zoom = ref(1)
+const pan = ref<Point>({ x: 0, y: 0 })
+let panGesture: { pointerId: number, startX: number, startY: number, originX: number, originY: number } | null = null
 const cardEls = new Map<string, HTMLElement>()
 let observer: ResizeObserver | undefined
 let loadedClass: SizeClass | null = null
@@ -53,53 +60,66 @@ let gesture: Gesture | null = null
 let swallowClick = false
 
 const stroke = {
-  mastered: '#94a3b8',
-  current: '#6366f1',
-  closed: '#94a3b8',
+  mastered: '#0f172a',
+  current: '#0f172a',
+  closed: '#0f172a',
 } as const
 
 const arrangement = computed(() => {
   const canvas = canvasSize.value
   if (!canvas) return null
-  const points = mergeArrangement(
+  return mergeArrangement(
     defaultArrangement(props.modules.map(module => module.id), canvas),
     savedArrangement.value,
   )
-  const dragging = dragPoint.value
-  if (dragging && dragging.id in points) points[dragging.id] = dragging.point
-  return points
 })
 
-const boxes = computed(() => {
+// Where every card rests. A card still in its starting spot keeps clear of the
+// floating panels, which line up with the board at the starting view. A card the
+// Student has moved stays where they put it, anywhere on the unbounded board,
+// and only steps off other cards. Panels sit on the screen, not the board, so
+// once the board is zoomed or panned they can say nothing about a moved card.
+const settledBoxes = computed(() => {
   const canvas = canvasSize.value
   const points = arrangement.value
   if (!canvas || !points) return {}
-  const order: string[] = []
-  const shifted: Box[] = []
+  const startingIds: string[] = []
+  const starting: Box[] = []
+  const movedIds: string[] = []
+  const moved: Box[] = []
   for (const module of props.modules) {
     const size = cardSizes.value[module.id]
     const point = points[module.id]
     if (!size || !point) continue
-    order.push(module.id)
-    shifted.push(avoid(placeCard(point, size, canvas), obstacles.value, canvas))
+    if (module.id in savedArrangement.value) {
+      movedIds.push(module.id)
+      moved.push(placeCard(point, size, canvas))
+    }
+    else {
+      startingIds.push(module.id)
+      starting.push(avoid(placeCard(point, size, canvas), obstacles.value, canvas))
+    }
   }
+  const settled = spread(spread(starting, canvas, 12, obstacles.value).concat(moved), canvas, 12, [], false)
   const placedBoxes: Record<string, Box> = {}
-  spread(shifted, canvas, 12, obstacles.value).forEach((box, index) => {
-    const id = order[index]
-    if (id) placedBoxes[id] = box
+  ;[...startingIds, ...movedIds].forEach((id, index) => {
+    const box = settled[index]
+    if (box) placedBoxes[id] = box
   })
   return placedBoxes
 })
 
-const lines = computed(() => connectors(props.modules, boxes.value))
-const partLabels = computed(() => {
-  const labels = new Map<string, string>()
-  for (const module of props.modules) {
-    if (labels.has(module.part)) continue
-    labels.set(module.part, `Part ${labels.size + 1}: ${module.part}`)
-  }
-  return labels
+// While a card is dragged it follows the pointer exactly and nothing else moves.
+const boxes = computed(() => {
+  const settled = settledBoxes.value
+  const canvas = canvasSize.value
+  const dragging = dragPoint.value
+  const size = dragging ? cardSizes.value[dragging.id] : undefined
+  if (!canvas || !dragging || !size || !(dragging.id in settled)) return settled
+  return { ...settled, [dragging.id]: placeCard(dragging.point, size, canvas) }
 })
+
+const lines = computed(() => connectors(props.modules, boxes.value))
 const placed = computed(() => props.modules.every(module => boxes.value[module.id]))
 const cardScale = computed(() => {
   const canvas = canvasSize.value
@@ -141,7 +161,7 @@ function measure() {
   for (const [id, element] of cardEls) {
     const box = element.getBoundingClientRect()
     if (box.width === 0 || box.height === 0) continue
-    sizes[id] = { width: box.width, height: box.height }
+    sizes[id] = { width: box.width / zoom.value, height: box.height / zoom.value }
   }
   const blocks: Box[] = []
   for (const element of obstacleElements()) {
@@ -183,13 +203,36 @@ function placement(id: string) {
 }
 
 function cardClass(module: RoadmapModule): string {
-  const selected = selectedId.value === module.id ? ' outline outline-2 outline-offset-2 outline-[#0f172a]' : ''
-  const face = module.current
-    ? 'w-[248px] border-[1.5px] border-[#4f46e5] bg-white shadow-[0px_0px_0px_4px_rgba(99,102,241,0.12),0px_8px_24px_-6px_rgba(99,102,241,0.18)]'
-    : module.state === 'closed'
-      ? 'w-[220px] border border-[#e2e8f0] bg-white/95 shadow-[0px_4px_16px_-4px_rgba(15,23,42,0.04)]'
-      : 'w-[208px] border border-[rgba(226,232,240,0.9)] bg-white shadow-[0px_4px_16px_-4px_rgba(15,23,42,0.06)]'
-  return `${face}${selected}`
+  // Selection is drawn by the card's own border and halo, never a second frame
+  // around it: an outline outside the current card's glow read as a box in a box.
+  const selected = selectedId.value === module.id
+  // A dragged card trades its resting shadow for a deeper one and stops easing.
+  if (dragging(module.id)) {
+    const width = module.current ? 'w-[232px]' : 'w-[208px]'
+    const border = module.current ? 'border-[#4f46e5]' : selected ? 'border-[#818cf8]' : 'border-[#d3dae4]'
+    return `${width} border ${border} bg-white shadow-[0_2px_4px_rgba(15,23,42,0.06),0_20px_40px_-12px_rgba(15,23,42,0.28)]`
+  }
+  const motion = ' transition-[translate,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0'
+  if (module.current) {
+    return `w-[232px] border border-[#4f46e5] bg-white shadow-[0_0_0_4px_rgba(79,70,229,0.10),0_12px_28px_-10px_rgba(79,70,229,0.30)]${motion}`
+  }
+  if (module.state === 'closed') {
+    const face = selected
+      ? 'border-solid border-[#94a3b8] bg-white shadow-[0_0_0_3px_rgba(100,116,139,0.12)]'
+      : 'border-dashed border-[#0f172a] bg-[#fbfcfd]'
+    return `w-[208px] border ${face}${motion}`
+  }
+  const face = selected
+    ? 'border-[#818cf8] shadow-[0_0_0_3px_rgba(79,70,229,0.12),0_10px_24px_-10px_rgba(15,23,42,0.18)]'
+    : 'border-[#e5e9f0] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.10)] hover:border-[#d3dae4] hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-12px_rgba(15,23,42,0.18)]'
+  return `w-[208px] border bg-white ${face}${motion}`
+}
+
+function glyphClass(module: RoadmapModule): string {
+  if (module.state === 'mastered') return 'bg-[#ecfdf5] ring-1 ring-[#a7f3d0]'
+  if (module.state === 'closed') return 'bg-[#f1f5f9] ring-1 ring-[#e2e8f0]'
+  if (module.current) return 'bg-[#4f46e5] ring-4 ring-[#e0e7ff]'
+  return 'bg-white ring-[1.5px] ring-[#a5b4fc]'
 }
 
 function announcement(module: RoadmapModule): string {
@@ -237,8 +280,8 @@ function onPointerDown(event: PointerEvent, id: string) {
     handle,
     startX: event.clientX,
     startY: event.clientY,
-    offsetX: event.clientX - rect.left - box.x,
-    offsetY: event.clientY - rect.top - box.y,
+    offsetX: toWorldX(event.clientX - rect.left) - box.x,
+    offsetY: toWorldY(event.clientY - rect.top) - box.y,
     dragged: false,
   }
   trackPointer()
@@ -320,7 +363,7 @@ function moveToPointer(active: Gesture, clientX: number, clientY: number) {
   const rect = element.getBoundingClientRect()
   dragPoint.value = {
     id: active.id,
-    point: pointAt(clientX - rect.left - active.offsetX, clientY - rect.top - active.offsetY, size, limits),
+    point: pointAt(toWorldX(clientX - rect.left) - active.offsetX, toWorldY(clientY - rect.top) - active.offsetY, size, limits),
   }
 }
 
@@ -330,7 +373,18 @@ function commitDrag(id: string) {
   const box = boxes.value[id]
   dragPoint.value = null
   if (!limits || !size || !box) return
-  saveModule(id, pointAt(box.x, box.y, size, limits))
+  saveModule(id, pointAt(...clearSpot(id, box), size, limits))
+}
+
+// A dropped card steps once to the nearest spot off every other card.
+function clearSpot(id: string, box: Box): [number, number] {
+  const others = Object.entries(settledBoxes.value)
+    .filter(([other]) => other !== id)
+    .map(([, other]) => other)
+  const canvas = canvasSize.value
+  if (!canvas) return [box.x, box.y]
+  const cleared = spread([...others, box], canvas, 12, [], false).at(-1) ?? box
+  return [cleared.x, cleared.y]
 }
 
 function nudge(id: string, dx: number, dy: number) {
@@ -338,14 +392,7 @@ function nudge(id: string, dx: number, dy: number) {
   const size = cardSizes.value[id]
   const box = boxes.value[id]
   if (!limits || !size || !box) return
-  const shifted: Box = {
-    x: clamp(box.x + dx, 0, Math.max(0, limits.width - size.width)),
-    y: clamp(box.y + dy, 0, Math.max(0, limits.height - size.height)),
-    width: size.width,
-    height: size.height,
-  }
-  const cleared = avoid(shifted, obstacles.value, limits)
-  saveModule(id, pointAt(cleared.x, cleared.y, size, limits))
+  saveModule(id, pointAt(box.x + dx, box.y + dy, size, limits))
 }
 
 function saveModule(id: string, point: Point) {
@@ -369,6 +416,7 @@ function resetArrangement() {
     loadedStudent = props.studentId
   }
   savedArrangement.value = {}
+  resetView()
 }
 
 function syncSaved(canvas: Size) {
@@ -396,6 +444,91 @@ function cancelGesture() {
   catch {
     // Already released.
   }
+}
+
+function toWorldX(x: number): number {
+  return (x - pan.value.x) / zoom.value
+}
+
+function toWorldY(y: number): number {
+  return (y - pan.value.y) / zoom.value
+}
+
+const zoomPercent = computed(() => Math.round(zoom.value * 100))
+const worldStyle = computed(() => ({
+  transform: `translate(${pan.value.x}px, ${pan.value.y}px) scale(${zoom.value})`,
+  transformOrigin: '0 0',
+}))
+
+// Zoom keeping the point (screen pixels inside the canvas) fixed under the cursor.
+function zoomTo(next: number, anchorX?: number, anchorY?: number) {
+  const canvas = canvasSize.value
+  const target = clamp(next, minZoom, maxZoom)
+  const current = zoom.value
+  if (target === current) return
+  const ax = anchorX ?? (canvas ? canvas.width / 2 : 0)
+  const ay = anchorY ?? (canvas ? canvas.height / 2 : 0)
+  const ratio = target / current
+  pan.value = { x: ax - (ax - pan.value.x) * ratio, y: ay - (ay - pan.value.y) * ratio }
+  zoom.value = target
+}
+
+function resetView() {
+  zoom.value = 1
+  pan.value = { x: 0, y: 0 }
+}
+
+// Brings every card into view, wherever it was dragged, clear of the floating panels.
+function fitAll() {
+  const canvas = canvasSize.value
+  if (!canvas) return
+  const view = fitView(Object.values(settledBoxes.value), canvas, obstacles.value, { min: minZoom, max: 1 })
+  zoom.value = view.zoom
+  pan.value = view.pan
+}
+
+function onWheel(event: WheelEvent) {
+  const element = canvasEl.value
+  if (!element) return
+  const rect = element.getBoundingClientRect()
+  if (event.ctrlKey || event.metaKey) {
+    zoomTo(zoom.value * Math.exp(-event.deltaY * 0.002), event.clientX - rect.left, event.clientY - rect.top)
+    return
+  }
+  pan.value = { x: pan.value.x - event.deltaX, y: pan.value.y - event.deltaY }
+}
+
+function onCanvasKeyDown(event: KeyboardEvent) {
+  if (event.target instanceof HTMLElement && event.target.closest('li')) return
+  if (event.key === '+' || event.key === '=') zoomTo(zoom.value * zoomStep)
+  else if (event.key === '-') zoomTo(zoom.value / zoomStep)
+  else if (event.key === '0') fitAll()
+  else return
+  event.preventDefault()
+}
+
+function onCanvasPointerDown(event: PointerEvent) {
+  if (event.button !== 0 || gesture || panGesture) return
+  const target = event.target
+  if (!(target instanceof Element) || target.closest('button, h2, p')) return
+  panGesture = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pan.value.x, originY: pan.value.y }
+  window.addEventListener('pointermove', onPanMove, true)
+  window.addEventListener('pointerup', endPan, true)
+  window.addEventListener('pointercancel', endPan, true)
+}
+
+function onPanMove(event: PointerEvent) {
+  const active = panGesture
+  if (!active || event.pointerId !== active.pointerId) return
+  pan.value = { x: active.originX + event.clientX - active.startX, y: active.originY + event.clientY - active.startY }
+}
+
+function endPan(event: PointerEvent) {
+  if (!panGesture || event.pointerId !== panGesture.pointerId) return
+  panGesture = null
+  window.removeEventListener('pointermove', onPanMove, true)
+  window.removeEventListener('pointerup', endPan, true)
+  window.removeEventListener('pointercancel', endPan, true)
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -430,18 +563,26 @@ onMounted(() => {
 onUnmounted(() => {
   observer?.disconnect()
   stopTracking()
+  panGesture = null
+  window.removeEventListener('pointermove', onPanMove, true)
+  window.removeEventListener('pointerup', endPan, true)
+  window.removeEventListener('pointercancel', endPan, true)
 })
 </script>
 
 <template>
   <div
     ref="canvasEl"
-    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 touch-none overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    tabindex="-1"
+    @wheel.prevent="onWheel"
+    @keydown="onCanvasKeyDown"
+    @pointerdown="onCanvasPointerDown"
   >
     <div
       class="pointer-events-none absolute inset-0"
       aria-hidden="true"
-      style="background-image: radial-gradient(#cbd5e1 1px, transparent 1px); background-size: 22px 22px;"
+      style="background-image: radial-gradient(rgba(148,163,184,0.45) 1px, transparent 1.2px); background-size: 24px 24px;"
     />
 
     <div
@@ -460,6 +601,10 @@ onUnmounted(() => {
       </p>
     </div>
 
+    <div
+      class="absolute inset-0"
+      :style="worldStyle"
+    >
     <svg
       v-if="placed"
       class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
@@ -471,10 +616,10 @@ onUnmounted(() => {
         :key="`${line.from}-${line.to}`"
         :d="line.path"
         fill="none"
-        :stroke="highlighted(line) ? '#0f172a' : stroke[line.kind]"
-        :stroke-dasharray="line.kind === 'closed' ? '6 6' : undefined"
+        :stroke="stroke[line.kind]"
+        :stroke-dasharray="line.kind === 'closed' ? '5 5' : undefined"
         stroke-linecap="round"
-        :stroke-width="highlighted(line) ? 2.5 : 1.5"
+        :stroke-width="highlighted(line) ? 1.75 : 1"
       />
     </svg>
 
@@ -486,14 +631,14 @@ onUnmounted(() => {
         v-for="(module, index) in modules"
         :key="module.id"
         :ref="(element) => bindCard(module.id, element)"
-        class="absolute top-0 left-0 rounded-[12px]"
+        class="absolute top-0 left-0 rounded-[14px]"
         :class="[cardClass(module), dragging(module.id) ? 'z-[3]' : 'z-[1]']"
         :style="placement(module.id)"
         :aria-current="module.current ? 'true' : undefined"
       >
         <button
           type="button"
-          class="block w-full rounded-[12px] px-[17px] py-[15px] text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a]"
+          class="block w-full rounded-[14px] px-4 pt-3.5 pb-4 text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a]"
           :class="dragging(module.id) ? 'cursor-grabbing' : 'cursor-pointer'"
           :aria-pressed="selectedId === module.id"
           :aria-busy="pendingModuleId === module.id ? true : undefined"
@@ -505,125 +650,79 @@ onUnmounted(() => {
           @click="onClick(module.id)"
           @keydown="onKeyDown($event, module.id)"
         >
-          <p class="mb-1.5 text-[10px] leading-[15px] font-semibold tracking-[0.4px] text-[#94a3b8] uppercase">
-            {{ partLabels.get(module.part) }}
-          </p>
-          <template v-if="module.current">
-            <div class="flex items-center justify-between gap-3">
-              <div class="flex items-center gap-2">
-                <span
-                  class="size-2 shrink-0 rounded-full bg-[#4f46e5]"
-                  aria-hidden="true"
-                />
-                <p class="text-[15px] leading-[15px] font-semibold text-[#0f172a]">
-                  {{ module.name }}
-                </p>
-              </div>
-              <p class="shrink-0 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-semibold text-[#4338ca]">
-                Current
-              </p>
-            </div>
-            <div class="mt-3 flex items-center justify-between gap-3">
-              <p
-                class="flex items-center gap-1.5 text-xs leading-[18px] font-semibold tracking-[0.3px]"
-                :class="module.state === 'mastered' ? 'text-[#047857]' : 'text-[#4f46e5]'"
+          <span class="flex items-center justify-between gap-3">
+            <span class="flex items-center gap-2">
+              <span
+                class="flex size-[18px] shrink-0 items-center justify-center rounded-full"
+                :class="glyphClass(module)"
+                aria-hidden="true"
               >
-                <span
-                  class="size-1.5 shrink-0 rounded-full"
-                  :class="module.state === 'mastered' ? 'bg-[#059669]' : 'bg-[#6366f1]'"
-                  aria-hidden="true"
-                />
-                {{ module.state === 'mastered' ? 'Mastered' : 'Open' }}
-              </p>
-              <p class="text-[11px] leading-[16.5px] font-medium text-[#94a3b8]">
-                Module {{ index + 1 }} of {{ modules.length }}
-              </p>
-            </div>
-          </template>
-
-          <template v-else-if="module.state === 'mastered'">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm leading-[19.25px] font-medium text-[#1e293b]">
-                {{ module.name }}
-              </p>
-              <p class="flex shrink-0 items-center gap-1 rounded-full border border-[rgba(167,243,208,0.7)] bg-[#ecfdf5] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-medium text-[#047857]">
                 <img
+                  v-if="module.state === 'mastered'"
                   src="/roadmap-canvas-tick.svg"
                   alt=""
-                  width="12"
-                  height="12"
+                  width="11"
+                  height="11"
                   draggable="false"
                 >
-                Mastered
-              </p>
-            </div>
-            <p class="mt-2 text-xs leading-[15px] text-[#94a3b8]">
-              {{ module.summary }}
-            </p>
-          </template>
-
-          <template v-else-if="module.state === 'closed'">
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm leading-[19.25px] font-medium text-[#475569]">
-                {{ module.name }}
-              </p>
-              <p class="flex shrink-0 items-center gap-1 rounded-full border border-[#e2e8f0] bg-[#f1f5f9] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-medium text-[#64748b]">
                 <img
+                  v-else-if="module.state === 'closed'"
                   src="/roadmap-canvas-lock.svg"
                   alt=""
-                  width="12"
-                  height="12"
+                  width="10"
+                  height="10"
                   draggable="false"
+                  class="opacity-70"
                 >
-                Closed
-              </p>
-            </div>
-            <div class="mt-1 border-t border-[#f1f5f9] pt-[7px]">
-              <p class="text-xs leading-[15px] text-[#94a3b8]">
-                {{ module.closedReason }}
-              </p>
-            </div>
-          </template>
+                <span
+                  v-else-if="module.current"
+                  class="size-1.5 rounded-full bg-white"
+                />
+              </span>
+              <span class="font-mono text-[10px] leading-4 tracking-[0.6px] text-[#94a3b8] tabular-nums">
+                {{ String(index + 1).padStart(2, '0') }}
+              </span>
+            </span>
+            <span
+              v-if="module.current"
+              class="rounded-full bg-[#eef2ff] px-2 py-0.5 text-[10px] leading-[14px] font-semibold tracking-[0.3px] text-[#4338ca]"
+            >Current</span>
+          </span>
+          <span
+            class="mt-2.5 block text-pretty"
+            :class="module.current
+              ? 'text-[15px] leading-5 font-semibold tracking-[-0.3px] text-[#0f172a]'
+              : module.state === 'closed'
+                ? 'text-sm leading-5 font-medium tracking-[-0.2px] text-[#64748b]'
+                : 'text-sm leading-5 font-semibold tracking-[-0.2px] text-[#1e293b]'"
+          >{{ module.name }}</span>
 
-          <template v-else>
-            <div class="flex items-center justify-between gap-3">
-              <p class="text-sm leading-[19.25px] font-medium text-[#1e293b]">
-                {{ module.name }}
-              </p>
-              <p class="shrink-0 rounded-full border border-[#c7d2fe] bg-[#eef2ff] px-[9px] py-[3px] text-[11px] leading-[16.5px] font-semibold text-[#4338ca]">
-                Open
-              </p>
-            </div>
-            <p class="mt-2 text-xs leading-[15px] text-[#94a3b8]">
-              {{ module.summary }}
-            </p>
-          </template>
-
-          <div
+          <span
             v-if="module.state !== 'closed'"
-            class="mt-3 flex items-center gap-2"
+            class="mt-3.5 flex items-center gap-2.5"
           >
             <span
-              class="relative h-1.5 min-w-0 flex-1 rounded-full bg-[#e2e8f0]"
+              class="relative h-1 min-w-0 flex-1 rounded-full bg-[#eef1f5]"
               aria-hidden="true"
             >
               <span
-                class="absolute inset-y-0 left-0 rounded-full"
-                :class="module.state === 'mastered' ? 'bg-[#059669]' : 'bg-[#4f46e5]'"
+                class="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out"
+                :class="module.state === 'mastered' ? 'bg-[#10b981]' : 'bg-[#4f46e5]'"
                 :style="{ width: `${masteryPercent(module)}%` }"
               />
               <span
-                class="absolute -top-0.5 -bottom-0.5 w-px bg-[#94a3b8]"
+                class="absolute -top-[3px] -bottom-[3px] w-px rounded-full bg-[#cbd5e1]"
                 :style="{ left: `${thresholdPercent}%` }"
               />
             </span>
-            <p class="shrink-0 font-mono text-[11px] leading-[16.5px] text-[#64748b] tabular-nums">
+            <span class="shrink-0 font-mono text-[10px] leading-4 text-[#64748b] tabular-nums">
               {{ masteryPercent(module) }}%
-            </p>
-          </div>
+            </span>
+          </span>
         </button>
       </li>
     </ul>
+    </div>
 
     <div
       ref="footerEl"
@@ -631,16 +730,49 @@ onUnmounted(() => {
     >
       <button
         type="button"
-        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-slate-200/80 bg-white/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-[#475569] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-slate-200/80 bg-white/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-[#475569] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-white hover:text-[#0f172a] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
         @click="resetArrangement"
       >
         Reset arrangement
       </button>
+      <div
+        class="flex shrink-0 items-center rounded-lg border border-slate-200/80 bg-white/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
+        role="group"
+        aria-label="Zoom"
+      >
+        <button
+          type="button"
+          class="min-h-11 min-w-9 cursor-pointer rounded-l-lg text-sm text-[#475569] transition-colors duration-150 hover:bg-white hover:text-[#0f172a] active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          aria-label="Zoom out"
+          :disabled="zoom <= minZoom"
+          @click="zoomTo(zoom / zoomStep)"
+        >
+          −
+        </button>
+        <button
+          type="button"
+          class="min-h-11 min-w-12 cursor-pointer px-1 font-mono text-[11px] text-[#64748b] tabular-nums hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+          aria-label="Fit all modules"
+          title="Fit all modules"
+          @click="fitAll"
+        >
+          {{ zoomPercent }}%
+        </button>
+        <button
+          type="button"
+          class="min-h-11 min-w-9 cursor-pointer rounded-r-lg text-sm text-[#475569] transition-colors duration-150 hover:bg-white hover:text-[#0f172a] active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          aria-label="Zoom in"
+          :disabled="zoom >= maxZoom"
+          @click="zoomTo(zoom * zoomStep)"
+        >
+          +
+        </button>
+      </div>
       <p
         class="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-[#64748b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
         aria-hidden="true"
       >
-        <span>100%</span>
+        <span>Ctrl+scroll to zoom</span>
         <span class="text-[#cbd5e1]">|</span>
         <span>Studio canvas</span>
       </p>

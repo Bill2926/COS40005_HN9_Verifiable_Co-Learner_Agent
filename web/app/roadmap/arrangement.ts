@@ -1,8 +1,8 @@
 import type { RoadmapModule } from '#shared/turn'
 
-// A point is where a card sits within the room it can move in:
+// A point is where a card sits, as a fraction of the room on the starting canvas:
 // 0 is the canvas's left or top edge, 1 puts the card flush with the right or bottom edge.
-// Points therefore keep every card inside the canvas at any canvas size.
+// The board is unbounded, so a card moved past the starting canvas has a point below 0 or above 1.
 export interface Point {
   x: number
   y: number
@@ -34,6 +34,8 @@ export interface Connector {
 }
 
 const prefix = 'co-learner-roadmap-arrangement:'
+// Fifty canvas-widths off the starting area is further than anyone drags; past it the data is corrupt.
+const pointLimit = 50
 const earlierPrefix = 'co-learner-map-arrangement:'
 
 export interface ArrangementStore {
@@ -71,7 +73,7 @@ export function createArrangementStore(
   }
 }
 
-// A saved point outside 0–1, or one that is not a finite number, is dropped.
+// A saved point that is not a finite number, or one absurdly far off the board, is dropped.
 // That module keeps the starting arrangement.
 function validArrangement(value: unknown): Arrangement {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
@@ -81,7 +83,7 @@ function validArrangement(value: unknown): Arrangement {
     const { x, y } = point as Record<string, unknown>
     if (typeof x !== 'number' || typeof y !== 'number') continue
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue
-    if (x < 0 || x > 1 || y < 0 || y > 1) continue
+    if (Math.abs(x) > pointLimit || Math.abs(y) > pointLimit) continue
     arrangement[id] = { x, y }
   }
   return arrangement
@@ -100,7 +102,7 @@ export function sizeClassOf(canvas: Size): SizeClass {
   return canvas.width >= 1024 && canvas.height >= 560 ? 'wide' : 'compact'
 }
 
-const typicalCard: Size = { width: 248, height: 176 }
+const typicalCard: Size = { width: 232, height: 136 }
 // The current module is the widest and tallest card. A compact canvas lays out
 // around that size, so a shorter card still has a gap.
 const compactCard: Size = { width: 248, height: 112 }
@@ -186,14 +188,16 @@ function flow(count: number, canvas: Size): Point[] {
       ? (index % 2 === 0 ? edge : canvas.width - card.width - edge)
       : edge + column * cell + (cell - card.width) / 2
     const top = topRoom + row * step + (columns > 1 && column % 2 === 1 ? 16 : 0)
-    return pointAt(left, top, card, canvas)
+    // The starting layout always sits on the canvas, even when a card barely fits.
+    const point = pointAt(left, top, card, canvas)
+    return { x: unit(point.x), y: unit(point.y) }
   })
 }
 
 export function placeCard(point: Point, card: Size, canvas: Size): Box {
   return {
-    x: unit(point.x) * room(canvas.width, card.width),
-    y: unit(point.y) * room(canvas.height, card.height),
+    x: point.x * room(canvas.width, card.width),
+    y: point.y * room(canvas.height, card.height),
     width: card.width,
     height: card.height,
   }
@@ -203,8 +207,8 @@ export function pointAt(left: number, top: number, card: Size, canvas: Size): Po
   const roomX = room(canvas.width, card.width)
   const roomY = room(canvas.height, card.height)
   return {
-    x: roomX === 0 ? 0 : unit(left / roomX),
-    y: roomY === 0 ? 0 : unit(top / roomY),
+    x: roomX === 0 ? 0 : left / roomX,
+    y: roomY === 0 ? 0 : top / roomY,
   }
 }
 
@@ -274,12 +278,13 @@ function overlaps(a: Box, b: Box, gap = 0): boolean {
 }
 
 // Cards that dodge the same panel can land on each other. Nudge each one
-// to the nearest free spot that stays on the canvas.
+// to the nearest free spot; a bounded spread keeps that spot on the canvas.
 export function spread(
   boxes: readonly Box[],
   canvas: Size,
   gap = 12,
   obstacles: readonly Box[] = [],
+  bounded = true,
 ): Box[] {
   const placed: Box[] = []
   for (const box of boxes) {
@@ -297,7 +302,7 @@ export function spread(
         { ...next, x: blocker.x - next.width - gap },
       ])
       const nearest = candidates
-        .filter(candidate => inside(candidate, canvas)
+        .filter(candidate => (!bounded || inside(candidate, canvas))
           && !placed.some(other => overlaps(candidate, other, gap))
           && !obstacles.some(obstacle => overlaps(candidate, obstacle, gap)))
         .sort((left, right) => {
@@ -327,4 +332,61 @@ function unit(value: number): number {
 
 function round(value: number): number {
   return Math.round(value * 10) / 10
+}
+
+export interface View {
+  zoom: number
+  pan: Point
+}
+
+// The zoom and pan that show every card at once, in the largest stretch of the
+// canvas no floating panel covers. Panels are in canvas pixels; cards in board pixels.
+export function fitView(
+  cards: readonly Box[],
+  canvas: Size,
+  panels: readonly Box[],
+  limits: { min: number, max: number },
+  margin = 24,
+): View {
+  if (cards.length === 0) return { zoom: 1, pan: { x: 0, y: 0 } }
+  const left = Math.min(...cards.map(card => card.x))
+  const top = Math.min(...cards.map(card => card.y))
+  const right = Math.max(...cards.map(card => card.x + card.width))
+  const bottom = Math.max(...cards.map(card => card.y + card.height))
+  const width = Math.max(1, right - left)
+  const height = Math.max(1, bottom - top)
+
+  const blocking = panels.filter(panel => panel.width > 0 && panel.height > 0)
+  const xs = edgesOf(canvas.width, blocking.flatMap(panel => [panel.x, panel.x + panel.width]))
+  const ys = edgesOf(canvas.height, blocking.flatMap(panel => [panel.y, panel.y + panel.height]))
+  let free: Box = { x: 0, y: 0, width: canvas.width, height: canvas.height }
+  let freeZoom = -1
+  for (let a = 0; a < xs.length; a += 1) {
+    for (let b = a + 1; b < xs.length; b += 1) {
+      for (let c = 0; c < ys.length; c += 1) {
+        for (let d = c + 1; d < ys.length; d += 1) {
+          const room = { x: xs[a]!, y: ys[c]!, width: xs[b]! - xs[a]!, height: ys[d]! - ys[c]! }
+          if (blocking.some(panel => overlaps(room, panel))) continue
+          const fits = Math.min((room.width - margin * 2) / width, (room.height - margin * 2) / height)
+          if (fits > freeZoom) {
+            free = room
+            freeZoom = fits
+          }
+        }
+      }
+    }
+  }
+
+  const zoom = Math.min(limits.max, Math.max(limits.min, freeZoom))
+  return {
+    zoom,
+    pan: {
+      x: free.x + (free.width - width * zoom) / 2 - left * zoom,
+      y: free.y + (free.height - height * zoom) / 2 - top * zoom,
+    },
+  }
+}
+
+function edgesOf(length: number, cuts: readonly number[]): number[] {
+  return [...new Set([0, length, ...cuts.map(cut => Math.min(length, Math.max(0, cut)))])].sort((a, b) => a - b)
 }
