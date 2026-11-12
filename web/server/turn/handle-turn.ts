@@ -12,6 +12,15 @@ import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verdi
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
 
+// A failed call to the provider used to be swallowed whole, so a wrong model
+// name or an unsupported request shape reached the student as "could not
+// answer" and left no trace anywhere. The student still sees only the
+// fallback; the server log says why.
+function logModelFailure(what: string, cause: unknown): void {
+  const message = cause instanceof Error ? cause.message : String(cause)
+  console.error(`Language model failed (${what}): ${message}`)
+}
+
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
 
@@ -218,7 +227,8 @@ async function* introduceModule(
   try {
     proposal = await model.teacher.propose(context)
   }
-  catch {
+  catch (cause) {
+    logModelFailure('teacher propose', cause)
     yield {
       type: 'state',
       state: await redrawWithTrace(studentId, placement, standing, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
@@ -310,7 +320,8 @@ async function* streamTeacherReply(
       yield { type: 'text', author: 'teacher', delta }
     }
   }
-  catch {
+  catch (cause) {
+    logModelFailure('teacher render', cause)
     return null
   }
   return text.trim().length > 0 ? text : null
@@ -350,6 +361,7 @@ async function* answerMessage(
   const deskmateVerdict = verdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherSettled.status === 'rejected') {
+    logModelFailure('teacher propose', teacherSettled.reason)
     await rememberTeacherCouldNotAnswer(studentId, placement, store)
     yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
   }
@@ -375,6 +387,7 @@ async function* answerMessage(
   }
 
   if (deskmateSettled.status === 'rejected') {
+    logModelFailure('deskmate propose', deskmateSettled.reason)
     await rememberDeskmateCouldNotAnswer(studentId, placement, store)
   }
   else if (deskmateVerdict?.decision === 'allow' && deskmateVerdict.move) {
@@ -387,7 +400,8 @@ async function* answerMessage(
         yield { type: 'text', author: 'deskmate' as const, delta }
       }
     }
-    catch {
+    catch (cause) {
+      logModelFailure('deskmate render', cause)
       failed = true
     }
 
