@@ -16,14 +16,14 @@ test.afterAll(async () => {
   await resetDemoAccounts()
 })
 
-test('marks IDE as the current layout on the first visit', async ({ page }) => {
+test('marks Study as the current layout on the first visit', async ({ page }) => {
   await openWorkspace(page)
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
-  const ide = switcher.getByRole('link', { name: 'IDE', exact: true })
-  const roadmapCanvas = switcher.getByRole('link', { name: 'Roadmap canvas', exact: true })
+  const ide = switcher.getByRole('link', { name: 'Study', exact: true })
+  const roadmapCanvas = switcher.getByRole('link', { name: 'Roadmap', exact: true })
 
-  await expect(switcher.getByRole('link')).toHaveText(['IDE', 'Roadmap canvas'])
+  await expect(switcher.getByRole('link')).toHaveText(['Study', 'Roadmap'])
   await expect(ide).toHaveAttribute('aria-current', 'page')
   await expect(ide).toHaveAttribute('href', /[?&]layout=ide(?:&|$)/)
   await expect(roadmapCanvas).toHaveAttribute('href', /[?&]layout=roadmap(?:&|$)/)
@@ -38,7 +38,7 @@ test('marks IDE as the current layout on the first visit', async ({ page }) => {
   await expectIde(page)
 })
 
-test('switches to Roadmap canvas without reloading, and back and forward restore each layout', async ({ page }) => {
+test('switches to Roadmap without reloading, and back and forward restore each layout', async ({ page }) => {
   await openWorkspace(page)
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   let loads = 0
@@ -46,16 +46,16 @@ test('switches to Roadmap canvas without reloading, and back and forward restore
     loads += 1
   })
 
-  await switcher.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expect(page).toHaveURL(/[?&]layout=roadmap(?:&|$)/)
-  await expect(switcher.getByRole('link', { name: 'Roadmap canvas', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(switcher.getByRole('link', { name: 'IDE', exact: true })).not.toHaveAttribute('aria-current', 'page')
+  await expect(switcher.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(switcher.getByRole('link', { name: 'Study', exact: true })).not.toHaveAttribute('aria-current', 'page')
   expect(loads).toBe(0)
   await expectRoadmapCanvas(page)
   await expectFloatingPanels(page)
 
   await page.goBack()
-  await expect(switcher.getByRole('link', { name: 'IDE', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(switcher.getByRole('link', { name: 'Study', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectIde(page)
 
   await page.goForward()
@@ -69,21 +69,21 @@ test('reloads the remembered layout from the server and falls back when the layo
   await forgetLayout(page)
 
   await page.goto('/?layout=nope')
-  await expect(page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'IDE', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Study', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectIde(page)
   await page.goto('/')
   await expectIde(page)
 
-  await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
   await expectServerLayout(browser, await page.context().storageState(), 'roadmap-canvas')
 
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Roadmap canvas', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectRoadmapCanvas(page)
 
   await page.goto('/?layout=nope')
-  await expect(page.getByRole('link', { name: 'Roadmap canvas', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectRoadmapCanvas(page)
 })
 
@@ -114,7 +114,7 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await composer.fill(unsent)
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
-  await switcher.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
   await expect(conversation(page)).toContainText(studentMessage)
   await expect(conversation(page)).toContainText(teacherReply)
@@ -123,7 +123,7 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await expect(printed).toContainText('hello')
   await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'true')
 
-  await switcher.getByRole('link', { name: 'IDE', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Study', exact: true }).click()
   await expectIde(page)
   await expect(conversation(page)).toContainText(studentMessage)
   await expect(conversation(page)).toContainText(teacherReply)
@@ -137,7 +137,7 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   await openWorkspace(page)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   await expect(page.getByText('Introduction to Programming with Python', { exact: true })).toBeVisible()
@@ -184,7 +184,7 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
 
 test('drags a module with the mouse and leaves the current module and working area unchanged', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
 
@@ -232,7 +232,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
   const page = await context.newPage()
   try {
     await openWorkspace(page)
-    await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+    await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
     await expectRoadmapCanvas(page)
 
     const card = moduleCard(page, 'Working with Strings')
@@ -255,7 +255,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
 
 test('keeps a dragged module inside the canvas and clear of the panels', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
@@ -321,7 +321,7 @@ test('keeps a dragged module inside the canvas and clear of the panels', async (
 
 test('selects a module without moving it, and arrow keys move the focused module', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap canvas', exact: true }).click()
+  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   const variables = moduleCard(page, 'Variables, Data Types, and Operators')
@@ -394,7 +394,7 @@ test('keeps a moved module on this device, and reset arrangement restores the st
     expect(Math.hypot(dragged[name].x - start[name].x, dragged[name].y - start[name].y)).toBeLessThanOrEqual(2)
   }
 
-  await page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'IDE', exact: true }).click()
+  await page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Study', exact: true }).click()
   await expectIde(page)
   await showRoadmap(page)
   await expectArrangement(page, dragged)
@@ -557,7 +557,7 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
 }
 
 async function showRoadmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap canvas', exact: true })
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expectRoadmapCanvas(page)
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()

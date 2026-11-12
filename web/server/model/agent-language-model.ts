@@ -21,6 +21,17 @@ const proposalSchema = z.object({
   proposal: z.union([z.null(), moveSchema]),
 })
 
+// A provider that only offers JSON mode, as DeepSeek does, never sees the
+// schema, so the model is told the shape in words. The word JSON must appear in
+// the prompt for JSON mode to be accepted.
+const proposalFormat = [
+  'Reply with a single JSON object and nothing else.',
+  'Its only key is "proposal", whose value is null or one move object.',
+  'A move object has a "type" key and the other keys that move needs.',
+  'Example with a move: {"proposal":{"type":"hint_level_N","level":1,"scope":"loops"}}.',
+  'Example with none: {"proposal":null}.',
+].join(' ')
+
 const proposeInstructions = [
   'You are the Teacher in a first-year Python course.',
   'Propose one move, or no proposal.',
@@ -71,7 +82,7 @@ export function createAgentLanguageModel(model: ProviderModel): LanguageModel {
     const { output } = await generateText({
       model,
       output: Output.object({ schema: proposalSchema }),
-      instructions,
+      instructions: `${instructions} ${proposalFormat}`,
       prompt,
     })
     if (!output) throw new Error('The language model returned no proposal.')

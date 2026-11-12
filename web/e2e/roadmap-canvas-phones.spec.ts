@@ -340,7 +340,7 @@ async function expectReachable(page: Page, locator: Locator) {
 }
 
 async function showRoadmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap canvas', exact: true })
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expect(roadmapLink).toHaveAttribute('aria-current', 'page')
   if (await page.getByRole('tab', { name: 'Roadmap', exact: true }).count() > 0) return
