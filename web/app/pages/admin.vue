@@ -164,10 +164,10 @@ function messageFrom(caught: unknown): string {
       <div class="mx-auto flex w-full max-w-[86rem] items-center justify-between">
       <p class="flex items-center gap-2 text-sm font-semibold tracking-tight text-highlighted">
         <img
-          src="/swinburne-crest.png"
+          src="/swinburne-fpt-logo.webp"
           alt=""
-          width="190"
-          height="288"
+          width="871"
+          height="705"
           class="block h-8 w-auto shrink-0"
         >
         Verifiable Co-Learner
