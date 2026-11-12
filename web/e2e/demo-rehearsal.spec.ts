@@ -135,9 +135,25 @@ test('rehearses the supervisor demo as An', async ({ page }) => {
     await expect(label(mai)).toContainText('Mai')
     await expect(label(mai)).toContainText('Deskmate')
     expect(await background(teacher.locator('article'))).not.toBe(await background(mai.locator('article')))
-    expect(await background(label(teacher).locator('span').first())).not.toBe(await background(label(mai).locator('span').first()))
     expect(await background(teacher.locator('article'))).not.toBe('rgba(0, 0, 0, 0)')
-    expect(await background(label(teacher).locator('span').first())).not.toBe('rgba(0, 0, 0, 0)')
+
+    // Each speaker's message carries that speaker's own portrait, on the
+    // side the bubble leans to.
+    for (const [item, who, file] of [[student, 'student', 'student'], [teacher, 'teacher', 'teacher'], [mai, 'deskmate', 'deskmate']] as const) {
+      const portrait = item.locator(`[data-portrait="${who}"]`)
+      await expect(portrait).toBeVisible()
+      await expect(portrait.locator('img')).toHaveAttribute('src', `/portraits/${file}.png`)
+      await expect(portrait.locator('img')).toHaveAttribute('alt', '')
+      await expect(portrait).toHaveAttribute('aria-hidden', 'true')
+    }
+    expect(await background(teacher.locator('[data-portrait]'))).not.toBe(await background(mai.locator('[data-portrait]')))
+    const box = async (locator: Locator) => (await locator.boundingBox())!
+    const studentPortrait = await box(student.locator('[data-portrait]'))
+    const studentBubble = await box(student.locator('article'))
+    const teacherPortrait = await box(teacher.locator('[data-portrait]'))
+    const teacherBubble = await box(teacher.locator('article'))
+    expect(studentPortrait.x).toBeGreaterThan(studentBubble.x)
+    expect(teacherPortrait.x).toBeLessThan(teacherBubble.x)
   })
 
   await test.step('toggling the VerifyShield trace shows that the VerifyShield was on', async () => {

@@ -73,6 +73,10 @@ _Avoid_: screen, view, variant, Map canvas
 The exchange between the student and both agents about one module. Each module has its own conversation; moving to another exercise in the same module continues it.
 _Avoid_: chat, thread, session
 
+**Portrait**:
+The fixed picture that stands for the teacher agent, the deskmate agent, or the student beside their messages in a conversation. Every student sees the same three portraits; a student does not choose their own.
+_Avoid_: avatar, profile picture, icon
+
 **Working area**:
 The panel that shows either the current module's materials (Learn mode) or the current exercise, editor and test results (Practice mode).
 

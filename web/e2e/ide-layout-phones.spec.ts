@@ -204,6 +204,14 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await page.getByRole('tab', { name: /^Conversation/ }).click()
     await expect(dot).toHaveCount(0)
     await expect(conversation(page).getByText(maiReply, { exact: true })).toBeInViewport()
+    const region = await conversation(page).boundingBox()
+    for (const who of ['student', 'teacher', 'deskmate']) {
+      const portrait = conversation(page).locator(`[data-portrait="${who}"]`).last()
+      await expect(portrait).toBeVisible()
+      const portraitBox = await portrait.boundingBox()
+      expect(portraitBox!.x).toBeGreaterThanOrEqual(region!.x)
+      expect(portraitBox!.x + portraitBox!.width).toBeLessThanOrEqual(region!.x + region!.width)
+    }
 
     await conversation(page).getByRole('button', { name: 'Open in Learn', exact: true }).last().click()
     await expect(page.getByRole('tab', { name: 'Working area', exact: true })).toHaveAttribute('aria-selected', 'true')
