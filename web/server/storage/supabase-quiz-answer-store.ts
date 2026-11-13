@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { QuizAnswerRow, QuizAnswerStore, RecordedQuizAnswer } from './quiz-answer-store'
+import { quizObservation, type QuizAnswerRow, type QuizAnswerStore, type RecordedQuizAnswer } from './quiz-answer-store'
 
 const selected = 'recorded_at, student_id, module_id, question_id, choice, correct'
 
@@ -30,6 +30,20 @@ export function createSupabaseQuizAnswerStore(options: {
   }
 
   return {
+    async observationsForStudent(studentId) {
+      const observations = []
+      const pageSize = 500
+      for (let offset = 0; ; offset += pageSize) {
+        const result = await supabase.from('quiz_answers').select(selected)
+          .eq('student_id', studentId)
+          .order('recorded_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(offset, offset + pageSize - 1)
+        if (result.error) throw new Error(result.error.message)
+        observations.push(...result.data.map(row => quizObservation(presentQuizAnswer(row))))
+        if (result.data.length < pageSize) return observations
+      }
+    },
     async record(answer): Promise<RecordedQuizAnswer> {
       const result = await supabase
         .from('quiz_answers')

@@ -52,15 +52,15 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 | Store | Interface offers | Tables (from the Supabase version) |
 |---|---|---|
 | conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage` | `students`, `resume_points`, `conversations`, `messages` |
-| evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
-| quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
+| evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Reads merge submissions with quiz answers by timestamp. Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
+| quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`, and `observationsForStudent` for the evidence store. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
 | decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
 | model settings | `read`, `save` (single row, id 1) | `model_settings` |
 | verify shield | `read`, `save`. Only the Supabase version is here; the interface, the in-memory version and the `verifyShieldEnabled` / `verifyShieldForTurn` rules live in [`verify-shield`](03-verify-shield.md). | `verify_shield_settings` |
 
 ## Verified imports
 
-- Each `supabase-*.ts` imports only `@supabase/supabase-js` and, as types, its own interface file (`supabase-model-settings-store.ts` also the `ModelSettings` type from `language-model`; `supabase-verify-shield-store.ts` and `supabase-evidence-store.ts` take their interfaces from `verify-shield/index.ts` and `student-model/index.ts`).
+- The Supabase stores use `@supabase/supabase-js` and import their store interfaces. The evidence adapter also calls the quiz-answer adapter and merges the observations using `student-model/index.ts`.
 - Runtime importers from outside: `routes/turn.post.ts` (all six Supabase files), `api/admin.post.ts` (three Supabase files). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` at runtime for its in-memory default.
 - Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
 - Tests: `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts` (Supabase versions); `turn-endpoint.test.ts` and `admin-handler.test.ts` (interfaces).

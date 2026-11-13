@@ -6,19 +6,17 @@
 export interface MasteryParameters {
   prior: number
   learning: number
-  slip: number
-  guess: number
+  byKind: Record<Observation['kind'], { slip: number, guess: number }>
   threshold: number
 }
 
 // One row of the evidence ledger, as much of it as the estimate needs.
 // exerciseId is null for evidence that is not an exercise submission, such as a
 // quiz answer: it can move mastery but never counts as a passed exercise.
-export interface Observation {
+export type Observation = {
   moduleId: string
-  exerciseId: string | null
   allPassed: boolean
-}
+} & ({ kind: 'submission', exerciseId: string } | { kind: 'quiz_answer', questionId: string })
 
 export interface ModuleMastery {
   moduleId: string
@@ -54,8 +52,8 @@ export function estimateMastery(
     // test passed. Once an exercise is passed, later submissions on it, passes
     // and failures alike, stop being observations, so experimenting on a
     // finished exercise neither raises nor lowers mastery. Evidence that is not
-    // an exercise (a null exerciseId) is always an observation.
-    if (observation.exerciseId !== null) {
+    // an exercise is always an observation.
+    if (observation.kind === 'submission') {
       const exercise = `${observation.moduleId} ${observation.exerciseId}`
       if (passedExercises.has(exercise)) continue
       if (observation.allPassed) {
@@ -63,7 +61,7 @@ export function estimateMastery(
         estimate.passedExercise = true
       }
     }
-    estimate.mastery = afterObservation(estimate.mastery, observation.allPassed, parameters)
+    estimate.mastery = afterObservation(estimate.mastery, observation.allPassed, parameters, observation.kind)
     // Mastered, and so ever-mastered, needs the threshold and a passed exercise.
     if (estimate.mastery >= parameters.threshold && estimate.passedExercise) {
       estimate.everMastered = true
@@ -74,8 +72,9 @@ export function estimateMastery(
 }
 
 // The posterior for one observation, then the learning step.
-function afterObservation(mastery: number, correct: boolean, parameters: MasteryParameters): number {
-  const { slip, guess, learning } = parameters
+function afterObservation(mastery: number, correct: boolean, parameters: MasteryParameters, kind: Observation['kind']): number {
+  const { slip, guess } = parameters.byKind[kind]
+  const { learning } = parameters
   const knew = correct ? mastery * (1 - slip) : mastery * slip
   const guessed = correct ? (1 - mastery) * guess : (1 - mastery) * (1 - guess)
   const evidenceWeight = knew + guessed

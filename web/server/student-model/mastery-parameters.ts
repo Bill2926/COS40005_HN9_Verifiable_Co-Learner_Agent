@@ -5,8 +5,10 @@ import type { MasteryParameters } from './estimate'
 export const masteryParameters: MasteryParameters = {
   prior: 0.1,
   learning: 0.15,
-  slip: 0.1,
-  guess: 0.2,
+  byKind: {
+    submission: { slip: 0.1, guess: 0.2 },
+    quiz_answer: { slip: 0.1, guess: 0.25 },
+  },
   threshold: 0.9,
 }
 

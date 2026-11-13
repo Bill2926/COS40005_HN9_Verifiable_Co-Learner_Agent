@@ -1,5 +1,20 @@
-// The evidence ledger: one append-only row per submission, server only. Only
-// the submission path writes it, no agent does, and a run writes nothing.
+import type { Observation } from './estimate'
+
+export type TimedObservation = Observation & { time: string }
+
+// Preserve the source's row order for ties. Submissions precede quiz answers
+// at identical timestamps because the two tables have independent sequences.
+export function mergeObservations(
+  submissions: readonly TimedObservation[],
+  quizAnswers: readonly TimedObservation[],
+): TimedObservation[] {
+  return [...submissions, ...quizAnswers].sort((left, right) =>
+    Date.parse(left.time) - Date.parse(right.time) || fraction(left.time) - fraction(right.time))
+}
+
+function fraction(time: string): number {
+  return Number(`0.${time.match(/\.(\d+)/)?.[1] ?? '0'}`)
+}
 
 export interface NewEvidence {
   studentId: string
@@ -24,10 +39,12 @@ export interface EvidenceStore {
   // The attempt number comes from the ledger, not the caller, so two
   // submissions can never claim the same attempt on an exercise.
   append: (evidence: NewEvidence) => Promise<EvidenceRow>
-  forStudent: (studentId: string) => Promise<EvidenceRow[]>
+  forStudent: (studentId: string) => Promise<TimedObservation[]>
 }
 
-export function createMemoryEvidenceStore(): EvidenceStore {
+export function createMemoryEvidenceStore(
+  quizObservations: (studentId: string) => Promise<TimedObservation[]> = async () => [],
+): EvidenceStore {
   const rows: EvidenceRow[] = []
 
   return {
@@ -50,7 +67,10 @@ export function createMemoryEvidenceStore(): EvidenceStore {
       return { ...row }
     },
     async forStudent(studentId) {
-      return rows.filter(row => row.studentId === studentId).map(row => ({ ...row }))
+      const quizAnswers = await quizObservations(studentId)
+      const submissions = rows.filter(row => row.studentId === studentId)
+        .map(({ time, moduleId, exerciseId, allPassed }) => ({ kind: 'submission' as const, time, moduleId, exerciseId, allPassed }))
+      return mergeObservations(submissions, quizAnswers)
     },
   }
 }
