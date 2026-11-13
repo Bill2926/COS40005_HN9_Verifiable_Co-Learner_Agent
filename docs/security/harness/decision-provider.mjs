@@ -29,6 +29,8 @@ export default class ColearnerDecisionProvider {
       unlockedModuleIds: ['getting_started'],
       studentMessage: prompt,
       verifyShieldOn: true,
+      highestHintRung: 0,
+      misconceptionIds: ['missing_quotes'],
     }
 
     // decide() needs a course scope. Node cannot load the real one (course.ts has

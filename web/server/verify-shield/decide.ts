@@ -17,6 +17,8 @@ export interface TurnSnapshot {
   verifyShieldOn: boolean
   // The highest hint rung already given in this module's conversation, 0 if none.
   highestHintRung: number
+  // The misconceptions the current module can name; the teacher may address no other.
+  misconceptionIds: readonly string[]
 }
 
 export interface CourseModule {
@@ -93,6 +95,9 @@ export function decide(
     const advance = advanceDowngrade(proposal, snapshot, course)
     if (advance) return advance
 
+    const misconception = misconceptionDowngrade(proposal, snapshot)
+    if (misconception) return misconception
+
     const hint = hintLadderDowngrade(proposal, snapshot)
     if (hint) return hint
 
@@ -165,6 +170,26 @@ function advanceDowngrade(
     ruleId: 'scope_requires_unlocked_module',
     reasonCode: 'MODULE_CLOSED',
     move: { type: 'redirect_to_module', scope: target },
+  }
+}
+
+// The teacher may name only a misconception the current module has. An invented
+// one is answered as a plain question on the same scope, not blocked, so the
+// teacher does not fall silent while the student is wrong.
+function misconceptionDowngrade(
+  proposal: Proposal,
+  snapshot: TurnSnapshot,
+): Verdict | null {
+  if (proposal.agent !== 'teacher') return null
+  if (proposal.move.type !== 'address_misconception') return null
+  if (snapshot.misconceptionIds.includes(proposal.move.misconceptionId)) return null
+
+  return {
+    agent: proposal.agent,
+    decision: 'downgrade',
+    ruleId: 'misconception_known',
+    reasonCode: 'MISCONCEPTION_UNKNOWN',
+    move: { type: 'answer_question', scope: proposal.move.scope },
   }
 }
 

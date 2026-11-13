@@ -367,6 +367,7 @@ function turnSnapshot(
     studentMessage,
     verifyShieldOn: options?.verifyShieldOn !== false,
     highestHintRung,
+    misconceptionIds: placement.module.misconceptionResponses.map(response => response.id),
   }
 }
 
@@ -464,8 +465,9 @@ async function* answerMessage(
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
-  // A downgrade whose move is not a redirect (the hint ladder lowering a rung)
-  // is still spoken by the Teacher, as the ruled lower-rung move.
+  // A downgrade whose move is not a redirect (the hint ladder lowering a rung,
+  // or an unknown misconception becoming a plain answer) is still spoken by
+  // the Teacher, as the ruled move.
   else if ((teacherVerdict?.decision === 'allow' || teacherVerdict?.decision === 'downgrade') && teacherVerdict.move) {
     const text = yield* streamTeacherReply(agents, context, teacherVerdict.move)
     if (!text) {
