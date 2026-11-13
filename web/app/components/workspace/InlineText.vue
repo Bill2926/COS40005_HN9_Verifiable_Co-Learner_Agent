@@ -6,9 +6,9 @@ const props = defineProps<{
 
 const segments = computed(() => inlineSegments(props.text))
 const codeClass = computed(() => {
-  const shared = 'inline rounded-[4px] px-[5px] py-px font-mono text-[12px] leading-[19.5px] text-indigo-700'
-  if (props.codeStyle === 'statement') return `${shared} border border-slate-200 bg-white`
-  return `${shared} border border-indigo-200/50 bg-indigo-50`
+  const shared = 'inline rounded-[4px] px-[5px] py-px font-mono text-[12px] leading-[19.5px] text-brand-700'
+  if (props.codeStyle === 'statement') return `${shared} border border-ink-200 bg-paper`
+  return `${shared} border border-brand-200/50 bg-brand-50`
 })
 
 function inlineSegments(source: string): { code: boolean, value: string }[] {

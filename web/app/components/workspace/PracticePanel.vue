@@ -137,8 +137,8 @@ async function onSubmit() {
 function chipClass(selected: boolean): string {
   const shape = 'rounded-[4px] px-3 py-1.5 text-center text-xs leading-4 font-medium disabled:cursor-not-allowed max-md:inline-flex max-md:min-h-11 max-md:min-w-11 max-md:items-center max-md:justify-center'
   return selected
-    ? `${shape} border border-indigo-200 bg-indigo-50 text-indigo-800 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] disabled:border-indigo-200 disabled:bg-indigo-50 disabled:text-indigo-800`
-    : `${shape} border border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900 disabled:border-slate-200 disabled:bg-white disabled:text-slate-600`
+    ? `${shape} border border-brand-200 bg-brand-50 text-brand-800 shadow-[0px_1px_1px_rgba(0,0,0,0.04)] disabled:border-brand-200 disabled:bg-brand-50 disabled:text-brand-800`
+    : `${shape} border border-ink-200 bg-paper text-ink-600 hover:border-ink-300 hover:text-ink-900 disabled:border-ink-200 disabled:bg-paper disabled:text-ink-600`
 }
 
 function onStop() {
@@ -182,16 +182,16 @@ function onStop() {
     </div>
 
     <section
-      class="flex flex-col gap-1 rounded-[8px] border border-slate-200 bg-slate-50 px-4 py-3.5"
+      class="flex flex-col gap-1 rounded-[8px] border border-ink-200 bg-ink-50 px-4 py-3.5"
       aria-labelledby="exercise-statement"
     >
       <p
         id="exercise-statement"
-        class="font-mono text-[11px] leading-[16.5px] text-slate-400 uppercase"
+        class="font-mono text-[11px] leading-[16.5px] text-ink-400 uppercase"
       >
         Problem statement
       </p>
-      <p class="text-[13px] leading-5 text-slate-700">
+      <p class="text-[13px] leading-5 text-ink-700">
         <InlineText
           :text="exercise.statement"
           code-style="statement"
@@ -200,10 +200,10 @@ function onStop() {
     </section>
 
     <div>
-      <p class="text-xs leading-4 font-semibold text-slate-800">
+      <p class="text-xs leading-4 font-semibold text-ink-800">
         Draft
       </p>
-      <div class="mt-2 h-72 overflow-hidden rounded-[8px] border border-slate-200 bg-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04)]">
+      <div class="mt-2 h-72 overflow-hidden rounded-[8px] border border-ink-200 bg-paper shadow-[0px_1px_2px_0px_rgba(0,0,0,0.04)]">
         <PythonEditor
           :key="exercise.id"
           v-model="draft"

@@ -11,7 +11,7 @@ const pending = ref(false)
 const incorrectMessage = 'Email or password is incorrect.'
 const unreachableMessage = 'Sign-in is unavailable right now.'
 
-const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 ring-slate-300 md:min-h-0 md:text-sm/5'
+const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 ring-ink-300 md:min-h-0 md:text-sm/5'
 
 if (import.meta.server) {
   const event = useRequestEvent()
@@ -156,7 +156,7 @@ async function signIn() {
     >
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(var(--color-slate-300)_1px,transparent_1px)] bg-size-[22px_22px] opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_72%)]"
+        class="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(var(--color-ink-300)_1px,transparent_1px)] bg-size-[22px_22px] opacity-60 [mask-image:radial-gradient(ellipse_at_center,black_20%,transparent_72%)]"
       />
       <span
         aria-hidden="true"
@@ -174,7 +174,7 @@ async function signIn() {
           height="705"
           class="block h-24 w-auto shrink-0"
         >
-        <span aria-hidden="true" class="h-10 w-px bg-slate-200" />
+        <span aria-hidden="true" class="h-10 w-px bg-ink-200" />
         Verifiable Co-Learner
       </p>
 
@@ -183,7 +183,7 @@ async function signIn() {
           Learn with a teacher and a deskmate beside you.
         </p>
 
-        <AboutSampleTurn data-intro-rise class="bg-white! shadow-[0_1px_2px_rgb(15_23_42/0.04),0_24px_48px_-20px_rgb(15_23_42/0.18)]" />
+        <AboutSampleTurn data-intro-rise class="bg-paper! shadow-[0_1px_2px_rgb(15_23_42/0.04),0_24px_48px_-20px_rgb(15_23_42/0.18)]" />
       </div>
 
       <p data-intro-rise class="self-end text-xs tracking-wide text-muted">
@@ -255,7 +255,7 @@ async function signIn() {
             block
             size="lg"
             :loading="pending"
-            class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600 md:min-h-0"
+            class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover active:bg-accent-hover disabled:bg-accent md:min-h-0"
           >
             Sign in
           </UButton>

@@ -49,8 +49,8 @@ interface EventRow {
 }
 
 const bubbleClass = {
-  student: 'rounded-tl-2xl rounded-tr-[2px] rounded-br-2xl rounded-bl-2xl bg-slate-700 px-[14px] py-[10px] text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)]',
-  teacher: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-indigo-200/80 bg-indigo-50 px-[15px] py-[11px] text-indigo-950',
+  student: 'rounded-tl-2xl rounded-tr-[2px] rounded-br-2xl rounded-bl-2xl bg-self px-[14px] py-[10px] text-on-self shadow-[0px_1px_1px_rgba(0,0,0,0.05)]',
+  teacher: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-brand-200/80 bg-brand-50 px-[15px] py-[11px] text-brand-950',
   deskmate: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-amber-200/80 bg-amber-50 px-[15px] py-[11px] text-amber-950',
 } as const
 
@@ -61,20 +61,20 @@ const portraitSrc = {
 } as const
 
 const portraitClass = {
-  student: 'border-slate-300 bg-slate-100 shadow-[-2px_2px_0_0_var(--color-slate-400)]',
-  teacher: 'border-indigo-200 bg-indigo-50 shadow-[2px_2px_0_0_var(--color-indigo-300)]',
+  student: 'border-ink-300 bg-ink-100 shadow-[-2px_2px_0_0_var(--color-ink-400)]',
+  teacher: 'border-brand-200 bg-brand-50 shadow-[2px_2px_0_0_var(--color-brand-300)]',
   deskmate: 'border-amber-200 bg-amber-50 shadow-[2px_2px_0_0_var(--color-amber-300)]',
 } as const
 
 const nameClass = {
-  student: 'text-white',
-  teacher: 'text-indigo-900',
+  student: 'text-on-self',
+  teacher: 'text-brand-900',
   deskmate: 'text-amber-950',
 } as const
 
 const roleClass = {
-  student: 'text-slate-300',
-  teacher: 'text-indigo-600',
+  student: 'text-on-self/70',
+  teacher: 'text-brand-600',
   deskmate: 'text-amber-700',
 } as const
 
@@ -206,35 +206,35 @@ watch(() => props.sending, (sending) => {
 
 <template>
   <section
-    class="flex h-full min-h-0 min-w-0 flex-col bg-slate-50/40"
+    class="flex h-full min-h-0 min-w-0 flex-col bg-ink-50/40"
     aria-label="Conversation"
   >
-    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-slate-200 bg-white px-4 md:h-14 md:flex-nowrap lg:px-6">
+    <header class="flex min-h-14 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-ink-200 bg-paper px-4 md:h-14 md:flex-nowrap lg:px-6">
       <div class="flex min-w-0 flex-col gap-0.5">
         <div class="flex items-center gap-2">
-          <h2 class="text-xs leading-4 font-semibold tracking-[-0.2px] text-slate-800">
+          <h2 class="text-xs leading-4 font-semibold tracking-[-0.2px] text-ink-800">
             Conversation
           </h2>
           <span
             v-if="floating"
-            class="hidden size-1.5 shrink-0 rounded-full bg-[#10b981] lg:block"
+            class="hidden size-1.5 shrink-0 rounded-full bg-emerald-500 lg:block"
             aria-hidden="true"
           />
         </div>
-        <p class="font-mono text-[10px] leading-[15px] text-slate-400 max-md:hidden">
+        <p class="font-mono text-[10px] leading-[15px] text-ink-400 max-md:hidden">
           Teacher + Deskmate
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <span
           id="conversation-shield"
-          class="text-[11px] leading-[16.5px] text-slate-500"
+          class="text-[11px] leading-[16.5px] text-ink-500"
         >VerifyShield</span>
         <button
           type="button"
           role="switch"
           class="relative h-11 w-11 shrink-0 md:h-4 md:w-7 md:rounded-full"
-          :class="verifyShieldOn ? 'md:bg-indigo-600' : 'md:bg-slate-200'"
+          :class="verifyShieldOn ? 'md:bg-brand-600' : 'md:bg-ink-200'"
           :aria-checked="verifyShieldOn"
           :disabled="verifyShieldBusy"
           aria-labelledby="conversation-shield"
@@ -242,11 +242,11 @@ watch(() => props.sending, (sending) => {
         >
           <span
             class="absolute top-1/2 left-1/2 h-4 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full md:hidden"
-            :class="verifyShieldOn ? 'bg-indigo-600' : 'bg-slate-200'"
+            :class="verifyShieldOn ? 'bg-brand-600' : 'bg-ink-200'"
             aria-hidden="true"
           />
           <span
-            class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-white shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
+            class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-paper shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
             :class="verifyShieldOn ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
           />
         </button>
@@ -268,13 +268,13 @@ watch(() => props.sending, (sending) => {
       <p
         v-if="loading"
         role="status"
-        class="text-sm text-slate-400"
+        class="text-sm text-ink-400"
       >
         Loading conversation
       </p>
       <p
         v-else-if="rows.length === 0"
-        class="text-sm text-slate-400"
+        class="text-sm text-ink-400"
       >
         No messages yet.
       </p>
@@ -290,7 +290,7 @@ watch(() => props.sending, (sending) => {
         >
           <p
             v-if="row.kind === 'event'"
-            class="rounded-full bg-slate-100 px-2.5 py-0.5 text-center font-mono text-[10px] leading-[15px] text-slate-500"
+            class="rounded-full bg-ink-100 px-2.5 py-0.5 text-center font-mono text-[10px] leading-[15px] text-ink-500"
           >
             {{ row.name }} · {{ row.text }}
           </p>
@@ -368,7 +368,7 @@ watch(() => props.sending, (sending) => {
               <button
                 v-if="row.openInLearn"
                 type="button"
-                class="mt-2 text-[11px] leading-4 font-medium text-indigo-700 underline decoration-indigo-300 underline-offset-2 hover:decoration-indigo-700"
+                class="mt-2 text-[11px] leading-4 font-medium text-brand-700 underline decoration-brand-300 underline-offset-2 hover:decoration-brand-700"
                 @click="emit('openLearn')"
               >
                 Open in Learn
@@ -380,7 +380,7 @@ watch(() => props.sending, (sending) => {
     </div>
 
     <form
-      class="shrink-0 border-t border-slate-200 bg-white p-3 md:px-4"
+      class="shrink-0 border-t border-ink-200 bg-paper p-3 md:px-4"
       @submit.prevent="submit"
     >
       <div class="flex items-center gap-2">
@@ -391,12 +391,12 @@ watch(() => props.sending, (sending) => {
             name="message"
             placeholder="Message"
             :disabled="sending"
-            class="h-11 w-full rounded-[4px] border border-slate-200 bg-slate-50 px-[13px] text-base text-slate-800 outline-none placeholder:text-slate-400 focus-visible:border-indigo-500 disabled:opacity-60 md:h-[34px] md:text-xs"
+            class="h-11 w-full rounded-[4px] border border-ink-200 bg-ink-50 px-[13px] text-base text-ink-800 outline-none placeholder:text-ink-400 focus-visible:border-brand-500 disabled:opacity-60 md:h-[34px] md:text-xs"
           >
         </label>
         <button
           type="submit"
-          class="h-11 min-w-11 shrink-0 rounded-[4px] bg-indigo-600 px-3 text-xs leading-4 font-medium text-white shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-indigo-700 disabled:bg-indigo-600 disabled:text-white disabled:opacity-100 md:h-[34px] md:min-w-0 md:px-3.5"
+          class="h-11 min-w-11 shrink-0 rounded-[4px] bg-accent px-3 text-xs leading-4 font-medium text-on-accent shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-accent-hover disabled:bg-accent disabled:text-on-accent disabled:opacity-100 md:h-[34px] md:min-w-0 md:px-3.5"
           :disabled="sending || text.trim().length === 0"
           :aria-busy="sending"
         >

@@ -6,9 +6,9 @@ const sample = [
     name: 'You',
     text: 'Why does my total keep coming out as 0?',
     portrait: '/portraits/student.png',
-    bubble: 'rounded-tl-2xl rounded-tr-[2px] rounded-br-2xl rounded-bl-2xl bg-slate-700 px-[14px] py-[10px] text-white',
-    nameClass: 'text-white',
-    frame: 'border-slate-300 bg-slate-100 shadow-[-2px_2px_0_0_var(--color-slate-400)]',
+    bubble: 'rounded-tl-2xl rounded-tr-[2px] rounded-br-2xl rounded-bl-2xl bg-self px-[14px] py-[10px] text-on-self',
+    nameClass: 'text-on-self',
+    frame: 'border-ink-300 bg-ink-100 shadow-[-2px_2px_0_0_var(--color-ink-400)]',
   },
   {
     author: 'deskmate',
@@ -24,9 +24,9 @@ const sample = [
     name: 'Teacher',
     text: 'It does. Set total = 0 inside the loop and it starts over on every pass. Try moving it above the loop.',
     portrait: '/portraits/teacher.png',
-    bubble: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-indigo-200/80 bg-indigo-50 px-[15px] py-[11px] text-indigo-950',
-    nameClass: 'text-indigo-900',
-    frame: 'border-indigo-200 bg-indigo-50 shadow-[2px_2px_0_0_var(--color-indigo-300)]',
+    bubble: 'rounded-tl-[2px] rounded-tr-2xl rounded-br-2xl rounded-bl-2xl border border-brand-200/80 bg-brand-50 px-[15px] py-[11px] text-brand-950',
+    nameClass: 'text-brand-900',
+    frame: 'border-brand-200 bg-brand-50 shadow-[2px_2px_0_0_var(--color-brand-300)]',
   },
 ] as const
 </script>
@@ -34,7 +34,7 @@ const sample = [
 <template>
   <div
     aria-hidden="true"
-    class="flex flex-col gap-4 rounded-xl border border-default bg-slate-50/60 p-5"
+    class="flex flex-col gap-4 rounded-xl border border-default bg-ink-50/60 p-5"
   >
     <div
       v-for="message in sample"

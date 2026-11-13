@@ -5,6 +5,73 @@
   --font-sans: 'Inter', sans-serif;
 }
 
+/* ---- Colour: the "Tranquil Academic Study Sanctuary" palette ----
+   Source colours: #4B8BBE #A3C6E8 #F3F4F6 #1F2A44 #6C757D. Light theme only.
+   White paper cards on a #F3F4F6 ground, navy ink, palette blue for accents.
+   ink is the neutral scale (navy-tinted greys), brand the blue scale. The role
+   tokens below them name surfaces with a fixed job: accent (filled buttons),
+   self (the student's own bubble), feature (navy highlight blocks) and
+   roadmap-line. */
+@theme static {
+  --color-paper: #ffffff;
+
+  --color-ink-50: #f7f8fa;
+  --color-ink-100: #f3f4f6;
+  --color-ink-200: #dce3ea;
+  --color-ink-300: #cdd5de;
+  --color-ink-400: #98a1ab;
+  --color-ink-500: #6c757d;
+  --color-ink-600: #525c6a;
+  --color-ink-700: #3b4559;
+  --color-ink-800: #2a3550;
+  --color-ink-900: #1f2a44;
+  --color-ink-950: #141b2d;
+
+  --color-brand-50: #eef5fb;
+  --color-brand-100: #dceaf6;
+  --color-brand-200: #c4dbf0;
+  --color-brand-300: #a3c6e8;
+  --color-brand-400: #73a6d3;
+  --color-brand-500: #4b8bbe;
+  --color-brand-600: #36719f;
+  --color-brand-700: #2c5d84;
+  --color-brand-800: #244c6b;
+  --color-brand-900: #1d3d57;
+  --color-brand-950: #132738;
+
+  --color-accent: #36719f; /* #4B8BBE darkened: white text passes AA (5.2:1) */
+  --color-accent-hover: #2c5d84;
+  --color-on-accent: #ffffff;
+  --color-self: #cce0f2; /* #A3C6E8 at 55% on white, set apart from the teacher's paler bubble */
+  --color-on-self: #1f2a44;
+  --color-feature: #1f2a44;
+  --color-on-feature: #f3f4f6;
+  --color-feature-muted: #a9b3c1;
+  --color-feature-accent: #a3c6e8;
+  --color-feature-line: #33415f;
+  --color-roadmap-line: #1f2a44;
+}
+
+/* Nuxt UI's semantic colours, pinned to the palette steps above. */
+:root {
+  --ui-primary: var(--color-accent);
+  --ui-bg: var(--color-paper);
+  --ui-bg-muted: var(--ui-color-neutral-50);
+  --ui-bg-elevated: var(--ui-color-neutral-100);
+  --ui-bg-accented: var(--ui-color-neutral-200);
+  --ui-bg-inverted: var(--color-feature);
+  --ui-text-dimmed: var(--ui-color-neutral-400);
+  --ui-text-muted: var(--ui-color-neutral-500);
+  --ui-text-toned: var(--ui-color-neutral-600);
+  --ui-text: var(--ui-color-neutral-700);
+  --ui-text-highlighted: var(--ui-color-neutral-900);
+  --ui-text-inverted: var(--color-on-accent);
+  --ui-border: var(--ui-color-neutral-200);
+  --ui-border-muted: var(--ui-color-neutral-200);
+  --ui-border-accented: var(--ui-color-neutral-300);
+  --ui-border-inverted: var(--color-feature);
+}
+
 :root {
   --python-editor-font-size: 14px;
 }
@@ -48,11 +115,11 @@ html {
 h1, h2, h3 { text-wrap: balance; }
 p { text-wrap: pretty; }
 
-::selection { background: color-mix(in oklab, var(--color-indigo-500) 24%, transparent); }
+::selection { background: color-mix(in oklab, var(--color-brand-500) 24%, transparent); }
 
 /* One keyboard focus ring for every control. */
 :where(a, button, [role='tab'], summary, input, textarea, select):focus-visible {
-  outline: 2px solid var(--color-indigo-500);
+  outline: 2px solid var(--color-brand-500);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -71,7 +138,7 @@ p { text-wrap: pretty; }
 :where(button, [role='tab']):not(:disabled) { cursor: pointer; }
 
 /* Quiet, thin scrollbars inside panels. */
-* { scrollbar-width: thin; scrollbar-color: var(--color-slate-300) transparent; }
+* { scrollbar-width: thin; scrollbar-color: var(--color-ink-300) transparent; }
 
 /* Code reads as code everywhere it appears. */
 :where(code, pre, kbd) { font-family: var(--font-mono); font-variant-ligatures: none; }
@@ -139,13 +206,13 @@ html[data-intro] :is([data-intro-lockup], [data-intro-rise]) {
    and keeps its border: the outline is a box-shadow, so it is layered back in. */
 input:-webkit-autofill,
 input:-webkit-autofill:hover {
-  -webkit-box-shadow: inset 0 0 0 1px var(--color-slate-300), inset 0 0 0 1000px #fff;
-  box-shadow: inset 0 0 0 1px var(--color-slate-300), inset 0 0 0 1000px #fff;
-  -webkit-text-fill-color: var(--color-slate-900);
-  caret-color: var(--color-slate-900);
+  -webkit-box-shadow: inset 0 0 0 1px var(--color-ink-300), inset 0 0 0 1000px var(--color-paper);
+  box-shadow: inset 0 0 0 1px var(--color-ink-300), inset 0 0 0 1000px var(--color-paper);
+  -webkit-text-fill-color: var(--color-ink-900);
+  caret-color: var(--color-ink-900);
 }
 input:-webkit-autofill:focus {
-  -webkit-box-shadow: inset 0 0 0 2px var(--color-indigo-500), inset 0 0 0 1000px #fff;
-  box-shadow: inset 0 0 0 2px var(--color-indigo-500), inset 0 0 0 1000px #fff;
-  -webkit-text-fill-color: var(--color-slate-900);
+  -webkit-box-shadow: inset 0 0 0 2px var(--color-brand-500), inset 0 0 0 1000px var(--color-paper);
+  box-shadow: inset 0 0 0 2px var(--color-brand-500), inset 0 0 0 1000px var(--color-paper);
+  -webkit-text-fill-color: var(--color-ink-900);
 }

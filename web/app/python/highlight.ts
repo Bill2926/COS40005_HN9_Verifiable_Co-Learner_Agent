@@ -2,11 +2,11 @@ import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
 import { tags } from '@lezer/highlight'
 
 export const pythonHighlightColours = {
-  comment: '#94a3b8',
-  keyword: '#9333ea',
-  literal: '#059669',
-  name: '#4f46e5',
-  text: '#1e293b',
+  comment: 'var(--color-ink-400)',
+  keyword: 'var(--color-purple-600)',
+  literal: 'var(--color-emerald-600)',
+  name: 'var(--color-brand-600)',
+  text: 'var(--color-ink-800)',
 } as const
 
 const pythonHighlightStyle = HighlightStyle.define([

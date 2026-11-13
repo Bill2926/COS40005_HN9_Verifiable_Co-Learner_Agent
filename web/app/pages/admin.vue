@@ -337,7 +337,7 @@ function messageFrom(caught: unknown): string {
           block
           size="lg"
           :loading="saving"
-          class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 active:bg-primary-700 disabled:bg-primary-600 md:min-h-0"
+          class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover active:bg-accent-hover disabled:bg-accent md:min-h-0"
         >
           Save
         </UButton>
@@ -385,7 +385,7 @@ function messageFrom(caught: unknown): string {
             <UButton
               type="submit"
               size="lg"
-              class="min-h-11 rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-primary-700 md:min-h-0"
+              class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover md:min-h-0"
             >
               Filter
             </UButton>

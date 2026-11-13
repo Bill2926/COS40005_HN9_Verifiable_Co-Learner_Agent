@@ -60,9 +60,9 @@ let gesture: Gesture | null = null
 let swallowClick = false
 
 const stroke = {
-  mastered: '#0f172a',
-  current: '#0f172a',
-  closed: '#0f172a',
+  mastered: 'var(--color-roadmap-line)',
+  current: 'var(--color-roadmap-line)',
+  closed: 'var(--color-roadmap-line)',
 } as const
 
 const arrangement = computed(() => {
@@ -209,30 +209,30 @@ function cardClass(module: RoadmapModule): string {
   // A dragged card trades its resting shadow for a deeper one and stops easing.
   if (dragging(module.id)) {
     const width = module.current ? 'w-[232px]' : 'w-[208px]'
-    const border = module.current ? 'border-[#4f46e5]' : selected ? 'border-[#818cf8]' : 'border-[#d3dae4]'
-    return `${width} border ${border} bg-white shadow-[0_2px_4px_rgba(15,23,42,0.06),0_20px_40px_-12px_rgba(15,23,42,0.28)]`
+    const border = module.current ? 'border-brand-600' : selected ? 'border-brand-400' : 'border-ink-300'
+    return `${width} border ${border} bg-paper shadow-[0_2px_4px_rgba(15,23,42,0.06),0_20px_40px_-12px_rgba(15,23,42,0.28)]`
   }
   const motion = ' transition-[translate,box-shadow,border-color] duration-200 ease-out hover:-translate-y-0.5 active:translate-y-0'
   if (module.current) {
-    return `w-[232px] border border-[#4f46e5] bg-white shadow-[0_0_0_4px_rgba(79,70,229,0.10),0_12px_28px_-10px_rgba(79,70,229,0.30)]${motion}`
+    return `w-[232px] border border-brand-600 bg-paper shadow-[0_0_0_4px_color-mix(in_oklab,var(--color-brand-600)_10%,transparent),0_12px_28px_-10px_color-mix(in_oklab,var(--color-brand-600)_30%,transparent)]${motion}`
   }
   if (module.state === 'closed') {
     const face = selected
-      ? 'border-solid border-[#94a3b8] bg-white shadow-[0_0_0_3px_rgba(100,116,139,0.12)]'
-      : 'border-dashed border-[#0f172a] bg-[#fbfcfd]'
+      ? 'border-solid border-ink-400 bg-paper shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-ink-500)_12%,transparent)]'
+      : 'border-dashed border-roadmap-line bg-ink-50'
     return `w-[208px] border ${face}${motion}`
   }
   const face = selected
-    ? 'border-[#818cf8] shadow-[0_0_0_3px_rgba(79,70,229,0.12),0_10px_24px_-10px_rgba(15,23,42,0.18)]'
-    : 'border-[#e5e9f0] shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.10)] hover:border-[#d3dae4] hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-12px_rgba(15,23,42,0.18)]'
-  return `w-[208px] border bg-white ${face}${motion}`
+    ? 'border-brand-400 shadow-[0_0_0_3px_color-mix(in_oklab,var(--color-brand-600)_12%,transparent),0_10px_24px_-10px_rgba(15,23,42,0.18)]'
+    : 'border-ink-200 shadow-[0_1px_2px_rgba(15,23,42,0.04),0_6px_16px_-8px_rgba(15,23,42,0.10)] hover:border-ink-300 hover:shadow-[0_1px_2px_rgba(15,23,42,0.04),0_14px_28px_-12px_rgba(15,23,42,0.18)]'
+  return `w-[208px] border bg-paper ${face}${motion}`
 }
 
 function glyphClass(module: RoadmapModule): string {
-  if (module.state === 'mastered') return 'bg-[#ecfdf5] ring-1 ring-[#a7f3d0]'
-  if (module.state === 'closed') return 'bg-[#f1f5f9] ring-1 ring-[#e2e8f0]'
-  if (module.current) return 'bg-[#4f46e5] ring-4 ring-[#e0e7ff]'
-  return 'bg-white ring-[1.5px] ring-[#a5b4fc]'
+  if (module.state === 'mastered') return 'bg-emerald-50 ring-1 ring-emerald-200'
+  if (module.state === 'closed') return 'bg-ink-100 ring-1 ring-ink-200'
+  if (module.current) return 'bg-brand-600 ring-4 ring-brand-100'
+  return 'bg-paper ring-[1.5px] ring-brand-300'
 }
 
 function announcement(module: RoadmapModule): string {
@@ -573,7 +573,7 @@ onUnmounted(() => {
 <template>
   <div
     ref="canvasEl"
-    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 touch-none overflow-hidden bg-[#f8fafc] md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 touch-none overflow-hidden bg-ink-50 md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
     tabindex="-1"
     @wheel.prevent="onWheel"
     @keydown="onCanvasKeyDown"
@@ -582,21 +582,21 @@ onUnmounted(() => {
     <div
       class="pointer-events-none absolute inset-0"
       aria-hidden="true"
-      style="background-image: radial-gradient(rgba(148,163,184,0.45) 1px, transparent 1.2px); background-size: 24px 24px;"
+      style="background-image: radial-gradient(color-mix(in_oklab,var(--color-ink-400)_45%,transparent) 1px, transparent 1.2px); background-size: 24px 24px;"
     />
 
     <div
       ref="labelEl"
       class="absolute top-[18px] right-4 left-4 z-[2] flex flex-wrap items-center gap-x-6 gap-y-1 lg:right-auto lg:left-6"
     >
-      <h2 class="flex items-center gap-2 text-sm leading-[21px] font-medium tracking-[-0.35px] whitespace-nowrap text-[#475569]">
+      <h2 class="flex items-center gap-2 text-sm leading-[21px] font-medium tracking-[-0.35px] whitespace-nowrap text-ink-600">
         <span
-          class="size-2.5 shrink-0 rounded-full bg-[#4f46e5]"
+          class="size-2.5 shrink-0 rounded-full bg-brand-600"
           aria-hidden="true"
         />
         Course roadmap
       </h2>
-      <p class="text-xs leading-[18px] text-[#64748b] max-lg:min-w-0 lg:whitespace-nowrap">
+      <p class="text-xs leading-[18px] text-ink-500 max-lg:min-w-0 lg:whitespace-nowrap">
         {{ course }}
       </p>
     </div>
@@ -638,7 +638,7 @@ onUnmounted(() => {
       >
         <button
           type="button"
-          class="block w-full rounded-[14px] px-4 pt-3.5 pb-4 text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a]"
+          class="block w-full rounded-[14px] px-4 pt-3.5 pb-4 text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900"
           :class="dragging(module.id) ? 'cursor-grabbing' : 'cursor-pointer'"
           :aria-pressed="selectedId === module.id"
           :aria-busy="pendingModuleId === module.id ? true : undefined"
@@ -676,25 +676,25 @@ onUnmounted(() => {
                 >
                 <span
                   v-else-if="module.current"
-                  class="size-1.5 rounded-full bg-white"
+                  class="size-1.5 rounded-full bg-paper"
                 />
               </span>
-              <span class="font-mono text-[10px] leading-4 tracking-[0.6px] text-[#94a3b8] tabular-nums">
+              <span class="font-mono text-[10px] leading-4 tracking-[0.6px] text-ink-400 tabular-nums">
                 {{ String(index + 1).padStart(2, '0') }}
               </span>
             </span>
             <span
               v-if="module.current"
-              class="rounded-full bg-[#eef2ff] px-2 py-0.5 text-[10px] leading-[14px] font-semibold tracking-[0.3px] text-[#4338ca]"
+              class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] leading-[14px] font-semibold tracking-[0.3px] text-brand-700"
             >Current</span>
           </span>
           <span
             class="mt-2.5 block text-pretty"
             :class="module.current
-              ? 'text-[15px] leading-5 font-semibold tracking-[-0.3px] text-[#0f172a]'
+              ? 'text-[15px] leading-5 font-semibold tracking-[-0.3px] text-ink-900'
               : module.state === 'closed'
-                ? 'text-sm leading-5 font-medium tracking-[-0.2px] text-[#64748b]'
-                : 'text-sm leading-5 font-semibold tracking-[-0.2px] text-[#1e293b]'"
+                ? 'text-sm leading-5 font-medium tracking-[-0.2px] text-ink-500'
+                : 'text-sm leading-5 font-semibold tracking-[-0.2px] text-ink-800'"
           >{{ module.name }}</span>
 
           <span
@@ -702,20 +702,20 @@ onUnmounted(() => {
             class="mt-3.5 flex items-center gap-2.5"
           >
             <span
-              class="relative h-1 min-w-0 flex-1 rounded-full bg-[#eef1f5]"
+              class="relative h-1 min-w-0 flex-1 rounded-full bg-ink-100"
               aria-hidden="true"
             >
               <span
                 class="absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out"
-                :class="module.state === 'mastered' ? 'bg-[#10b981]' : 'bg-[#4f46e5]'"
+                :class="module.state === 'mastered' ? 'bg-emerald-500' : 'bg-brand-600'"
                 :style="{ width: `${masteryPercent(module)}%` }"
               />
               <span
-                class="absolute -top-[3px] -bottom-[3px] w-px rounded-full bg-[#cbd5e1]"
+                class="absolute -top-[3px] -bottom-[3px] w-px rounded-full bg-ink-300"
                 :style="{ left: `${thresholdPercent}%` }"
               />
             </span>
-            <span class="shrink-0 font-mono text-[10px] leading-4 text-[#64748b] tabular-nums">
+            <span class="shrink-0 font-mono text-[10px] leading-4 text-ink-500 tabular-nums">
               {{ masteryPercent(module) }}%
             </span>
           </span>
@@ -730,19 +730,19 @@ onUnmounted(() => {
     >
       <button
         type="button"
-        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-slate-200/80 bg-white/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-[#475569] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-white hover:text-[#0f172a] active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-ink-200/80 bg-paper/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-ink-600 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-paper hover:text-ink-900 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 md:min-h-0 md:py-[5px]"
         @click="resetArrangement"
       >
         Reset arrangement
       </button>
       <div
-        class="flex shrink-0 items-center rounded-lg border border-slate-200/80 bg-white/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
+        class="flex shrink-0 items-center rounded-lg border border-ink-200/80 bg-paper/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
         role="group"
         aria-label="Zoom"
       >
         <button
           type="button"
-          class="min-h-11 min-w-9 cursor-pointer rounded-l-lg text-sm text-[#475569] transition-colors duration-150 hover:bg-white hover:text-[#0f172a] active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          class="min-h-11 min-w-9 cursor-pointer rounded-l-lg text-sm text-ink-600 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
           aria-label="Zoom out"
           :disabled="zoom <= minZoom"
           @click="zoomTo(zoom / zoomStep)"
@@ -751,7 +751,7 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          class="min-h-11 min-w-12 cursor-pointer px-1 font-mono text-[11px] text-[#64748b] tabular-nums hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] md:min-h-0 md:py-[5px]"
+          class="min-h-11 min-w-12 cursor-pointer px-1 font-mono text-[11px] text-ink-500 tabular-nums hover:bg-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 md:min-h-0 md:py-[5px]"
           aria-label="Fit all modules"
           title="Fit all modules"
           @click="fitAll"
@@ -760,7 +760,7 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          class="min-h-11 min-w-9 cursor-pointer rounded-r-lg text-sm text-[#475569] transition-colors duration-150 hover:bg-white hover:text-[#0f172a] active:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#0f172a] disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          class="min-h-11 min-w-9 cursor-pointer rounded-r-lg text-sm text-ink-600 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
           aria-label="Zoom in"
           :disabled="zoom >= maxZoom"
           @click="zoomTo(zoom * zoomStep)"
@@ -769,11 +769,11 @@ onUnmounted(() => {
         </button>
       </div>
       <p
-        class="flex items-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-[#64748b] shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
+        class="flex items-center gap-2 rounded-lg border border-ink-200/80 bg-paper/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-ink-500 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
         aria-hidden="true"
       >
         <span>Ctrl+scroll to zoom</span>
-        <span class="text-[#cbd5e1]">|</span>
+        <span class="text-ink-300">|</span>
         <span>Studio canvas</span>
       </p>
     </div>

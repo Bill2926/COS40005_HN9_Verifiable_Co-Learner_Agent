@@ -54,7 +54,7 @@ const roles = [
   {
     name: 'Teacher agent',
     portrait: '/portraits/teacher.png',
-    frame: 'border-indigo-200 bg-indigo-50 shadow-[2px_2px_0_0_var(--color-indigo-300)]',
+    frame: 'border-brand-200 bg-brand-50 shadow-[2px_2px_0_0_var(--color-brand-300)]',
     text: 'Knows the full content of the module you are on. The only agent that explains, corrects a misconception or suggests moving on.',
   },
   {
@@ -66,7 +66,7 @@ const roles = [
   {
     name: 'VerifyShield',
     portrait: null,
-    frame: 'border-slate-700 bg-slate-900 text-indigo-300',
+    frame: 'border-feature-line bg-feature text-feature-accent',
     text: 'Fixed rules that rule on every proposed move and check every reply before you read it. Each verdict goes into a decision log.',
   },
 ] as const
@@ -82,8 +82,8 @@ useHead({
 
 const wrap = 'mx-auto w-full max-w-6xl px-4 md:px-8'
 const section = 'scroll-mt-16 border-t border-default py-16 md:flex md:min-h-[calc(100dvh-4rem)] md:flex-col md:py-24'
-const primaryButton = 'inline-flex min-h-11 items-center justify-center rounded-sm bg-primary-600 px-4 py-2.5 text-sm font-medium text-white shadow-xs hover:bg-primary-700 active:bg-primary-700 max-md:w-full md:min-h-10'
-const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounded-sm border border-default bg-default px-4 py-2.5 text-sm font-medium text-highlighted shadow-xs hover:border-slate-300 hover:bg-slate-50 max-md:w-full md:min-h-10'
+const primaryButton = 'inline-flex min-h-11 items-center justify-center rounded-sm bg-accent px-4 py-2.5 text-sm font-medium text-on-accent shadow-xs hover:bg-accent-hover active:bg-accent-hover max-md:w-full md:min-h-10'
+const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounded-sm border border-default bg-default px-4 py-2.5 text-sm font-medium text-highlighted shadow-xs hover:border-ink-300 hover:bg-ink-50 max-md:w-full md:min-h-10'
 </script>
 
 <template>
@@ -99,10 +99,10 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
           <span class="max-sm:sr-only">Verifiable Co-Learner</span>
         </NuxtLink>
         <nav aria-label="About" class="flex items-center gap-1 text-sm">
-          <a v-for="link in [{ href: '#how', label: 'How it works' }, { href: '#course', label: 'Course' }, { href: '#team', label: 'Team' }]" :key="link.href" :href="link.href" class="hidden min-h-10 items-center rounded-sm px-3 text-muted hover:bg-slate-100 hover:text-highlighted md:inline-flex">
+          <a v-for="link in [{ href: '#how', label: 'How it works' }, { href: '#course', label: 'Course' }, { href: '#team', label: 'Team' }]" :key="link.href" :href="link.href" class="hidden min-h-10 items-center rounded-sm px-3 text-muted hover:bg-ink-100 hover:text-highlighted md:inline-flex">
             {{ link.label }}
           </a>
-          <NuxtLink :to="start.to" class="ml-2 inline-flex min-h-11 items-center rounded-sm bg-primary-600 px-3.5 text-sm font-medium text-white shadow-xs hover:bg-primary-700 md:min-h-9">
+            <NuxtLink :to="start.to" class="ml-2 inline-flex min-h-11 items-center rounded-sm bg-accent px-3.5 text-sm font-medium text-on-accent shadow-xs hover:bg-accent-hover md:min-h-9">
             {{ signedIn ? 'Workspace' : 'Sign in' }}
           </NuxtLink>
         </nav>
@@ -135,13 +135,13 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       </section>
 
       <!-- Why: the type moment. -->
-      <section id="why" :class="section" class="bg-slate-50/70">
+      <section id="why" :class="section" class="bg-ink-50/70">
         <div :class="wrap" class="flex flex-1 flex-col justify-between gap-12">
           <h2 class="text-sm font-medium text-primary-700">
             Why a co-learner
           </h2>
           <p class="max-w-5xl text-5xl/[1.02] font-semibold tracking-tight text-highlighted md:text-7xl/[1] lg:text-8xl/[0.98]">
-            Learn deeper, <span class="text-slate-400">not just faster.</span>
+            Learn deeper, <span class="text-ink-400">not just faster.</span>
           </p>
           <div class="grid gap-8 text-base/7 text-muted md:grid-cols-2 md:gap-12">
             <p>
@@ -189,7 +189,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       </section>
 
       <!-- The course roadmap, from the course model. -->
-      <section id="course" :class="section" class="bg-slate-50/70">
+      <section id="course" :class="section" class="bg-ink-50/70">
         <div :class="wrap" class="grid gap-10 lg:grid-cols-[1fr_1.5fr] lg:gap-16">
           <div class="flex flex-col gap-4">
             <h2 class="text-3xl/tight font-semibold tracking-tight text-highlighted md:text-4xl/tight">
@@ -213,8 +213,8 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
                   :key="module.number"
                   class="flex items-start gap-3 rounded-md px-3 py-3 text-sm"
                   :class="module.available
-                    ? 'bg-white text-highlighted shadow-[inset_0_0_0_1px_rgba(226,232,240,0.9),0px_1px_1px_rgba(0,0,0,0.02)]'
-                    : 'bg-slate-100/70 text-muted shadow-[inset_0_0_0_1px_rgba(226,232,240,0.6)]'"
+                    ? 'bg-paper text-highlighted shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_90%,transparent),0px_1px_1px_rgba(0,0,0,0.02)]'
+                    : 'bg-ink-100/70 text-muted shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_60%,transparent)]'"
                 >
                   <span class="w-5 shrink-0 pt-px font-mono text-xs text-muted">{{ module.number }}</span>
                   <span class="min-w-0 flex-1">
@@ -253,7 +253,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
               </h3>
               <a
                 :href="supervisor.href"
-                class="group flex flex-1 flex-col justify-between gap-8 rounded-lg border border-default bg-default p-6 shadow-xs transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md md:p-8"
+                class="group flex flex-1 flex-col justify-between gap-8 rounded-lg border border-default bg-default p-6 shadow-xs transition hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-md md:p-8"
               >
                 <span class="flex flex-col gap-2">
                   <span class="text-3xl/tight font-semibold tracking-tight text-highlighted">{{ supervisor.name }}</span>
@@ -272,7 +272,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
                     :is="member.handle ? 'a' : 'div'"
                     :href="member.handle ? `https://github.com/${member.handle}` : undefined"
                     class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3 transition"
-                    :class="member.handle && 'hover:bg-slate-50'"
+                    :class="member.handle && 'hover:bg-ink-50'"
                   >
                     <span class="truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
                     <span v-if="member.handle" class="shrink-0 text-sm text-muted">@{{ member.handle }} on GitHub</span>
@@ -285,15 +285,15 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       </section>
 
       <!-- Close. -->
-      <section id="start" :class="section" class="bg-slate-900 text-white md:justify-center">
+      <section id="start" :class="section" class="bg-feature text-on-feature md:justify-center">
         <div :class="wrap" class="flex flex-col items-start gap-8">
           <h2 class="max-w-4xl text-4xl/[1.05] font-semibold tracking-tight md:text-6xl/[1.02]">
             Start with Module 1: {{ firstModule?.name ?? 'Getting Started with Programming and Python' }}.
           </h2>
-          <p class="max-w-xl text-base/7 text-slate-300">
+          <p class="max-w-xl text-base/7 text-feature-muted">
             Sign in with your student account, and your module and conversation are waiting where you left them.
           </p>
-          <NuxtLink :to="start.to" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-white px-5 py-2.5 text-sm font-semibold text-slate-900 shadow-xs hover:bg-indigo-50 max-md:w-full md:min-h-10">
+          <NuxtLink :to="start.to" class="inline-flex min-h-11 items-center justify-center rounded-sm bg-on-feature px-5 py-2.5 text-sm font-semibold text-feature shadow-xs hover:bg-feature-muted max-md:w-full md:min-h-10">
             {{ start.label }}
           </NuxtLink>
         </div>
