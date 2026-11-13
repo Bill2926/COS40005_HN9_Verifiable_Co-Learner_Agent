@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
-import { createConfiguredAgents, createFakeAgents } from '../server/agents'
+import { describe, expect, it, vi } from 'vitest'
+import { createAgents, createConfiguredAgents, createFakeAgents, type Move } from '../server/agents'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createMemoryEvidenceStore } from '../server/student-model'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
 const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -869,7 +870,7 @@ describe('turn endpoint', () => {
     })
   })
 
-  it('gives Mai no materials, hint ladder, or solution', async () => {
+  it('gives Mai only the exercise statement, student work, and conversation', async () => {
     const store = memoryStore()
     const draft = 'def total(ds):\n    MAI_DRAFT_SENTINEL = 0\n'
     const run = { stdout: 'MAI_RUN_SENTINEL\n', stderr: '', error: null }
@@ -898,12 +899,6 @@ describe('turn endpoint', () => {
     expect(given.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
     const [propose, render] = given
     const allowed = {
-      misconceptionResponses: [
-        {
-          id: 'missing_quotes',
-          response: 'The words are missing their quotes, so Python looks for a variable instead of using the text. Put the text between quotes.',
-        },
-      ],
       exerciseStatement: 'Write hello(name) so it returns a greeting: Hello, then a space, then the name. Put a comment above the return that says what the function does.',
       draft,
       runOutput: run,
@@ -940,6 +935,32 @@ describe('turn endpoint', () => {
       expect(rendered).not.toContain('A running total has to be created before the loop. A variable created inside the loop starts again on every pass.')
       expect(rendered).not.toContain('starterCode')
       expect(rendered).not.toContain('solution')
+    }
+  })
+
+  it('introduces Mai as a peer learning alongside the student in both model calls', async () => {
+    const proposeMove = vi.fn(async (): Promise<Move> => ({ type: 'share_confusion' }))
+    const streamReply = vi.fn(async function* () {
+      yield 'I am figuring that out too.'
+    })
+    const { deskmate } = createAgents({ proposeMove, streamReply })
+    const context = {
+      exerciseStatement: 'Write a greeting.',
+      draft: null,
+      runOutput: null,
+      submission: null,
+      conversation: [],
+    }
+
+    const move = await deskmate.propose(context)
+    expect(move).toEqual({ type: 'share_confusion' })
+    if (move) deskmate.render(context, move)
+
+    for (const call of [proposeMove, streamReply]) {
+      expect(call).toHaveBeenCalledWith(
+        expect.stringMatching(/Mai.*at the student's level.*learning alongside them/i),
+        expect.stringContaining(context.exerciseStatement),
+      )
     }
   })
 
@@ -1996,6 +2017,44 @@ describe('turn endpoint', () => {
         },
       ],
     })
+  })
+
+  it.each([
+    { move: { type: 'advance_to_item', moduleId: 'variables' }, key: 'advance_to_item:variables' },
+    { move: { type: 'stay_and_practise' }, key: 'stay_and_practise' },
+  ] satisfies { move: Move, key: string }[])('renders $key as a suggestion without changing placement or mode', async ({ move, key }) => {
+    const store = memoryStore()
+    const evidence = createMemoryEvidenceStore()
+    const before = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_exercise', exerciseId: 'join_words' },
+    }, store, undefined, { evidence })
+    for (const exerciseId of ['say_hello', 'join_words', 'sign_the_program']) {
+      await evidence.append({ studentId: signedInStudent, moduleId: 'getting_started', exerciseId, testsPassed: 3, testsTotal: 3 })
+    }
+
+    const streamReply = vi.fn(async function* () {
+      yield 'You could try that when you are ready.'
+    })
+    const agents = createAgents({
+      async proposeMove(instructions) {
+        return instructions.includes('You are the Teacher') ? move : null
+      },
+      streamReply,
+    })
+    const after = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What should I try next?' },
+    }, store, agents, { evidence })
+
+    expect(after.workingArea).toEqual(before.workingArea)
+    expect(after.courseRoadmap.find(module => module.id === 'variables')?.state).toBe('open')
+    expect(after.conversation.at(-1)).toMatchObject({ author: 'teacher', approvedMove: key, openInLearn: false })
+    expect(await store.resumePoint(signedInStudent)).toEqual({ moduleId: 'getting_started', exerciseId: 'join_words' })
+    expect(streamReply).toHaveBeenCalledWith(
+      expect.stringMatching(/advance_to_item and stay_and_practise as suggestions the student can act on/i),
+      expect.stringContaining(`Approved move: ${key}`),
+    )
   })
 
   it('does not move the student when the teacher advances to a closed module', async () => {

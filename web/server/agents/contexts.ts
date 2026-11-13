@@ -35,7 +35,6 @@ export interface TeacherContext {
 }
 
 export interface DeskmateContext {
-  misconceptionResponses: readonly { id: string, response: string }[]
   exerciseStatement: string
   draft: string | null
   runOutput: RunOutput | null

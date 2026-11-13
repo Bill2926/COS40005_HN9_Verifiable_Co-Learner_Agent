@@ -577,7 +577,6 @@ async function teacherContext(
 
 function deskmateContext(context: TeacherContext): DeskmateContext {
   return {
-    misconceptionResponses: context.misconceptionResponses.map(response => ({ ...response })),
     exerciseStatement: context.exercise.statement,
     draft: context.draft,
     runOutput: context.runOutput,
