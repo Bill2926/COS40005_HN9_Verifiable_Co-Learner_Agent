@@ -718,6 +718,76 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(reopened)).not.toContain('RUN_OUTPUT_SENTINEL_42')
   })
 
+  describe('hint ladder memory', () => {
+    const rungs = [
+      'Text you want to show or return sits between quotes, like "Hello".',
+      'Join two pieces of text with +. A space is text as well: " ".',
+      'Return the text you built. A comment starts with # and does not change what is returned.',
+    ]
+
+    // A language model whose Teacher proposes the given hint rungs in turn, Mai stays quiet, and
+    // every prompt is kept.
+    function hintingModel(levels: number[]) {
+      const proposePrompts: string[] = []
+      const renderPrompts: string[] = []
+      const languageModel: LanguageModel = {
+        async proposeMove(instructions, prompt, schema) {
+          if (!instructions.includes('You are the Teacher')) return null
+          proposePrompts.push(prompt)
+          const level = levels[proposePrompts.length - 1]
+          return schema.parse({ proposal: level ? { type: 'hint_level_N', level, scope: 'getting_started' } : null }).proposal
+        },
+        async* streamReply(_instructions, prompt) {
+          renderPrompts.push(prompt)
+          yield `Rung ${renderPrompts.length} given.`
+        },
+      }
+      return { agents: createAgents(languageModel), proposePrompts, renderPrompts }
+    }
+
+    it('shows an earlier Teacher hint in the next prompt with the move that approved it', async () => {
+      const store = memoryStore()
+      const { agents, proposePrompts, renderPrompts } = hintingModel([1, 2])
+
+      for (const text of ['I am stuck.', 'Still stuck.']) {
+        await handleTurn({
+          sessionStudentId: signedInStudent,
+          body: { event: 'message', text },
+        }, store, agents)
+      }
+
+      expect(proposePrompts[1]).toContain('teacher [hint_level_1]: Rung 1 given.')
+      expect(proposePrompts[1]).toContain('student: Still stuck.')
+      expect(renderPrompts[1]).toContain('teacher [hint_level_1]: Rung 1 given.')
+    })
+
+    it('renders hint_level_2 from rung 2 alone', async () => {
+      const { agents, renderPrompts } = hintingModel([2])
+
+      await handleTurn({
+        sessionStudentId: signedInStudent,
+        body: { event: 'message', text: 'I am stuck.' },
+      }, memoryStore(), agents)
+
+      expect(renderPrompts).toHaveLength(1)
+      expect(renderPrompts[0]).toContain(rungs[1])
+      expect(renderPrompts[0]).not.toContain(rungs[0])
+      expect(renderPrompts[0]).not.toContain(rungs[2])
+      expect(renderPrompts[0]).toContain('Approved move: hint_level_2')
+    })
+
+    it('lets the Teacher choose a rung from the whole ladder when proposing', async () => {
+      const { agents, proposePrompts } = hintingModel([2])
+
+      await handleTurn({
+        sessionStudentId: signedInStudent,
+        body: { event: 'message', text: 'I am stuck.' },
+      }, memoryStore(), agents)
+
+      for (const rung of rungs) expect(proposePrompts[0]).toContain(rung)
+    })
+  })
+
   it('blocks a Deskmate hint and does not render it', async () => {
     const store = memoryStore()
     const model = createFakeAgents(
