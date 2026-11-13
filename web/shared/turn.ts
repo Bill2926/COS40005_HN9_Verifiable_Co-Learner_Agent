@@ -44,6 +44,24 @@ export interface CurrentExercise {
   tests: readonly [ExerciseCheck, ExerciseCheck, ExerciseCheck]
 }
 
+// The marking of a quiz question the student has answered: their choice, the
+// correct choice and the explanation. An unanswered question never carries any
+// of this, so the correct choice does not reach the client before the answer.
+export interface QuizResult {
+  choice: number
+  correctIndex: 0 | 1 | 2 | 3
+  correct: boolean
+  explanation: string
+}
+
+export interface QuizQuestionView {
+  id: string
+  prompt: string
+  choices: readonly [string, string, string, string]
+  // null until the student answers this question.
+  result: QuizResult | null
+}
+
 export interface WorkingAreaView {
   mode: 'learn' | null
   moduleId: string
@@ -51,6 +69,9 @@ export interface WorkingAreaView {
   materials: ModuleMaterials
   exercise: CurrentExercise
   exercises: readonly ExerciseChoice[]
+  // The module's quiz, shown in Learn mode after the materials. Each question
+  // carries its marking only once answered.
+  quiz: readonly QuizQuestionView[]
 }
 
 export interface ConversationMessage {

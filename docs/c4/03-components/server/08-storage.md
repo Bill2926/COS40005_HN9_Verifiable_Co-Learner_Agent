@@ -26,12 +26,13 @@ flowchart LR
     direction TB
     conv["<b>conversation-store.ts</b><br/>supabase-conversation-store.ts"]:::comp
     ev["<b>supabase-evidence-store.ts</b>"]:::comp
+    quiz["<b>quiz-answer-store.ts</b><br/>supabase-quiz-answer-store.ts"]:::comp
     dec["<b>decision-log.ts</b><br/>supabase-decision-log.ts"]:::comp
     ms["<b>model-settings-store.ts</b><br/>supabase-model-settings-store.ts"]:::comp
     vs["<b>supabase-verify-shield-store.ts</b>"]:::comp
   end
 
-  routes -->|"5 createSupabase...Store"| storage
+  routes -->|"6 createSupabase...Store"| storage
   ev -.->|"type: EvidenceStore, EvidenceRow"| evIface
   turn -.->|"type: ConversationStore,<br/>DecisionLogStore"| storage
   vs -.->|"type: VerifyShieldStore"| shieldIface
@@ -52,6 +53,7 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 |---|---|---|
 | conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage` | `students`, `resume_points`, `conversations`, `messages` |
 | evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
+| quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
 | decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
 | model settings | `read`, `save` (single row, id 1) | `model_settings` |
 | verify shield | `read`, `save`. Only the Supabase version is here; the interface, the in-memory version and the `verifyShieldEnabled` / `verifyShieldForTurn` rules live in [`verify-shield`](03-verify-shield.md). | `verify_shield_settings` |
@@ -59,11 +61,11 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 ## Verified imports
 
 - Each `supabase-*.ts` imports only `@supabase/supabase-js` and, as types, its own interface file (`supabase-model-settings-store.ts` also the `ModelSettings` type from `language-model`; `supabase-verify-shield-store.ts` and `supabase-evidence-store.ts` take their interfaces from `verify-shield/index.ts` and `student-model/index.ts`).
-- Runtime importers from outside: `routes/turn.post.ts` (all five Supabase files), `api/admin.post.ts` (three Supabase files).
-- Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
+- Runtime importers from outside: `routes/turn.post.ts` (all six Supabase files), `api/admin.post.ts` (three Supabase files). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` at runtime for its in-memory default.
+- Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
 - Tests: `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts` (Supabase versions); `turn-endpoint.test.ts` and `admin-handler.test.ts` (interfaces).
 
 ## Notes
 
 - All five Supabase files create their own client with the same options (secret key, no session). They share no helper, so the setup is repeated five times, and `routes/turn.post.ts` creates them again on every request (each `createSupabase...Store` call makes a new client).
-- The decision log and evidence tables have no RLS policy, so only the server's secret key can read or write them. Append-only is by convention of the store interface, not enforced by the database (sprint-1 status document).
+- The decision log, evidence and quiz-answers tables have no RLS policy, so only the server's secret key can read or write them. On the two ledgers (`evidence` and `quiz_answers`) update and delete are revoked from the anon and authenticated roles as well, so append-only is enforced there even if a policy were added later; `quiz_answers` keeps only the first answer through a `unique (student_id, module_id, question_id)` constraint.

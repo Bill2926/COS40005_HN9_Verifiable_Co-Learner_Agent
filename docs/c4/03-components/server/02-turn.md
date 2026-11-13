@@ -44,13 +44,14 @@ flowchart LR
 | `open` | Settles the placement from the resume point and evidence. First visit to a module: Teacher proposes a move; if it is not a teaching move, an `explain_concept` introduction is ruled instead. Redirect, or rendered text, or nothing is stored. |
 | `select_module`, `preview_module` | A closed or unknown module changes nothing. Otherwise returns that module's state. Only `select_module` saves the resume point. |
 | `select_exercise` | Saves the resume point and appends an `event` message with the exercise title. |
+| `quiz_answer` | Marks the chosen option against the module's quiz on the server. The first answer to a question is written to the `quiz_answers` ledger and an `event` message (`Quiz N: chose B, wrong`) is appended; a later answer to the same question changes neither. No model is called and no agent turn starts. The working area carries each question's result (the correct choice and explanation) only once answered. |
 | `submission` | Appends one evidence row, recomputes mastery, appends an `event` message (`N/M tests passed`), then answers like a message. |
 | `message` | Appends the student message, then Teacher and Deskmate each propose a move in parallel; each proposal goes through `decide`; approved moves are rendered by the model and streamed; every proposal and verdict is written to the decision log. |
 
 ## Verified imports
 
 - Runtime: `course` (`courseModules`, `studyModule`, `canonicalModuleId`, roadmap helpers), `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, `masteryThreshold`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
-- Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`.
+- Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`, `storage/quiz-answer-store` (`QuizAnswerStore`, `QuizAnswerRow`; its in-memory version is used at runtime when no store is passed).
 - It imports no Supabase code. The model, the stores and the options are passed in as arguments (`handleTurn(request, store, agents, options)`), which is why `turn-endpoint.test.ts` can run it with in-memory stores.
 
 ## Importers and tests

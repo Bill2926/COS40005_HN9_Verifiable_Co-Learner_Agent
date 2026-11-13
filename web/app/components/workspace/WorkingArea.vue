@@ -3,6 +3,7 @@ import type { PracticeTestResult, RunOutput, WorkingAreaView } from '#shared/tur
 import InlineText from './InlineText.vue'
 import PracticePanel from './PracticePanel.vue'
 import PythonExample from './PythonExample.vue'
+import QuizPanel from './QuizPanel.vue'
 
 const props = defineProps<{
   area: WorkingAreaView
@@ -21,6 +22,7 @@ const emit = defineEmits<{
   draft: [code: string]
   run: [result: RunOutput | null]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
+  quizAnswer: [answer: { questionId: string, choice: number }]
   'update:mode': [mode: 'learn' | 'practice']
   'update:expanded': [expanded: boolean]
 }>()
@@ -187,6 +189,12 @@ watch(() => props.mode, (mode) => {
             <InlineText :text="area.materials.keyPoint" />
           </p>
         </section>
+
+        <QuizPanel
+          v-if="area.quiz.length > 0"
+          :questions="area.quiz"
+          @answer="emit('quizAnswer', $event)"
+        />
       </article>
 
       <div
