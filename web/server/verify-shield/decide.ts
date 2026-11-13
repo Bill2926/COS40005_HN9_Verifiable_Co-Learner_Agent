@@ -43,7 +43,6 @@ const teachingMoves = new Set<Move['type']>([
   'answer_question',
   'hint_level_N',
   'address_misconception',
-  'reveal_answer',
 ])
 
 export function decide(

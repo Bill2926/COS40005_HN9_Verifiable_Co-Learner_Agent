@@ -29,7 +29,11 @@ export function createConfiguredAgents(settings: ModelSettings): Agents {
 
   logOnce('Language model: fake, scripted Teacher and Deskmate replies.')
   return createFakeAgents({
-    proposal: { type: 'explain_concept' },
+    // Scoped to the current module, as the real Teacher scopes a question about it.
+    proposal: context => ({
+      type: 'explain_concept',
+      scope: context.roadmap.find(module => module.current)?.id ?? 'out_of_course',
+    }),
     text: 'A running total has to be created before the loop, so each pass can add to the same number.',
   }, {
     proposal: { type: 'peer_question' },

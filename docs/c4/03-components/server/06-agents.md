@@ -2,7 +2,7 @@
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
-`web/server/agents/`, the Teacher and the Deskmate as the course defines them: the move vocabulary, what each
+`web/server/agents/`, the Teacher and the Deskmate as the course defines them: the move contract, what each
 agent is shown, what each agent is told, and the two agents built on a [`language-model`](07-language-model.md).
 Everything outside the folder goes through `index.ts`. Part of [server/00-overview.md](00-overview.md).
 
@@ -29,7 +29,7 @@ flowchart LR
     fake["<b>fake-agents.ts</b><br/>Scripted Teacher and Deskmate"]:::comp
     iface["<b>agents.ts</b><br/>Agents, Agent, AgentExchange"]:::comp
     prompts["<b>prompts.ts</b><br/>instructions, teacherPrompt,<br/>deskmatePrompt"]:::comp
-    moves["<b>moves.ts</b><br/>10 move types, moveKey"]:::comp
+    moves["<b>moves.ts</b><br/>The move contract: proposalSchema,<br/>Move, moveKey"]:::comp
     roles["<b>role-table.ts</b><br/>Moves each agent may propose"]:::comp
     contexts["<b>contexts.ts</b><br/>TeacherContext, DeskmateContext,<br/>SubmissionCheck"]:::comp
   end
@@ -38,7 +38,6 @@ flowchart LR
   turn -->|"moveKey, roleTable"| index
   turn -.->|"types: Agents, Move, contexts"| index
   shield -.->|"types: Move, RoleTable"| index
-  lm -.->|"type: Move"| index
   index --> configured
   index --> create
   index --> fake
@@ -50,11 +49,13 @@ flowchart LR
   configured -->|"createAgents"| create
   configured -->|"createFakeAgents"| fake
   configured -.->|"type: ModelSettingsStore"| storage
-  create -.->|"type: LanguageModel"| lm
+  create -.->|"type: LanguageModel<br/>(passes proposalSchema to proposeMove)"| lm
+  create -->|"proposalSchema"| moves
   create -->|"instructions, prompts"| prompts
   create -.->|"type: Agents"| iface
   fake -.->|"types: Agents, AgentExchange"| iface
-  prompts -->|"moveKey"| moves
+  prompts -->|"moveKey, scopedMoveTypes"| moves
+  prompts -->|"roleTable"| roles
   prompts -.->|"type: contexts"| contexts
   iface -.->|"types: Move, contexts"| contexts
   contexts -.->|"type: PracticeTestResult,<br/>RunOutput, ModuleMaterials"| turnTypes
@@ -66,28 +67,29 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `moves.ts` | The closed set of 10 move types, the `Move` union and `moveKey` (for example `hint_level_2`). |
-| `role-table.ts` | `roleTable` and the `RoleTable` type: which move types the Teacher and the Deskmate may propose. The Teacher gets every move except `peer_question` and `share_confusion`; the Deskmate gets only those two. The VerifyShield rules against it. |
+| `moves.ts` | The move contract, defined once in zod. `proposalSchema` holds every move an agent may propose (eight; `scope` required on `explain_concept`, `answer_question`, `hint_level_N` and `address_misconception`; `hint_level_N.level` an integer from 1 to 3). `AgentMove` and `Move` (adding the VerifyShield's own `redirect_to_module`) are inferred from it, as are `moveTypes` and `scopedMoveTypes`. Also `moveKey` (for example `hint_level_2`). |
+| `role-table.ts` | `roleTable` and the `RoleTable` type: which move types the Teacher and the Deskmate may propose. The Teacher gets every agent move except `peer_question` and `share_confusion`; the Deskmate gets only those two. The VerifyShield rules against it, and the propose instructions list each agent's moves from it. |
 | `contexts.ts` | Types only: `TeacherContext` (module materials, hint ladder, misconception responses, exercise, draft, run output, submission, conversation, roadmap), `DeskmateContext` (exercise statement, draft, run output, submission, conversation) and `SubmissionCheck`. |
-| `prompts.ts` | Plain strings and functions: the four instruction constants (`teacherProposeInstructions`, `teacherRenderInstructions`, `deskmateProposeInstructions`, `deskmateRenderInstructions`) and `teacherPrompt(context, move?)`, `deskmatePrompt(context, move?)`. Not exported by `index.ts`. |
+| `prompts.ts` | Plain strings and functions: the four instruction constants (`teacherProposeInstructions`, `teacherRenderInstructions`, `deskmateProposeInstructions`, `deskmateRenderInstructions`) and `teacherPrompt(context, move?)`, `deskmatePrompt(context, move?)`. Each propose instruction lists the agent's moves from `roleTable`, and the Teacher's names the moves needing a scope from `scopedMoveTypes`. Not exported by `index.ts`. |
 | `agents.ts` | Types only: `Agents` (a `teacher` and a `deskmate`), `Agent<Context>` with `propose(context)` and `render(context, move)`, and `AgentExchange`, the record the fake keeps of each call. |
-| `create-agents.ts` | `createAgents(languageModel)`: each agent is its own instructions and prompt sent through `proposeMove` and `streamReply`. |
-| `fake-agents.ts` | `createFakeAgents`: a scripted Teacher and Deskmate with recorded exchanges and optional failures. It replaces the agents rather than the language model, so it never sees a prompt. Used by the `fake` provider and by tests. |
+| `create-agents.ts` | `createAgents(languageModel)`: each agent is its own instructions and prompt sent through `proposeMove` and `streamReply`. Both agents pass the same `proposalSchema` (ADR 0003). |
+| `fake-agents.ts` | `createFakeAgents`: a scripted Teacher and Deskmate with recorded exchanges and optional failures. A scripted proposal is a fixed move or a function of the agent's context; the `fake` provider's Teacher scopes its move to the current module, as the real one does. It replaces the agents rather than the language model, so it never sees a prompt. Used by the `fake` provider and by tests. |
 | `configured-agents.ts` | `createConfiguredAgents(settings)` and `agentsForTurn(store, env)`: a saved record from the settings store, else the environment; `real` gives `createAgents` on the real language model, `fake` gives the scripted agents. Logs the choice once. |
-| `index.ts` | The interface: `moveKey`, `moveTypes`, `Move`, `MoveType`, `roleTable`, `RoleTable`, the three context types, `Agents`, `Agent`, `AgentExchange`, `createAgents`, `createFakeAgents`, `FakeAgentScript`, `createConfiguredAgents`, `agentsForTurn`. |
+| `index.ts` | The interface: `moveKey`, `moveTypes`, `proposalSchema`, `AgentMove`, `Move`, `MoveType`, `roleTable`, `RoleTable`, the three context types, `Agents`, `Agent`, `AgentExchange`, `createAgents`, `createFakeAgents`, `FakeAgentScript`, `createConfiguredAgents`, `agentsForTurn`. |
 
 ## Verified imports
 
 - Runtime: as in the diagram. `agents.ts`, `contexts.ts` have only type imports.
 - Runtime importers, through `index.ts`: `routes/turn.post.ts` (`agentsForTurn`), `turn/handle-turn.ts` (`moveKey`, `roleTable`), `decide.test.ts` (`roleTable`).
-- Type-only importers: `turn/handle-turn.ts`, `verify-shield/decide.ts` (`Move`, `RoleTable`), `language-model/language-model.ts` (`Move`).
-- Tests: `turn-endpoint.test.ts` and `admin-handler.test.ts` (`createFakeAgents`, `createConfiguredAgents`, `agentsForTurn`).
+- Type-only importers: `turn/handle-turn.ts`, `verify-shield/decide.ts` (`Move`, `RoleTable`). `language-model` imports nothing from here.
+- Packages: `zod` (in `moves.ts`).
+- Tests: `turn-endpoint.test.ts` and `admin-handler.test.ts` (`createFakeAgents`, `createConfiguredAgents`, `agentsForTurn`); `move-contract.test.ts` and `real-language-model.test.ts` (`proposalSchema`, `roleTable`).
 
 ## Notes
 
 - `verify-shield` receives the role table as an argument to `decide`; it does not import the table itself, only the `RoleTable` type.
-- `agents` and `language-model` import each other, but only one way at runtime: `agents` calls `language-model`; `language-model` imports only the `Move` type back.
+- `agents` depends on `language-model`, never the reverse: `create-agents.ts` passes `proposalSchema` into `proposeMove`, so the language model holds a reply to a schema it does not define.
+- One schema for both agents is deliberate (ADR 0003): a Deskmate proposing a Teacher move still parses, so the VerifyShield blocks and logs it as `ROLE_FORBIDDEN` rather than it vanishing as a parse failure.
 - Both Deskmate prompts describe Mai as learning alongside the student at their level. The Teacher renders `advance_to_item` and `stay_and_practise` as suggestions the student can act on. Placement and mode stay as they are until the student acts.
-- Loading `agents` loads the AI SDK, because `configured-agents.ts` builds the real language model. `moves.ts`, `role-table.ts`, `contexts.ts` and `prompts.ts` alone import no package.
-- The prompt tells the Teacher not to hand over a full solution, but that is an instruction to the model, not a rule the VerifyShield enforces (the status document lists `reveal_answer` as ungated).
-- `agents/prompts.ts` repeats the move names in plain text, and `language-model/provider-language-model.ts` repeats them again in its zod schema. Nothing checks that the three lists agree with `moves.ts`.
+- Loading `agents` loads the AI SDK, because `configured-agents.ts` builds the real language model. `moves.ts` imports only `zod`; `role-table.ts`, `contexts.ts` and `prompts.ts` import no package.
+- The prompt tells the Teacher not to hand over a full solution, but that is an instruction to the model, not a rule the VerifyShield enforces. `reveal_answer` is no longer a move; the turn handler still labels stored messages approved as `reveal_answer` "Answer revealed".

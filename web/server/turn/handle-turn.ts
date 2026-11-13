@@ -249,7 +249,7 @@ async function* introduceModule(
   const teaching = Boolean(proposal && isTeachingMove(proposal))
   const introduction = teaching
     ? null
-    : { agent: 'teacher' as const, move: { type: 'explain_concept' as const } }
+    : { agent: 'teacher' as const, move: { type: 'explain_concept' as const, scope: placement.module.id } }
   const introductionVerdict = introduction
     ? decide([introduction], snapshot, roleTable, courseScope)[0]
     : undefined
