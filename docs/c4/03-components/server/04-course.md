@@ -50,7 +50,7 @@ flowchart LR
 |---|---|
 | `course.ts` | `courseModules` (11 modules in 5 parts; modules 1 to 5 `available: true`, 6 to 11 `available: false`), out-of-course keywords, `courseScope` (what the VerifyShield reads), `roadmapForStanding`, `presentedRoadmap`, `redirectText`. |
 | `study-module.ts` | The `StudyModule`, `Exercise` and `QuizQuestion` types (a module has no name of its own; `CourseModule.name` is the only one; its `quiz` is exactly three questions of four choices), the list `studyModules` (5 entries), `studyModule(id)`, and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
-| `modules/*.ts` | One file per study module: materials, exercises (3 tests each), a quiz (placeholder until the real content lands), hint ladder, misconception responses. Each imports only the `StudyModule` type. |
+| `modules/*.ts` | One file per study module: materials, exercises (3 tests each), three quiz questions drawn from the module materials, hint ladder, and misconception responses. Quiz distractors can reference those responses. Each imports only the `StudyModule` type. |
 | `index.ts` | The interface: `courseModules`, `courseScope`, `courseTitle`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `studyModules`, `canonicalModuleId`, and the types `Exercise`, `QuizQuestion` and `StudyModule`. |
 
 The mastery parameters are not here; they are in [`student-model`](05-student-model.md), and the role table (which agent
