@@ -13,6 +13,7 @@ describe('VerifyShield snapshot contract', () => {
       unlockedModuleIds: readonly string[]
       studentMessage: string
       verifyShieldOn: boolean
+      highestHintRung: number
     }>()
   })
 

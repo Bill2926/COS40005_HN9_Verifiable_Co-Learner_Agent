@@ -878,6 +878,53 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(reopened)).not.toContain('role_table')
   })
 
+  it('downgrades a skipped hint to the next rung above the highest stored one', async () => {
+    const store = memoryStore()
+    // The teacher already climbed to rung 1 in this module's conversation.
+    await store.appendMessage(signedInStudent, 'getting_started', {
+      author: 'teacher',
+      approvedMove: 'hint_level_1',
+      text: 'A running total has to exist before the loop.',
+      exerciseId: 'say_hello',
+    })
+    const model = createFakeAgents({
+      proposal: { type: 'hint_level_N', level: 3, scope: 'getting_started' },
+      text: 'The downgraded rung two hint.',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Give me a hint.' },
+    }, store, model)
+
+    expect(state.trace).toMatchObject({
+      agents: [
+        {
+          agent: 'teacher',
+          proposal: 'hint_level_3',
+          verdict: {
+            decision: 'downgrade',
+            ruleId: 'hint_ladder',
+            reasonCode: 'HINT_SKIPPED',
+          },
+        },
+        {
+          agent: 'deskmate',
+          proposal: null,
+          verdict: null,
+        },
+      ],
+    })
+    expect(state.conversation.map(message => ({
+      author: message.author,
+      approvedMove: message.approvedMove,
+    }))).toEqual([
+      { author: 'teacher', approvedMove: 'hint_level_1' },
+      { author: 'student', approvedMove: null },
+      { author: 'teacher', approvedMove: 'hint_level_2' },
+    ])
+  })
+
   it('reports an agent that made no proposal', async () => {
     const store = memoryStore()
     const state = await handleTurn({
@@ -1795,10 +1842,12 @@ describe('turn endpoint', () => {
         approvedMove: 'hint_level_1',
       },
       {
-        proposal: { type: 'hint_level_N' as const, level: 3, scope: 'getting_started' },
+        // Rung 2 follows the rung 1 given just above: a valid climb the hint
+        // ladder leaves alone.
+        proposal: { type: 'hint_level_N' as const, level: 2, scope: 'getting_started' },
         text: 'Create the total once, before the loop.',
         role: 'Hint',
-        approvedMove: 'hint_level_3',
+        approvedMove: 'hint_level_2',
       },
       {
         proposal: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'getting_started' },

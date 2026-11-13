@@ -15,6 +15,8 @@ export interface TurnSnapshot {
   unlockedModuleIds: readonly string[]
   studentMessage: string
   verifyShieldOn: boolean
+  // The highest hint rung already given in this module's conversation, 0 if none.
+  highestHintRung: number
 }
 
 export interface CourseModule {
@@ -91,6 +93,9 @@ export function decide(
     const advance = advanceDowngrade(proposal, snapshot, course)
     if (advance) return advance
 
+    const hint = hintLadderDowngrade(proposal, snapshot)
+    if (hint) return hint
+
     return {
       agent: proposal.agent,
       decision: 'allow',
@@ -160,6 +165,27 @@ function advanceDowngrade(
     ruleId: 'scope_requires_unlocked_module',
     reasonCode: 'MODULE_CLOSED',
     move: { type: 'redirect_to_module', scope: target },
+  }
+}
+
+// The teacher climbs the hint ladder one rung at a time. A rung above the
+// highest already given plus one is downgraded to that next rung; a rung at or
+// below the highest given, or exactly one above it, is left alone.
+function hintLadderDowngrade(
+  proposal: Proposal,
+  snapshot: TurnSnapshot,
+): Verdict | null {
+  if (proposal.agent !== 'teacher') return null
+  if (proposal.move.type !== 'hint_level_N') return null
+  const ceiling = snapshot.highestHintRung + 1
+  if (proposal.move.level <= ceiling) return null
+
+  return {
+    agent: proposal.agent,
+    decision: 'downgrade',
+    ruleId: 'hint_ladder',
+    reasonCode: 'HINT_SKIPPED',
+    move: { type: 'hint_level_N', level: ceiling, scope: proposal.move.scope },
   }
 }
 
