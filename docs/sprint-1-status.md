@@ -75,7 +75,7 @@ Ten move types in a closed set (`web/server/agents/moves.ts`).
 | `hint_level_N` | yes | no | no | level >= 1, any level accepted, needs scope |
 | `address_misconception` | yes | no | no | needs misconception id and scope |
 | `reveal_answer` | yes | no | no | no attempt condition |
-| `advance_to_item` | yes | no | no | target must be unlocked; renders a message, moves nobody |
+| `advance_to_module` | yes | no | no | target must be unlocked; renders a message, moves nobody |
 | `stay_and_practise` | yes | no | no | renders a message, changes no state |
 | `peer_question` | no | yes | no | no scope |
 | `share_confusion` | no | yes | no | no scope |
@@ -84,10 +84,10 @@ Ten move types in a closed set (`web/server/agents/moves.ts`).
 ### How a turn is ruled
 1. Both agents propose from the closed set in the same turn.
 2. The role table blocks a move the agent is not allowed to make.
-3. With the shield off, every move is allowed and logged as `VERIFYSHELD_OFF`.
+3. With the shield off, every move is allowed and logged as `VERIFYSHIELD_OFF`.
 4. A teacher teaching move must name an unlocked module; a closed or out-of-course scope becomes a redirect.
 5. The keyword backstop reads the student message and redirects even when the label says in scope.
-6. `advance_to_item` aimed at a locked or unknown module becomes a redirect.
+6. `advance_to_module` aimed at a locked or unknown module becomes a redirect.
 7. Deskmate moves are only role-checked, never scope-checked.
 8. The approved move is rendered by that agent, streamed to the student, and stored with its move key.
 
@@ -95,7 +95,7 @@ Ten move types in a closed set (`web/server/agents/moves.ts`).
 
 | Situation | Decision | Rule id | Reason code |
 |---|---|---|---|
-| Shield off | allow | `verify_shield` | `VERIFYSHELD_OFF` |
+| Shield off | allow | `verify_shield` | `VERIFYSHIELD_OFF` |
 | Missing module or exercise | block | `role_table` | `ROLE_FORBIDDEN` |
 | Move not in the agent's role table | block | `role_table` | `ROLE_FORBIDDEN` |
 | Teacher teaches a not-unlocked module | downgrade | `scope_requires_unlocked_module` | `MODULE_CLOSED` |
@@ -114,7 +114,7 @@ Ten move types in a closed set (`web/server/agents/moves.ts`).
 | `hint_level_N` | Hint |
 | `address_misconception` | Misconception |
 | `reveal_answer` | Answer revealed |
-| `advance_to_item` | Next module |
+| `advance_to_module` | Next module |
 | `stay_and_practise` | Keep practising |
 | `redirect_to_module` | Not yet |
 
@@ -123,7 +123,7 @@ Ten move types in a closed set (`web/server/agents/moves.ts`).
 - One course model now: `course.ts` is the source for modules, roadmap and redirects, and `student-model/mastery-parameters.ts` for the mastery parameters; the old static roadmap file no longer exists.
 - Unlocking is permanent: `everMastered` keeps a module open after mastery falls.
 - Module 1 is the only module open to a new student; the seed gives Bình passes on Modules 1-4 so the demo shows mastered, open and closed cards.
-- `advance_to_item` and `stay_and_practise` are ruled and labelled but change no state; a student moves modules only by clicking an unlocked card.
+- `advance_to_module` and `stay_and_practise` are ruled and labelled but change no state; a student moves modules only by clicking an unlocked card.
 - `redirect_to_module` is never proposed by a model, by design; the shield injects it.
 - The trace panel exists and is off by default, matching US30.
 - The Practice copy about evidence is stale and should be fixed before the demo.

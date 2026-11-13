@@ -159,14 +159,14 @@ describe('decide', () => {
         agent: 'teacher',
         decision: 'allow',
         ruleId: 'verify_shield',
-        reasonCode: 'VERIFYSHELD_OFF',
+        reasonCode: 'VERIFYSHIELD_OFF',
         move: { type: 'explain_concept', scope: 'lists_and_tuples' },
       },
       {
         agent: 'deskmate',
         decision: 'allow',
         ruleId: 'verify_shield',
-        reasonCode: 'VERIFYSHELD_OFF',
+        reasonCode: 'VERIFYSHIELD_OFF',
         move: { type: 'hint_level_N', level: 2, scope: 'getting_started' },
       },
     ])
@@ -274,7 +274,7 @@ describe('decide', () => {
 
   it('downgrades an advance aimed at a module that is not unlocked', () => {
     expect(decide(
-      [{ agent: 'teacher', move: { type: 'advance_to_item', moduleId: 'lists_and_tuples' } }],
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'lists_and_tuples' } }],
       snapshot({ studentMessage: 'Can we start lists?' }),
       roleTable,
       course,

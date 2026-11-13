@@ -15,7 +15,7 @@ export const agentMoveSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('address_misconception'), misconceptionId: z.string().min(1), scope }),
   z.object({ type: z.literal('peer_question') }),
   z.object({ type: z.literal('share_confusion') }),
-  z.object({ type: z.literal('advance_to_item'), moduleId: z.string().min(1) }),
+  z.object({ type: z.literal('advance_to_module'), moduleId: z.string().min(1) }),
   z.object({ type: z.literal('stay_and_practise') }),
 ])
 
@@ -46,6 +46,6 @@ export const scopedMoveTypes: readonly MoveType[] = agentMoveSchema.options
 export function moveKey(move: Move): string {
   if (move.type === 'hint_level_N') return `hint_level_${move.level}`
   if (move.type === 'address_misconception') return `address_misconception:${move.misconceptionId}`
-  if (move.type === 'advance_to_item') return `advance_to_item:${move.moduleId}`
+  if (move.type === 'advance_to_module') return `advance_to_module:${move.moduleId}`
   return move.type
 }

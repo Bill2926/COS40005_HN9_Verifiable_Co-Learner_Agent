@@ -1734,10 +1734,10 @@ describe('turn endpoint', () => {
         approvedMove: 'address_misconception:accumulator_reset_inside_loop',
       },
       {
-        proposal: { type: 'advance_to_item' as const, moduleId: 'nested_loop' },
+        proposal: { type: 'advance_to_module' as const, moduleId: 'nested_loop' },
         text: 'Nested loops is the next module.',
         role: 'Next module',
-        approvedMove: 'advance_to_item:nested_loop',
+        approvedMove: 'advance_to_module:nested_loop',
       },
       {
         proposal: { type: 'stay_and_practise' as const },
@@ -2026,7 +2026,7 @@ describe('turn endpoint', () => {
           verdict: {
             decision: 'allow',
             ruleId: 'verify_shield',
-            reasonCode: 'VERIFYSHELD_OFF',
+            reasonCode: 'VERIFYSHIELD_OFF',
           },
         },
         {
@@ -2040,7 +2040,7 @@ describe('turn endpoint', () => {
   })
 
   it.each([
-    { move: { type: 'advance_to_item', moduleId: 'variables' }, key: 'advance_to_item:variables' },
+    { move: { type: 'advance_to_module', moduleId: 'variables' }, key: 'advance_to_module:variables' },
     { move: { type: 'stay_and_practise' }, key: 'stay_and_practise' },
   ] satisfies { move: Move, key: string }[])('renders $key as a suggestion without changing placement or mode', async ({ move, key }) => {
     const store = memoryStore()
@@ -2072,7 +2072,7 @@ describe('turn endpoint', () => {
     expect(after.conversation.at(-1)).toMatchObject({ author: 'teacher', approvedMove: key, openInLearn: false })
     expect(await store.resumePoint(signedInStudent)).toEqual({ moduleId: 'getting_started', exerciseId: 'join_words' })
     expect(streamReply).toHaveBeenCalledWith(
-      expect.stringMatching(/advance_to_item and stay_and_practise as suggestions the student can act on/i),
+      expect.stringMatching(/advance_to_module and stay_and_practise as suggestions the student can act on/i),
       expect.stringContaining(`Approved move: ${key}`),
     )
   })
@@ -2083,7 +2083,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Can we start lists?' },
     }, store, createFakeAgents({
-      proposal: { type: 'advance_to_item', moduleId: 'lists_and_tuples' },
+      proposal: { type: 'advance_to_module', moduleId: 'lists_and_tuples' },
       text: 'LISTS_ADVANCE_SHOULD_NOT_RENDER',
     }))
 
