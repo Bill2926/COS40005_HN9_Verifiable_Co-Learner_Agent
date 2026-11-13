@@ -68,7 +68,7 @@ flowchart LR
 |---|---|
 | `moves.ts` | The closed set of 10 move types, the `Move` union and `moveKey` (for example `hint_level_2`). |
 | `role-table.ts` | `roleTable` and the `RoleTable` type: which move types the Teacher and the Deskmate may propose. The Teacher gets every move except `peer_question` and `share_confusion`; the Deskmate gets only those two. The VerifyShield rules against it. |
-| `contexts.ts` | Types only: `TeacherContext` (module materials, hint ladder, misconception responses, exercise, draft, run output, submission, conversation, roadmap), `DeskmateContext` (a smaller view: no materials, no hint ladder, no roadmap) and `SubmissionCheck`. |
+| `contexts.ts` | Types only: `TeacherContext` (module materials, hint ladder, misconception responses, exercise, draft, run output, submission, conversation, roadmap), `DeskmateContext` (exercise statement, draft, run output, submission, conversation) and `SubmissionCheck`. |
 | `prompts.ts` | Plain strings and functions: the four instruction constants (`teacherProposeInstructions`, `teacherRenderInstructions`, `deskmateProposeInstructions`, `deskmateRenderInstructions`) and `teacherPrompt(context, move?)`, `deskmatePrompt(context, move?)`. Not exported by `index.ts`. |
 | `agents.ts` | Types only: `Agents` (a `teacher` and a `deskmate`), `Agent<Context>` with `propose(context)` and `render(context, move)`, and `AgentExchange`, the record the fake keeps of each call. |
 | `create-agents.ts` | `createAgents(languageModel)`: each agent is its own instructions and prompt sent through `proposeMove` and `streamReply`. |
@@ -87,6 +87,7 @@ flowchart LR
 
 - `verify-shield` receives the role table as an argument to `decide`; it does not import the table itself, only the `RoleTable` type.
 - `agents` and `language-model` import each other, but only one way at runtime: `agents` calls `language-model`; `language-model` imports only the `Move` type back.
+- Both Deskmate prompts describe Mai as learning alongside the student at their level. The Teacher renders `advance_to_item` and `stay_and_practise` as suggestions the student can act on. Placement and mode stay as they are until the student acts.
 - Loading `agents` loads the AI SDK, because `configured-agents.ts` builds the real language model. `moves.ts`, `role-table.ts`, `contexts.ts` and `prompts.ts` alone import no package.
 - The prompt tells the Teacher not to hand over a full solution, but that is an instruction to the model, not a rule the VerifyShield enforces (the status document lists `reveal_answer` as ungated).
 - `agents/prompts.ts` repeats the move names in plain text, and `language-model/provider-language-model.ts` repeats them again in its zod schema. Nothing checks that the three lists agree with `moves.ts`.
