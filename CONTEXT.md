@@ -15,7 +15,7 @@ The co-learner agent that knows the full content of the current module; the only
 _Avoid_: tutor, assistant, bot, instructor
 
 **Deskmate agent**:
-The co-learner agent working at roughly the student's level, which learns alongside them and may only ask peer questions or share confusion.
+The co-learner agent working at roughly the student's level, which learns alongside them and may only ask peer questions or share confusion. Named Mai to the student. Knows only what the student can see: the exercise, the student's work and the conversation, never the module's hints or misconception responses.
 _Avoid_: companion, buddy, second tutor
 
 **Co-learner agent**:
@@ -39,6 +39,14 @@ _Avoid_: section, chapter, module
 A practice task belonging to one module, checked by automatic tests.
 _Avoid_: problem, task, assignment
 
+**Quiz**:
+The three multiple-choice questions belonging to one module, offered in Learn mode after the materials to check understanding. Each question has four choices and exactly one is correct.
+_Avoid_: test, exam, check
+
+**Quiz answer**:
+The student's choice on one quiz question, marked right or wrong by the server. The correct choice is never sent to the student's device. A quiz answer is not an attempt.
+_Avoid_: response, quiz attempt
+
 **Test**:
 One automatic check of an exercise, comparing what the student's code returns for a given input with the expected value.
 _Avoid_: assertion, test case
@@ -46,6 +54,10 @@ _Avoid_: assertion, test case
 **Misconception**:
 A specific wrong idea that explains a student's mistake, such as setting a running total back to zero inside the loop. Only the teacher agent names or corrects one to the student.
 _Avoid_: bug, error, mistake
+
+**Hint ladder**:
+The three hints of a module, from gentlest (1) to most direct (3). The teacher agent gives one rung at a time, may repeat a rung already given, never skips ahead to a rung beyond the next one, and never goes past rung 3; no rung is the finished solution.
+_Avoid_: hint list, hint level
 
 **Course roadmap**:
 The picture of the course that shows every module, grouped into parts, as mastered, open, or closed, with the student's mastery beside it and the reason a closed module is closed. A module with no content yet stays closed as not available.
@@ -78,7 +90,7 @@ The fixed picture that stands for the teacher agent, the deskmate agent, or the 
 _Avoid_: avatar, profile picture, icon
 
 **Working area**:
-The panel that shows either the current module's materials (Learn mode) or the current exercise, editor and test results (Practice mode).
+The panel that shows either the current module's materials and quiz (Learn mode) or the current exercise, editor and test results (Practice mode).
 
 **Run**:
 Executing the student's code in the editor to see its output. A run is not an attempt and produces no evidence.
@@ -92,7 +104,7 @@ _Avoid_: run, check, upload
 One submission on an exercise.
 
 **Evidence**:
-A recorded fact about what the student did, produced from a submission by the test runner or the constraint checker. Reading materials and running code produce none.
+A recorded fact about what the student did, produced from a submission (by the test runner) or from a quiz answer. Reading materials, running code and chatting produce none.
 
 **Draft**:
 The code currently in the student's editor that has not been submitted. Kept on the student's device only; it is neither evidence nor part of the resume point.
@@ -109,7 +121,7 @@ The student's record over time: exercises completed and attempts needed to pass 
 _Avoid_: resume point, mastery
 
 **Mastery**:
-The system's estimate, between 0 and 1, of how well a student knows a module, computed from evidence alone; a module counts as mastered once its mastery reaches the threshold.
+The system's estimate, between 0 and 1, of how well a student knows a module, computed from evidence alone, from both submissions and quiz answers; a module counts as mastered once its mastery reaches the threshold and the student has passed at least one of its exercises, so quiz answers alone never master a module.
 _Avoid_: progress, score, level, SM
 
 ### VerifyShield
@@ -122,7 +134,7 @@ A typed pedagogical action an agent proposes from a closed set; the agent writes
 _Avoid_: action, intent, response
 
 **VerifyShield**:
-The deterministic envelope that rules on every proposed move (allow, block, or downgrade) and checks every rendered text before the student sees it. It can be switched off for every student at once to show the behaviour without it; it is on unless switched off.
+The deterministic envelope that rules on every proposed move (allow, block, or downgrade) before any text for it is written. It rules on moves only: the words an agent writes for an approved move are not checked. It can be switched off for every student at once to show the behaviour without it; it is on unless switched off.
 _Avoid_: shield, guard, filter, harness
 
 **Redirect**:
