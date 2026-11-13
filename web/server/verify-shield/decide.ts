@@ -58,7 +58,7 @@ export function decide(
       agent: proposal.agent,
       decision: 'allow',
       ruleId: 'verify_shield',
-      reasonCode: 'VERIFYSHELD_OFF',
+      reasonCode: 'VERIFYSHIELD_OFF',
       move: proposal.move,
     }))
   }
@@ -149,7 +149,7 @@ function advanceDowngrade(
   snapshot: TurnSnapshot,
   course: CourseScope,
 ): Verdict | null {
-  if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_item') return null
+  if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_module') return null
   const target = proposal.move.moduleId
   const known = course.modules.some(module => module.id === target)
   if (!known || snapshot.unlockedModuleIds.includes(target)) return null

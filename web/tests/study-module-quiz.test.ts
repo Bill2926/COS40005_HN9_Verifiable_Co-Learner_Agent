@@ -7,6 +7,13 @@ describe('study module content', () => {
     expect(studyModules.map(module => module.id)).toEqual(available)
   })
 
+  it('uses each answer position across the course', () => {
+    const positions = studyModules.flatMap(module => module.quiz.map(question => question.correctIndex))
+    for (const position of [0, 1, 2, 3]) {
+      expect(positions.filter(index => index === position).length).toBeGreaterThanOrEqual(3)
+    }
+  })
+
   for (const module of studyModules) {
     describe(module.id, () => {
       it('has no name of its own', () => {
@@ -39,6 +46,9 @@ describe('study module content', () => {
 
       it('resolves every misconception id to a misconception response', () => {
         const known = module.misconceptionResponses.map(item => item.id)
+        if (known.length > 0) {
+          expect(module.quiz.some(question => Object.keys(question.misconceptions ?? {}).length > 0)).toBe(true)
+        }
         for (const question of module.quiz) {
           const ids = Object.entries(question.misconceptions ?? {})
           for (const [index, id] of ids) {

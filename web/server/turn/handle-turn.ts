@@ -739,7 +739,7 @@ function teacherMoveLabel(approvedMove: string | null): string {
   if (approvedMove?.startsWith('hint_level_')) return 'Hint'
   if (approvedMove?.startsWith('address_misconception')) return 'Misconception'
   if (approvedMove === 'reveal_answer') return 'Answer revealed'
-  if (approvedMove?.startsWith('advance_to_item')) return 'Next module'
+  if (approvedMove?.startsWith('advance_to_module:')) return 'Next module'
   if (approvedMove === 'stay_and_practise') return 'Keep practising'
   return ''
 }

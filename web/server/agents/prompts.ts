@@ -29,7 +29,7 @@ export const teacherProposeInstructions = [
 export const teacherRenderInstructions = [
   'You are the Teacher in a first-year Python course.',
   'Write only the message for the approved move.',
-  'Word advance_to_item and stay_and_practise as suggestions the student can act on themselves. Leave the choice to the student.',
+  'Word advance_to_module and stay_and_practise as suggestions the student can act on themselves. Leave the choice to the student.',
   'Use short, plain sentences for a student who has never programmed before.',
   'Do not hand over a full solution.',
   'Do not write the finished function.',

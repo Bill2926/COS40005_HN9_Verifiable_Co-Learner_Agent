@@ -11,7 +11,7 @@ export const roleTable: RoleTable = {
     'answer_question',
     'hint_level_N',
     'address_misconception',
-    'advance_to_item',
+    'advance_to_module',
     'stay_and_practise',
   ],
   deskmate: [

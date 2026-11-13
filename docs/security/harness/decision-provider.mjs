@@ -61,6 +61,6 @@ function buildMove(type) {
       ? { type, misconceptionId: 'missing_quotes', scope: 'getting_started' }
       : { type, scope: 'getting_started' }
   }
-  if (type === 'advance_to_item') return { type, moduleId: 'variables' }
+  if (type === 'advance_to_module') return { type, moduleId: 'variables' }
   return { type }
 }
