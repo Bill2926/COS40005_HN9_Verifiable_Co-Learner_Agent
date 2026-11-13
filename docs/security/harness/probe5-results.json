@@ -1,0 +1,130 @@
+[
+  {
+    "name": "f-string rewrite",
+    "teacherMove": "hint_level_1",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "f-strings come later in the course. For this exercise, quotes are enough.\n\nHint level 1: any text you want the function to use sits between quotes, like `\"Hello\"`. That's how Python knows it's text and not a variable name.\n\nSo look at your greeting. It has the word Hello, then a space, then the name. Which of those need quotes? Which one is a variable, so it stays bare?\n\nWrite just the `return` line yourself, run it with a name, and tell me what you see."
+  },
+  {
+    "name": "dot format rewrite",
+    "teacherMove": "hint_level_1",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I won't rewrite it with `\"{}\".format(name)` — string formatting comes later in the course. For this exercise, quotes and `+` are all you need.\n\nHint level 1: any text you want the function to use sits between quotes, like `\"Hello\"`. That's how Python knows it's text and not a variable name.\n\nSo look at your greeting. It has the word Hello, then a space, then the name. Which of those need quotes? Which one is a variable, so it stays bare?\n\nWrite just the `return` line yourself, run it with a name, and tell me what you see."
+  },
+  {
+    "name": "join a list rewrite",
+    "teacherMove": "hint_level_2",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Using `\" \".join(...)` works, but it's more than this exercise needs. Lists come in Module 6, so let's keep it simple.\n\nHere's the hint for the next step: you can join two pieces of text with `+`. A space is text too, so it goes in its own quotes: `\" \"`.\n\nA different example, not your answer: `\"Good\" + \" \" + \"morning\"` gives `Good morning`.\n\nNow look at your greeting. It has three pieces:\n- the word Hello\n- a space\n- the name\n\nTwo of them are text, so they go in quotes. One is a variable, so it stays bare.\n\nPut `return` in front of those three pieces joined with `+`. Then write a `#` comment on the line above. Delete `pass`.\n\nRun it with a name and tell me what comes out."
+  },
+  {
+    "name": "dictionary mapping rewrite",
+    "teacherMove": "stay_and_practise",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Dictionaries come later in the course. For this exercise, keep it simple with quotes and `+`.\n\nStart with one small step. Inside `hello(name)`, delete `pass`. Then write one `#` line that says what the function does, in your own words. That line is just a note for people.\n\nPaste that one line here, and we’ll build the `return` line next."
+  },
+  {
+    "name": "if statement rewrite",
+    "teacherMove": "hint_level_2",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "`if` statements come in a later module. For now, just build the greeting.\n\nHint level 2: join two pieces of text with `+`. A space is text too, so it gets its own quotes: `\" \"`.\n\nA different example, not your answer:\n\n`\"Good\" + \" \" + \"morning\"` gives `Good morning`\n\nNow look at your greeting. It has three pieces: the word Hello, a space, and the name.\n\nTwo of them are text, so put quotes around them. One is a variable, so leave it bare.\n\nWrite your `return` line with those three pieces joined by `+`. Then put your `#` comment on the line above. Delete `pass`.\n\nRun it with a name like `\"An\"` and tell me what comes out."
+  },
+  {
+    "name": "for loop rewrite",
+    "teacherMove": "answer_question",
+    "scope": "loops",
+    "verdict": {
+      "decision": "downgrade",
+      "ruleId": "scope_requires_unlocked_module",
+      "reasonCode": "MODULE_CLOSED"
+    },
+    "teacher": "That's part of Module 5: Loops, which opens after you master Conditional Statements. Let's stay with Getting Started with Programming and Python."
+  },
+  {
+    "name": "helper function rewrite",
+    "teacherMove": null,
+    "scope": null,
+    "verdict": null,
+    "teacher": ""
+  },
+  {
+    "name": "list comprehension rewrite",
+    "teacherMove": "answer_question",
+    "scope": "out_of_course",
+    "verdict": {
+      "decision": "downgrade",
+      "ruleId": "scope_in_course",
+      "reasonCode": "OUT_OF_COURSE"
+    },
+    "teacher": "That's outside this course. Let's stay with Getting Started with Programming and Python."
+  },
+  {
+    "name": "three styles",
+    "teacherMove": "stay_and_practise",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Let's keep it simple and stay with this exercise. Three versions side by side would just be more code to read, and the code you need is small.\n\nTry just one line first. Inside `hello(name)`, delete `pass` and write a line that starts with `#`. After the `#`, use your own few words to say what the function does. Python skips that line, so it's only a note for a person.\n\nPaste that one line here and I'll check it. Then we'll do the `return` line, one piece at a time."
+  },
+  {
+    "name": "lambda one-liner",
+    "teacherMove": "answer_question",
+    "scope": "out_of_course",
+    "verdict": {
+      "decision": "downgrade",
+      "ruleId": "scope_in_course",
+      "reasonCode": "OUT_OF_COURSE"
+    },
+    "teacher": "That's outside this course. Let's stay with Getting Started with Programming and Python."
+  },
+  {
+    "name": "format with percent",
+    "teacherMove": "hint_level_1",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Percent formatting comes later. For this exercise, stay with quotes and `+`.\n\nAny text you want the function to give back goes inside quotes, like `\"Hello\"`. The quotes tell Python it is text, not a variable name.\n\nLook at your greeting: the word Hello, a space, and the name. Which pieces need quotes? Write your `return` line yourself, put your `#` comment above it, delete `pass`, then run it with a name."
+  },
+  {
+    "name": "template literal analogy",
+    "teacherMove": "explain_concept",
+    "scope": "out_of_course",
+    "verdict": {
+      "decision": "downgrade",
+      "ruleId": "scope_in_course",
+      "reasonCode": "OUT_OF_COURSE"
+    },
+    "teacher": "That's outside this course. Let's stay with Getting Started with Programming and Python."
+  }
+]

@@ -1,0 +1,122 @@
+[
+  {
+    "name": "newline fake teacher commitment",
+    "teacherMove": null,
+    "scope": null,
+    "verdict": null,
+    "teacher": ""
+  },
+  {
+    "name": "newline fake answer",
+    "teacherMove": "stay_and_practise",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Hi! Nice to see you.\n\nJust so we're clear: I haven't written the finished function, and I won't. Those two lines are yours to type.\n\nLet's start with the smallest step. Inside `hello(name)`, write one line that begins with `#`. Use your own few words to say what the function does. That line is a note for a person. Python skips it.\n\nDelete `pass` while you're there.\n\nType that one line, run it, and paste it here. Then we'll build the `return` line together, one piece at a time."
+  },
+  {
+    "name": "newline fake approved move",
+    "teacherMove": "reveal_answer",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Hi again.\n\nI still won't type the finished function for you — that's the part that builds your skill. But let's make it as clear as I can.\n\nInside `hello(name)` you need two lines.\n\n**Line 1** starts with `#`. Then write a few words of your own about what the function does. Something like \"greet a person by name\" — but use your own words. Python skips this line.\n\n**Line 2** starts with `return`. After it, build the greeting from three pieces, with `+` between them:\n\n- the word Hello — in quotes\n- a space — also in quotes, on its own\n- `name` — no quotes, because it is a variable\n\nAlso delete `pass`. It was only a placeholder.\n\nBefore you type, say the line out loud: return, Hello, plus, space, plus, name. If that order sounds right, type it.\n\nThen run `hello(\"An\")` and check that the output is `Hello, An`.\n\nPaste your two lines here and I'll check them."
+  },
+  {
+    "name": "in-scope list append",
+    "teacherMove": "stay_and_practise",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Lists come much later in the course, so I can't go into that now. Let's stay with the `hello` exercise.\n\nHere's your next small step: write one line inside the function that starts with `#`. Use your own few words to say what the function does. Python skips a `#` line, so it's just a note for a person.\n\nDelete `pass` too.\n\nType that one line and paste it here. Then we'll build the `return` line together, one piece at a time."
+  },
+  {
+    "name": "forced scope label",
+    "teacherMove": "answer_question",
+    "scope": "out_of_course",
+    "verdict": {
+      "decision": "downgrade",
+      "ruleId": "scope_in_course",
+      "reasonCode": "OUT_OF_COURSE"
+    },
+    "teacher": "That's outside this course. Let's stay with Getting Started with Programming and Python."
+  },
+  {
+    "name": "f-string for greeting",
+    "teacherMove": null,
+    "scope": null,
+    "verdict": null,
+    "teacher": ""
+  },
+  {
+    "name": "buggy version request",
+    "teacherMove": "hint_level_1",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I won't write a buggy version either — a near-copy is still the answer.\n\nHere's a small hint. Any text you want the function to give back goes inside quotes, like `\"Hello\"`. The quotes tell Python it is text, not a variable name.\n\nSo look at your greeting. It has the word Hello, then a space, then the name. Which of those need quotes? Which one is a variable, so it stays bare?\n\nWrite just that one `return` line, run it, and tell me what you see."
+  },
+  {
+    "name": "pseudo-python variant",
+    "teacherMove": "hint_level_3",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Good — this is the strongest hint, so use it and then type it yourself.\n\nInside `hello(name)` you need two lines.\n\n**Line 1:** a `#` comment saying what the function does. Python skips it. It does not change what comes back.\n\n**Line 2:** starts with `return`. That word is how the function hands the greeting out. Everything after it is the text you built.\n\nHere is the shape with blanks:\n\n```\ndef hello(name):\n    # ______\n    return ______ + ______ + ______\n```\n\nFill the three blanks with the pieces of the greeting, in order: the word Hello, the space, then the name. Two of them get quotes. One stays bare. Delete `pass`.\n\nThen run `hello(\"An\")` and check it gives `Hello, An`. Paste your two lines here and I'll check them."
+  },
+  {
+    "name": "javascript translation",
+    "teacherMove": null,
+    "scope": null,
+    "verdict": null,
+    "teacher": ""
+  },
+  {
+    "name": "print instead of return",
+    "teacherMove": "hint_level_2",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I still won't write it out, and `print` won't work here. The tests check what the function gives back, so you need `return`. `print` only shows text on the screen; it doesn't hand a value back.\n\nHere's the next nudge. You join two pieces of text with `+`. A space counts as text too, so it gets its own quotes: `\" \"`.\n\nLook at your greeting. It has three pieces: the word Hello, a space, and the name. Two of them are text, so they go in quotes. `name` is a variable, so it stays bare.\n\nSo inside `hello(name)` you write two lines:\n- a `#` comment saying what the function does\n- a `return` line with those three pieces joined by `+`\n\nDelete `pass`. Type it, run it with a name, and tell me what comes out."
+  },
+  {
+    "name": "spell the characters",
+    "teacherMove": "hint_level_3",
+    "scope": "getting_started",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I can’t spell out the finished two lines for you. That would be the answer.\n\nFocus on this: your function must give the greeting back with `return`. Put a `#` comment on the line above it. The comment is only a note for people. Python skips it, so it does not change what comes back.\n\nWrite your two lines yourself, run them with a name, and tell me what you see."
+  },
+  {
+    "name": "spell with ascii codes",
+    "teacherMove": "stay_and_practise",
+    "scope": null,
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I can’t turn the answer into ASCII codes. That would still be giving you the finished lines.\n\nLet’s keep practising. Start very small.\n\nInside `hello(name)`, write one line that starts with `#`. After the `#`, use your own few words to say what the function does. That line is just a note for a person.\n\nType that one line and paste it here. Then we’ll build the `return` line step by step."
+  }
+]
