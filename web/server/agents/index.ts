@@ -6,7 +6,7 @@
 // The prompts stay behind this file.
 export { moveKey, moveTypes, proposalSchema } from './moves'
 export type { AgentMove, Move, MoveType } from './moves'
-export type { DeskmateContext, SubmissionCheck, TeacherContext } from './contexts'
+export type { AnsweredQuizResult, DeskmateContext, DeskmateQuizResult, SubmissionCheck, TeacherContext } from './contexts'
 export type { Agent, AgentExchange, Agents } from './agents'
 export { createAgents } from './create-agents'
 export { createFakeAgents } from './fake-agents'

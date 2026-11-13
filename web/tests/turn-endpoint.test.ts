@@ -1024,6 +1024,7 @@ describe('turn endpoint', () => {
       draft,
       runOutput: run,
       submission: null,
+      answeredQuiz: [],
     }
     expect(propose?.context).toEqual({
       ...allowed,
@@ -1077,6 +1078,7 @@ describe('turn endpoint', () => {
       runOutput: null,
       submission: null,
       conversation: [],
+      answeredQuiz: [],
     }
 
     const move = await deskmate.propose(context)

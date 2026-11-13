@@ -1,4 +1,4 @@
-import type { DeskmateContext, SubmissionCheck, TeacherContext } from './contexts'
+import type { AnsweredQuizResult, DeskmateContext, DeskmateQuizResult, SubmissionCheck, TeacherContext } from './contexts'
 import { moveKey, scopedMoveTypes, type Move } from './moves'
 import { roleTable } from './role-table'
 
@@ -139,6 +139,31 @@ function submissionLines(submission: SubmissionCheck | null): string[] {
   return ['', 'Submission', formatSubmission(submission)]
 }
 
+function choiceLetter(index: number): string {
+  return 'ABCD'[index] ?? String(index)
+}
+
+// Only answered questions are in the context, so an unanswered question's
+// correct choice can never appear here. The Teacher's lines carry the
+// explanation; the Deskmate's do not.
+function quizResultLine(result: AnsweredQuizResult | DeskmateQuizResult): string {
+  const misconception = result.misconceptionId ? `, misconception ${result.misconceptionId}` : ''
+  return `${result.prompt} — chose ${choiceLetter(result.choice)}, answer ${choiceLetter(result.correctIndex)}, ${result.correct ? 'correct' : 'wrong'}${misconception}`
+}
+
+function quizLines<Result>(results: readonly Result[], line: (result: Result) => string): string[] {
+  if (results.length === 0) return []
+  return ['', 'Quiz results', ...results.map(line)]
+}
+
+function teacherQuizLines(results: readonly AnsweredQuizResult[]): string[] {
+  return quizLines(results, result => `${quizResultLine(result)}; ${result.explanation}`)
+}
+
+function deskmateQuizLines(results: readonly DeskmateQuizResult[]): string[] {
+  return quizLines(results, quizResultLine)
+}
+
 function formatRun(run: TeacherContext['runOutput']): string {
   if (!run) return 'The student has not run the draft.'
   return [
@@ -179,6 +204,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
     'Latest Run output',
     formatRun(run),
     ...submissionLines(context.submission),
+    ...teacherQuizLines(context.answeredQuiz),
     '',
     'Conversation',
     ...highestRungLines(context.conversation),
@@ -204,6 +230,7 @@ export function deskmatePrompt(context: DeskmateContext, move?: Move): string {
     'Latest Run output',
     formatRun(context.runOutput),
     ...submissionLines(context.submission),
+    ...deskmateQuizLines(context.answeredQuiz),
     '',
     'Conversation',
     ...formatConversation(context.conversation),
