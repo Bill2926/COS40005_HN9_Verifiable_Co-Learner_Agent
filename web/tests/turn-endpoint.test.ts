@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { createAgents, createConfiguredAgents, createFakeAgents, proposalSchema, type Move } from '../server/agents'
 import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryEvidenceStore } from '../server/student-model'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
@@ -2099,6 +2100,90 @@ describe('turn endpoint', () => {
     })
     expect(state.workingArea.moduleId).toBe('getting_started')
     expect(JSON.stringify(state)).not.toContain('LISTS_ADVANCE_SHOULD_NOT_RENDER')
+  })
+
+  it.each([
+    {
+      text: 'How do I print?',
+      teacher: { type: 'explain_concept', scope: 'getting_started' },
+      deskmate: { type: 'hint_level_N', level: 1, scope: 'getting_started' },
+      logged: [
+        { agent: 'teacher', verdict: 'allow', ruledMove: 'explain_concept', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED' },
+        { agent: 'deskmate', verdict: 'block', ruledMove: null, ruleId: 'role_table', reasonCode: 'ROLE_FORBIDDEN' },
+      ],
+    },
+    {
+      text: 'What are lists?',
+      teacher: { type: 'explain_concept', scope: 'lists_and_tuples' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_requires_unlocked_module', reasonCode: 'MODULE_CLOSED' }],
+    },
+    {
+      text: 'hey how are you',
+      teacher: { type: 'explain_concept', scope: 'out_of_course' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_in_course', reasonCode: 'OUT_OF_COURSE' }],
+    },
+    {
+      text: 'Can you show me Pandas?',
+      teacher: { type: 'explain_concept', scope: 'getting_started' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_keyword', reasonCode: 'OUT_OF_COURSE_KEYWORD' }],
+    },
+    {
+      text: 'Can we talk about Lists and Tuples?',
+      teacher: { type: 'answer_question', scope: 'getting_started' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_keyword', reasonCode: 'MODULE_CLOSED_KEYWORD' }],
+    },
+    {
+      text: 'Can we start lists?',
+      teacher: { type: 'advance_to_module', moduleId: 'lists_and_tuples' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_requires_unlocked_module', reasonCode: 'MODULE_CLOSED' }],
+    },
+  ] satisfies { text: string, teacher: Move, deskmate?: Move, logged: Partial<DecisionRecord>[] }[])('logs the $logged.0.reasonCode verdict for "$text"', async ({ text, teacher, deskmate, logged }) => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text },
+    }, memoryStore(), createFakeAgents(
+      { proposal: teacher, text: 'Teacher words.' },
+      ...(deskmate ? [{ proposal: deskmate, text: 'Mai words.' }] : []),
+    ), { decisions })
+
+    const rows = (await decisions.list()).reverse()
+    expect(rows).toHaveLength(logged.length)
+    rows.forEach((row, index) => expect(row).toMatchObject({
+      ...logged[index],
+      studentId: signedInStudent,
+      unlockedModuleIds: ['getting_started'],
+      verifyShieldOn: true,
+    }))
+  })
+
+  it('logs every proposal as allowed when the VerifyShield is off', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What are lists?' },
+    }, memoryStore(), createFakeAgents(
+      { proposal: { type: 'explain_concept', scope: 'lists_and_tuples' }, text: 'A list keeps items in order.' },
+      { proposal: { type: 'hint_level_N', level: 1, scope: 'getting_started' }, text: 'Mai words.' },
+    ), { decisions, verifyShieldOn: false })
+
+    expect((await decisions.list()).reverse()).toMatchObject([
+      { agent: 'teacher', verdict: 'allow', ruledMove: 'explain_concept', ruleId: 'verify_shield', reasonCode: 'VERIFYSHIELD_OFF', verifyShieldOn: false },
+      { agent: 'deskmate', verdict: 'allow', ruledMove: 'hint_level_1', ruleId: 'verify_shield', reasonCode: 'VERIFYSHIELD_OFF', verifyShieldOn: false },
+    ])
+  })
+
+  it('logs the opening turn\'s proposal and the introduction put in its place', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, memoryStore(), createFakeAgents({ proposal: { type: 'stay_and_practise' }, text: 'Welcome.' }), { decisions })
+
+    expect((await decisions.list()).reverse()).toMatchObject([
+      { agent: 'teacher', proposedMove: 'stay_and_practise', verdict: 'allow', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED' },
+      { agent: 'teacher', proposedMove: 'explain_concept', proposedScope: 'getting_started', verdict: 'allow', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED' },
+    ])
   })
 
   it('rejects an exercise that is not on the module', async () => {

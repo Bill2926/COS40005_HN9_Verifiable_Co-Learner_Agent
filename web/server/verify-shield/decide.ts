@@ -5,14 +5,16 @@ export interface ModuleMastery {
   mastery: number
 }
 
+// Every field is required: a rule that read an optional field would be
+// skipped, without a word, whenever a caller left it out.
 export interface TurnSnapshot {
+  // The module the student is placed on; it is also the current module.
   moduleId: string
   exerciseId: string
-  currentModuleId?: string
-  masteries?: readonly ModuleMastery[]
-  unlockedModuleIds?: readonly string[]
-  studentMessage?: string
-  verifyShieldOn?: boolean
+  masteries: readonly ModuleMastery[]
+  unlockedModuleIds: readonly string[]
+  studentMessage: string
+  verifyShieldOn: boolean
 }
 
 export interface CourseModule {
@@ -48,10 +50,10 @@ const teachingMoves = new Set<Move['type']>([
 export function decide(
   proposals: readonly Proposal[],
   snapshot: TurnSnapshot,
-  spec: RoleTable,
-  course?: CourseScope,
+  roleTable: RoleTable,
+  course: CourseScope,
 ): Verdict[] {
-  if (snapshot.verifyShieldOn === false) {
+  if (!snapshot.verifyShieldOn) {
     return proposals.map(proposal => ({
       agent: proposal.agent,
       decision: 'allow',
@@ -65,14 +67,14 @@ export function decide(
     return proposals.map(proposal => ({
       agent: proposal.agent,
       decision: 'block',
-      ruleId: 'role_table',
-      reasonCode: 'ROLE_FORBIDDEN',
+      ruleId: 'turn_placement',
+      reasonCode: 'NO_PLACEMENT',
       move: null,
     }))
   }
 
   return proposals.map((proposal) => {
-    const permitted = spec[proposal.agent].includes(proposal.move.type)
+    const permitted = roleTable[proposal.agent].includes(proposal.move.type)
     if (!permitted) {
       return {
         agent: proposal.agent,
@@ -102,16 +104,15 @@ export function decide(
 function scopeDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
-  course: CourseScope | undefined,
+  course: CourseScope,
 ): Verdict | null {
-  if (proposal.agent !== 'teacher' || !snapshot.unlockedModuleIds) return null
+  if (proposal.agent !== 'teacher') return null
   if (!teachingMoves.has(proposal.move.type)) return null
-  const scope = moveScope(proposal.move) ?? snapshot.currentModuleId
-  if (!scope) return null
+  const scope = moveScope(proposal.move) ?? snapshot.moduleId
 
   const inScope = scope !== 'out_of_course' && snapshot.unlockedModuleIds.includes(scope)
-  if (inScope && course) {
-    const keyword = keywordHit(snapshot.studentMessage ?? '', snapshot.unlockedModuleIds, course)
+  if (inScope) {
+    const keyword = keywordHit(snapshot.studentMessage, snapshot.unlockedModuleIds, course)
     if (keyword) {
       return {
         agent: 'teacher',
@@ -146,10 +147,9 @@ function scopeDowngrade(
 function advanceDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
-  course: CourseScope | undefined,
+  course: CourseScope,
 ): Verdict | null {
   if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_module') return null
-  if (!snapshot.unlockedModuleIds || !course) return null
   const target = proposal.move.moduleId
   const known = course.modules.some(module => module.id === target)
   if (!known || snapshot.unlockedModuleIds.includes(target)) return null

@@ -5,18 +5,17 @@ import { decide, type CourseScope, type TurnSnapshot } from '../server/verify-sh
 
 const course: CourseScope = {
   modules: [
-    { id: 'strings', number: 3, name: 'Working with Strings', available: true, keywords: ['working with strings', 'strings'] },
-    { id: 'loops', number: 5, name: 'Loops', available: true, keywords: ['loops'] },
-    { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', available: false, keywords: ['lists and tuples', 'lists', 'tuples'] },
+    { id: 'strings', keywords: ['working with strings', 'strings'] },
+    { id: 'loops', keywords: ['loops'] },
+    { id: 'lists_and_tuples', keywords: ['lists and tuples', 'lists', 'tuples'] },
   ],
   outOfCourseKeywords: ['pandas', 'classes', 'linked lists'],
 }
 
 function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
   return {
-    moduleId: 'for_loop',
+    moduleId: 'loops',
     exerciseId: 'sum_of_a_list',
-    currentModuleId: 'loops',
     masteries: [
       { moduleId: 'strings', mastery: 0.95 },
       { moduleId: 'loops', mastery: 0.4 },
@@ -172,6 +171,36 @@ describe('decide', () => {
     ])
   })
 
+  it.each([
+    { placement: 'no module', overrides: { moduleId: '' } },
+    { placement: 'no exercise', overrides: { exerciseId: '' } },
+  ])('blocks every proposal on a turn with $placement as NO_PLACEMENT', ({ overrides }) => {
+    expect(decide(
+      [
+        { agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } },
+        { agent: 'deskmate', move: { type: 'peer_question' } },
+      ],
+      snapshot(overrides),
+      roleTable,
+      course,
+    )).toEqual([
+      {
+        agent: 'teacher',
+        decision: 'block',
+        ruleId: 'turn_placement',
+        reasonCode: 'NO_PLACEMENT',
+        move: null,
+      },
+      {
+        agent: 'deskmate',
+        decision: 'block',
+        ruleId: 'turn_placement',
+        reasonCode: 'NO_PLACEMENT',
+        move: null,
+      },
+    ])
+  })
+
   it('gives the same verdict each time for the same proposal and snapshot', () => {
     const proposals = [{
       agent: 'teacher' as const,
@@ -234,7 +263,6 @@ describe('decide', () => {
 
   it('matches a closed module by its name and not by a word inside a loops question', () => {
     const onLoops = snapshot({
-      currentModuleId: 'loops',
       unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
     })
     expect(decide(

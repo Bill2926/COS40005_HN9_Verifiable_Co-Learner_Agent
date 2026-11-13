@@ -25,14 +25,20 @@ export default class ColearnerDecisionProvider {
     const snapshot = {
       moduleId: 'getting_started',
       exerciseId: 'say_hello',
-      currentModuleId: 'getting_started',
       masteries: [{ moduleId: 'getting_started', mastery: 0.1 }],
       unlockedModuleIds: ['getting_started'],
       studentMessage: prompt,
       verifyShieldOn: true,
     }
 
-    const verdict = decide([{ agent, move }], snapshot, roleTable)[0]
+    // decide() needs a course scope. Node cannot load the real one (course.ts has
+    // extensionless runtime imports), so this names the one module the cases use.
+    const courseScope = {
+      modules: [{ id: 'getting_started', keywords: ['getting started with programming and python'] }],
+      outOfCourseKeywords: [],
+    }
+
+    const verdict = decide([{ agent, move }], snapshot, roleTable, courseScope)[0]
     return {
       output: JSON.stringify({
         agent,

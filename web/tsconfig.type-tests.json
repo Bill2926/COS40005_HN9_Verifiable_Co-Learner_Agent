@@ -1,0 +1,5 @@
+{
+  // Type-level tests (tests/**/*.test-d.ts), checked by `vitest run` through tsc.
+  "extends": "./.nuxt/tsconfig.server.json",
+  "include": ["./.nuxt/types/nitro.d.ts", "./tests/**/*.test-d.ts"]
+}
