@@ -90,6 +90,6 @@ flowchart LR
 - `verify-shield` receives the role table as an argument to `decide`; it does not import the table itself, only the `RoleTable` type.
 - `agents` depends on `language-model`, never the reverse: `create-agents.ts` passes `proposalSchema` into `proposeMove`, so the language model holds a reply to a schema it does not define.
 - One schema for both agents is deliberate (ADR 0003): a Deskmate proposing a Teacher move still parses, so the VerifyShield blocks and logs it as `ROLE_FORBIDDEN` rather than it vanishing as a parse failure.
-- Both Deskmate prompts describe Mai as learning alongside the student at their level. The Teacher renders `advance_to_item` and `stay_and_practise` as suggestions the student can act on. Placement and mode stay as they are until the student acts.
+- Both Deskmate prompts describe Mai as learning alongside the student at their level. The Teacher renders `advance_to_module` and `stay_and_practise` as suggestions the student can act on. Placement and mode stay as they are until the student acts.
 - Loading `agents` loads the AI SDK, because `configured-agents.ts` builds the real language model. `moves.ts` imports only `zod`; `role-table.ts`, `contexts.ts` and `prompts.ts` import no package.
 - The prompt tells the Teacher not to hand over a full solution, but that is an instruction to the model, not a rule the VerifyShield enforces. `reveal_answer` is no longer a move; the turn handler still labels stored messages approved as `reveal_answer` "Answer revealed".

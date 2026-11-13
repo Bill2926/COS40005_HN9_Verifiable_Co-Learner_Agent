@@ -59,16 +59,15 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 
 | Order | Rule id | Reason code | Outcome |
 |---|---|---|---|
-| 1 | `verify_shield` | `VERIFYSHELD_OFF` | Shield switched off: every proposal is allowed unchanged. |
+| 1 | `verify_shield` | `VERIFYSHIELD_OFF` | Shield switched off: every proposal is allowed unchanged. |
 | 2 | `role_table` | `ROLE_FORBIDDEN` | No module or exercise in the snapshot: block. |
 | 3 | `role_table` | `ROLE_FORBIDDEN` | The agent may not propose this move type (for example Deskmate proposing `explain_concept`): block. |
 | 4 | `scope_keyword` | `OUT_OF_COURSE_KEYWORD`, `MODULE_CLOSED_KEYWORD` | Teacher teaching move on an unlocked scope, but the student's message names an out-of-course keyword or a closed module: downgrade to `redirect_to_module`. |
 | 5 | `scope_in_course` | `OUT_OF_COURSE` | Teaching move labelled `out_of_course`: downgrade to redirect. |
-| 6 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | Teaching move whose scope is not unlocked: downgrade to redirect. Also applies to `advance_to_item` toward a locked module. |
+| 6 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | Teaching move whose scope is not unlocked: downgrade to redirect. Also applies to `advance_to_module` toward a locked module. |
 | 7 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
-Note the code spells the reason code `VERIFYSHELD_OFF` (as it does the env var `NUXT_VERIFYSHELD`). Anything that
-filters decisions by reason code needs that spelling.
+The shield-off reason code is `VERIFYSHIELD_OFF`. Set `NUXT_VERIFYSHELD` to configure the shield through the environment.
 
 ## Verified imports
 

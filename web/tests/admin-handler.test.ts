@@ -493,7 +493,7 @@ describe('admin handler', () => {
     expect(viewed.decisions[0]).toMatchObject({
       verdict: 'allow',
       ruleId: 'verify_shield',
-      reasonCode: 'VERIFYSHELD_OFF',
+      reasonCode: 'VERIFYSHIELD_OFF',
       verifyShieldOn: false,
       proposedScope: 'lists_and_tuples',
     })
