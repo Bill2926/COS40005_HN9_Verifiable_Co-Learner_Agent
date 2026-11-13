@@ -1,4 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest'
+import { proposalSchema } from '../server/agents'
 import { createRealLanguageModel } from '../server/language-model'
 
 // DeepSeek answers response_format: { type: 'json_schema' } with
@@ -44,7 +45,7 @@ afterEach(() => {
 it('asks for a plain JSON object, never a json_schema the provider rejects', async () => {
   const sent = captureProposeRequest()
 
-  await model().proposeMove('Propose one move.', 'The student is stuck on a loop.')
+  await model().proposeMove('Propose one move.', 'The student is stuck on a loop.', proposalSchema)
 
   expect(sent).toHaveLength(1)
   expect(sent[0]!.responseFormat).toEqual({ type: 'json_object' })
@@ -53,7 +54,7 @@ it('asks for a plain JSON object, never a json_schema the provider rejects', asy
 it('states the proposal schema in the instructions, since the request cannot carry it', async () => {
   const sent = captureProposeRequest()
 
-  await model().proposeMove('Propose one move.', 'The student is stuck on a loop.')
+  await model().proposeMove('Propose one move.', 'The student is stuck on a loop.', proposalSchema)
 
   const system = sent[0]!.messages.filter(message => message.role === 'system').map(message => message.content).join('\n')
   expect(system).toContain('"explain_concept"')

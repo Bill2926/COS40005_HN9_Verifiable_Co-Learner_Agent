@@ -11,7 +11,6 @@ export const roleTable: RoleTable = {
     'answer_question',
     'hint_level_N',
     'address_misconception',
-    'reveal_answer',
     'advance_to_item',
     'stay_and_practise',
   ],

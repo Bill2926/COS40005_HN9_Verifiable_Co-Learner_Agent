@@ -1,18 +1,27 @@
 import type { DeskmateContext, SubmissionCheck, TeacherContext } from './contexts'
-import { moveKey, type Move } from './moves'
+import { moveKey, scopedMoveTypes, type Move } from './moves'
+import { roleTable } from './role-table'
+
+// "a, b, or c": moves as a prompt names them.
+function listMoves(moves: readonly string[], conjunction: 'or' | 'and' = 'or'): string {
+  if (moves.length < 2) return moves.join('')
+  return `${moves.slice(0, -1).join(', ')}${moves.length > 2 ? ',' : ''} ${conjunction} ${moves.at(-1)}`
+}
+
+const teacherScopedMoves = roleTable.teacher.filter(move => scopedMoveTypes.includes(move))
 
 // What each agent is told, and what it is shown. Plain strings: nothing here knows which provider
 // or SDK carries them to a language model.
 export const teacherProposeInstructions = [
   'You are the Teacher in a first-year Python course.',
   'Propose one move, or no proposal.',
-  'You may propose explain_concept, answer_question, hint_level_N, address_misconception, reveal_answer, advance_to_item, or stay_and_practise.',
-  'hint_level_N needs a level starting at 1.',
-  'explain_concept, answer_question, hint_level_N, and address_misconception need a scope.',
+  `You may propose ${listMoves(roleTable.teacher)}.`,
+  'hint_level_N needs a level from 1 to 3.',
+  `${listMoves(teacherScopedMoves, 'and')} need a scope.`,
   'Scope is the module id the question is about, taken from the course roadmap, or out_of_course.',
   'Use out_of_course for anything this course does not cover, including small talk.',
   'A closed module and anything out of course must be labelled that way. Do not teach them.',
-  'Do not propose peer_question or share_confusion. Return proposal null instead.',
+  `Do not propose ${listMoves(roleTable.deskmate)}. Return proposal null instead.`,
   'Return proposal null when you should stay quiet.',
   'Do not hand over a full solution. A proposal is the move, not the words the student will read.',
 ].join(' ')
@@ -33,7 +42,7 @@ const deskmatePersona = 'You are Mai, the Deskmate in a first-year Python course
 export const deskmateProposeInstructions = [
   deskmatePersona,
   'Propose one move, or no proposal.',
-  'You may propose only peer_question or share_confusion.',
+  `You may propose only ${listMoves(roleTable.deskmate)}.`,
   'Do not propose a hint, an explanation, a correction, or a change of module.',
   'Return proposal null when you should stay quiet.',
   'A proposal is the move, not the words the student will read.',

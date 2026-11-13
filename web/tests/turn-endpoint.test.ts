@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createAgents, createConfiguredAgents, createFakeAgents, type Move } from '../server/agents'
+import { createAgents, createConfiguredAgents, createFakeAgents, proposalSchema, type Move } from '../server/agents'
+import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryEvidenceStore } from '../server/student-model'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
@@ -17,7 +18,7 @@ function memoryStore() {
 
 function speakingTeacher() {
   return createFakeAgents({
-    proposal: { type: 'explain_concept' },
+    proposal: { type: 'explain_concept', scope: 'getting_started' },
     text: teacherReply,
   })
 }
@@ -522,7 +523,7 @@ describe('turn endpoint', () => {
   it('answers a message with one streamed Teacher message carrying its move', async () => {
     const store = memoryStore()
     const model = createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'The total has to exist before the loop starts.',
     })
 
@@ -579,7 +580,7 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const model = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: 'The total has to exist before the loop starts.',
       },
       {
@@ -649,7 +650,7 @@ describe('turn endpoint', () => {
   it('gives the Teacher the draft and latest Run output without storing either', async () => {
     const store = memoryStore()
     const model = createFakeAgents({
-      proposal: { type: 'answer_question' },
+      proposal: { type: 'answer_question', scope: 'getting_started' },
       text: 'Look at the variable that survives the loop.',
     })
     const draft = 'def total(ds):\n    DRAFT_SENTINEL_42 = 0\n'
@@ -718,11 +719,11 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const model = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: teacherReply,
       },
       {
-        proposal: { type: 'hint_level_N', level: 2 },
+        proposal: { type: 'hint_level_N', level: 2, scope: 'getting_started' },
         text: 'HINT_SHOULD_NOT_RENDER',
       },
     )
@@ -756,11 +757,11 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const model = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: teacherReply,
       },
       {
-        proposal: { type: 'hint_level_N', level: 2 },
+        proposal: { type: 'hint_level_N', level: 2, scope: 'getting_started' },
         text: 'HINT_SHOULD_NOT_RENDER',
       },
     )
@@ -811,7 +812,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: teacherReply,
       },
       {
@@ -876,7 +877,7 @@ describe('turn endpoint', () => {
     const run = { stdout: 'MAI_RUN_SENTINEL\n', stderr: '', error: null }
     const model = createFakeAgents(
       {
-        proposal: { type: 'hint_level_N', level: 1 },
+        proposal: { type: 'hint_level_N', level: 1, scope: 'getting_started' },
         text: teacherReply,
       },
       {
@@ -939,11 +940,17 @@ describe('turn endpoint', () => {
   })
 
   it('introduces Mai as a peer learning alongside the student in both model calls', async () => {
-    const proposeMove = vi.fn(async (): Promise<Move> => ({ type: 'share_confusion' }))
-    const streamReply = vi.fn(async function* () {
-      yield 'I am figuring that out too.'
-    })
-    const { deskmate } = createAgents({ proposeMove, streamReply })
+    const languageModel: LanguageModel = {
+      async proposeMove(_instructions, _prompt, schema) {
+        return schema.parse({ proposal: { type: 'share_confusion' } }).proposal
+      },
+      async* streamReply() {
+        yield 'I am figuring that out too.'
+      },
+    }
+    const proposeMove = vi.spyOn(languageModel, 'proposeMove')
+    const streamReply = vi.spyOn(languageModel, 'streamReply')
+    const { deskmate } = createAgents(languageModel)
     const context = {
       exerciseStatement: 'Write a greeting.',
       draft: null,
@@ -956,19 +963,19 @@ describe('turn endpoint', () => {
     expect(move).toEqual({ type: 'share_confusion' })
     if (move) deskmate.render(context, move)
 
-    for (const call of [proposeMove, streamReply]) {
-      expect(call).toHaveBeenCalledWith(
-        expect.stringMatching(/Mai.*at the student's level.*learning alongside them/i),
-        expect.stringContaining(context.exerciseStatement),
-      )
-    }
+    const asMai = [
+      expect.stringMatching(/Mai.*at the student's level.*learning alongside them/i),
+      expect.stringContaining(context.exerciseStatement),
+    ]
+    expect(proposeMove).toHaveBeenCalledWith(...asMai, proposalSchema)
+    expect(streamReply).toHaveBeenCalledWith(...asMai)
   })
 
   it('produces no message for an agent that makes no proposal', async () => {
     const store = memoryStore()
     const quietMai = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: teacherReply,
       },
       {
@@ -1069,7 +1076,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         fail: 'propose',
       },
       {
@@ -1133,7 +1140,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: teacherReply,
       },
       {
@@ -1178,7 +1185,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       fail: 'propose',
     }))
 
@@ -1211,7 +1218,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'And if it is inside?' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'PARTIAL_SHOULD_NOT_STICK',
       fail: 'render',
     }))
@@ -1270,7 +1277,7 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const model = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: 'A running total survives every pass of the loop.',
       },
       {
@@ -1352,7 +1359,7 @@ describe('turn endpoint', () => {
       },
     ])
     expect(model.exchanges.map(exchange => exchange.phase)).toEqual(['propose', 'render'])
-    expect(model.exchanges.at(-1)?.move).toEqual({ type: 'explain_concept' })
+    expect(model.exchanges.at(-1)?.move).toEqual({ type: 'explain_concept', scope: 'getting_started' })
     expect(state.trace).toMatchObject({
       active: false,
       agents: [
@@ -1408,7 +1415,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       fail: 'propose',
     }))
 
@@ -1436,7 +1443,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'PARTIAL_OPENING_SHOULD_NOT_STICK',
       fail: 'render',
     }))
@@ -1492,7 +1499,7 @@ describe('turn endpoint', () => {
     }, store, speakingTeacher())
 
     const model = createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'SHOULD_NOT_INTRODUCE_AGAIN',
     })
     const reopened = await handleTurn({
@@ -1525,7 +1532,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'The total has to exist before the loop starts.',
     }))
 
@@ -1540,7 +1547,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Is the total a variable?' },
     }, store, createFakeAgents({
-      proposal: { type: 'answer_question' },
+      proposal: { type: 'answer_question', scope: 'getting_started' },
       text: 'Yes. It is a variable that lives outside the loop.',
     }))
 
@@ -1558,7 +1565,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'I am stuck.' },
     }, store, createFakeAgents({
-      proposal: { type: 'hint_level_N', level: 1 },
+      proposal: { type: 'hint_level_N', level: 1, scope: 'getting_started' },
       text: 'Create the total before the loop.',
     }))
 
@@ -1574,7 +1581,7 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const model = createFakeAgents(
       {
-        proposal: { type: 'explain_concept' },
+        proposal: { type: 'explain_concept', scope: 'getting_started' },
         text: 'The total is still created inside the loop.',
       },
       {
@@ -1674,44 +1681,57 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(deskmatePropose.context)).not.toContain('starterCode')
   })
 
+  it('still names a stored Teacher message approved as reveal_answer, though no agent can propose it now', async () => {
+    const store = memoryStore()
+    const opened = await handleTurn({ sessionStudentId: signedInStudent, body: { event: 'open' } }, store)
+    await store.appendMessage(signedInStudent, 'getting_started', {
+      author: 'teacher',
+      approvedMove: 'reveal_answer',
+      text: 'The total starts at zero before the loop.',
+      exerciseId: opened.workingArea.exercise.id,
+    })
+
+    const state = await handleTurn({ sessionStudentId: signedInStudent, body: { event: 'open' } }, store)
+
+    expect(state.conversation.find(message => message.text === 'The total starts at zero before the loop.')).toMatchObject({
+      author: 'teacher',
+      role: 'Answer revealed',
+      approvedMove: 'reveal_answer',
+    })
+  })
+
   it('presents each Teacher message with the plain-word name of its approved move', async () => {
     const store = memoryStore()
     const replies = [
       {
-        proposal: { type: 'explain_concept' as const },
+        proposal: { type: 'explain_concept' as const, scope: 'getting_started' },
         text: 'The total is created before the loop.',
         role: 'Explanation',
         approvedMove: 'explain_concept',
       },
       {
-        proposal: { type: 'answer_question' as const },
+        proposal: { type: 'answer_question' as const, scope: 'getting_started' },
         text: 'Yes. The total is a variable.',
         role: 'Answer',
         approvedMove: 'answer_question',
       },
       {
-        proposal: { type: 'hint_level_N' as const, level: 1 },
+        proposal: { type: 'hint_level_N' as const, level: 1, scope: 'getting_started' },
         text: 'Look at the line before the loop.',
         role: 'Hint',
         approvedMove: 'hint_level_1',
       },
       {
-        proposal: { type: 'hint_level_N' as const, level: 3 },
+        proposal: { type: 'hint_level_N' as const, level: 3, scope: 'getting_started' },
         text: 'Create the total once, before the loop.',
         role: 'Hint',
         approvedMove: 'hint_level_3',
       },
       {
-        proposal: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop' },
+        proposal: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'getting_started' },
         text: 'The total is being set back to zero inside the loop.',
         role: 'Misconception',
         approvedMove: 'address_misconception:accumulator_reset_inside_loop',
-      },
-      {
-        proposal: { type: 'reveal_answer' as const },
-        text: 'The total starts at zero before the loop.',
-        role: 'Answer revealed',
-        approvedMove: 'reveal_answer',
       },
       {
         proposal: { type: 'advance_to_item' as const, moduleId: 'nested_loop' },
@@ -1749,7 +1769,7 @@ describe('turn endpoint', () => {
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'And if the model fails?' },
     }, store, createFakeAgents({
-      proposal: { type: 'explain_concept' },
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
       fail: 'propose',
     }))
 
@@ -2037,8 +2057,8 @@ describe('turn endpoint', () => {
       yield 'You could try that when you are ready.'
     })
     const agents = createAgents({
-      async proposeMove(instructions) {
-        return instructions.includes('You are the Teacher') ? move : null
+      async proposeMove(instructions, _prompt, schema) {
+        return schema.parse({ proposal: instructions.includes('You are the Teacher') ? move : null }).proposal
       },
       streamReply,
     })

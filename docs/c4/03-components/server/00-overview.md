@@ -84,12 +84,11 @@ flowchart LR
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
-| language-model | agents | `Move` |
 | storage | verify-shield, student-model, language-model | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`; `ModelSettings` |
 | admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`; `ModelSettings`; `VerifyShieldStore` |
 
-One type-level cycle exists: agents and language-model import each other (agents calls language-model; language-model imports only the `Move` type back). The
-runtime (solid-arrow) graph has no cycle.
+Neither graph has a cycle. language-model imports nothing from agents: agents passes it the proposal schema as an
+argument, so the move set is known only to agents.
 
 ## Not imported by any runtime code
 

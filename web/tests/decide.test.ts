@@ -149,7 +149,7 @@ describe('decide', () => {
     expect(decide(
       [
         { agent: 'teacher', move: { type: 'explain_concept', scope: 'lists_and_tuples' } },
-        { agent: 'deskmate', move: { type: 'hint_level_N', level: 2 } },
+        { agent: 'deskmate', move: { type: 'hint_level_N', level: 2, scope: 'getting_started' } },
       ],
       off,
       roleTable,
@@ -167,7 +167,7 @@ describe('decide', () => {
         decision: 'allow',
         ruleId: 'verify_shield',
         reasonCode: 'VERIFYSHELD_OFF',
-        move: { type: 'hint_level_N', level: 2 },
+        move: { type: 'hint_level_N', level: 2, scope: 'getting_started' },
       },
     ])
   })
@@ -217,9 +217,9 @@ describe('decide', () => {
     ])
   })
 
-  it('downgrades a revealed answer when the message names an out-of-course module', () => {
+  it('downgrades an in-scope answer when the message names an out-of-course module', () => {
     expect(decide(
-      [{ agent: 'teacher', move: { type: 'reveal_answer' } }],
+      [{ agent: 'teacher', move: { type: 'answer_question', scope: 'loops' } }],
       snapshot({ studentMessage: 'Can you show me Pandas?' }),
       roleTable,
       course,

@@ -1,17 +1,19 @@
 // A scripted Teacher and Deskmate, for tests and for the `fake` provider. It stands in for the agents
 // themselves, so it never sees a prompt: it records the context and the move of each call instead.
 import type { Agents, AgentExchange } from './agents'
+import type { DeskmateContext, TeacherContext } from './contexts'
 import type { Move } from './moves'
 
-export interface FakeAgentScript {
-  proposal: Move | null
+export interface FakeAgentScript<Context = TeacherContext> {
+  // A fixed proposal, or one read from the context, as a real agent reads the roadmap for its scope.
+  proposal: Move | null | ((context: Context) => Move | null)
   text?: string
   fail?: 'propose' | 'render'
 }
 
 export function createFakeAgents(
-  script: FakeAgentScript,
-  deskmateScript: FakeAgentScript = { proposal: null },
+  script: FakeAgentScript<TeacherContext>,
+  deskmateScript: FakeAgentScript<DeskmateContext> = { proposal: null },
 ): Agents & { exchanges: AgentExchange[] } {
   const exchanges: AgentExchange[] = []
 
@@ -19,14 +21,15 @@ export function createFakeAgents(
     exchanges,
     teacher: {
       async propose(context) {
+        const move = proposalFor(script, context)
         exchanges.push({
           agent: 'teacher',
           phase: 'propose',
           context: structuredClone(context),
-          move: script.proposal,
+          move,
         })
         if (script.fail === 'propose') throw new Error('The language model failed.')
-        return script.proposal
+        return move
       },
       async *render(context, move) {
         exchanges.push({
@@ -41,14 +44,15 @@ export function createFakeAgents(
     },
     deskmate: {
       async propose(context) {
+        const move = proposalFor(deskmateScript, context)
         exchanges.push({
           agent: 'deskmate',
           phase: 'propose',
           context: structuredClone(context),
-          move: deskmateScript.proposal,
+          move,
         })
         if (deskmateScript.fail === 'propose') throw new Error('The language model failed.')
-        return deskmateScript.proposal
+        return move
       },
       async *render(context, move) {
         exchanges.push({
@@ -62,6 +66,10 @@ export function createFakeAgents(
       },
     },
   }
+}
+
+function proposalFor<Context>(script: FakeAgentScript<Context>, context: Context): Move | null {
+  return typeof script.proposal === 'function' ? script.proposal(context) : script.proposal
 }
 
 function spokenChunks(text: string): string[] {
