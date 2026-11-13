@@ -24,6 +24,7 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
     unlockedModuleIds: ['loops'],
     studentMessage: 'How does a for loop work?',
     verifyShieldOn: true,
+    highestHintRung: 0,
     ...overrides,
   }
 }
@@ -297,6 +298,81 @@ describe('decide', () => {
       ruleId: 'role_table',
       reasonCode: 'ROLE_PERMITTED',
       move: { type: 'explain_concept', scope: 'loops' },
+    }])
+  })
+
+  it('downgrades a rung 3 hint to rung 1 when no hint has been given', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 3, scope: 'loops' } }],
+      snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 0 }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'hint_ladder',
+      reasonCode: 'HINT_SKIPPED',
+      move: { type: 'hint_level_N', level: 1, scope: 'loops' },
+    }])
+  })
+
+  it('allows rung 2 but downgrades rung 3 to rung 2 after rung 1 is given', () => {
+    const afterRung1 = snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 1 })
+
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 2, scope: 'loops' } }],
+      afterRung1,
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'allow',
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      move: { type: 'hint_level_N', level: 2, scope: 'loops' },
+    }])
+
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 3, scope: 'loops' } }],
+      afterRung1,
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'hint_ladder',
+      reasonCode: 'HINT_SKIPPED',
+      move: { type: 'hint_level_N', level: 2, scope: 'loops' },
+    }])
+  })
+
+  it('allows rung 1 repeated after rung 2 has been given', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 1, scope: 'loops' } }],
+      snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 2 }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'allow',
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      move: { type: 'hint_level_N', level: 1, scope: 'loops' },
+    }])
+  })
+
+  it('allows a skipped rung when the VerifyShield is off', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 3, scope: 'loops' } }],
+      snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 0, verifyShieldOn: false }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'allow',
+      ruleId: 'verify_shield',
+      reasonCode: 'VERIFYSHIELD_OFF',
+      move: { type: 'hint_level_N', level: 3, scope: 'loops' },
     }])
   })
 

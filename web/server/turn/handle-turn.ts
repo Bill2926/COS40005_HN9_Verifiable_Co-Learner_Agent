@@ -241,7 +241,7 @@ async function* introduceModule(
     submission: null,
   })
 
-  const snapshot = turnSnapshot(placement, standing, '', options)
+  const snapshot = turnSnapshot(placement, standing, '', highestHintRung(context.conversation), options)
   let proposal: Move | null = null
   try {
     proposal = await agents.teacher.propose(context)
@@ -343,6 +343,7 @@ function turnSnapshot(
   placement: Placement,
   standing: CourseStanding,
   studentMessage: string,
+  highestHintRung: number,
   options?: TurnOptions,
 ): TurnSnapshot {
   return {
@@ -352,7 +353,26 @@ function turnSnapshot(
     unlockedModuleIds: standing.unlockedModuleIds,
     studentMessage,
     verifyShieldOn: options?.verifyShieldOn !== false,
+    highestHintRung,
   }
+}
+
+// The highest hint rung already approved in this module's conversation, 0 if
+// none. The rung is read back from the move stored with each teacher message;
+// only the teacher climbs the ladder, so other authors are not counted.
+function highestHintRung(
+  conversation: readonly { author: string, approvedMove: string | null }[],
+): number {
+  let highest = 0
+  for (const message of conversation) {
+    if (message.author !== 'teacher') continue
+    const match = /^hint_level_(\d+)$/.exec(message.approvedMove ?? '')
+    if (match) {
+      const rung = Number(match[1])
+      if (rung > highest) highest = rung
+    }
+  }
+  return highest
 }
 
 async function speakRedirect(
@@ -412,7 +432,7 @@ async function* answerMessage(
   const teacherSettled = await teacherTask
 
   const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
-  const snapshot = turnSnapshot(placement, standing, studentMessage, options)
+  const snapshot = turnSnapshot(placement, standing, studentMessage, highestHintRung(context.conversation), options)
   const turnId = crypto.randomUUID()
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
@@ -431,7 +451,9 @@ async function* answerMessage(
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
-  else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
+  // A downgrade whose move is not a redirect (the hint ladder lowering a rung)
+  // is still spoken by the Teacher, as the ruled lower-rung move.
+  else if ((teacherVerdict?.decision === 'allow' || teacherVerdict?.decision === 'downgrade') && teacherVerdict.move) {
     const text = yield* streamTeacherReply(agents, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, placement, store)
