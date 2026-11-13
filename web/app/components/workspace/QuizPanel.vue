@@ -45,12 +45,16 @@ function choiceClass(state: 'idle' | 'correct' | 'wrong', answered: boolean): st
   return 'border-ink-200 bg-paper text-ink-700 hover:border-brand-300 hover:bg-brand-50'
 }
 
-function verdictText(question: QuizQuestionView): string {
+function verdict(question: QuizQuestionView): { label: string, tone: 'correct' | 'wrong' } | null {
   const result = question.result
-  if (!result) return ''
-  const exploring = (explored[question.id] ?? result.choice) !== result.choice
-  if (exploring) return explored[question.id] === result.correctIndex ? 'Correct choice' : 'Not correct'
-  return result.correct ? 'Correct' : 'Not quite'
+  if (!result) return null
+  const shown = explored[question.id] ?? result.choice
+  const right = shown === result.correctIndex
+  const exploring = shown !== result.choice
+  const label = exploring
+    ? (right ? 'Correct choice' : 'Not correct')
+    : (result.correct ? 'Correct' : 'Not quite')
+  return { label, tone: right ? 'correct' : 'wrong' }
 }
 </script>
 
@@ -93,17 +97,17 @@ function verdictText(question: QuizQuestionView): string {
           </button>
         </div>
         <div
-          v-if="question.result"
+          v-if="verdict(question)"
           class="flex flex-col gap-1 rounded-[6px] border border-ink-200 bg-paper px-3 py-2"
         >
           <p
             class="text-xs leading-5 font-semibold"
-            :class="verdictText(question) === 'Not quite' || verdictText(question) === 'Not correct' ? 'text-rose-700' : 'text-emerald-700'"
+            :class="verdict(question)!.tone === 'wrong' ? 'text-rose-700' : 'text-emerald-700'"
           >
-            {{ verdictText(question) }}
+            {{ verdict(question)!.label }}
           </p>
           <p class="text-xs leading-5 text-ink-600">
-            <InlineText :text="question.result.explanation" />
+            <InlineText :text="question.result!.explanation" />
           </p>
         </div>
       </li>

@@ -29,7 +29,3 @@ revoke update, delete, truncate, trigger, references on table public.quiz_answer
 
 revoke all on sequence public.quiz_answers_id_seq from anon, authenticated;
 grant usage, select on sequence public.quiz_answers_id_seq to service_role;
-
--- Both ledgers are append-only. A student can change neither, so update and
--- delete leave the evidence ledger too.
-revoke update, delete on table public.evidence from anon, authenticated;

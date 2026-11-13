@@ -310,12 +310,16 @@ async function selectExercise(exerciseId: string) {
 
 async function answerQuiz(answer: { questionId: string, choice: number }) {
   const current = workspace.value
-  if (!current || sending.value) return
+  // A quiz turn replaces the whole workspace, so it holds the same lock as a
+  // module or exercise select: a stale answer must not land on a newer view.
+  if (!current || selecting.value || sending.value) return
   // A question already answered keeps its first answer; re-picking is explored
   // on the client without a turn.
   const question = current.workingArea.quiz.find(item => item.id === answer.questionId)
   if (!question || question.result) return
 
+  selecting.value = true
+  selectError.value = ''
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
       method: 'POST',
@@ -329,6 +333,9 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   }
   catch {
     selectError.value = 'That answer could not be marked.'
+  }
+  finally {
+    selecting.value = false
   }
 }
 

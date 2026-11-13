@@ -310,7 +310,8 @@ async function markQuizAnswer(
   if (!question || !isChoiceIndex(event.choice)) {
     return redraw(studentId, placement, standing, store, quizStore, null)
   }
-  await adoptPlacement(studentId, store, placement)
+  // The resume point is already settled on this module by viewPlacement, so a
+  // quiz answer writes nothing beyond its own ledger row.
   const correct = event.choice === question.correctIndex
   const recorded = await quizStore.record({
     studentId,
