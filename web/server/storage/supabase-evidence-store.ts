@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { EvidenceRow, EvidenceStore } from '../student-model'
+import { mergeObservations, type EvidenceRow, type EvidenceStore, type TimedObservation } from '../student-model'
+import { createSupabaseQuizAnswerStore } from './supabase-quiz-answer-store'
 
 const selected = 'recorded_at, student_id, module_id, exercise_id, attempt, tests_passed, tests_total, all_passed'
 
@@ -13,6 +14,25 @@ export function createSupabaseEvidenceStore(options: {
       autoRefreshToken: false,
     },
   })
+  const quizAnswers = createSupabaseQuizAnswerStore(options)
+
+  async function submissionsForStudent(studentId: string): Promise<TimedObservation[]> {
+    const submissions: TimedObservation[] = []
+    const pageSize = 500
+    for (let offset = 0; ; offset += pageSize) {
+      const result = await supabase.from('evidence').select(selected)
+        .eq('student_id', studentId)
+        .order('recorded_at', { ascending: true })
+        .order('id', { ascending: true })
+        .range(offset, offset + pageSize - 1)
+      if (result.error) throw new Error(result.error.message)
+      submissions.push(...result.data.map((row): TimedObservation => ({
+        kind: 'submission', time: row.recorded_at, moduleId: row.module_id,
+        exerciseId: row.exercise_id, allPassed: row.all_passed,
+      })))
+      if (result.data.length < pageSize) return submissions
+    }
+  }
 
   return {
     async append(evidence) {
@@ -33,15 +53,11 @@ export function createSupabaseEvidenceStore(options: {
       return presentEvidence(result.data)
     },
     async forStudent(studentId) {
-      // The estimate reads the ledger in the order it was written.
-      const result = await supabase
-        .from('evidence')
-        .select(selected)
-        .eq('student_id', studentId)
-        .order('recorded_at', { ascending: true })
-        .order('id', { ascending: true })
-      if (result.error) throw new Error(result.error.message)
-      return (result.data ?? []).map(presentEvidence)
+      const [submissions, answers] = await Promise.all([
+        submissionsForStudent(studentId),
+        quizAnswers.observationsForStudent(studentId),
+      ])
+      return mergeObservations(submissions, answers)
     },
   }
 }

@@ -3,6 +3,8 @@
 // student makes to explore are never written. Like the evidence ledger, it is
 // marked on the server so the answer key never has to reach the client first.
 
+import type { TimedObservation } from '../student-model'
+
 export interface NewQuizAnswer {
   studentId: string
   moduleId: string
@@ -37,6 +39,12 @@ export interface QuizAnswerStore {
   record: (answer: NewQuizAnswer) => Promise<RecordedQuizAnswer>
   // The student's answers for one module, in the order they were written.
   forStudentModule: (studentId: string, moduleId: string) => Promise<QuizAnswerRow[]>
+  observationsForStudent: (studentId: string) => Promise<TimedObservation[]>
+}
+
+export function quizObservation(row: QuizAnswerRow): TimedObservation {
+  const { time, moduleId, questionId, correct } = row
+  return { kind: 'quiz_answer', time, moduleId, questionId, allPassed: correct }
 }
 
 export function createMemoryQuizAnswerStore(): QuizAnswerStore {
@@ -50,6 +58,9 @@ export function createMemoryQuizAnswerStore(): QuizAnswerStore {
   }
 
   return {
+    async observationsForStudent(studentId) {
+      return rows.filter(row => row.studentId === studentId).map(quizObservation)
+    },
     async record(answer) {
       const existing = answerOf(answer.studentId, answer.moduleId, answer.questionId)
       if (existing) return { row: { ...existing }, stored: false }

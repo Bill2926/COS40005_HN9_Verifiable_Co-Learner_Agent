@@ -8,5 +8,5 @@ export type { MasteryParameters, ModuleMastery, Observation, UnlockableModule } 
 export { masteryParameters, masteryThreshold } from './mastery-parameters'
 export { estimateCourse, furthestUnlockedModuleId, standingFor } from './course-standing'
 export type { CourseEstimate, CourseStanding } from './course-standing'
-export { createMemoryEvidenceStore } from './evidence-store'
-export type { EvidenceRow, EvidenceStore, NewEvidence } from './evidence-store'
+export { createMemoryEvidenceStore, mergeObservations } from './evidence-store'
+export type { EvidenceRow, EvidenceStore, NewEvidence, TimedObservation } from './evidence-store'

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
 import { demoAccounts } from '../server/auth/demo-accounts'
 import { createSupabaseQuizAnswerStore } from '../server/storage/supabase-quiz-answer-store'
+import { createSupabaseEvidenceStore } from '../server/storage/supabase-evidence-store'
 
 // Postgres raises this when a role lacks the privilege for the statement.
 const permissionDenied = '42501'
@@ -99,6 +100,49 @@ describe('quiz answers boundary', () => {
     }
     finally {
       await secret.from('quiz_answers').delete().eq('question_id', questionId)
+    }
+  }, 20_000)
+
+  it('merges submissions and quiz answers by timestamp across modules', async () => {
+    const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
+    const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
+    const secret = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
+    const student = createClient(url, envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'), {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const signedIn = await student.auth.signInWithPassword(demoAccounts[0]!)
+    expect(signedIn.error).toBeNull()
+    const studentId = signedIn.data.user!.id
+    const fixture = crypto.randomUUID()
+    const first = '2026-11-11T04:00:00.000100Z'
+    const second = '2026-11-11T04:00:00.000200Z'
+    const third = '2026-11-11T04:00:00.000300Z'
+
+    try {
+      const submitted = await secret.from('evidence').insert([
+        { student_id: studentId, module_id: 'getting_started', exercise_id: fixture, recorded_at: third, tests_passed: 3, tests_total: 3 },
+        { student_id: studentId, module_id: 'variables', exercise_id: fixture, recorded_at: first, tests_passed: 1, tests_total: 3 },
+      ])
+      expect(submitted.error).toBeNull()
+      const answered = await secret.from('quiz_answers').insert({
+        student_id: studentId, module_id: 'loops', question_id: fixture, recorded_at: second, choice: 1, correct: true,
+      })
+      expect(answered.error).toBeNull()
+
+      const evidence = await createSupabaseEvidenceStore({ url, secretKey }).forStudent(studentId)
+      expect(evidence
+        .filter(row => (row.kind === 'submission' ? row.exerciseId : row.questionId) === fixture)
+        .map(({ kind, moduleId, allPassed }) => ({ kind, moduleId, allPassed }))).toEqual([
+        { kind: 'submission', moduleId: 'variables', allPassed: false },
+        { kind: 'quiz_answer', moduleId: 'loops', allPassed: true },
+        { kind: 'submission', moduleId: 'getting_started', allPassed: true },
+      ])
+    }
+    finally {
+      await Promise.all([
+        secret.from('evidence').delete().eq('student_id', studentId).eq('exercise_id', fixture),
+        secret.from('quiz_answers').delete().eq('student_id', studentId).eq('question_id', fixture),
+      ])
     }
   }, 20_000)
 })

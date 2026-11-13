@@ -8,13 +8,13 @@ const moduleId = 'getting_started'
 // module to the threshold, but pass no exercise.
 const quizPasses: Observation[] = Array.from({ length: 3 }, () => ({
   moduleId,
-  exerciseId: null,
+  kind: 'quiz_answer', questionId: 'quiz',
   allPassed: true,
 }))
 
 // A passing submission on each of the first module's three exercises.
 const exercisePasses: Observation[] = ['say_hello', 'join_words', 'sign_the_program']
-  .map(exerciseId => ({ moduleId, exerciseId, allPassed: true }))
+  .map(exerciseId => ({ moduleId, kind: 'submission', exerciseId, allPassed: true }))
 
 function roadmapFor(evidence: readonly Observation[]) {
   const standing = standingFor(estimateCourse(courseModules, evidence), moduleId)
@@ -37,7 +37,7 @@ describe('presented roadmap', () => {
   })
 
   it('gives an ordinary open module no mastery reason', () => {
-    const module = roadmapFor([{ moduleId, exerciseId: 'say_hello', allPassed: true }])
+    const module = roadmapFor([{ moduleId, kind: 'submission', exerciseId: 'say_hello', allPassed: true }])
       .find(item => item.id === moduleId)
 
     expect(module?.state).toBe('open')

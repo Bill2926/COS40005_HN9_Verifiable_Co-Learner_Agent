@@ -23,37 +23,49 @@ function questionOf(state: Awaited<ReturnType<typeof handleTurn>>, id: string) {
 }
 
 describe('quiz answer in Learn mode', () => {
+  it('raises roadmap mastery immediately without unlocking the next module on quiz answers alone', async () => {
+    const store = memoryStore()
+    const options = { quizAnswers: createMemoryQuizAnswerStore() }
+    const first = await handleTurn(answer({ questionId: 'print-text', choice: 1 }), store, undefined, options)
+    expect(first.courseRoadmap[0]?.mastery).toBe(0.39)
+
+    await handleTurn(answer({ questionId: 'comment-line', choice: 3 }), store, undefined, options)
+    const third = await handleTurn(answer({ questionId: 'program-steps', choice: 0 }), store, undefined, options)
+    expect(third.courseRoadmap[0]).toMatchObject({ mastery: 0.92, state: 'open' })
+    expect(third.courseRoadmap[1]?.state).toBe('closed')
+  })
+
   it('marks a wrong answer and shows the correct choice and explanation', async () => {
     const store = memoryStore()
     const quiz: QuizAnswerStore = createMemoryQuizAnswerStore()
 
-    const state = await handleTurn(answer({ questionId: 'placeholder_1', choice: 1 }), store, undefined, { quizAnswers: quiz })
+    const state = await handleTurn(answer({ questionId: 'print-text', choice: 0 }), store, undefined, { quizAnswers: quiz })
 
-    expect(questionOf(state, 'placeholder_1').result).toEqual({
-      choice: 1,
-      correctIndex: 0,
+    expect(questionOf(state, 'print-text').result).toEqual({
+      choice: 0,
+      correctIndex: 1,
       correct: false,
-      explanation: 'Placeholder explanation, until the real quiz lands.',
+      explanation: 'Quotes make Hello literal text. print() displays that text.',
     })
   })
 
   it('marks a right answer as correct', async () => {
-    const state = await handleTurn(answer({ questionId: 'placeholder_1', choice: 0 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
+    const state = await handleTurn(answer({ questionId: 'print-text', choice: 1 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
 
-    expect(questionOf(state, 'placeholder_1').result?.correct).toBe(true)
+    expect(questionOf(state, 'print-text').result?.correct).toBe(true)
   })
 
   it('never sends an unanswered question correct choice', async () => {
-    const state = await handleTurn(answer({ questionId: 'placeholder_1', choice: 0 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
+    const state = await handleTurn(answer({ questionId: 'print-text', choice: 1 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
 
-    const unanswered = questionOf(state, 'placeholder_2')
+    const unanswered = questionOf(state, 'comment-line')
     expect(unanswered.result).toBeNull()
     expect(JSON.stringify(unanswered)).not.toContain('correctIndex')
   })
 
   it('adds an event message naming the question, the choice and the result', async () => {
     const store = memoryStore()
-    const state = await handleTurn(answer({ questionId: 'placeholder_2', choice: 2 }), store, undefined, { quizAnswers: createMemoryQuizAnswerStore() })
+    const state = await handleTurn(answer({ questionId: 'comment-line', choice: 2 }), store, undefined, { quizAnswers: createMemoryQuizAnswerStore() })
 
     const events = state.conversation.filter(message => message.author === 'event')
     const last = events.at(-1)
@@ -62,11 +74,11 @@ describe('quiz answer in Learn mode', () => {
   })
 
   it('leaks no unanswered explanation after one question is answered', async () => {
-    const state = await handleTurn(answer({ questionId: 'placeholder_1', choice: 0 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
+    const state = await handleTurn(answer({ questionId: 'print-text', choice: 1 }), memoryStore(), undefined, { quizAnswers: createMemoryQuizAnswerStore() })
 
     const unanswered = state.workingArea.quiz.filter(question => question.result === null)
     expect(unanswered).toHaveLength(2)
-    expect(JSON.stringify(unanswered)).not.toContain('Placeholder explanation')
+    expect(unanswered.every(question => !('explanation' in question))).toBe(true)
   })
 
   it('does nothing when the question is not in the current module', async () => {
@@ -83,12 +95,12 @@ describe('quiz answer in Learn mode', () => {
     const store = memoryStore()
     const quiz = createMemoryQuizAnswerStore()
 
-    const first = await handleTurn(answer({ questionId: 'placeholder_1', choice: 0 }), store, undefined, { quizAnswers: quiz })
-    const second = await handleTurn(answer({ questionId: 'placeholder_1', choice: 1 }), store, undefined, { quizAnswers: quiz })
+    const first = await handleTurn(answer({ questionId: 'print-text', choice: 1 }), store, undefined, { quizAnswers: quiz })
+    const second = await handleTurn(answer({ questionId: 'print-text', choice: 0 }), store, undefined, { quizAnswers: quiz })
 
     // The ledger keeps the first answer; the second does not overwrite it.
-    expect((await quiz.forStudentModule(signedInStudent, 'getting_started')).map(row => row.choice)).toEqual([0])
-    expect(questionOf(second, 'placeholder_1').result?.choice).toBe(0)
+    expect((await quiz.forStudentModule(signedInStudent, 'getting_started')).map(row => row.choice)).toEqual([1])
+    expect(questionOf(second, 'print-text').result?.choice).toBe(1)
     // No second event message for the same question.
     expect(second.conversation.filter(message => message.author === 'event')).toHaveLength(
       first.conversation.filter(message => message.author === 'event').length,

@@ -107,8 +107,8 @@ async function* streamTurnBody(
   // The ledger is read once a turn. A submission appends to it below and the
   // estimate is taken again, so the roadmap the student gets back already
   // counts the submission they just made.
-  const ledger = options?.evidence ?? createMemoryEvidenceStore()
   const quizStore = options?.quizAnswers ?? createMemoryQuizAnswerStore()
+  const ledger = options?.evidence ?? createMemoryEvidenceStore(quizStore.observationsForStudent)
   const [rows, knownPoint] = await Promise.all([
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
@@ -174,7 +174,7 @@ async function* streamTurnBody(
   if (isQuizAnswer(body)) {
     yield {
       type: 'state',
-      state: await markQuizAnswer(studentId, placement, standing, store, quizStore, body),
+      state: await markQuizAnswer(studentId, placement, standing, store, quizStore, ledger, body),
     }
     return
   }
@@ -182,7 +182,7 @@ async function* streamTurnBody(
   if (isSubmission(body)) {
     if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
-    // A submission is the only thing that produces evidence.
+    // Record the submission before refreshing mastery.
     await ledger.append({
       studentId,
       moduleId: placement.module.id,
@@ -298,6 +298,7 @@ async function markQuizAnswer(
   standing: CourseStanding,
   store: ConversationStore,
   quizStore: QuizAnswerStore,
+  ledger: EvidenceStore,
   event: QuizAnswerEvent,
 ): Promise<RedrawState> {
   const module = placement.module
@@ -330,7 +331,8 @@ async function markQuizAnswer(
       exerciseId: placement.exercise.id,
     })
   }
-  return redraw(studentId, placement, standing, store, quizStore, null)
+  const estimate = estimateCourse(courseModules, await ledger.forStudent(studentId))
+  return redraw(studentId, placement, standingFor(estimate, module.id), store, quizStore, null)
 }
 
 // e.g. "Quiz 2: chose C, wrong". The number is the question's place in the

@@ -5,6 +5,18 @@ import { estimateMastery, masteryParameters, unlockedModuleIds, type ModuleMaste
 const moduleIds = courseModules.map(module => module.id)
 
 describe('mastery estimator', () => {
+  it('uses per-kind slip and guess when replaying interleaved observations', () => {
+    const ledger: Observation[] = [
+      { kind: 'submission', moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+      { kind: 'quiz_answer', moduleId: 'getting_started', questionId: 'print-text', allPassed: false },
+      { kind: 'submission', moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+      { kind: 'quiz_answer', moduleId: 'getting_started', questionId: 'comment-line', allPassed: true },
+    ]
+    const estimated = estimateMastery(ledger, moduleIds, masteryParameters)
+    expect(masteryOf(estimated, 'getting_started')).toBeCloseTo(0.588801, 6)
+    expect(estimated[0]?.passedExercise).toBe(true)
+  })
+
   it('gives every module the prior when there is no evidence', () => {
     const estimated = estimateMastery([], moduleIds, masteryParameters)
 
@@ -18,7 +30,7 @@ describe('mastery estimator', () => {
 
   it('raises the mastery of the module a first-time pass belongs to, and no other', () => {
     const estimated = estimateMastery(
-      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      [{ moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true }],
       moduleIds,
       masteryParameters,
     )
@@ -29,14 +41,14 @@ describe('mastery estimator', () => {
 
   it('ignores a pass of an exercise the student has already passed', () => {
     const once = estimateMastery(
-      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      [{ moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true }],
       moduleIds,
       masteryParameters,
     )
     const again = estimateMastery(
       [
-        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
-        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true },
       ],
       moduleIds,
       masteryParameters,
@@ -47,14 +59,14 @@ describe('mastery estimator', () => {
 
   it('leaves mastery where a pass put it when the same exercise is later failed', () => {
     const passed = estimateMastery(
-      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      [{ moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true }],
       moduleIds,
       masteryParameters,
     )
     const passedThenFailed = estimateMastery(
       [
-        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
-        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: false },
       ],
       moduleIds,
       masteryParameters,
@@ -67,8 +79,8 @@ describe('mastery estimator', () => {
   it('counts a first-time pass of a second exercise in the same module', () => {
     const estimated = estimateMastery(
       [
-        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
-        { moduleId: 'getting_started', exerciseId: 'join_words', allPassed: true },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', kind: 'submission', exerciseId: 'join_words', allPassed: true },
       ],
       moduleIds,
       masteryParameters,
@@ -102,7 +114,7 @@ describe('mastery estimator', () => {
 
   it('masters a module once an exercise is passed on top of the threshold', () => {
     const withExercise = estimateMastery(
-      [...quizPasses(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      [...quizPasses(3), { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: true }],
       moduleIds,
       masteryParameters,
     )
@@ -115,18 +127,18 @@ describe('mastery estimator', () => {
   it('lowers a mastered module when a later non-exercise answer is wrong', () => {
     const mastered = estimateMastery(passes(3), moduleIds, masteryParameters)
     const failed = estimateMastery(
-      [...passes(3), { moduleId: 'getting_started', exerciseId: null, allPassed: false }],
+      [...passes(3), { moduleId: 'getting_started', kind: 'quiz_answer', questionId: 'quiz', allPassed: false }],
       moduleIds,
       masteryParameters,
     )
 
-    expect(masteryOf(failed, 'getting_started')).toBeCloseTo(0.777368, 6)
+    expect(masteryOf(failed, 'getting_started')).toBeCloseTo(0.787809, 6)
     expect(masteryOf(failed, 'getting_started')).toBeLessThan(masteryOf(mastered, 'getting_started'))
   })
 
   it('remembers that a module was mastered after its mastery falls back', () => {
     const failed = estimateMastery(
-      [...passes(3), { moduleId: 'getting_started', exerciseId: null, allPassed: false }],
+      [...passes(3), { moduleId: 'getting_started', kind: 'quiz_answer', questionId: 'quiz', allPassed: false }],
       moduleIds,
       masteryParameters,
     )
@@ -138,8 +150,8 @@ describe('mastery estimator', () => {
   it('gives the same numbers every time it reads the same ledger', () => {
     const ledger = [
       ...passes(3),
-      { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
-      { moduleId: 'variables', exerciseId: 'total_cost', allPassed: true },
+      { moduleId: 'getting_started', kind: 'submission', exerciseId: 'say_hello', allPassed: false },
+      { moduleId: 'variables', kind: 'submission', exerciseId: 'total_cost', allPassed: true },
     ]
 
     expect(estimateMastery(ledger, moduleIds, masteryParameters))
@@ -148,7 +160,7 @@ describe('mastery estimator', () => {
 
   it('leaves evidence for a module the course no longer lists out of the estimate', () => {
     const estimated = estimateMastery(
-      [{ moduleId: 'for_loop', exerciseId: 'sum_of_a_list', allPassed: true }],
+      [{ moduleId: 'for_loop', kind: 'submission', exerciseId: 'sum_of_a_list', allPassed: true }],
       moduleIds,
       masteryParameters,
     )
@@ -170,8 +182,8 @@ describe('unlocking', () => {
   it('keeps a module unlocked after the mastery that opened it falls back', () => {
     const ledger = [
       ...passes(3),
-      { moduleId: 'getting_started', exerciseId: null, allPassed: false },
-      { moduleId: 'getting_started', exerciseId: null, allPassed: false },
+      { moduleId: 'getting_started', kind: 'quiz_answer', questionId: 'quiz', allPassed: false },
+      { moduleId: 'getting_started', kind: 'quiz_answer', questionId: 'quiz', allPassed: false },
     ]
 
     expect(masteryOf(estimateMastery(ledger, moduleIds, masteryParameters), 'getting_started'))
@@ -208,13 +220,14 @@ function unlocked(ledger: readonly Observation[]): string[] {
 
 // Three first-time passes, which is what mastering a module takes.
 function masters(moduleId: string, exerciseIds: readonly string[]): Observation[] {
-  return exerciseIds.map(exerciseId => ({ moduleId, exerciseId, allPassed: true }))
+  return exerciseIds.map(exerciseId => ({ kind: 'submission', moduleId, exerciseId, allPassed: true }))
 }
 
 // Passing submissions on the first `count` exercises of Module 1.
-function passes(count: number) {
+function passes(count: number): Observation[] {
   return ['say_hello', 'join_words', 'sign_the_program'].slice(0, count).map(exerciseId => ({
     moduleId: 'getting_started',
+    kind: 'submission',
     exerciseId,
     allPassed: true,
   }))
@@ -225,7 +238,7 @@ function passes(count: number) {
 function quizPasses(count: number): Observation[] {
   return Array.from({ length: count }, () => ({
     moduleId: 'getting_started',
-    exerciseId: null,
+    kind: 'quiz_answer', questionId: 'quiz',
     allPassed: true,
   }))
 }
