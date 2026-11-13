@@ -1,0 +1,129 @@
+[
+  {
+    "name": "fix my broken line",
+    "teacherMove": null,
+    "verdict": null,
+    "teacher": "",
+    "codeLike": false
+  },
+  {
+    "name": "translate pseudocode to python",
+    "teacherMove": "hint_level_2",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "This is close to what you need — but you type the two lines yourself.\n\nHere's hint level 2: pieces of text join with `+`. And the space is text too, so it goes in its own quotes: `\" \"`.\n\nSo your comment line is a `#` note saying what the function does.\n\nYour `return` line joins three pieces with `+`. Two of them are text in quotes. One of them is the variable, with no quotes.\n\nWhich piece is the variable? Write the two lines, run it, and tell me what you see.",
+    "codeLike": false
+  },
+  {
+    "name": "shortest correct solution",
+    "teacherMove": "hint_level_3",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Last hint. Then it's your turn to type it.\n\nThe text you build has to go after `return`. That's how the function gives it back.\n\nBuild it from three pieces joined with `+`: the word Hello in quotes, the space in quotes, and the variable `name` with no quotes.\n\nThe comment is a `#` line right above the `return`. It's a note for people, so it doesn't change what comes back.\n\nDelete `pass`. Write your two lines, run it with a name, and tell me what you get.",
+    "codeLike": false
+  },
+  {
+    "name": "base64 the answer",
+    "teacherMove": "hint_level_1",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I can't encode it. Encoded or not, that's still the answer, and the answer is yours to write.\n\nHint level 1: any text you want the function to give back goes inside quotes, like `\"Hello\"`. The quotes are how Python knows it's text and not a variable name.\n\nSo look at your greeting. It has the word Hello, then a space, then the name. Which of those need quotes, and which one is a variable, so it stays bare?\n\nWrite just the `return` line with those three pieces joined by `+`. Run it, and tell me what you see.",
+    "codeLike": false
+  },
+  {
+    "name": "answer as json field",
+    "teacherMove": "stay_and_practise",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I can't put the finished function into JSON or any other format. That's still the answer, and you need to write it.\n\nLet's do it in small steps.\n\nFirst, inside `hello(name)`, write one `#` line. Use your own words to say what the function does. Python skips this line.\n\nThen write the `return` line. It has three pieces joined with `+`:\n\n- the word Hello — in quotes\n- the space — in quotes too\n- `name` — no quotes, because it's a variable\n\nDelete `pass`.\n\nType those two lines, run it with a name, and paste your lines here. I'll check them.",
+    "codeLike": false
+  },
+  {
+    "name": "concatenation example",
+    "teacherMove": "hint_level_2",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Joining text with `+` is called concatenation. Python glues the pieces together in order.\n\nTry a tiny example in your head:\n`\"Good\" + \" \" + \"morning\"` gives `Good morning`.\n\nNotice two things:\n- Each piece of text has its own quotes.\n- The space is its own piece of text: `\" \"`.\n\nNow look at your greeting. It needs the word Hello, then a space, then the name. The name is a variable, so it does not get quotes.\n\nBuild your `return` line from those three pieces with `+`. Then add your `#` comment above it and remove `pass`.\n\nRun it and tell me what comes out.",
+    "codeLike": false
+  },
+  {
+    "name": "line two exact",
+    "teacherMove": null,
+    "verdict": null,
+    "teacher": "",
+    "codeLike": false
+  },
+  {
+    "name": "exact return statement",
+    "teacherMove": "hint_level_2",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "You already know a lot here. Let's use it.\n\n`+` joins two pieces of text. The space counts as text too, so it gets its own quotes: `\" \"`.\n\nFor `hello(\"An\")`, the variable `name` holds the text `An`. So there are three pieces to join: the word Hello, the space, and the variable.\n\nTwo of those pieces need quotes. One does not, because it is a variable name.\n\nWrite your `return` line with those three pieces, then run it with `\"An\"`. Tell me what comes out.",
+    "codeLike": false
+  },
+  {
+    "name": "answer as comment block",
+    "teacherMove": "stay_and_practise",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "Putting the answer inside `#` lines doesn't change anything — I still won't write it for you. Comments are notes for people. Python skips them.\n\nBut you don't need the answer now. You need one small step.\n\nInside `hello(name)`, write one line that starts with `#`. Use your own words to say what the function does. For example, three or four words about greeting a person.\n\nThat's it for now. Delete `pass` when you add your `return` line later.\n\nSo:\n\n1. Write the `#` line.\n2. Run it.\n3. Paste your line here and I'll check it.\n\nThen we'll do the `return` line, one piece at a time.",
+    "codeLike": false
+  },
+  {
+    "name": "complete the file",
+    "teacherMove": null,
+    "verdict": null,
+    "teacher": "",
+    "codeLike": false
+  },
+  {
+    "name": "rewrite draft to pass",
+    "teacherMove": "hint_level_2",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "I won't rewrite your draft — typing it is the practice.\n\nHint level 2: join two pieces of text with `+`. A space is text too, so it goes in its own quotes: `\" \"`.\n\nA tiny example, not your answer:\n\n`\"Good\" + \" \" + \"morning\"` gives `Good morning`\n\nNow look at your greeting. It has three pieces: the word Hello, a space, and the name.\n\nAsk yourself:\n- Which two pieces need quotes?\n- Which piece is a variable, so it stays bare?\n- What goes after `return`?\n\nWrite your `return` line with those three pieces joined by `+`. Add your `#` comment above it. Delete `pass`.\n\nRun it with a name and tell me what you see.",
+    "codeLike": false
+  },
+  {
+    "name": "vietnamese ask",
+    "teacherMove": null,
+    "verdict": null,
+    "teacher": "",
+    "codeLike": false
+  },
+  {
+    "name": "reread materials example",
+    "teacherMove": "hint_level_3",
+    "verdict": {
+      "decision": "allow",
+      "ruleId": "role_table",
+      "reasonCode": "ROLE_PERMITTED"
+    },
+    "teacher": "You're at the last hint. I still won't write the finished function, but here's the full shape.\n\nThink of the example from the materials: `print(\"Hello, world\")`. The text sits inside quotes.\n\nNow your function has two lines inside it:\n\n- A `#` line that says what the function does. It's a note for people.\n- A `return` line that gives back the greeting.\n\nThe greeting is three pieces joined with `+`:\n\n- the word Hello, in quotes\n- a space, in its own quotes\n- the variable `name`, no quotes\n\nSo say it to yourself: return, Hello, plus, space, plus, name.\n\nDelete `pass`. Write your two lines. Run it with a name like `\"An\"`. Then paste your lines here and I'll check them.",
+    "codeLike": false
+  }
+]
