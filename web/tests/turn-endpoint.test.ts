@@ -757,7 +757,7 @@ describe('turn endpoint', () => {
       }
 
       expect(proposePrompts[1]).toContain('teacher [hint_level_1]: Rung 1 given.')
-      expect(proposePrompts[1]).toContain('student: Still stuck.')
+      expect(proposePrompts[1]).toContain('student: <student_data>\nStill stuck.\n</student_data>')
       expect(renderPrompts[1]).toContain('teacher [hint_level_1]: Rung 1 given.')
     })
 

@@ -1,4 +1,4 @@
-import { generateText, Output, streamText, type LanguageModel as ProviderModel } from 'ai'
+import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, streamText, type LanguageModel as ProviderModel } from 'ai'
 import { z } from 'zod'
 import type { LanguageModel, ProposalSchema } from './language-model'
 
@@ -19,14 +19,27 @@ function proposalShape(schema: z.ZodType): string {
 export function createProviderLanguageModel(model: ProviderModel): LanguageModel {
   return {
     async proposeMove<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>): Promise<Proposal | null> {
-      const { output } = await generateText({
-        model,
-        output: Output.object({ schema }),
-        instructions: `${instructions} ${proposalShape(schema)}`,
-        prompt,
-      })
-      if (!output) throw new Error('The language model returned no proposal.')
-      return output.proposal
+      const ask = async () => {
+        const { output } = await generateText({
+          model,
+          output: Output.object({ schema }),
+          instructions: `${instructions} ${proposalShape(schema)}`,
+          prompt,
+          // A network or provider error is not retried: only a reply that does not parse is.
+          maxRetries: 0,
+        })
+        // Reading `output` throws NoOutputGeneratedError when the model wrote nothing to parse.
+        return output.proposal
+      }
+      // A malformed reply is often a one-off, so it is asked for once more. A second one, or any
+      // other failure, reaches the caller.
+      try {
+        return await ask()
+      }
+      catch (error) {
+        if (!NoObjectGeneratedError.isInstance(error) && !NoOutputGeneratedError.isInstance(error)) throw error
+        return await ask()
+      }
     },
 
     async* streamReply(instructions, prompt) {
