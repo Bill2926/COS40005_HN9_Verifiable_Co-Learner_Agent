@@ -11,6 +11,7 @@ describe('mastery estimator', () => {
     expect(estimated).toEqual(moduleIds.map(moduleId => ({
       moduleId,
       mastery: 0.1,
+      passedExercise: false,
       everMastered: false,
     })))
   })
@@ -44,6 +45,25 @@ describe('mastery estimator', () => {
     expect(masteryOf(again, 'getting_started')).toBe(masteryOf(once, 'getting_started'))
   })
 
+  it('leaves mastery where a pass put it when the same exercise is later failed', () => {
+    const passed = estimateMastery(
+      [{ moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      moduleIds,
+      masteryParameters,
+    )
+    const passedThenFailed = estimateMastery(
+      [
+        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true },
+        { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+      ],
+      moduleIds,
+      masteryParameters,
+    )
+
+    expect(masteryOf(passedThenFailed, 'getting_started'))
+      .toBe(masteryOf(passed, 'getting_started'))
+  })
+
   it('counts a first-time pass of a second exercise in the same module', () => {
     const estimated = estimateMastery(
       [
@@ -66,14 +86,36 @@ describe('mastery estimator', () => {
     expect(thrice).toContainEqual({
       moduleId: 'getting_started',
       mastery: masteryOf(thrice, 'getting_started'),
+      passedExercise: true,
       everMastered: true,
     })
   })
 
-  it('lowers a mastered module when a later submission fails', () => {
+  it('does not master a module that reaches the threshold with no passed exercise', () => {
+    const quizOnly = estimateMastery(quizPasses(3), moduleIds, masteryParameters)
+    const module = quizOnly.find(item => item.moduleId === 'getting_started')
+
+    expect(masteryOf(quizOnly, 'getting_started')).toBeGreaterThanOrEqual(masteryParameters.threshold)
+    expect(module?.passedExercise).toBe(false)
+    expect(module?.everMastered).toBe(false)
+  })
+
+  it('masters a module once an exercise is passed on top of the threshold', () => {
+    const withExercise = estimateMastery(
+      [...quizPasses(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: true }],
+      moduleIds,
+      masteryParameters,
+    )
+    const module = withExercise.find(item => item.moduleId === 'getting_started')
+
+    expect(module?.passedExercise).toBe(true)
+    expect(module?.everMastered).toBe(true)
+  })
+
+  it('lowers a mastered module when a later non-exercise answer is wrong', () => {
     const mastered = estimateMastery(passes(3), moduleIds, masteryParameters)
     const failed = estimateMastery(
-      [...passes(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false }],
+      [...passes(3), { moduleId: 'getting_started', exerciseId: null, allPassed: false }],
       moduleIds,
       masteryParameters,
     )
@@ -84,7 +126,7 @@ describe('mastery estimator', () => {
 
   it('remembers that a module was mastered after its mastery falls back', () => {
     const failed = estimateMastery(
-      [...passes(3), { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false }],
+      [...passes(3), { moduleId: 'getting_started', exerciseId: null, allPassed: false }],
       moduleIds,
       masteryParameters,
     )
@@ -128,10 +170,17 @@ describe('unlocking', () => {
   it('keeps a module unlocked after the mastery that opened it falls back', () => {
     const ledger = [
       ...passes(3),
-      { moduleId: 'getting_started', exerciseId: 'say_hello', allPassed: false },
+      { moduleId: 'getting_started', exerciseId: null, allPassed: false },
+      { moduleId: 'getting_started', exerciseId: null, allPassed: false },
     ]
 
+    expect(masteryOf(estimateMastery(ledger, moduleIds, masteryParameters), 'getting_started'))
+      .toBeLessThan(masteryParameters.threshold)
     expect(unlocked(ledger)).toEqual(['getting_started', 'variables'])
+  })
+
+  it('does not unlock the next module from the threshold without a passed exercise', () => {
+    expect(unlocked(quizPasses(3))).toEqual(['getting_started'])
   })
 
   it('leaves a module with no content closed even when the module before it is mastered', () => {
@@ -167,6 +216,16 @@ function passes(count: number) {
   return ['say_hello', 'join_words', 'sign_the_program'].slice(0, count).map(exerciseId => ({
     moduleId: 'getting_started',
     exerciseId,
+    allPassed: true,
+  }))
+}
+
+// `count` correct answers on Module 1 that are not exercise submissions, which
+// raise mastery but never count as a passed exercise.
+function quizPasses(count: number): Observation[] {
+  return Array.from({ length: count }, () => ({
+    moduleId: 'getting_started',
+    exerciseId: null,
     allPassed: true,
   }))
 }

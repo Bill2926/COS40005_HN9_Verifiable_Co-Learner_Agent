@@ -10,9 +10,11 @@ interface RoadmapModuleBase {
 
 // An unlocked module carries the mastery the student is shown, from 0 to 1,
 // rounded to whole percentage points. A closed module carries the reason it is
-// closed and no mastery.
+// closed and no mastery. An open module that has reached the threshold on
+// understanding alone carries the reason it is not yet mastered: a passed
+// exercise is still needed.
 export type RoadmapModule =
-  | (RoadmapModuleBase & { state: 'mastered' | 'open'; mastery: number })
+  | (RoadmapModuleBase & { state: 'mastered' | 'open'; mastery: number; masteryReason?: string })
   | (RoadmapModuleBase & { state: 'closed'; closedReason: string })
 
 export interface ModuleMaterials {

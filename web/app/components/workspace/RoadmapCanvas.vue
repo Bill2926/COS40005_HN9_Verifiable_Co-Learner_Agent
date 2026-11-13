@@ -239,7 +239,10 @@ function announcement(module: RoadmapModule): string {
   const state = module.state === 'mastered' ? 'mastered' : module.state === 'closed' ? 'closed' : 'open'
   const current = module.current ? 'current, ' : ''
   const mastery = module.state === 'closed' ? '' : `, ${masteryPercent(module)}% mastery`
-  return `${module.name}, ${current}${state}${mastery}. Drag to move.`
+  // The same reason a sighted student reads on the open card, so assistive tech
+  // learns a passed exercise is still needed.
+  const reason = module.state !== 'closed' && module.masteryReason ? `, ${module.masteryReason}` : ''
+  return `${module.name}, ${current}${state}${mastery}${reason}. Drag to move.`
 }
 
 const thresholdPercent = computed(() => Math.round(props.masteryThreshold * 100))
@@ -719,6 +722,10 @@ onUnmounted(() => {
               {{ masteryPercent(module) }}%
             </span>
           </span>
+          <span
+            v-if="module.state !== 'closed' && module.masteryReason"
+            class="mt-2 block text-pretty text-[11px] leading-4 text-ink-500"
+          >{{ module.masteryReason }}</span>
         </button>
       </li>
     </ul>
