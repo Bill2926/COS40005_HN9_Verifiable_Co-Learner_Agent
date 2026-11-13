@@ -182,19 +182,36 @@ interface RoadmapPlace {
   state: 'mastered' | 'open' | 'closed'
   mastery: number
   current: boolean
+  // Set only when the module is at the threshold but has no passed exercise, so
+  // its open card can say what is left to do.
+  masteryReason?: string
 }
+
+// Shown on an open module that has reached the threshold on understanding alone.
+const passExerciseReason = 'Pass an exercise to master this module.'
 
 function placeOnRoadmap(module: CourseModule, standing: CourseStanding): RoadmapPlace {
   const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
   const unlocked = standing.unlockedModuleIds.includes(module.id)
-  const state = !unlocked ? 'closed' : mastery >= masteryThreshold ? 'mastered' : 'open'
-  return { state, mastery, current: module.id === standing.currentModuleId }
+  const passedExercise = standing.passedExerciseModuleIds.includes(module.id)
+  const atThreshold = mastery >= masteryThreshold
+  // A module is only mastered with a passed exercise; at the threshold without
+  // one it stays open and says so.
+  const state = !unlocked ? 'closed' : atThreshold && passedExercise ? 'mastered' : 'open'
+  const current = module.id === standing.currentModuleId
+  if (state === 'open' && atThreshold && !passedExercise) {
+    return { state, mastery, current, masteryReason: passExerciseReason }
+  }
+  return { state, mastery, current }
 }
 
 // The mastery a student is shown, in whole percentage points because that is
-// how it is read off the bar. It rounds down, so the bar never reaches the mark
-// at the threshold on a module that is still open. The unrounded estimate stays
-// in the VerifyShield trace and the decision log, where the exact number counts.
+// how it is read off the bar. It rounds down, so a module below the threshold
+// never rounds up to look mastered. A module can still sit at or past the mark
+// while open when it has reached the threshold on understanding alone with no
+// passed exercise: there the bar meets the mark and the mastery reason says why
+// it is not yet mastered. The unrounded estimate stays in the VerifyShield trace
+// and the decision log, where the exact number counts.
 function shownMastery(mastery: number): number {
   return Math.floor(mastery * 100) / 100
 }
@@ -220,6 +237,9 @@ export function presentedRoadmap(standing: CourseStanding): StudentRoadmapModule
     // is only shown where it means something.
     if (placed.state === 'closed') {
       return { ...named, state: 'closed', closedReason: closedReasonFor(module) }
+    }
+    if (placed.masteryReason) {
+      return { ...named, state: placed.state, mastery: shownMastery(placed.mastery), masteryReason: placed.masteryReason }
     }
     return { ...named, state: placed.state, mastery: shownMastery(placed.mastery) }
   })

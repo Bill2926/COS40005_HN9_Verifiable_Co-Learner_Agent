@@ -6,6 +6,10 @@ import { masteryParameters } from './mastery-parameters'
 export interface CourseEstimate {
   masteries: readonly { moduleId: string, mastery: number }[]
   unlockedModuleIds: readonly string[]
+  // The modules with at least one passed exercise. A module is only mastered,
+  // on the roadmap or for unlocking, once it is in this set, so the roadmap can
+  // tell a module at the threshold with no passed exercise from a mastered one.
+  passedExerciseModuleIds: readonly string[]
 }
 
 export interface CourseStanding extends CourseEstimate {
@@ -27,6 +31,7 @@ export function estimateCourse(
   return {
     masteries: estimated.map(item => ({ moduleId: item.moduleId, mastery: item.mastery })),
     unlockedModuleIds: unlockedModuleIds(modules, estimated),
+    passedExerciseModuleIds: estimated.filter(item => item.passedExercise).map(item => item.moduleId),
   }
 }
 

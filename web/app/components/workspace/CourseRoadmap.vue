@@ -166,6 +166,12 @@ function cardClass(module: RoadmapModule): string {
                   {{ masteryPercent(module) }}%
                 </p>
               </div>
+              <p
+                v-if="module.state !== 'closed' && module.masteryReason"
+                class="mt-1.5 text-[11px] leading-4 text-ink-500 text-pretty"
+              >
+                {{ module.masteryReason }}
+              </p>
             </button>
           </li>
         </template>
