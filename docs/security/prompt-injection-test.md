@@ -31,6 +31,8 @@ The main question was: can a student write a message that makes the Teacher or D
 
 The strongest single finding is number 1. The server treats `reveal_answer` as a normal permitted move. The only thing stopping the literal code is one sentence in the render prompt. If a future model follows the approved move more literally, the answer will leak. That is a single point of failure, not the "must win twice" design the project describes.
 
+One thing the testing did not find, and could not find in this flow, is a malware or code-execution path. A chat message and a code draft are text to the model. They are never executed by the server. Section 3.7 explains why this matters for the terminology and for the fixes.
+
 ---
 
 ## 1. Background, in plain language
@@ -395,6 +397,33 @@ These did not produce a full answer, but they are weaker than the documentation 
 **The scope keyword list is name-only.** The course scope keywords are full module names such as `Lists and Tuples` at `web/server/content/course.ts:72`. The backstop at `web/server/verdict/decide.ts:168` matches exact phrases with word boundaries. A question about list methods that avoids the exact phrase "Lists and Tuples" is caught only if the model labels the scope `out_of_course` or a closed module. In all probes the model labeled correctly, including attempts to force `getting_started`, so no bypass was achieved. The server still trusts the model's label.
 
 **Draft and message are inserted raw.** The draft is added to the prompt under a `Draft` heading at `web/server/model/agent-language-model.ts:181`, and the conversation is added line by line at line 189. A student can include newlines and fake section headers. I tried fake `teacher:` lines, fake `Conversation` sections, and a fake `Approved move:` line. None changed the final behavior, but the injection channel exists and should be bounded or escaped.
+
+### 3.7 Non-finding: there is no malware or code-execution path in the chat
+
+**Status:** verified by code reading
+**Category:** scope clarification, not a vulnerability
+
+The chat box and the code editor are not execution surfaces. A message becomes this request body:
+
+```json
+{ "event": "message", "text": "the student's message", "draft": "the code editor contents" }
+```
+
+The server treats `text`, `draft`, and `run` as strings. It stores them, inserts them into a prompt, and sends that prompt to the model. It does not call `eval()`, `exec()`, `Function()`, a shell, or a database query on student input. The Python tests also run in the browser, not on the server.
+
+This means a payload written as Python, shell, SQL, or JavaScript is still text to the model. It can change what the model says. It cannot run as a program. Calling it malware would be inaccurate.
+
+A real code-execution finding would require one of these conditions:
+
+- the server evaluates submitted code;
+- a template engine evaluates student input;
+- a dependency executes attacker-controlled input.
+
+None of those conditions is present in this flow.
+
+The separate integrity problem in Finding 2 is data forgery, not code execution. A student can forge `passed` flags and gain evidence, but that does not execute code and does not make the tutor print the answer.
+
+The practical consequence is about fixes. Scanning chat messages for "malware code" would not address the actual weakness and would create false positives. The fixes remain deterministic policy gates in `decide()`, stricter render instructions, and server-side verification of submitted results.
 
 ---
 
