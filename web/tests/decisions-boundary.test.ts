@@ -47,7 +47,7 @@ describe('decision log boundary', () => {
     const store = createSupabaseDecisionLogStore({ url, secretKey })
     const turnId = crypto.randomUUID()
     const record: DecisionRecord = {
-      time: '2026-11-11T04:00:00.000Z',
+      time: new Date().toISOString(),
       studentId: studentId!,
       turnId,
       agent: 'teacher',
@@ -70,7 +70,7 @@ describe('decision log boundary', () => {
       await store.append(record)
       const listed = await store.list({ studentId, verdict: 'downgrade' })
       const stored = listed.find(decision => decision.turnId === turnId)
-      expect(stored && Date.parse(stored.time)).toBe(Date.parse('2026-11-11T04:00:00.000Z'))
+      expect(stored && Date.parse(stored.time)).toBe(Date.parse(record.time))
       expect(stored).toMatchObject({
         studentId,
         agent: 'teacher',
@@ -118,7 +118,12 @@ describe('decision log boundary', () => {
       const deleted = await supabase.from('decisions').delete().eq('turn_id', turnId)
       expect(deleted.data ?? []).toEqual([])
 
-      expect((await store.list({ studentId })).some(decision => decision.turnId === turnId)).toBe(true)
+      const persisted = await secret.from('decisions')
+        .select('reason_code')
+        .eq('turn_id', turnId)
+        .single()
+      expect(persisted.error).toBeNull()
+      expect(persisted.data).toEqual({ reason_code: marker })
     }
     finally {
       await secret.from('decisions').delete().eq('turn_id', turnId)
