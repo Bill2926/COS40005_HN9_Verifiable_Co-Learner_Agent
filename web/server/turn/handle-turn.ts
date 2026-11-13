@@ -698,7 +698,7 @@ function composeState(
     workingArea: {
       mode,
       moduleId: placement.module.id,
-      moduleName: courseModules.find(item => item.id === placement.module.id)?.name ?? placement.module.id,
+      moduleName: nameOfModule(placement.module.id),
       materials: { ...placement.module.materials },
       exercise: presentExercise(placement.exercise),
       exercises: placement.module.exercises.map(choice => ({
@@ -885,4 +885,10 @@ function isSelectExercise(input: unknown): input is { event: 'select_exercise', 
     && 'exerciseId' in input
     && typeof input.exerciseId === 'string'
     && input.exerciseId.length > 0
+}
+
+function nameOfModule(id: string): string {
+  const named = courseModules.find(item => item.id === id)
+  if (!named) throw new Error(`Study module ${id} is missing from the course module list.`)
+  return named.name
 }

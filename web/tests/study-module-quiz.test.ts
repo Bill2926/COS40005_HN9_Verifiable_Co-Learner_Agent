@@ -42,6 +42,7 @@ describe('study module content', () => {
         for (const question of module.quiz) {
           const ids = Object.entries(question.misconceptions ?? {})
           for (const [index, id] of ids) {
+            expect(['0', '1', '2', '3']).toContain(index)
             expect(Number(index)).not.toBe(question.correctIndex)
             expect(known).toContain(id)
           }
