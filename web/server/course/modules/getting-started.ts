@@ -2,7 +2,6 @@ import type { StudyModule } from '../study-module'
 
 export const gettingStartedModule: StudyModule = {
   id: 'getting_started',
-  name: 'Getting Started with Programming and Python',
   materials: {
     heading: 'A first program',
     body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
@@ -62,6 +61,29 @@ export const gettingStartedModule: StudyModule = {
         'def sign_off(name):',
         '    return name + " wrote this program"',
       ].join('\n'),
+    },
+  ],
+  quiz: [
+    {
+      id: 'placeholder_1',
+      prompt: 'Placeholder question 1 for getting_started.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_2',
+      prompt: 'Placeholder question 2 for getting_started.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_3',
+      prompt: 'Placeholder question 3 for getting_started.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
     },
   ],
   hintLadder: [

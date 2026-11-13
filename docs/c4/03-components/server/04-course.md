@@ -24,7 +24,7 @@ flowchart LR
     direction TB
     index["<b>index.ts</b><br/>the interface"]:::comp
     courseFile["<b>course.ts</b><br/>11 modules, roadmap,<br/>redirect text"]:::comp
-    studyModule["<b>study-module.ts</b><br/>StudyModule type, lookup"]:::comp
+    studyModule["<b>study-module.ts</b><br/>StudyModule and quiz types, lookup"]:::comp
     modules["<b>modules/*.ts</b> (5 files)<br/>getting-started, variables, strings,<br/>conditionals, loops"]:::comp
   end
 
@@ -49,9 +49,9 @@ flowchart LR
 | File | Responsibility |
 |---|---|
 | `course.ts` | `courseModules` (11 modules in 5 parts; modules 1 to 5 `available: true`, 6 to 11 `available: false`), out-of-course keywords, `courseScope` (what the VerifyShield reads), `roadmapForStanding`, `presentedRoadmap`, `redirectText`. |
-| `study-module.ts` | The `StudyModule` and `Exercise` types, the list `studyModules` (5 entries), `studyModule(id)`, and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
-| `modules/*.ts` | One file per study module: materials, exercises (3 tests each), hint ladder, misconception responses. Each imports only the `StudyModule` type. |
-| `index.ts` | The interface: `courseModules`, `courseScope`, `courseTitle`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `studyModules`, `canonicalModuleId`, and the types `Exercise` and `StudyModule`. |
+| `study-module.ts` | The `StudyModule`, `Exercise` and `QuizQuestion` types (a module has no name of its own; `CourseModule.name` is the only one; its `quiz` is exactly three questions of four choices), the list `studyModules` (5 entries), `studyModule(id)`, and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
+| `modules/*.ts` | One file per study module: materials, exercises (3 tests each), a quiz (placeholder until the real content lands), hint ladder, misconception responses. Each imports only the `StudyModule` type. |
+| `index.ts` | The interface: `courseModules`, `courseScope`, `courseTitle`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `studyModules`, `canonicalModuleId`, and the types `Exercise`, `QuizQuestion` and `StudyModule`. |
 
 The mastery parameters are not here; they are in [`student-model`](05-student-model.md), and the role table (which agent
 may propose which move) is in [`agents`](06-agents.md).

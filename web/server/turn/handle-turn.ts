@@ -698,7 +698,7 @@ function composeState(
     workingArea: {
       mode,
       moduleId: placement.module.id,
-      moduleName: placement.module.name,
+      moduleName: courseModules.find(item => item.id === placement.module.id)?.name ?? placement.module.id,
       materials: { ...placement.module.materials },
       exercise: presentExercise(placement.exercise),
       exercises: placement.module.exercises.map(choice => ({

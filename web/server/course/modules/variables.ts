@@ -2,7 +2,6 @@ import type { StudyModule } from '../study-module'
 
 export const variablesModule: StudyModule = {
   id: 'variables',
-  name: 'Variables, Data Types, and Operators',
   materials: {
     heading: 'Names for values',
     body: 'A variable is a name for a value. A value has a type: a whole number (int), a decimal (float), text (str), or true or false (bool). Operators such as +, *, and >= combine values. input() reads text, and int() turns that text into a whole number.',
@@ -61,6 +60,29 @@ export const variablesModule: StudyModule = {
         'def old_enough(age):',
         '    return age >= 18',
       ].join('\n'),
+    },
+  ],
+  quiz: [
+    {
+      id: 'placeholder_1',
+      prompt: 'Placeholder question 1 for variables.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_2',
+      prompt: 'Placeholder question 2 for variables.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_3',
+      prompt: 'Placeholder question 3 for variables.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
     },
   ],
   hintLadder: [

@@ -19,11 +19,22 @@ export interface MisconceptionResponse {
   response: string
 }
 
+export interface QuizQuestion {
+  id: string
+  prompt: string
+  choices: readonly [string, string, string, string]
+  correctIndex: 0 | 1 | 2 | 3
+  explanation: string
+  // The misconception a wrong choice shows, by choice index. A wrong choice
+  // with no entry shows none.
+  misconceptions?: Partial<Record<0 | 1 | 2 | 3, string>>
+}
+
 export interface StudyModule {
   id: string
-  name: string
   materials: ModuleMaterials
   exercises: readonly [Exercise, Exercise, Exercise, ...Exercise[]]
+  quiz: readonly [QuizQuestion, QuizQuestion, QuizQuestion]
   hintLadder: readonly string[]
   misconceptionResponses: readonly MisconceptionResponse[]
 }

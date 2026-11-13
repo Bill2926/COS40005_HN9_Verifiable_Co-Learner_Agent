@@ -10,4 +10,4 @@ export {
   roadmapForStanding,
 } from './course'
 export { canonicalModuleId, studyModule, studyModules } from './study-module'
-export type { Exercise, StudyModule } from './study-module'
+export type { Exercise, QuizQuestion, StudyModule } from './study-module'

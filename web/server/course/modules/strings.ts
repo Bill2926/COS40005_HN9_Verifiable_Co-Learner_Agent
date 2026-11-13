@@ -2,7 +2,6 @@ import type { StudyModule } from '../study-module'
 
 export const stringsModule: StudyModule = {
   id: 'strings',
-  name: 'Working with Strings',
   materials: {
     heading: 'Text, piece by piece',
     body: 'A string is text. Indexing picks one character, and the first character is at 0. Slicing takes a stretch of the text. Methods such as upper, split, replace, and strip tidy or change it. An f-string drops a value into the text.',
@@ -61,6 +60,29 @@ export const stringsModule: StudyModule = {
         'def greeting(name):',
         '    return f"Hello, {name}"',
       ].join('\n'),
+    },
+  ],
+  quiz: [
+    {
+      id: 'placeholder_1',
+      prompt: 'Placeholder question 1 for strings.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_2',
+      prompt: 'Placeholder question 2 for strings.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_3',
+      prompt: 'Placeholder question 3 for strings.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
     },
   ],
   hintLadder: [

@@ -2,7 +2,6 @@ import type { StudyModule } from '../study-module'
 
 export const loopsModule: StudyModule = {
   id: 'loops',
-  name: 'Loops',
   materials: {
     heading: 'Accumulating a total',
     body: 'A running total needs a variable that survives every pass of the loop. for walks a collection, range() builds a sequence of numbers, and while repeats while a condition stays true. break leaves the loop early, continue skips to the next pass, and a loop can sit inside another loop.',
@@ -72,6 +71,29 @@ export const loopsModule: StudyModule = {
         '        n = n + 1',
         '    return n',
       ].join('\n'),
+    },
+  ],
+  quiz: [
+    {
+      id: 'placeholder_1',
+      prompt: 'Placeholder question 1 for loops.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_2',
+      prompt: 'Placeholder question 2 for loops.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_3',
+      prompt: 'Placeholder question 3 for loops.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
     },
   ],
   hintLadder: [

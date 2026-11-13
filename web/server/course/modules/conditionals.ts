@@ -2,7 +2,6 @@ import type { StudyModule } from '../study-module'
 
 export const conditionalsModule: StudyModule = {
   id: 'conditionals',
-  name: 'Conditional Statements',
   materials: {
     heading: 'Choosing a path',
     body: 'if, elif, and else choose which steps run. Python checks the conditions from top to bottom and runs only the first branch that is true. Conditions can be nested, and and, or, and not combine them.',
@@ -73,6 +72,29 @@ export const conditionalsModule: StudyModule = {
         '        return "pass"',
         '    return "fail"',
       ].join('\n'),
+    },
+  ],
+  quiz: [
+    {
+      id: 'placeholder_1',
+      prompt: 'Placeholder question 1 for conditionals.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_2',
+      prompt: 'Placeholder question 2 for conditionals.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
+    },
+    {
+      id: 'placeholder_3',
+      prompt: 'Placeholder question 3 for conditionals.',
+      choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'],
+      correctIndex: 0,
+      explanation: 'Placeholder explanation, until the real quiz lands.',
     },
   ],
   hintLadder: [
