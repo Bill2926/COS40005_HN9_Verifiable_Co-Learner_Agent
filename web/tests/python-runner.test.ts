@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { RunStopped, type PythonRunner } from '../app/python/runner'
-import { studyModule, studyModules } from '../server/content/study-module'
+import { studyModule, studyModules } from '../server/course'
 import { createPythonRunner } from '../server/python/node-runner'
 
 const loops = studyModule('loops')

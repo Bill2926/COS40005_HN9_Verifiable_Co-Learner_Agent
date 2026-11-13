@@ -1,0 +1,102 @@
+# C4 Level 3: Components of the Turn and admin server
+
+> [C4 index](../../README.md) / Level 3: Components / Turn and admin server
+
+Component-level view of `web/server/` and `web/shared/`. Every arrow below was checked against a real
+`import` statement (script over `web/server`, `web/shared`, `web/app`, `web/tests`, `web/e2e`; 164
+resolved relative imports, 0 unresolved).
+
+Legend: solid arrow = runtime import (the code is called). Thick arrow = runtime link with no import (HTTP call).
+Blue = component in this server, grey = another container, brown = external, teal = database.
+Type-only imports are erased at build time, so they are listed in the table below instead of drawn.
+
+```mermaid
+flowchart LR
+  classDef comp fill:#1f6fd0,stroke:#164f96,color:#ffffff
+  classDef near fill:#4a5568,stroke:#2d3748,color:#ffffff
+  classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
+  classDef db fill:#0f766e,stroke:#0a4f4a,color:#ffffff
+  linkStyle default stroke:#8b949e,stroke-width:1.5px
+
+  spa["<b>Web app</b><br/>browser"]:::near
+
+  subgraph server["Turn and admin server"]
+    direction LR
+    routes["<b>routes</b><br/>HTTP endpoints"]:::comp
+    turn["<b>turn</b><br/>Turn orchestration"]:::comp
+    shield["<b>verify-shield</b><br/>VerifyShield: rules and switch"]:::comp
+    course["<b>course</b><br/>Modules, study content, roadmap"]:::comp
+    studentModel["<b>student-model</b><br/>Evidence ledger, mastery"]:::comp
+    agents["<b>agents</b><br/>Teacher, Deskmate, moves, role table, prompts"]:::comp
+    lm["<b>language-model</b><br/>Real model, choice"]:::comp
+    storage["<b>storage</b><br/>Store interfaces and<br/>Supabase versions"]:::comp
+    admin["<b>admin</b><br/>Product-owner handler"]:::comp
+    shared["<b>shared</b><br/>Session helpers, types"]:::comp
+  end
+
+  auth["<b>Supabase Auth</b>"]:::ext
+  db[("<b>Postgres</b>")]:::db
+  llm["<b>LLM provider</b>"]:::ext
+
+  spa ==>|"POST /turn, POST /api/admin,<br/>GET /course-outline"| routes
+  routes -->|"handleTurn, streamTurn"| turn
+  routes -->|"handleAdmin"| admin
+  routes -->|"agentsForTurn"| agents
+  routes -->|"createSupabase...Store"| storage
+  routes -->|"verifyShieldForTurn"| shield
+  routes -->|"sessionStudentId,<br/>sessionEmail"| shared
+  routes -->|"courseModules, courseTitle"| course
+  turn -->|"decide"| shield
+  turn -->|"course helpers, studyModule"| course
+  turn -->|"moveKey, roleTable"| agents
+  turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
+  course -->|"masteryThreshold"| studentModel
+  admin -->|"resolveModelChoice"| lm
+  admin -->|"verifyShieldEnabled"| shield
+  shared -->|"Verifies the session claims with"| auth
+  storage -->|"supabase-js, secret key"| db
+  agents -->|"createRealLanguageModel,<br/>resolveModelChoice"| lm
+  lm -->|"AI SDK, HTTPS"| llm
+
+  style server fill:none,stroke:#8b949e,stroke-dasharray:5 4
+```
+
+## Components
+
+| Component | Path | Detail |
+|---|---|---|
+| routes | `web/server/routes/`, `web/server/api/` | [server/01-routes.md](01-routes.md) |
+| turn | `web/server/turn/` | [server/02-turn.md](02-turn.md) |
+| verify-shield | `web/server/verify-shield/` | [server/03-verify-shield.md](03-verify-shield.md) |
+| course | `web/server/course/` | [server/04-course.md](04-course.md) |
+| student-model | `web/server/student-model/` | [server/05-student-model.md](05-student-model.md) |
+| agents | `web/server/agents/` | [server/06-agents.md](06-agents.md) |
+| language-model | `web/server/language-model/` | [server/07-language-model.md](07-language-model.md) |
+| storage | `web/server/storage/` | [server/08-storage.md](08-storage.md) |
+| admin | `web/server/admin/` | [server/09-admin.md](09-admin.md) |
+| shared | `web/shared/` | [shared.md](../shared.md) |
+
+## Type-only imports (not drawn)
+
+| From | To | What |
+|---|---|---|
+| turn | shared, agents, verify-shield, student-model, storage | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore` |
+| verify-shield | agents | `Move`, `RoleTable` |
+| course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
+| agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
+| language-model | agents | `Move` |
+| storage | verify-shield, student-model, language-model | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`; `ModelSettings` |
+| admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`; `ModelSettings`; `VerifyShieldStore` |
+
+One type-level cycle exists: agents and language-model import each other (agents calls language-model; language-model imports only the `Move` type back). The
+runtime (solid-arrow) graph has no cycle.
+
+## Not imported by any runtime code
+
+- `web/server/auth/demo-accounts.ts`: imported only by 5 tests and 6 files under `web/e2e/`. `supabase/seed.sql` repeats the same accounts by hand (its header comment says to keep them aligned).
+- `web/server/python/node-runner.ts` and `node-worker.mjs`: imported only by `web/tests/python-runner.test.ts`. See [web-app/05-python-runner.md](../web-app/05-python-runner.md).
+
+## Nitro and Nuxt auto-imports (no import statement)
+
+`defineEventHandler`, `readBody`, `createError`, `sendStream`, `setResponseHeader` and `useRuntimeConfig` are used
+in `routes/`, `api/` and `shared/student-id.ts` without an import. They come from Nitro and h3.

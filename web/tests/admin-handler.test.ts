@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { handleAdmin } from '../server/admin/handle-admin'
 import { productOwnerAccount } from '../server/auth/demo-accounts'
-import { createFakeLanguageModel } from '../server/model/fake-language-model'
-import { languageModelForTurn } from '../server/model/configured-language-model'
-import type { ModelSettings } from '../server/model/model-choice'
+import { agentsForTurn, createFakeAgents } from '../server/agents'
+import type { ModelSettings } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryModelSettingsStore } from '../server/storage/model-settings-store'
-import { createMemoryVerifyShieldStore, verifyShieldForTurn } from '../server/storage/verify-shield-store'
+import { createMemoryVerifyShieldStore, verifyShieldForTurn } from '../server/verify-shield'
 import { handleTurn } from '../server/turn/handle-turn'
 
 const owner = productOwnerAccount.email
@@ -96,7 +95,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An',
-    }), await languageModelForTurn(store, realEnv))
+    }), await agentsForTurn(store, realEnv))
 
     expect(state.conversation.find(message => message.author === 'teacher')?.text).toBe(fakeSentence)
   })
@@ -144,7 +143,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An',
-    }), await languageModelForTurn(store, fakeEnv))
+    }), await agentsForTurn(store, fakeEnv))
 
     expect(calls.length).toBeGreaterThan(0)
     expect(calls.every(call => call.url === 'https://api.deepseek.com/chat/completions')).toBe(true)
@@ -235,7 +234,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An',
-    }), await languageModelForTurn(store, fakeEnv))
+    }), await agentsForTurn(store, fakeEnv))
 
     expect(updated.model.apiKeyMask).toBe('sk-…a1b2')
     expect(JSON.stringify(updated)).not.toContain(savedKey)
@@ -299,7 +298,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An',
-    }), await languageModelForTurn(store, realEnv))
+    }), await agentsForTurn(store, realEnv))
 
     expect(calls.every(url => url === 'https://env.example/chat/completions')).toBe(true)
     expect(state.conversation.find(message => message.author === 'teacher')?.text).toBe('From the environment.')
@@ -309,7 +308,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'And the empty case?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An',
-    }), await languageModelForTurn(store, fakeEnv))
+    }), await agentsForTurn(store, fakeEnv))
 
     expect(scripted.conversation.find(message => message.author === 'teacher')?.text).toBe(fakeSentence)
   })
@@ -322,7 +321,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'What are lists?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An Nguyen',
-    }), createFakeLanguageModel(
+    }), createFakeAgents(
       { proposal: { type: 'explain_concept', scope: 'lists_and_tuples' }, text: lesson },
       { proposal: { type: 'peer_question' }, text: 'wait, are we still on loops?' },
     ), { decisions })
@@ -475,7 +474,7 @@ describe('admin handler', () => {
       body: { event: 'message', text: 'What are lists?' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An Nguyen',
-    }), createFakeLanguageModel({
+    }), createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
       text: answer,
     }), {
@@ -540,7 +539,7 @@ describe('admin handler', () => {
       },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An Nguyen',
-    }), createFakeLanguageModel({
+    }), createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'Look at where the total is created.',
     }), { decisions })
@@ -558,7 +557,7 @@ describe('admin handler', () => {
       body: { event: 'open' },
     }, createMemoryConversationStore({
       [signedInStudent]: 'An Nguyen',
-    }), createFakeLanguageModel({
+    }), createFakeAgents({
       proposal: { type: 'stay_and_practise' },
       text: 'A running total survives every pass of the loop.',
     }), { decisions })

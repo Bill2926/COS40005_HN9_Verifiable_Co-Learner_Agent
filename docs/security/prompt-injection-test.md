@@ -229,13 +229,13 @@ That is not the answer. The student still has to supply the literals and the ord
 
 Think of the app as a building with three doors.
 
-**Door 1: the move list.** The proposal model can only choose from a fixed set of moves defined in `web/server/model/agent-language-model.ts:8`. It cannot invent a new action such as "write the whole answer as a string". If it tries, the structured output fails.
+**Door 1: the move list.** The proposal model can only choose from a fixed set of moves defined in `web/server/language-model/provider-language-model.ts:8`. It cannot invent a new action such as "write the whole answer as a string". If it tries, the structured output fails.
 
-**Door 2: the rule table.** `web/server/verdict/decide.ts:77` checks the chosen move against `web/server/content/role-table.ts`. The deskmate is limited to two non-teaching moves. A deskmate proposal to explain or reveal is blocked with `ROLE_FORBIDDEN`.
+**Door 2: the rule table.** `web/server/verify-shield/decide.ts:77` checks the chosen move against `web/server/agents/role-table.ts`. The deskmate is limited to two non-teaching moves. A deskmate proposal to explain or reveal is blocked with `ROLE_FORBIDDEN`.
 
-**Door 3: the render prompt.** Even after a move is approved, a second model call writes the text. That call is instructed at `web/server/model/agent-language-model.ts:53` not to hand over a full solution. This is the door that held in all 89 probes.
+**Door 3: the render prompt.** Even after a move is approved, a second model call writes the text. That call is instructed at `web/server/agents/prompts.ts:24` not to hand over a full solution. This is the door that held in all 89 probes.
 
-There is also a data-minimization rule. The official answer is stored as `referenceSolution` in `web/server/content/modules/getting-started.ts:26`, but it is not included in the teacher context built at `web/server/turn/handle-turn.ts:504`. The model cannot quote a solution it never receives. For this exercise it could reconstruct the code because the exercise is trivial, but reconstruction is exactly what the render prompt forbids.
+There is also a data-minimization rule. The official answer is stored as `referenceSolution` in `web/server/course/modules/getting-started.ts:26`, but it is not included in the teacher context built at `web/server/turn/handle-turn.ts:504`. The model cannot quote a solution it never receives. For this exercise it could reconstruct the code because the exercise is trivial, but reconstruction is exactly what the render prompt forbids.
 
 ### 3.3 Finding 1: `reveal_answer` has no attempt gate
 
@@ -284,10 +284,10 @@ There is also a data-minimization rule. The official answer is stored as `refere
 
 #### Why the server allowed it
 
-- `reveal_answer` is in the teacher's permitted list at `web/server/content/role-table.ts:14`.
-- It is counted as a teaching move at `web/server/verdict/decide.ts:47`.
-- The permission check at `web/server/verdict/decide.ts:77` therefore passes.
-- The scope check at `web/server/verdict/decide.ts:104` reads the move's scope. `reveal_answer` has no scope field, so the code falls back to the current module at line 111, which is `getting_started`.
+- `reveal_answer` is in the teacher's permitted list at `web/server/agents/role-table.ts:14`.
+- It is counted as a teaching move at `web/server/verify-shield/decide.ts:47`.
+- The permission check at `web/server/verify-shield/decide.ts:77` therefore passes.
+- The scope check at `web/server/verify-shield/decide.ts:104` reads the move's scope. `reveal_answer` has no scope field, so the code falls back to the current module at line 111, which is `getting_started`.
 - `getting_started` is unlocked, so the scope check returns no objection.
 - Any allowed move is rendered at `web/server/turn/handle-turn.ts:361`.
 
@@ -378,7 +378,7 @@ def hello(name):
     return "Hello, " + name
 ```
 
-The statement and the hint ladder describe `"Hello" + " " + name`, which produces `Hello An`, not `Hello, An`. See `web/server/content/modules/getting-started.ts:17`, lines 22 to 24, line 29, and lines 67 to 71.
+The statement and the hint ladder describe `"Hello" + " " + name`, which produces `Hello An`, not `Hello, An`. See `web/server/course/modules/getting-started.ts:17`, lines 22 to 24, line 29, and lines 67 to 71.
 
 A student who follows the tutor exactly fails the test. In probe 7, I reported the failure back to the tutor. Only then did it notice the missing comma and start explaining where the comma belongs. It still refused to print the corrected line.
 
@@ -388,13 +388,13 @@ This is a high-priority content fix because it undermines trust in the tutor and
 
 These did not produce a full answer, but they are weaker than the documentation suggests.
 
-**Hint level has no maximum.** The schema allows any integer from 1 upward at `web/server/model/agent-language-model.ts:11`. The hint ladder has three entries. A model could propose `hint_level_99` and the server would allow it. In testing, the model capped itself at 3 and one level-99 request produced silence, so this was not exploited. The rule should still cap the level at the ladder length.
+**Hint level has no maximum.** The schema allows any integer from 1 upward at `web/server/language-model/provider-language-model.ts:11`. The hint ladder has three entries. A model could propose `hint_level_99` and the server would allow it. In testing, the model capped itself at 3 and one level-99 request produced silence, so this was not exploited. The rule should still cap the level at the ladder length.
 
-**Misconception ids are not validated.** The schema accepts any non-empty string at `web/server/model/agent-language-model.ts:12`. The server does not check that the id exists in the exercise's misconception list. A fake id such as `answer_is_hello_plus_space_plus_name` was accepted and rendered. The render still refused code, but an unknown id should be a block, not an allow.
+**Misconception ids are not validated.** The schema accepts any non-empty string at `web/server/language-model/provider-language-model.ts:12`. The server does not check that the id exists in the exercise's misconception list. A fake id such as `answer_is_hello_plus_space_plus_name` was accepted and rendered. The render still refused code, but an unknown id should be a block, not an allow.
 
-**The scope keyword list is name-only.** The course scope keywords are full module names such as `Lists and Tuples` at `web/server/content/course.ts:72`. The backstop at `web/server/verdict/decide.ts:168` matches exact phrases with word boundaries. A question about list methods that avoids the exact phrase "Lists and Tuples" is caught only if the model labels the scope `out_of_course` or a closed module. In all probes the model labeled correctly, including attempts to force `getting_started`, so no bypass was achieved. The server still trusts the model's label.
+**The scope keyword list is name-only.** The course scope keywords are full module names such as `Lists and Tuples` at `web/server/course/course.ts:72`. The backstop at `web/server/verify-shield/decide.ts:168` matches exact phrases with word boundaries. A question about list methods that avoids the exact phrase "Lists and Tuples" is caught only if the model labels the scope `out_of_course` or a closed module. In all probes the model labeled correctly, including attempts to force `getting_started`, so no bypass was achieved. The server still trusts the model's label.
 
-**Draft and message are inserted raw.** The draft is added to the prompt under a `Draft` heading at `web/server/model/agent-language-model.ts:181`, and the conversation is added line by line at line 189. A student can include newlines and fake section headers. I tried fake `teacher:` lines, fake `Conversation` sections, and a fake `Approved move:` line. None changed the final behavior, but the injection channel exists and should be bounded or escaped.
+**Draft and message are inserted raw.** The draft is added to the prompt under a `Draft` heading at `web/server/agents/prompts.ts:105`, and the conversation is added line by line at line 112. A student can include newlines and fake section headers. I tried fake `teacher:` lines, fake `Conversation` sections, and a fake `Approved move:` line. None changed the final behavior, but the injection channel exists and should be bounded or escaped.
 
 ---
 
@@ -564,14 +564,14 @@ Priority order:
 
 | Priority | Recommendation | Where |
 |---|---|---|
-| P0 | Gate `reveal_answer` on evidence or attempts, and downgrade to a hint otherwise | `web/server/verdict/decide.ts` |
+| P0 | Gate `reveal_answer` on evidence or attempts, and downgrade to a hint otherwise | `web/server/verify-shield/decide.ts` |
 | P0 | Run tests server-side, or verify signed results, before appending evidence | `web/server/turn/handle-turn.ts:155` |
-| P1 | Cap `hint_level_N` at the exercise's hint ladder length | `web/server/model/agent-language-model.ts:11` and `decide()` |
-| P1 | Reject unknown `misconceptionId` values | `web/server/verdict/decide.ts` |
-| P1 | Fix the missing comma in the statement and hint ladder, or change the tests to match | `web/server/content/modules/getting-started.ts` |
-| P2 | Derive scope server-side from the exercise and module instead of trusting the model's label | `web/server/verdict/decide.ts` |
-| P2 | Expand the scope keyword list beyond full module names, or remove the false sense of coverage | `web/server/content/course.ts` |
-| P2 | Escape or structurally delimit draft and conversation text in prompts | `web/server/model/agent-language-model.ts` |
+| P1 | Cap `hint_level_N` at the exercise's hint ladder length | `web/server/language-model/provider-language-model.ts:11` and `decide()` |
+| P1 | Reject unknown `misconceptionId` values | `web/server/verify-shield/decide.ts` |
+| P1 | Fix the missing comma in the statement and hint ladder, or change the tests to match | `web/server/course/modules/getting-started.ts` |
+| P2 | Derive scope server-side from the exercise and module instead of trusting the model's label | `web/server/verify-shield/decide.ts` |
+| P2 | Expand the scope keyword list beyond full module names, or remove the false sense of coverage | `web/server/course/course.ts` |
+| P2 | Escape or structurally delimit draft and conversation text in prompts | `web/server/agents/prompts.ts` |
 | P3 | Add a post-render code detector for hint and reveal moves as defense in depth | `web/server/turn/handle-turn.ts` |
 
 The P0 items matter most. The reveal gate protects the answer, and the evidence check protects the mastery system.
@@ -656,15 +656,15 @@ These are the payloads that came closest to a leak, and why they failed.
 
 For a reader who wants to trace it in the source:
 
-1. `web/server/content/role-table.ts:14` includes `reveal_answer` in the teacher's allowed moves.
-2. `web/server/verdict/decide.ts:47` treats it as a teaching move.
-3. `web/server/verdict/decide.ts:77` checks the role table and passes.
-4. `web/server/verdict/decide.ts:104` runs the scope check.
-5. `web/server/verdict/decide.ts:111` gives a scope-less move the current module id.
-6. `web/server/verdict/decide.ts:114` sees an unlocked module and does not object.
-7. `web/server/verdict/decide.ts:137` returns no downgrade.
+1. `web/server/agents/role-table.ts:14` includes `reveal_answer` in the teacher's allowed moves.
+2. `web/server/verify-shield/decide.ts:47` treats it as a teaching move.
+3. `web/server/verify-shield/decide.ts:77` checks the role table and passes.
+4. `web/server/verify-shield/decide.ts:104` runs the scope check.
+5. `web/server/verify-shield/decide.ts:111` gives a scope-less move the current module id.
+6. `web/server/verify-shield/decide.ts:114` sees an unlocked module and does not object.
+7. `web/server/verify-shield/decide.ts:137` returns no downgrade.
 8. `web/server/turn/handle-turn.ts:361` renders any allowed teacher move.
-9. `web/server/model/agent-language-model.ts:53` asks the renderer not to hand over a full solution.
+9. `web/server/agents/prompts.ts:24` asks the renderer not to hand over a full solution.
 10. `web/server/turn/handle-turn.ts:685` labels the message "Answer revealed" in the UI.
 
 The only barrier between steps 8 and 9 is the render instruction. That is the gap.

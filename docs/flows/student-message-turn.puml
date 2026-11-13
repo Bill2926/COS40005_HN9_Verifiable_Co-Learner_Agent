@@ -1,0 +1,59 @@
+@startuml student-message-turn
+title A student message: the agent is invoked twice, and the VerifyShield sits between the two calls
+
+' High level. Detail lives in web/server/turn/handle-turn.ts (answerMessage), agents/ and verify-shield/decide.ts.
+' The Deskmate (Mai) follows the same pattern with its own two moves; it is left out to keep the picture short.
+
+skinparam shadowing false
+skinparam sequenceMessageAlign left
+skinparam ParticipantPadding 14
+autonumber
+
+actor Student
+participant "Browser" as Browser
+participant "Turn\n(server)" as Turn
+participant "Teacher\n(agents)" as Teacher
+participant "Language\nmodel" as LM
+participant "VerifyShield\n(decide)" as Shield
+
+Student -> Browser : types any message
+Browser -> Turn : POST /turn { message }
+
+Turn -> Turn : load what the student knows\n(mastery, which modules are open)\nbuild the Teacher's prompt:\nroadmap, materials, exercise, code, conversation
+
+== Call 1: choose a move (no words yet) ==
+Turn -> Teacher : propose(context)
+Teacher -> LM : instructions: "propose one move, or none"\n+ prompt
+LM --> Teacher : move, for example\n{ type: explain_concept, scope: loops }\nor null
+Teacher --> Turn : proposed move
+
+== Rule: the VerifyShield approves or changes the move ==
+Turn -> Shield : decide(move, what the student knows)
+alt allowed
+  Shield --> Turn : allow (the move as proposed)
+else wrong role, or module closed, or out of course
+  Shield --> Turn : block, or downgrade to redirect_to_module
+end
+Turn -> Turn : write the proposal and the verdict to the decision log
+
+== Call 2: write the paragraph for the approved move ==
+alt allow
+  Turn -> Teacher : render(context, approved move)
+  Teacher -> LM : instructions: "write only the message for the approved move"\n+ the same prompt + "Approved move: explain_concept"
+  LM --> Teacher : paragraph, word by word
+  Teacher --> Turn : text
+  Turn --> Browser : stream the paragraph
+else downgrade to redirect_to_module
+  Turn --> Browser : fixed redirect text from the course\n(the model is not called a second time)
+else block, or no proposal
+  Turn --> Browser : nothing from the Teacher
+end
+Browser --> Student : the paragraph appears
+
+Turn --> Browser : final state: messages, roadmap,\nand a trace of proposal and verdict
+
+note over Turn, Shield
+  The model never writes words the VerifyShield has not approved.
+  Call 1 answers "what kind of move?". Call 2 answers "what do I say?".
+end note
+@enduml

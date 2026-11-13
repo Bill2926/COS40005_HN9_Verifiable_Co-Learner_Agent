@@ -1,0 +1,70 @@
+# Component: client helpers
+
+> [C4 index](../../README.md) / Level 3: Components / Web app
+
+Small, framework-free files in `web/app/` that hold logic and per-device state. Part of
+[web-app/00-overview.md](00-overview.md).
+
+Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = users of it, brown = browser storage.
+
+```mermaid
+flowchart LR
+  classDef comp fill:#1f6fd0,stroke:#164f96,color:#ffffff
+  classDef near fill:#4a5568,stroke:#2d3748,color:#ffffff
+  classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
+  linkStyle default stroke:#8b949e,stroke-width:1.5px
+
+  index["<b>pages/index.vue</b>"]:::near
+  signin["<b>pages/sign-in.vue</b>"]:::near
+  practice["<b>PracticePanel.vue</b>"]:::near
+  canvas["<b>RoadmapCanvas.vue</b>"]:::near
+  chatmd["<b>ChatMarkdown.vue</b>"]:::near
+  mwlayout["<b>middleware/workspace-layout.ts</b>"]:::near
+  turnTypes["<b>shared/turn.ts</b>"]:::near
+  ls[("<b>localStorage</b>")]:::ext
+  cookie[("<b>cookie</b><br/>workspace-layout")]:::ext
+
+  subgraph helpers["client helpers"]
+    direction TB
+    drafts["<b>drafts/store.ts</b><br/>createDraftStore, draftAfterSwitch"]:::comp
+    arr["<b>roadmap/arrangement.ts</b><br/>Arrangement store and canvas maths"]:::comp
+    layout["<b>workspace/layout.ts</b><br/>Study and Roadmap layout ids"]:::comp
+    md["<b>workspace/chat-markdown.ts</b><br/>parseChatMarkdown"]:::comp
+    intro["<b>sign-in/intro.ts</b><br/>claimIntro, introStart"]:::comp
+  end
+
+  index -->|"createDraftStore"| drafts
+  practice -->|"createDraftStore,<br/>draftAfterSwitch"| drafts
+  canvas -->|"createArrangementStore, ..."| arr
+  index -->|"resolveWorkspaceLayout, ..."| layout
+  mwlayout -->|"resolveWorkspaceLayout, ..."| layout
+  chatmd -->|"parseChatMarkdown"| md
+  signin -->|"claimIntro, introStart, ..."| intro
+  arr -.->|"type: RoadmapModule"| turnTypes
+  drafts -->|"key co-learner-draft:..."| ls
+  arr -->|"key co-learner-roadmap-arrangement:..."| ls
+  intro -->|"key colearner-sign-in-intro"| ls
+  layout -->|"cookie options"| cookie
+
+  style helpers fill:none,stroke:#8b949e,stroke-dasharray:5 4
+```
+
+## Files
+
+| File | Responsibility | Where state lives |
+|---|---|---|
+| `drafts/store.ts` | Per-student, per-exercise draft code; `draftAfterSwitch` saves the draft being left and returns the one entered (or the starter code). | The storage object passed in; `PracticePanel` passes `localStorage`. |
+| `roadmap/arrangement.ts` | Where each module card sits on the canvas, zoom and pan maths, connectors, collision avoidance, and `createArrangementStore`. | The storage object passed in; `RoadmapCanvas` passes `localStorage`. Keyed by student and size class. |
+| `workspace/layout.ts` | The two layouts (`ide` is shown as Study, `roadmap`), the cookie name and options, and `resolveWorkspaceLayout` (query first, then cookie, then `ide`). The old value `map` still opens the roadmap. | Cookie `workspace-layout`, set by `pages/index.vue`. |
+| `workspace/chat-markdown.ts` | Parses the Markdown subset of agent replies into a node tree (paragraphs, inline code, bold, italic, lists, fenced code); never produces HTML; tolerant of half-streamed text. | None. |
+| `sign-in/intro.ts` | Decides whether the sign-in intro plays (once per device, never with reduced motion) and computes the starting transform; exports an inline head script. | `localStorage` key `colearner-sign-in-intro`. |
+
+## Verified imports
+
+- Imports from this repo: only `roadmap/arrangement.ts` (type `RoadmapModule` from `shared/turn`). The other four files import nothing.
+- Importers: `drafts/store` by `pages/index.vue`, `PracticePanel.vue`, `draft-store.test.ts`; `roadmap/arrangement` by `RoadmapCanvas.vue`, `roadmap-arrangement.test.ts`; `workspace/layout` by `pages/index.vue`, `middleware/workspace-layout.ts`; `workspace/chat-markdown` by `ChatMarkdown.vue` and `ChatInline.vue` (type), `chat-markdown.test.ts`; `sign-in/intro` by `pages/sign-in.vue`, `sign-in-intro.test.ts`.
+- Each file here has a unit test under `web/tests/` except `workspace/layout.ts`, which no test imports.
+
+## Notes
+
+- These match the glossary: the draft and the roadmap arrangement are kept on the student's device only and are neither evidence nor part of the resume point; the layout is a per-device cookie.

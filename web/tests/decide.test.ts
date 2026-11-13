@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { courseScope } from '../server/content/course'
-import { roleTable } from '../server/content/role-table'
-import { decide, type CourseScope, type TurnSnapshot } from '../server/verdict/decide'
+import { courseScope } from '../server/course'
+import { roleTable } from '../server/agents'
+import { decide, type CourseScope, type TurnSnapshot } from '../server/verify-shield'
 
 const course: CourseScope = {
   modules: [

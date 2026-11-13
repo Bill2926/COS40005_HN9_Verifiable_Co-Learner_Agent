@@ -15,8 +15,8 @@ export default class ColearnerDecisionProvider {
 
   async callApi(prompt, context) {
     const webRoot = this.config.webRoot ?? process.env.COLEARNER_WEB ?? defaultWebRoot
-    const { decide } = await import(pathToFileURL(path.join(webRoot, 'server/verdict/decide.ts')).href)
-    const { roleTable } = await import(pathToFileURL(path.join(webRoot, 'server/content/role-table.ts')).href)
+    const { decide } = await import(pathToFileURL(path.join(webRoot, 'server/verify-shield/decide.ts')).href)
+    const { roleTable } = await import(pathToFileURL(path.join(webRoot, 'server/agents/role-table.ts')).href)
 
     const agent = context?.vars?.agent ?? 'teacher'
     const moveType = context?.vars?.moveType ?? 'reveal_answer'

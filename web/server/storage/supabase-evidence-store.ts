@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { EvidenceRow, EvidenceStore } from './evidence-store'
+import type { EvidenceRow, EvidenceStore } from '../student-model'
 
 const selected = 'recorded_at, student_id, module_id, exercise_id, attempt, tests_passed, tests_total, all_passed'
 

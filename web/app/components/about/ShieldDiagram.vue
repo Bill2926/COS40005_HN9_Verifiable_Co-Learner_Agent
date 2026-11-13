@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // One turn through the VerifyShield: a student message, the two proposed moves,
-// the verdict, and the three ways it can go. Wording follows server/verdict/decide.ts.
+// the verdict, and the three ways it can go. Wording follows server/verify-shield/decide.ts.
 const proposals = [
   { name: 'Teacher', move: 'explain_concept', portrait: '/portraits/teacher.png', frame: 'border-indigo-200 bg-indigo-50' },
   { name: 'Deskmate', move: 'peer_question', portrait: '/portraits/deskmate.png', frame: 'border-amber-200 bg-amber-50' },

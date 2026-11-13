@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveModelChoice, type ModelSettings } from '../server/model/model-choice'
+import { resolveModelChoice, type ModelSettings } from '../server/language-model'
 
 const configured: ModelSettings = {
   provider: '',

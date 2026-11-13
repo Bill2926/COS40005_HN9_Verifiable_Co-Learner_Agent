@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { ModelSettings } from '../model/model-choice'
+import type { ModelSettings } from '../language-model'
 import type { ModelSettingsStore } from './model-settings-store'
 
 export function createSupabaseModelSettingsStore(options: {

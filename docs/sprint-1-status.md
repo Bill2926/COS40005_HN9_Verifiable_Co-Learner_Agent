@@ -42,7 +42,7 @@ Supersedes the 11 Nov check.
 - Both agents propose a move in the same turn; the VerifyShield rules on both before any text is rendered.
 - Teacher gets materials, hint ladder, misconceptions, draft, run output, and submission.
 - Deskmate gets no materials, hint ladder, or solution; it may only ask a peer question or share confusion.
-- Evidence: `web/server/turn/handle-turn.ts`, `web/server/content/role-table.ts`, `web/app/components/workspace/ConversationPanel.vue`.
+- Evidence: `web/server/turn/handle-turn.ts`, `web/server/agents/role-table.ts`, `web/app/components/workspace/ConversationPanel.vue`.
 
 ### CH9VSA-108 A4: Partial
 - Done: 5 modules x 3 exercises x 3 tests = 45 checks. Pass/fail with expected and actual values.
@@ -66,7 +66,7 @@ Supersedes the 11 Nov check.
 
 ## Agent moves
 
-Ten move types in a closed set (`web/server/model/moves.ts`).
+Ten move types in a closed set (`web/server/agents/moves.ts`).
 
 | Move | Teacher | Deskmate | Shield only | Notes |
 |---|---|---|---|---|
@@ -91,7 +91,7 @@ Ten move types in a closed set (`web/server/model/moves.ts`).
 7. Deskmate moves are only role-checked, never scope-checked.
 8. The approved move is rendered by that agent, streamed to the student, and stored with its move key.
 
-### Verdict rules (`web/server/verdict/decide.ts`)
+### Verdict rules (`web/server/verify-shield/decide.ts`)
 
 | Situation | Decision | Rule id | Reason code |
 |---|---|---|---|
@@ -120,7 +120,7 @@ Ten move types in a closed set (`web/server/model/moves.ts`).
 
 ## Cross-cutting observations
 
-- One course model now: `course.ts` is the source for modules, mastery parameters, roadmap and redirects; the old static roadmap file no longer exists.
+- One course model now: `course.ts` is the source for modules, roadmap and redirects, and `student-model/mastery-parameters.ts` for the mastery parameters; the old static roadmap file no longer exists.
 - Unlocking is permanent: `everMastered` keeps a module open after mastery falls.
 - Module 1 is the only module open to a new student; the seed gives Bình passes on Modules 1-4 so the demo shows mastered, open and closed cards.
 - `advance_to_item` and `stay_and_practise` are ruled and labelled but change no state; a student moves modules only by clicking an unlocked card.
@@ -153,5 +153,5 @@ pnpm test        # 13 files, 130 tests pass
 pnpm rehearsal   # Playwright; specs read, not run in this pass
 ```
 
-Source of truth: `web/server/content/`, `web/server/mastery/estimate.ts`, `web/server/verdict/decide.ts`,
+Source of truth: `web/server/course/`, `web/server/student-model/`, `web/server/verify-shield/decide.ts`,
 `web/server/turn/handle-turn.ts`, `supabase/migrations/`, `supabase/seed.sql`.

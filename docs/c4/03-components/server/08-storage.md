@@ -1,0 +1,69 @@
+# Component: storage
+
+> [C4 index](../../README.md) / Level 3: Components / Turn and admin server
+
+Persistence behind interfaces. Each store has an interface with an in-memory version, and a Supabase version
+that talks to Postgres. Part of [server/00-overview.md](00-overview.md).
+
+Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = other components, teal = database.
+
+```mermaid
+flowchart LR
+  classDef comp fill:#1f6fd0,stroke:#164f96,color:#ffffff
+  classDef near fill:#4a5568,stroke:#2d3748,color:#ffffff
+  classDef db fill:#0f766e,stroke:#0a4f4a,color:#ffffff
+  linkStyle default stroke:#8b949e,stroke-width:1.5px
+
+  routes["<b>routes</b><br/>turn.post, admin.post"]:::near
+  turn["<b>turn/handle-turn.ts</b>"]:::near
+  admin["<b>admin/handle-admin.ts</b>"]:::near
+  shieldIface["<b>verify-shield/index.ts</b><br/>VerifyShieldStore interface"]:::near
+  evIface["<b>student-model/index.ts</b><br/>EvidenceStore interface"]:::near
+  choice["<b>language-model/index.ts</b>"]:::near
+  db[("<b>Postgres</b><br/>Supabase")]:::db
+
+  subgraph storage["storage: interface plus Supabase version"]
+    direction TB
+    conv["<b>conversation-store.ts</b><br/>supabase-conversation-store.ts"]:::comp
+    ev["<b>supabase-evidence-store.ts</b>"]:::comp
+    dec["<b>decision-log.ts</b><br/>supabase-decision-log.ts"]:::comp
+    ms["<b>model-settings-store.ts</b><br/>supabase-model-settings-store.ts"]:::comp
+    vs["<b>supabase-verify-shield-store.ts</b>"]:::comp
+  end
+
+  routes -->|"5 createSupabase...Store"| storage
+  ev -.->|"type: EvidenceStore, EvidenceRow"| evIface
+  turn -.->|"type: ConversationStore,<br/>DecisionLogStore"| storage
+  vs -.->|"type: VerifyShieldStore"| shieldIface
+  admin -.->|"type: DecisionLogStore,<br/>ModelSettingsStore"| storage
+  ms -.->|"type: ModelSettings"| choice
+  storage -->|"supabase-js, secret key"| db
+
+  style storage fill:none,stroke:#8b949e,stroke-dasharray:5 4
+```
+
+Each box is a pair of files: the interface file (with its in-memory version) and the `supabase-` file that
+implements it with `import type` from the interface file. The verify shield and evidence boxes are the exceptions: their interface
+files are in the `verify-shield` and `student-model` components, so only the `supabase-` file is here.
+
+## Stores and the tables they use
+
+| Store | Interface offers | Tables (from the Supabase version) |
+|---|---|---|
+| conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage` | `students`, `resume_points`, `conversations`, `messages` |
+| evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
+| decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
+| model settings | `read`, `save` (single row, id 1) | `model_settings` |
+| verify shield | `read`, `save`. Only the Supabase version is here; the interface, the in-memory version and the `verifyShieldEnabled` / `verifyShieldForTurn` rules live in [`verify-shield`](03-verify-shield.md). | `verify_shield_settings` |
+
+## Verified imports
+
+- Each `supabase-*.ts` imports only `@supabase/supabase-js` and, as types, its own interface file (`supabase-model-settings-store.ts` also the `ModelSettings` type from `language-model`; `supabase-verify-shield-store.ts` and `supabase-evidence-store.ts` take their interfaces from `verify-shield/index.ts` and `student-model/index.ts`).
+- Runtime importers from outside: `routes/turn.post.ts` (all five Supabase files), `api/admin.post.ts` (three Supabase files).
+- Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
+- Tests: `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts` (Supabase versions); `turn-endpoint.test.ts` and `admin-handler.test.ts` (interfaces).
+
+## Notes
+
+- All five Supabase files create their own client with the same options (secret key, no session). They share no helper, so the setup is repeated five times, and `routes/turn.post.ts` creates them again on every request (each `createSupabase...Store` call makes a new client).
+- The decision log and evidence tables have no RLS policy, so only the server's secret key can read or write them. Append-only is by convention of the store interface, not enforced by the database (sprint-1 status document).

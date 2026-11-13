@@ -1,11 +1,11 @@
 import { sessionStudentId } from '../../shared/student-id'
-import { languageModelForTurn } from '../model/configured-language-model'
+import { agentsForTurn } from '../agents'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
-import { verifyShieldForTurn } from '../storage/verify-shield-store'
+import { verifyShieldForTurn } from '../verify-shield'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
@@ -25,10 +25,10 @@ export default defineEventHandler(async (event) => {
   // Opening a module does not call the model. Skip those reads so the click
   // is not waiting on settings it will never use.
   const navigation = isNavigationTurn(body)
-  const [model, verifyShieldOn] = navigation
+  const [agents, verifyShieldOn] = navigation
     ? [undefined, true] as const
     : await Promise.all([
-        languageModelForTurn(createSupabaseModelSettingsStore(connection), {
+        agentsForTurn(createSupabaseModelSettingsStore(connection), {
           provider: config.model,
           apiKey: config.modelApiKey,
           baseUrl: config.modelBaseUrl,
@@ -46,13 +46,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    if (!isStreamedTurn(body)) return await handleTurn(request, store, model, options)
+    if (!isStreamedTurn(body)) return await handleTurn(request, store, agents, options)
 
     setResponseHeader(event, 'content-type', 'application/x-ndjson; charset=utf-8')
     setResponseHeader(event, 'cache-control', 'no-cache, no-transform')
     setResponseHeader(event, 'x-accel-buffering', 'no')
     const encoder = new TextEncoder()
-    const turns = streamTurn(request, store, model, options)
+    const turns = streamTurn(request, store, agents, options)
     const stream = new ReadableStream<Uint8Array>({
       async pull(controller) {
         try {

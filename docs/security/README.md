@@ -292,4 +292,4 @@ can change what the tutor is allowed to say.
 | Port 3000 shows "promptfoo" | The Promptfoo UI owns port 3000 | Keep the app on 3002 or update `baseUrl` |
 | `promptfoo: command not found` | CLI is not on PATH | Use `node .../dist/src/entrypoint.js` |
 | Live test passes with empty teacher text | Model stayed silent | Do not treat silence as proof; use the deterministic regression |
-| `Cannot find module '.../web/server/verdict/decide.ts'` | Repository is in a different place | Run from inside the repository, or set `COLEARNER_WEB` to the `web` folder |
+| `Cannot find module '.../web/server/verify-shield/decide.ts'` | Repository is in a different place | Run from inside the repository, or set `COLEARNER_WEB` to the `web` folder |

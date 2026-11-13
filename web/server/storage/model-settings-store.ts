@@ -1,4 +1,4 @@
-import type { ModelSettings } from '../model/model-choice'
+import type { ModelSettings } from '../language-model'
 
 export interface ModelSettingsStore {
   read(): Promise<ModelSettings | null>

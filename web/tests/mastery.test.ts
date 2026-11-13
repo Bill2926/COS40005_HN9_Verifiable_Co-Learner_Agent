@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { courseModules, masteryParameters } from '../server/content/course'
-import { estimateMastery, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/mastery/estimate'
+import { courseModules } from '../server/course'
+import { estimateMastery, masteryParameters, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/student-model'
 
 const moduleIds = courseModules.map(module => module.id)
 

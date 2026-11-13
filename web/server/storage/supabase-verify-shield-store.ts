@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { VerifyShieldStore } from './verify-shield-store'
+import type { VerifyShieldStore } from '../verify-shield'
 
 export function createSupabaseVerifyShieldStore(options: {
   url: string

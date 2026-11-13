@@ -1,4 +1,4 @@
-import { courseModules, courseTitle } from '../content/course'
+import { courseModules, courseTitle } from '../course'
 
 // The public outline of the course for the About page: names and parts only,
 // nothing about any student.

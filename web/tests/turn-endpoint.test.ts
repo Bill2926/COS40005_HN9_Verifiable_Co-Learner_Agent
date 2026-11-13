@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { createConfiguredLanguageModel } from '../server/model/configured-language-model'
-import { createFakeLanguageModel } from '../server/model/fake-language-model'
+import { createConfiguredAgents, createFakeAgents } from '../server/agents'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
@@ -16,7 +15,7 @@ function memoryStore() {
 }
 
 function speakingTeacher() {
-  return createFakeLanguageModel({
+  return createFakeAgents({
     proposal: { type: 'explain_concept' },
     text: teacherReply,
   })
@@ -521,7 +520,7 @@ describe('turn endpoint', () => {
 
   it('answers a message with one streamed Teacher message carrying its move', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: { type: 'explain_concept' },
       text: 'The total has to exist before the loop starts.',
     })
@@ -577,7 +576,7 @@ describe('turn endpoint', () => {
 
   it('answers with the Teacher first and then Mai', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: 'The total has to exist before the loop starts.',
@@ -648,7 +647,7 @@ describe('turn endpoint', () => {
 
   it('gives the Teacher the draft and latest Run output without storing either', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: { type: 'answer_question' },
       text: 'Look at the variable that survives the loop.',
     })
@@ -716,7 +715,7 @@ describe('turn endpoint', () => {
 
   it('blocks a Deskmate hint and does not render it', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: teacherReply,
@@ -754,7 +753,7 @@ describe('turn endpoint', () => {
 
   it('reports both proposals and a blocked Deskmate move, and does not keep them', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: teacherReply,
@@ -809,7 +808,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, store, createFakeLanguageModel(
+    }, store, createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: teacherReply,
@@ -874,7 +873,7 @@ describe('turn endpoint', () => {
     const store = memoryStore()
     const draft = 'def total(ds):\n    MAI_DRAFT_SENTINEL = 0\n'
     const run = { stdout: 'MAI_RUN_SENTINEL\n', stderr: '', error: null }
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'hint_level_N', level: 1 },
         text: teacherReply,
@@ -946,7 +945,7 @@ describe('turn endpoint', () => {
 
   it('produces no message for an agent that makes no proposal', async () => {
     const store = memoryStore()
-    const quietMai = createFakeLanguageModel(
+    const quietMai = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: teacherReply,
@@ -966,7 +965,7 @@ describe('turn endpoint', () => {
     expect(teacherOnly.conversation.map(message => message.author)).toEqual(['student', 'teacher'])
     expect(JSON.stringify(teacherOnly)).not.toContain('QUIET_MAI_TEXT')
 
-    const quietTeacher = createFakeLanguageModel(
+    const quietTeacher = createFakeAgents(
       {
         proposal: null,
         text: 'QUIET_TEACHER_AGAIN',
@@ -1009,7 +1008,7 @@ describe('turn endpoint', () => {
 
   it('stays quiet when the Teacher proposes no move', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: null,
       text: 'QUIET_TEACHER_TEXT',
     })
@@ -1026,7 +1025,7 @@ describe('turn endpoint', () => {
 
   it('does not render a Teacher move the role table forbids', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: { type: 'peer_question' },
       text: 'FORBIDDEN_TEACHER_TEXT',
     })
@@ -1047,7 +1046,7 @@ describe('turn endpoint', () => {
     for await (const event of streamTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, store, createFakeLanguageModel(
+    }, store, createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         fail: 'propose',
@@ -1111,7 +1110,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, store, createFakeLanguageModel(
+    }, store, createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: teacherReply,
@@ -1157,7 +1156,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       fail: 'propose',
     }))
@@ -1190,7 +1189,7 @@ describe('turn endpoint', () => {
     const rendered = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'And if it is inside?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       text: 'PARTIAL_SHOULD_NOT_STICK',
       fail: 'render',
@@ -1208,7 +1207,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, memoryStore(), createConfiguredLanguageModel({
+    }, memoryStore(), createConfiguredAgents({
       provider: 'fake',
       apiKey: '',
       baseUrl: '',
@@ -1248,7 +1247,7 @@ describe('turn endpoint', () => {
 
   it('introduces a module the first time it is opened and starts in Learn', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: 'A running total survives every pass of the loop.',
@@ -1307,7 +1306,7 @@ describe('turn endpoint', () => {
 
   it('introduces the module with a teaching move when the model proposes another move', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: { type: 'stay_and_practise' },
       text: 'A running total survives every pass of the loop.',
     })
@@ -1359,7 +1358,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: null,
       text: 'A running total survives every pass of the loop.',
     }))
@@ -1387,7 +1386,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       fail: 'propose',
     }))
@@ -1415,7 +1414,7 @@ describe('turn endpoint', () => {
     const failed = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'open' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       text: 'PARTIAL_OPENING_SHOULD_NOT_STICK',
       fail: 'render',
@@ -1471,7 +1470,7 @@ describe('turn endpoint', () => {
       body: { event: 'message', text: 'Where does the total live?' },
     }, store, speakingTeacher())
 
-    const model = createFakeLanguageModel({
+    const model = createFakeAgents({
       proposal: { type: 'explain_concept' },
       text: 'SHOULD_NOT_INTRODUCE_AGAIN',
     })
@@ -1504,7 +1503,7 @@ describe('turn endpoint', () => {
     const explained = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Where does the total live?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       text: 'The total has to exist before the loop starts.',
     }))
@@ -1519,7 +1518,7 @@ describe('turn endpoint', () => {
     const answered = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Is the total a variable?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'answer_question' },
       text: 'Yes. It is a variable that lives outside the loop.',
     }))
@@ -1537,7 +1536,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'I am stuck.' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'hint_level_N', level: 1 },
       text: 'Create the total before the loop.',
     }))
@@ -1552,7 +1551,7 @@ describe('turn endpoint', () => {
 
   it('records a submission summary and lets the agents answer with no student text', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept' },
         text: 'The total is still created inside the loop.',
@@ -1711,7 +1710,7 @@ describe('turn endpoint', () => {
       const state = await handleTurn({
         sessionStudentId: signedInStudent,
         body: { event: 'message', text: `Question ${index}` },
-      }, store, createFakeLanguageModel({
+      }, store, createFakeAgents({
         proposal: reply.proposal,
         text: reply.text,
       }))
@@ -1728,7 +1727,7 @@ describe('turn endpoint', () => {
     const unanswered = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'And if the model fails?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept' },
       fail: 'propose',
     }))
@@ -1744,7 +1743,7 @@ describe('turn endpoint', () => {
     const withMai = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Mine is zero as well.' },
-    }, store, createFakeLanguageModel(
+    }, store, createFakeAgents(
       { proposal: null },
       {
         proposal: { type: 'share_confusion' },
@@ -1762,7 +1761,7 @@ describe('turn endpoint', () => {
     const quietMai = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Say that again?' },
-    }, store, createFakeLanguageModel(
+    }, store, createFakeAgents(
       { proposal: null },
       {
         proposal: { type: 'peer_question' },
@@ -1816,7 +1815,7 @@ describe('turn endpoint', () => {
 
   it('labels a question about lists as Not yet and stays on the current module', async () => {
     const store = memoryStore()
-    const model = createFakeLanguageModel(
+    const model = createFakeAgents(
       {
         proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
         text: 'LISTS_LESSON_SHOULD_NOT_RENDER',
@@ -1908,7 +1907,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'hey how are you' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'out_of_course' },
       text: 'SMALL_TALK_SHOULD_NOT_RENDER',
     }))
@@ -1927,7 +1926,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Can you show me Pandas?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'PANDAS_SHOULD_NOT_RENDER',
     }))
@@ -1966,7 +1965,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'What are lists?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'lists_and_tuples' },
       text: 'A list keeps items in order.',
     }), { verifyShieldOn: false })
@@ -2004,7 +2003,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Can we start lists?' },
-    }, store, createFakeLanguageModel({
+    }, store, createFakeAgents({
       proposal: { type: 'advance_to_item', moduleId: 'lists_and_tuples' },
       text: 'LISTS_ADVANCE_SHOULD_NOT_RENDER',
     }))

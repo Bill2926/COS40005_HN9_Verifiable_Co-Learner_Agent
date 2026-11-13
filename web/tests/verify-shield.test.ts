@@ -3,7 +3,7 @@ import {
   createMemoryVerifyShieldStore,
   verifyShieldEnabled,
   verifyShieldForTurn,
-} from '../server/storage/verify-shield-store'
+} from '../server/verify-shield'
 
 describe('VerifyShield switch', () => {
   it('stays on when the environment does not switch it off', () => {

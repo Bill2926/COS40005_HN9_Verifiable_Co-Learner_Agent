@@ -1,13 +1,10 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
-import { courseScope, courseTitle, estimateCourse, furthestUnlockedModuleId, masteryThreshold, presentedRoadmap, redirectText, roadmapForStanding, standingFor, type CourseEstimate, type CourseStanding } from '../content/course'
-import { canonicalModuleId, studyModule, type Exercise, type StudyModule } from '../content/study-module'
-import { roleTable } from '../content/role-table'
-import type { DeskmateContext, LanguageModel, SubmissionCheck, TeacherContext } from '../model/language-model'
-import { moveKey, type Move } from '../model/moves'
+import { moveKey, roleTable, type Agents, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
+import { canonicalModuleId, courseModules, courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
-import { createMemoryEvidenceStore, type EvidenceStore } from '../storage/evidence-store'
+import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, masteryThreshold, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
-import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verdict/decide'
+import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -66,31 +63,31 @@ export function studentIdForTurn(request: TurnRequest): string {
 export function handleTurn(
   request: TurnRequest,
   store: ConversationStore,
-  model?: LanguageModel,
+  agents?: Agents,
   options?: TurnOptions,
 ): Promise<RedrawState> {
   studentIdForTurn(request)
-  return collectTurn(request, store, model, options)
+  return collectTurn(request, store, agents, options)
 }
 
 export function streamTurn(
   request: TurnRequest,
   store: ConversationStore,
-  model?: LanguageModel,
+  agents?: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   studentIdForTurn(request)
-  return streamTurnBody(request, store, model, options)
+  return streamTurnBody(request, store, agents, options)
 }
 
 async function collectTurn(
   request: TurnRequest,
   store: ConversationStore,
-  model?: LanguageModel,
+  agents?: Agents,
   options?: TurnOptions,
 ): Promise<RedrawState> {
   let state: RedrawState | undefined
-  for await (const event of streamTurnBody(request, store, model, options)) {
+  for await (const event of streamTurnBody(request, store, agents, options)) {
     if (event.type === 'state') state = event.state
   }
   if (!state) throw new Error('The turn did not finish.')
@@ -100,7 +97,7 @@ async function collectTurn(
 async function* streamTurnBody(
   request: TurnRequest,
   store: ConversationStore,
-  model?: LanguageModel,
+  agents?: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const studentId = studentIdForTurn(request)
@@ -113,7 +110,7 @@ async function* streamTurnBody(
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
   ])
-  let estimate = estimateCourse(rows)
+  let estimate = estimateCourse(courseModules, rows)
   const settled = await viewPlacement(studentId, store, estimate, knownPoint)
   let placement = settled.placement
   const openedPoint = settled.point
@@ -121,8 +118,8 @@ async function* streamTurnBody(
 
   if (isOpenEvent(body)) {
     const existing = await store.messages(studentId, placement.module.id)
-    if (existing.length === 0 && model) {
-      yield* introduceModule(studentId, placement, standing, store, model, options)
+    if (existing.length === 0 && agents) {
+      yield* introduceModule(studentId, placement, standing, store, agents, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
@@ -171,7 +168,7 @@ async function* streamTurnBody(
   }
 
   if (isSubmission(body)) {
-    if (!model) throw new Error('The agents have no language model.')
+    if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
     // A submission is the only thing that produces evidence.
     await ledger.append({
@@ -181,7 +178,7 @@ async function* streamTurnBody(
       testsPassed: body.results.filter(result => result.passed).length,
       testsTotal: body.results.length,
     })
-    estimate = estimateCourse(await ledger.forStudent(studentId))
+    estimate = estimateCourse(courseModules, await ledger.forStudent(studentId))
     standing = standingFor(estimate, placement.module.id)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
@@ -193,12 +190,12 @@ async function* streamTurnBody(
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
-    }, store, model, '', options)
+    }, store, agents, '', options)
     return
   }
 
   if (isMessage(body)) {
-    if (!model) throw new Error('The agents have no language model.')
+    if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'student',
@@ -210,7 +207,7 @@ async function* streamTurnBody(
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, model, body.text.trim(), options)
+    }, store, agents, body.text.trim(), options)
     return
   }
 
@@ -222,7 +219,7 @@ async function* introduceModule(
   placement: Placement,
   standing: CourseStanding,
   store: ConversationStore,
-  model: LanguageModel,
+  agents: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const context = await teacherContext(studentId, placement, standing, store, {
@@ -234,7 +231,7 @@ async function* introduceModule(
   const snapshot = turnSnapshot(placement, standing, '', options)
   let proposal: Move | null = null
   try {
-    proposal = await model.teacher.propose(context)
+    proposal = await agents.teacher.propose(context)
   }
   catch (cause) {
     logModelFailure('teacher propose', cause)
@@ -268,7 +265,7 @@ async function* introduceModule(
     await speakRedirect(studentId, placement, store, text)
   }
   else if (verdict?.decision === 'allow' && verdict.move && isTeachingMove(verdict.move)) {
-    const text = yield* streamTeacherReply(model, context, verdict.move)
+    const text = yield* streamTeacherReply(agents, context, verdict.move)
     if (text) {
       await store.appendMessage(studentId, placement.module.id, {
         author: 'teacher',
@@ -318,13 +315,13 @@ function isTeachingMove(move: Move): boolean {
 }
 
 async function* streamTeacherReply(
-  model: LanguageModel,
+  agents: Agents,
   context: TeacherContext,
   move: Move,
 ): AsyncGenerator<TurnEvent, string | null> {
   let text = ''
   try {
-    for await (const delta of model.teacher.render(context, move)) {
+    for await (const delta of agents.teacher.render(context, move)) {
       text += delta
       yield { type: 'text', author: 'teacher', delta }
     }
@@ -342,7 +339,7 @@ async function* answerMessage(
   standing: CourseStanding,
   seen: SeenWork,
   store: ConversationStore,
-  model: LanguageModel,
+  agents: Agents,
   studentMessage: string,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
@@ -350,8 +347,8 @@ async function* answerMessage(
   const deskmate = deskmateContext(context)
   // Mai's proposal runs while the Teacher is already writing, so the first
   // words are not held back for the second model call.
-  const teacherTask = settleCall(model.teacher.propose(context))
-  const deskmateTask = settleCall(model.deskmate.propose(deskmate))
+  const teacherTask = settleCall(agents.teacher.propose(context))
+  const deskmateTask = settleCall(agents.deskmate.propose(deskmate))
   const teacherSettled = await teacherTask
 
   const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
@@ -375,7 +372,7 @@ async function* answerMessage(
     await speakRedirect(studentId, placement, store, text)
   }
   else if (teacherVerdict?.decision === 'allow' && teacherVerdict.move) {
-    const text = yield* streamTeacherReply(model, context, teacherVerdict.move)
+    const text = yield* streamTeacherReply(agents, context, teacherVerdict.move)
     if (!text) {
       await rememberTeacherCouldNotAnswer(studentId, placement, store)
       teacherFailed = true
@@ -411,7 +408,7 @@ async function* answerMessage(
     let text = ''
     let failed = false
     try {
-      for await (const delta of model.deskmate.render(renderContext, deskmateVerdict.move)) {
+      for await (const delta of agents.deskmate.render(renderContext, deskmateVerdict.move)) {
         text += delta
         yield { type: 'text', author: 'deskmate' as const, delta }
       }
@@ -640,7 +637,7 @@ async function viewPlacement(
 ): Promise<{ placement: Placement, point: ResumePoint | null }> {
   // With no resume point the student starts on the furthest module their
   // evidence has unlocked, which is Module 1 when they have no evidence.
-  const opening = studyModule(furthestUnlockedModuleId(estimate))
+  const opening = studyModule(furthestUnlockedModuleId(courseModules, estimate))
   if (!opening) throw new Error('The first module of the course is missing.')
   let point = knownPoint
   const moduleId = point ? canonicalModuleId(point.moduleId) : opening.id

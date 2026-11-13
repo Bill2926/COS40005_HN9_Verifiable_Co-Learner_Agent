@@ -28,7 +28,7 @@ _Avoid_: admin, lecturer, assessor
 ### Course
 
 **Module**:
-One unit of the course that a student masters, such as Module 5: Loops. It has one mastery and its own conversation. Internal design documents call the same thing an *item*. The numbered system components (M1 to M7) are never written "Module N".
+One unit of the course that a student masters, such as Module 5: Loops. It has one mastery and its own conversation. Internal design documents call the same thing an *item*. The numbered system components (M1 to M7) are never written "Module N". In architecture, "module" is never used for a part of the system: see **Component**.
 _Avoid_: topic, lesson, unit, node
 
 **Part**:
@@ -136,3 +136,9 @@ _Avoid_: audit log, history, evidence
 **VerifyShield trace**:
 A panel, off by default, that shows the raw verdict for each turn, meant for assessors rather than students.
 _Avoid_: shield trace
+
+### Architecture
+
+**Component**:
+A named part of a container that has one job, such as the VerifyShield of the server or the python runner of the web app. Its folder is the kebab-case of its name (`verify-shield/`). Follows the C4 convention, so it is the word for a part of the system in the C4 documents, the research documents (M1 to M7) and code comments. A **Module** is only ever a unit of the course. A Vue single-file component is a Vue component, not a C4 component; say "Vue component" where both could be meant.
+_Avoid_: module, part, layer

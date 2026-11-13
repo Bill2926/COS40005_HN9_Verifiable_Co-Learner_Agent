@@ -1,7 +1,7 @@
-import { resolveModelChoice, type ModelSettings } from '../model/model-choice'
+import { resolveModelChoice, type ModelSettings } from '../language-model'
 import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
-import { verifyShieldEnabled, type VerifyShieldStore } from '../storage/verify-shield-store'
+import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
 
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
