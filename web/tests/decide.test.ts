@@ -25,6 +25,7 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
     studentMessage: 'How does a for loop work?',
     verifyShieldOn: true,
     highestHintRung: 0,
+    misconceptionIds: ['accumulator_reset_inside_loop'],
     ...overrides,
   }
 }
@@ -380,6 +381,52 @@ describe('decide', () => {
     expect(decide(
       [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'lists_and_tuples' } }],
       snapshot({ studentMessage: 'Can we start lists?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'scope_requires_unlocked_module',
+      reasonCode: 'MODULE_CLOSED',
+      move: { type: 'redirect_to_module', scope: 'lists_and_tuples' },
+    }])
+  })
+
+  it('allows a misconception the current module has', () => {
+    const move = { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' }
+    expect(decide(
+      [{ agent: 'teacher', move }],
+      snapshot({ studentMessage: 'Why is my total always the last number?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'allow',
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      move,
+    }])
+  })
+
+  it('answers the question instead when the misconception is not one the module has', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'off_by_one_range', scope: 'loops' } }],
+      snapshot({ studentMessage: 'Why is my total always the last number?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'misconception_known',
+      reasonCode: 'MISCONCEPTION_UNKNOWN',
+      move: { type: 'answer_question', scope: 'loops' },
+    }])
+  })
+
+  it('redirects an invented misconception on a closed module, as the scope rules come first', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'tuple_is_mutable', scope: 'lists_and_tuples' } }],
+      snapshot({ studentMessage: 'Why does my code fail?' }),
       roleTable,
       course,
     )).toEqual([{

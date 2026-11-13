@@ -925,6 +925,57 @@ describe('turn endpoint', () => {
     ])
   })
 
+  it('lets the Teacher address a misconception the current module has', async () => {
+    const store = memoryStore()
+    const model = createFakeAgents({
+      proposal: { type: 'address_misconception', misconceptionId: 'missing_quotes', scope: 'getting_started' },
+      text: 'The words need quotes around them.',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Why does print(Hello) fail?' },
+    }, store, model)
+
+    expect(state.trace?.agents[0]).toMatchObject({
+      agent: 'teacher',
+      proposal: 'address_misconception:missing_quotes',
+      verdict: { decision: 'allow', reasonCode: 'ROLE_PERMITTED' },
+    })
+    expect(state.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      approvedMove: 'address_misconception:missing_quotes',
+    })
+  })
+
+  it('answers the question instead when the Teacher invents a misconception', async () => {
+    const store = memoryStore()
+    const model = createFakeAgents({
+      proposal: { type: 'address_misconception', misconceptionId: 'accumulator_reset_inside_loop', scope: 'getting_started' },
+      text: 'Python reads a bare word as a variable name.',
+    })
+
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Why does print(Hello) fail?' },
+    }, store, model)
+
+    expect(state.trace?.agents[0]).toMatchObject({
+      agent: 'teacher',
+      proposal: 'address_misconception:accumulator_reset_inside_loop',
+      verdict: {
+        decision: 'downgrade',
+        ruleId: 'misconception_known',
+        reasonCode: 'MISCONCEPTION_UNKNOWN',
+      },
+    })
+    expect(state.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      approvedMove: 'answer_question',
+      text: 'Python reads a bare word as a variable name.',
+    })
+  })
+
   it('reports an agent that made no proposal', async () => {
     const store = memoryStore()
     const state = await handleTurn({
@@ -1852,10 +1903,10 @@ describe('turn endpoint', () => {
         approvedMove: 'hint_level_2',
       },
       {
-        proposal: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'getting_started' },
-        text: 'The total is being set back to zero inside the loop.',
+        proposal: { type: 'address_misconception' as const, misconceptionId: 'missing_quotes', scope: 'getting_started' },
+        text: 'The words are missing their quotes.',
         role: 'Misconception',
-        approvedMove: 'address_misconception:accumulator_reset_inside_loop',
+        approvedMove: 'address_misconception:missing_quotes',
       },
       {
         proposal: { type: 'advance_to_module' as const, moduleId: 'nested_loop' },
