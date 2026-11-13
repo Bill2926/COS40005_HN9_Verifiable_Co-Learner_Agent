@@ -9,7 +9,8 @@ export type ProposalSchema<Proposal> = z.ZodType<{ proposal: Proposal | null }>
 // supplies the proposal schema.
 export interface LanguageModel {
   // One proposal that parses against `schema`, or null when the model chooses to stay quiet.
-  // Rejects when the model fails or its reply does not parse.
+  // A reply that does not parse is asked for once more; rejects when the second does not parse
+  // either, or at once when the call itself fails.
   proposeMove: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) => Promise<Proposal | null>
   // The words of one reply, as they arrive.
   streamReply: (instructions: string, prompt: string) => AsyncIterable<string>

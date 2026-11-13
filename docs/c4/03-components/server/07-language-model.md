@@ -50,8 +50,8 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `language-model.ts` | Interface only: `LanguageModel` with `proposeMove(instructions, prompt, schema)`, generic over the schema it is given (a `ProposalSchema`: `{ proposal: … \| null }`), which returns the parsed proposal or null and rejects on a reply that does not parse; and `streamReply(instructions, prompt)`, which yields the words of one reply. |
-| `provider-language-model.ts` | `createProviderLanguageModel(model)`: the `generateText` / `streamText` calls (package `ai`), holding the reply to the caller's schema. It writes that schema's JSON shape into the instructions because the provider accepts `json_object` but not `json_schema`. Internal. |
+| `language-model.ts` | Interface only: `LanguageModel` with `proposeMove(instructions, prompt, schema)`, generic over the schema it is given (a `ProposalSchema`: `{ proposal: … \| null }`), which returns the parsed proposal or null and rejects when two replies in a row do not parse or the call fails; and `streamReply(instructions, prompt)`, which yields the words of one reply. |
+| `provider-language-model.ts` | `createProviderLanguageModel(model)`: the `generateText` / `streamText` calls (package `ai`), holding the reply to the caller's schema. It writes that schema's JSON shape into the instructions because the provider accepts `json_object` but not `json_schema`. `proposeMove` asks once more when a reply does not parse, breaks the schema, or is empty (`NoObjectGeneratedError`, `NoOutputGeneratedError`), and never retries a network or provider error (`maxRetries: 0`, so the SDK's own retries are off too). Internal. |
 | `real-language-model.ts` | Builds the OpenAI-compatible provider (`@ai-sdk/openai-compatible`) with `supportsStructuredOutputs: false` and hands it to `createProviderLanguageModel`. |
 | `model-choice.ts` | `resolveModelChoice`: `real`, `fake`, or an error naming the blank field. Reads neither the environment nor the network. Also holds the `ModelSettings` and `ModelChoice` types. |
 | `index.ts` | The interface: `LanguageModel`, `ProposalSchema`, `createRealLanguageModel`, `resolveModelChoice`, `ModelSettings`, `ModelChoice`. |
@@ -62,7 +62,7 @@ flowchart LR
 - Runtime importers, through `index.ts`: `agents/configured-agents.ts` (`resolveModelChoice`, `createRealLanguageModel`), `admin/handle-admin.ts` (`resolveModelChoice`).
 - Type-only importers: `agents/create-agents.ts` (`LanguageModel`), `storage/model-settings-store.ts` and `storage/supabase-model-settings-store.ts` (`ModelSettings`).
 - Packages: `ai`, `zod`, `@ai-sdk/openai-compatible`.
-- Tests: `model-choice.test.ts` and `real-language-model.test.ts`, both through `server/language-model`. `real-language-model.test.ts` calls `proposeMove` directly with the agents' `proposalSchema`, with no agent in front of it.
+- Tests: `model-choice.test.ts` and `real-language-model.test.ts`, both through `server/language-model`. `real-language-model.test.ts` calls `proposeMove` directly with the agents' `proposalSchema`, with no agent in front of it, and also drives a turn through `handleTurn` with the real client over a stubbed `fetch` to check what the student sees after one or two malformed proposals.
 
 ## Notes
 
