@@ -186,6 +186,11 @@ describe('turn endpoint', () => {
         { id: 'join_words', title: 'Join two words' },
         { id: 'sign_the_program', title: 'Sign the program' },
       ],
+      quiz: [
+        { id: 'placeholder_1', prompt: 'Placeholder question 1 for getting_started.', choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'], result: null },
+        { id: 'placeholder_2', prompt: 'Placeholder question 2 for getting_started.', choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'], result: null },
+        { id: 'placeholder_3', prompt: 'Placeholder question 3 for getting_started.', choices: ['Choice A', 'Choice B', 'Choice C', 'Choice D'], result: null },
+      ],
     })
     expect(state.masteryThreshold).toBe(0.9)
     expect(state.conversation).toEqual([])

@@ -1,7 +1,8 @@
-import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { moveKey, roleTable, type Agents, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, courseModules, courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
+import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
 import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, masteryThreshold, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
@@ -50,6 +51,7 @@ export interface TurnOptions {
   verifyShieldOn?: boolean
   decisions?: DecisionLogStore
   evidence?: EvidenceStore
+  quizAnswers?: QuizAnswerStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -106,6 +108,7 @@ async function* streamTurnBody(
   // estimate is taken again, so the roadmap the student gets back already
   // counts the submission they just made.
   const ledger = options?.evidence ?? createMemoryEvidenceStore()
+  const quizStore = options?.quizAnswers ?? createMemoryQuizAnswerStore()
   const [rows, knownPoint] = await Promise.all([
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
@@ -119,11 +122,11 @@ async function* streamTurnBody(
   if (isOpenEvent(body)) {
     const existing = await store.messages(studentId, placement.module.id)
     if (existing.length === 0 && agents) {
-      yield* introduceModule(studentId, placement, standing, store, agents, options)
+      yield* introduceModule(studentId, placement, standing, store, quizStore, agents, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, mode) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode) }
     return
   }
 
@@ -131,7 +134,7 @@ async function* streamTurnBody(
     const chosen = studyModule(canonicalModuleId(body.moduleId))
     // Choosing a closed module changes nothing. A preview never writes the resume point.
     if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
-      yield { type: 'state', state: await redraw(studentId, placement, standing, store, null) }
+      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
       return
     }
     const point = openedPoint
@@ -140,14 +143,15 @@ async function* streamTurnBody(
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
     const next = { module: chosen, exercise }
-    const [existing, displayName] = await Promise.all([
+    const [existing, displayName, quizAnswers] = await Promise.all([
       store.messages(studentId, chosen.id),
       store.displayName(studentId),
+      quizStore.forStudentModule(studentId, chosen.id),
       isPreviewModule(body) ? Promise.resolve() : adoptPlacement(studentId, store, next),
     ])
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers),
     }
     return
   }
@@ -163,7 +167,15 @@ async function* streamTurnBody(
       text: exercise.title,
       exerciseId: exercise.id,
     })
-    yield { type: 'state', state: await redraw(studentId, next, standing, store, null) }
+    yield { type: 'state', state: await redraw(studentId, next, standing, store, quizStore, null) }
+    return
+  }
+
+  if (isQuizAnswer(body)) {
+    yield {
+      type: 'state',
+      state: await markQuizAnswer(studentId, placement, standing, store, quizStore, body),
+    }
     return
   }
 
@@ -190,7 +202,7 @@ async function* streamTurnBody(
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
-    }, store, agents, '', options)
+    }, store, quizStore, agents, '', options)
     return
   }
 
@@ -207,7 +219,7 @@ async function* streamTurnBody(
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, agents, body.text.trim(), options)
+    }, store, quizStore, agents, body.text.trim(), options)
     return
   }
 
@@ -219,6 +231,7 @@ async function* introduceModule(
   placement: Placement,
   standing: CourseStanding,
   store: ConversationStore,
+  quizStore: QuizAnswerStore,
   agents: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
@@ -237,7 +250,7 @@ async function* introduceModule(
     logModelFailure('teacher propose', cause)
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, placement, standing, store, 'learn', verifyShieldTrace(null, null, [], snapshot)),
+      state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', verifyShieldTrace(null, null, [], snapshot)),
     }
     return
   }
@@ -276,7 +289,54 @@ async function* introduceModule(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, 'learn', trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace) }
+}
+
+async function markQuizAnswer(
+  studentId: string,
+  placement: Placement,
+  standing: CourseStanding,
+  store: ConversationStore,
+  quizStore: QuizAnswerStore,
+  event: QuizAnswerEvent,
+): Promise<RedrawState> {
+  const module = placement.module
+  const index = canonicalModuleId(event.moduleId) === module.id
+    ? module.quiz.findIndex(question => question.id === event.questionId)
+    : -1
+  const question = index >= 0 ? module.quiz[index] : undefined
+  // A stray module id, an unknown question or an out-of-range choice marks
+  // nothing and leaves the state as it was.
+  if (!question || !isChoiceIndex(event.choice)) {
+    return redraw(studentId, placement, standing, store, quizStore, null)
+  }
+  // The resume point is already settled on this module by viewPlacement, so a
+  // quiz answer writes nothing beyond its own ledger row.
+  const correct = event.choice === question.correctIndex
+  const recorded = await quizStore.record({
+    studentId,
+    moduleId: module.id,
+    questionId: question.id,
+    choice: event.choice,
+    correct,
+  })
+  // The ledger row and the event message are written for the first answer only;
+  // later choices the student makes to explore change neither.
+  if (recorded.stored) {
+    await store.appendMessage(studentId, module.id, {
+      author: 'event',
+      approvedMove: null,
+      text: quizEventText(index + 1, event.choice, correct),
+      exerciseId: placement.exercise.id,
+    })
+  }
+  return redraw(studentId, placement, standing, store, quizStore, null)
+}
+
+// e.g. "Quiz 2: chose C, wrong". The number is the question's place in the
+// module's quiz; the letter is the choice.
+function quizEventText(number: number, choice: number, correct: boolean): string {
+  return `Quiz ${number}: chose ${'ABCD'[choice]}, ${correct ? 'right' : 'wrong'}`
 }
 
 function turnSnapshot(
@@ -339,6 +399,7 @@ async function* answerMessage(
   standing: CourseStanding,
   seen: SeenWork,
   store: ConversationStore,
+  quizStore: QuizAnswerStore,
   agents: Agents,
   studentMessage: string,
   options?: TurnOptions,
@@ -396,7 +457,7 @@ async function* answerMessage(
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherFailed) {
-    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
+    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace) }
   }
 
   if (deskmateSettled.status === 'rejected') {
@@ -431,7 +492,7 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, null, trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace) }
 }
 
 async function redrawWithTrace(
@@ -439,11 +500,12 @@ async function redrawWithTrace(
   placement: Placement,
   standing: CourseStanding,
   store: ConversationStore,
+  quizStore: QuizAnswerStore,
   mode: 'learn' | null,
   trace: TurnTrace,
 ): Promise<RedrawState> {
   return {
-    ...await redraw(studentId, placement, standing, store, mode),
+    ...await redraw(studentId, placement, standing, store, quizStore, mode),
     trace,
   }
 }
@@ -674,13 +736,15 @@ async function redraw(
   placement: Placement,
   standing: CourseStanding,
   store: ConversationStore,
+  quizStore: QuizAnswerStore,
   mode: 'learn' | null = null,
 ): Promise<RedrawState> {
-  const [messages, displayName] = await Promise.all([
+  const [messages, displayName, quizAnswers] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
+    quizStore.forStudentModule(studentId, placement.module.id),
   ])
-  return composeState(placement, standing, messages, displayName, mode)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers)
 }
 
 function composeState(
@@ -689,6 +753,7 @@ function composeState(
   messages: readonly StoredMessage[],
   displayName: string,
   mode: 'learn' | null,
+  quizAnswers: readonly QuizAnswerRow[],
 ): RedrawState {
   return {
     displayName,
@@ -705,20 +770,47 @@ function composeState(
         id: choice.id,
         title: choice.title,
       })),
+      quiz: presentQuiz(placement.module, quizAnswers),
     },
     conversation: messages.map(message => presentMessage(message, displayName)),
   }
 }
 
+function presentQuiz(
+  module: StudyModule,
+  quizAnswers: readonly QuizAnswerRow[],
+): QuizQuestionView[] {
+  return module.quiz.map((question) => {
+    const answered = quizAnswers.find(row => row.questionId === question.id)
+    return {
+      id: question.id,
+      prompt: question.prompt,
+      choices: question.choices,
+      // The correct choice and the explanation are attached only once the
+      // student has answered, so an unanswered question never reveals them.
+      result: answered
+        ? {
+            choice: answered.choice,
+            correctIndex: question.correctIndex,
+            correct: answered.correct,
+            explanation: question.explanation,
+          }
+        : null,
+    }
+  })
+}
+
 function presentMessage(message: StoredMessage, displayName: string): ConversationMessage {
   const speaker = message.author === 'event' && isSubmissionSummary(message.text)
     ? { name: 'Practice check', role: 'Result' }
-    : {
-        student: { name: displayName, role: 'Student' },
-        teacher: { name: 'Teacher', role: 'Teacher' },
-        deskmate: { name: 'Mai', role: 'Deskmate' },
-        event: { name: 'Exercise', role: 'Marker' },
-      }[message.author]
+    : message.author === 'event' && isQuizSummary(message.text)
+      ? { name: 'Quiz', role: 'Result' }
+      : {
+          student: { name: displayName, role: 'Student' },
+          teacher: { name: 'Teacher', role: 'Teacher' },
+          deskmate: { name: 'Mai', role: 'Deskmate' },
+          event: { name: 'Exercise', role: 'Marker' },
+        }[message.author]
 
   return {
     id: message.id,
@@ -791,6 +883,10 @@ function isSubmissionSummary(text: string): boolean {
   return /^\d+\/\d+ tests passed$/.test(text)
 }
 
+function isQuizSummary(text: string): boolean {
+  return /^Quiz \d+: chose [A-D], (right|wrong)$/.test(text)
+}
+
 function messageDraft(body: MessageEvent): string | null {
   return typeof body.draft === 'string' ? body.draft : null
 }
@@ -847,6 +943,32 @@ function isMessage(input: unknown): input is MessageEvent {
     && 'text' in input
     && typeof input.text === 'string'
     && input.text.trim().length > 0
+}
+
+interface QuizAnswerEvent {
+  event: 'quiz_answer'
+  moduleId: string
+  questionId: string
+  choice: number
+}
+
+function isQuizAnswer(input: unknown): input is QuizAnswerEvent {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'quiz_answer'
+    && 'moduleId' in input
+    && typeof input.moduleId === 'string'
+    && input.moduleId.length > 0
+    && 'questionId' in input
+    && typeof input.questionId === 'string'
+    && input.questionId.length > 0
+    && 'choice' in input
+    && typeof input.choice === 'number'
+}
+
+function isChoiceIndex(choice: number): boolean {
+  return Number.isInteger(choice) && choice >= 0 && choice <= 3
 }
 
 function isOpenEvent(input: unknown): input is { event: 'open' } {

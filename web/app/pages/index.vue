@@ -308,6 +308,37 @@ async function selectExercise(exerciseId: string) {
   }
 }
 
+async function answerQuiz(answer: { questionId: string, choice: number }) {
+  const current = workspace.value
+  // A quiz turn replaces the whole workspace, so it holds the same lock as a
+  // module or exercise select: a stale answer must not land on a newer view.
+  if (!current || selecting.value || sending.value) return
+  // A question already answered keeps its first answer; re-picking is explored
+  // on the client without a turn.
+  const question = current.workingArea.quiz.find(item => item.id === answer.questionId)
+  if (!question || question.result) return
+
+  selecting.value = true
+  selectError.value = ''
+  try {
+    showWorkspace(await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: {
+        event: 'quiz_answer',
+        moduleId: current.workingArea.moduleId,
+        questionId: answer.questionId,
+        choice: answer.choice,
+      },
+    }))
+  }
+  catch {
+    selectError.value = 'That answer could not be marked.'
+  }
+  finally {
+    selecting.value = false
+  }
+}
+
 async function readTurn(body: unknown): Promise<boolean> {
   const response = await fetch('/turn', {
     method: 'POST',
@@ -557,6 +588,7 @@ function initialsOf(name: string): string {
           @draft="liveDraft = $event"
           @run="latestRun = $event"
           @submit="submitCode"
+          @quiz-answer="answerQuiz"
         />
       </div>
       <div :class="layout === 'ide' ? ideFrame('conversation') : roadmapFrame('conversation')">

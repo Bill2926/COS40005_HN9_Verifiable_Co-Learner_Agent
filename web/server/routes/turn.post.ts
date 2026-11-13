@@ -3,6 +3,7 @@ import { agentsForTurn } from '../agents'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
+import { createSupabaseQuizAnswerStore } from '../storage/supabase-quiz-answer-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
 import { verifyShieldForTurn } from '../verify-shield'
@@ -43,6 +44,7 @@ export default defineEventHandler(async (event) => {
     verifyShieldOn,
     decisions: createSupabaseDecisionLogStore(connection),
     evidence: createSupabaseEvidenceStore(connection),
+    quizAnswers: createSupabaseQuizAnswerStore(connection),
   }
 
   try {
@@ -89,5 +91,5 @@ function isNavigationTurn(input: unknown): boolean {
   return typeof input === 'object'
     && input !== null
     && 'event' in input
-    && (input.event === 'select_module' || input.event === 'select_exercise' || input.event === 'preview_module')
+    && (input.event === 'select_module' || input.event === 'select_exercise' || input.event === 'preview_module' || input.event === 'quiz_answer')
 }
