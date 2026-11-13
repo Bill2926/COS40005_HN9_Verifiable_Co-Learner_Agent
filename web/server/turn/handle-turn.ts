@@ -260,7 +260,7 @@ async function* introduceModule(
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(verdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
+    const text = redirectText(verdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -288,7 +288,6 @@ function turnSnapshot(
   return {
     moduleId: placement.module.id,
     exerciseId: placement.exercise.id,
-    currentModuleId: standing.currentModuleId,
     masteries: standing.masteries,
     unlockedModuleIds: standing.unlockedModuleIds,
     studentMessage,
@@ -367,7 +366,7 @@ async function* answerMessage(
     teacherFailed = true
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(teacherVerdict.move.scope, snapshot.currentModuleId ?? placement.module.id)
+    const text = redirectText(teacherVerdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -487,9 +486,9 @@ async function recordDecisions(
       ruledScope: verdict.move ? proposedScope(verdict.move) : null,
       ruleId: verdict.ruleId,
       reasonCode: verdict.reasonCode,
-      masteries: (snapshot.masteries ?? []).map(item => ({ ...item })),
-      unlockedModuleIds: [...(snapshot.unlockedModuleIds ?? [])],
-      verifyShieldOn: snapshot.verifyShieldOn !== false,
+      masteries: snapshot.masteries.map(item => ({ ...item })),
+      unlockedModuleIds: [...snapshot.unlockedModuleIds],
+      verifyShieldOn: snapshot.verifyShieldOn,
     })
   }
 }
@@ -502,9 +501,9 @@ function verifyShieldTrace(
 ): TurnTrace {
   return {
     active: false,
-    verifyShieldOn: snapshot.verifyShieldOn !== false,
-    masteries: (snapshot.masteries ?? []).map(item => ({ ...item })),
-    unlockedModuleIds: [...(snapshot.unlockedModuleIds ?? [])],
+    verifyShieldOn: snapshot.verifyShieldOn,
+    masteries: snapshot.masteries.map(item => ({ ...item })),
+    unlockedModuleIds: [...snapshot.unlockedModuleIds],
     agents: [
       tracedAgent('teacher', teacherMove, verdicts),
       tracedAgent('deskmate', deskmateMove, verdicts),
