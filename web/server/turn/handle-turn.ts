@@ -1,5 +1,5 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
-import { moveKey, roleTable, type Agents, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
+import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, courseModules, courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
@@ -172,10 +172,23 @@ async function* streamTurnBody(
   }
 
   if (isQuizAnswer(body)) {
-    yield {
-      type: 'state',
-      state: await markQuizAnswer(studentId, placement, standing, store, quizStore, ledger, body),
+    const marked = await recordQuizAnswer(studentId, placement, store, quizStore, body)
+    // Only a stored answer feeds the ledger (through the quiz store), so mastery
+    // is taken again only then; an invalid or repeat answer leaves it untouched.
+    if (marked.stored) {
+      standing = standingFor(estimateCourse(courseModules, await ledger.forStudent(studentId)), placement.module.id)
     }
+    // A wrong answer brings the agents in, as a failed submission does; a right
+    // answer, and a repeat of an answered question, does not.
+    if (marked.stored && !marked.correct && agents) {
+      yield* answerMessage(studentId, placement, standing, {
+        draft: null,
+        runOutput: null,
+        submission: null,
+      }, store, quizStore, agents, '', options)
+      return
+    }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
     return
   }
 
@@ -235,7 +248,7 @@ async function* introduceModule(
   agents: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const context = await teacherContext(studentId, placement, standing, store, {
+  const context = await teacherContext(studentId, placement, standing, store, quizStore, {
     draft: null,
     runOutput: null,
     submission: null,
@@ -292,15 +305,16 @@ async function* introduceModule(
   yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace) }
 }
 
-async function markQuizAnswer(
+// Marks a quiz answer and reports whether this call stored it and whether it was
+// correct. The resume point is already settled on this module by viewPlacement,
+// so a quiz answer writes nothing beyond its own ledger row and event message.
+async function recordQuizAnswer(
   studentId: string,
   placement: Placement,
-  standing: CourseStanding,
   store: ConversationStore,
   quizStore: QuizAnswerStore,
-  ledger: EvidenceStore,
   event: QuizAnswerEvent,
-): Promise<RedrawState> {
+): Promise<{ stored: boolean, correct: boolean }> {
   const module = placement.module
   const index = canonicalModuleId(event.moduleId) === module.id
     ? module.quiz.findIndex(question => question.id === event.questionId)
@@ -309,10 +323,8 @@ async function markQuizAnswer(
   // A stray module id, an unknown question or an out-of-range choice marks
   // nothing and leaves the state as it was.
   if (!question || !isChoiceIndex(event.choice)) {
-    return redraw(studentId, placement, standing, store, quizStore, null)
+    return { stored: false, correct: false }
   }
-  // The resume point is already settled on this module by viewPlacement, so a
-  // quiz answer writes nothing beyond its own ledger row.
   const correct = event.choice === question.correctIndex
   const recorded = await quizStore.record({
     studentId,
@@ -331,8 +343,7 @@ async function markQuizAnswer(
       exerciseId: placement.exercise.id,
     })
   }
-  const estimate = estimateCourse(courseModules, await ledger.forStudent(studentId))
-  return redraw(studentId, placement, standingFor(estimate, module.id), store, quizStore, null)
+  return { stored: recorded.stored, correct: recorded.row.correct }
 }
 
 // e.g. "Quiz 2: chose C, wrong". The number is the question's place in the
@@ -425,7 +436,7 @@ async function* answerMessage(
   studentMessage: string,
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
-  const context = await teacherContext(studentId, placement, standing, store, seen)
+  const context = await teacherContext(studentId, placement, standing, store, quizStore, seen)
   const deskmate = deskmateContext(context)
   // Mai's proposal runs while the Teacher is already writing, so the first
   // words are not held back for the second model call.
@@ -635,9 +646,13 @@ async function teacherContext(
   placement: Placement,
   standing: CourseStanding,
   store: ConversationStore,
+  quizStore: QuizAnswerStore,
   seen: SeenWork,
 ): Promise<TeacherContext> {
-  const messages = await store.messages(studentId, placement.module.id)
+  const [messages, quizAnswers] = await Promise.all([
+    store.messages(studentId, placement.module.id),
+    quizStore.forStudentModule(studentId, placement.module.id),
+  ])
   return {
     materials: { ...placement.module.materials },
     hintLadder: [...placement.module.hintLadder],
@@ -657,7 +672,28 @@ async function teacherContext(
       approvedMove: message.approvedMove,
     })),
     roadmap: roadmapForStanding(standing),
+    answeredQuiz: answeredQuiz(placement.module, quizAnswers),
   }
+}
+
+// The answered quiz questions, in the module's quiz order. An unanswered
+// question yields nothing, so its correct choice never leaves the server.
+function answeredQuiz(
+  module: StudyModule,
+  quizAnswers: readonly QuizAnswerRow[],
+): AnsweredQuizResult[] {
+  return module.quiz.flatMap((question) => {
+    const row = quizAnswers.find(answer => answer.questionId === question.id)
+    if (!row) return []
+    return [{
+      prompt: question.prompt,
+      choice: row.choice,
+      correctIndex: question.correctIndex,
+      correct: row.correct,
+      explanation: question.explanation,
+      misconceptionId: question.misconceptions?.[row.choice as 0 | 1 | 2 | 3] ?? null,
+    }]
+  })
 }
 
 function deskmateContext(context: TeacherContext): DeskmateContext {
@@ -667,6 +703,10 @@ function deskmateContext(context: TeacherContext): DeskmateContext {
     runOutput: context.runOutput,
     submission: copySubmission(context.submission),
     conversation: context.conversation.map(message => ({ ...message })),
+    // The Deskmate never sees a question's explanation. Destructuring it out
+    // (rather than copying the rest by hand) keeps this in step with
+    // DeskmateQuizResult if the result ever grows a field.
+    answeredQuiz: context.answeredQuiz.map(({ explanation: _explanation, ...rest }) => rest),
   }
 }
 
