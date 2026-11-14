@@ -10,6 +10,17 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
   })
 
   return {
+    async exportSpec(email, courseId) {
+      const result = await supabase.from('courses').select('spec')
+        .eq('id', courseId).eq('owner_email', email).maybeSingle()
+      if (result.error) throw new Error(result.error.message)
+      return result.data?.spec ?? null
+    },
+    async importSpec(email, spec) {
+      const result = await supabase.rpc('import_course_spec', { lecturer_email: email, new_spec: spec })
+      if (result.error) throw new Error(result.error.message)
+      return result.data === true
+    },
     async setThreshold(email, courseId, threshold) {
       const result = await supabase.rpc('set_course_mastery_threshold', {
         course_key: courseId,

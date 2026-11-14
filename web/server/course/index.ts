@@ -13,5 +13,6 @@ export {
 export type { Course, CourseModule } from './course'
 export { pythonCourseSpec } from './python-course'
 export type { CourseSpec, Exercise, ModuleContent, ModuleSpec, QuizQuestion } from './course-spec'
+export { parseCourseSpec } from './parse-course-spec'
 export { canonicalModuleId } from './study-module'
 export type { StudyModule } from './study-module'
