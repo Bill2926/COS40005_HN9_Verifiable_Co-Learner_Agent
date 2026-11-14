@@ -137,16 +137,18 @@ async function signIn() {
       <p
         ref="phoneLockup"
         data-intro-lockup
-        class="flex items-center gap-3 text-base font-semibold tracking-tight text-highlighted"
+        class="text-base font-semibold tracking-tight text-highlighted"
       >
-        <img
-          src="/swinburne-crest.png"
-          alt="Swinburne University of Technology"
-          width="190"
-          height="288"
-          class="block h-10 w-auto shrink-0"
-        >
-        Verifiable Co-Learner
+        <NuxtLink to="/home" class="flex min-h-11 items-center gap-3">
+          <img
+            src="/swinburne-crest.png"
+            alt="Swinburne University of Technology"
+            width="190"
+            height="288"
+            class="block h-10 w-auto shrink-0"
+          >
+          Verifiable Co-Learner
+        </NuxtLink>
       </p>
     </header>
 
@@ -165,17 +167,19 @@ async function signIn() {
       <p
         ref="desktopLockup"
         data-intro-lockup
-        class="flex items-center gap-5 self-start text-lg font-semibold tracking-tight text-highlighted"
+        class="self-start text-lg font-semibold tracking-tight text-highlighted"
       >
-        <img
-          src="/swinburne-fpt-logo.webp"
-          alt="Swinburne University of Technology, in alliance with FPT Education"
-          width="871"
-          height="705"
-          class="block h-24 w-auto shrink-0"
-        >
-        <span aria-hidden="true" class="h-10 w-px bg-ink-200" />
-        Verifiable Co-Learner
+        <NuxtLink to="/home" class="flex items-center gap-5">
+          <img
+            src="/swinburne-fpt-logo.webp"
+            alt="Swinburne University of Technology, in alliance with FPT Education"
+            width="871"
+            height="705"
+            class="block h-24 w-auto shrink-0"
+          >
+          <span aria-hidden="true" class="h-10 w-px bg-ink-200" />
+          Verifiable Co-Learner
+        </NuxtLink>
       </p>
 
       <div class="flex w-full max-w-lg flex-col gap-10">
@@ -262,7 +266,7 @@ async function signIn() {
         </div>
       </form>
       <NuxtLink
-        to="/about"
+        to="/home"
         class="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-muted underline-offset-4 hover:text-highlighted hover:underline md:min-h-0"
       >
         About the co-learner

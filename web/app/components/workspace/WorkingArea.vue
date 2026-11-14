@@ -191,7 +191,7 @@ watch(() => props.mode, (mode) => {
         </section>
 
         <QuizPanel
-          v-if="area.quiz.length > 0"
+          v-if="!floating && area.quiz.length > 0"
           :questions="area.quiz"
           @answer="emit('quizAnswer', $event)"
         />

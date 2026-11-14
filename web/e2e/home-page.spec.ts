@@ -5,9 +5,9 @@ import { expect, test } from '@playwright/test'
 const widths = [320, 390, 768, 1024, 1440] as const
 
 test('the About page says what the co-learner is and leads to sign-in', async ({ page }) => {
-  await page.goto('/about')
+  await page.goto('/home')
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Python co-learner for first-year students')
-  await expect(page.getByText('Getting Started with Programming and Python').first()).toBeVisible()
+  await expect(page.getByText('Python basics').first()).toBeVisible()
 
   await page.getByRole('main').getByRole('link', { name: 'Sign in to start' }).first().click()
   await expect(page).toHaveURL(/\/sign-in$/)
@@ -16,14 +16,14 @@ test('the About page says what the co-learner is and leads to sign-in', async ({
 test('sign-in links to the About page', async ({ page }) => {
   await page.goto('/sign-in')
   await page.getByRole('link', { name: 'About the co-learner' }).click()
-  await expect(page).toHaveURL(/\/about$/)
+  await expect(page).toHaveURL(/\/home$/)
   await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
 })
 
 test('the About page fits every width and its controls are big enough to tap', async ({ page }) => {
   for (const width of widths) {
     await page.setViewportSize({ width, height: width < 768 ? 844 : 900 })
-    await page.goto('/about')
+    await page.goto('/home')
     await page.evaluate(() => Promise.allSettled(document.getAnimations().filter(animation => animation.effect?.getTiming().iterations !== Infinity).map(animation => animation.finished)))
 
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)

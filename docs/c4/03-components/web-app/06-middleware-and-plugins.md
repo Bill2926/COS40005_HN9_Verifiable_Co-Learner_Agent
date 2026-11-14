@@ -53,6 +53,6 @@ flowchart LR
 ## Verified
 
 - Imports from this repo: `signed-in.ts` imports `shared/student-id`; `workspace-layout.ts` imports `workspace/layout`. The two plugins import nothing from this repo.
-- Who reads `$supabase` (search for `$supabase`): `pages/sign-in.vue`, `pages/index.vue`, `pages/about.vue`, `middleware/signed-in.ts`.
+- Who reads `$supabase` (search for `$supabase`): `pages/sign-in.vue`, `pages/index.vue`, `pages/home.vue`, `middleware/signed-in.ts`.
 - Middleware use (search for `definePageMeta`): `pages/index.vue` and `pages/admin.vue` only.
 - No test imports these files.

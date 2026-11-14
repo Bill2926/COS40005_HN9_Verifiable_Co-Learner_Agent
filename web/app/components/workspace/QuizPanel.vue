@@ -65,7 +65,7 @@ function verdict(question: QuizQuestionView): { label: string, tone: 'correct' |
   >
     <div class="flex flex-col gap-1">
       <h3 class="text-sm leading-5 font-semibold text-ink-900">
-        Quick check
+        Test your knowledge
       </h3>
       <p class="text-xs leading-5 text-ink-500">
         Three questions on this module. Only your first answer to each counts.

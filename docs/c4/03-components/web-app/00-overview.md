@@ -21,7 +21,7 @@ flowchart LR
     direction LR
     pages["<b>pages</b><br/>Sign-in, workspace,<br/>About, admin"]:::comp
     ws["<b>workspace components</b><br/>Chat, roadmap, practice,<br/>editor"]:::comp
-    about["<b>about components</b><br/>Sample turn,<br/>shield diagram"]:::comp
+    home["<b>about components</b><br/>Sample turn,<br/>shield diagram"]:::comp
     helpers["<b>client helpers</b><br/>Drafts, arrangement, layout,<br/>markdown, intro"]:::comp
     py["<b>python runner</b><br/>Worker client and Pyodide<br/>session"]:::comp
     mw["<b>middleware and plugins</b><br/>Auth guard, Supabase client,<br/>layout cookie"]:::comp
@@ -57,7 +57,7 @@ counted with the python runner component in [web-app/05-python-runner.md](05-pyt
 |---|---|---|
 | pages | `web/app/pages/`, `app.vue`, `app.config.ts` | [web-app/01-pages.md](01-pages.md) |
 | workspace components | `web/app/components/workspace/` | [web-app/02-workspace-components.md](02-workspace-components.md) |
-| about components | `web/app/components/about/` | [web-app/03-about-components.md](03-about-components.md) |
+| about components | `web/app/components/home/` | [web-app/03-about-components.md](03-about-components.md) |
 | client helpers | `web/app/drafts/`, `roadmap/`, `workspace/`, `sign-in/` | [web-app/04-client-helpers.md](04-client-helpers.md) |
 | python runner | `web/app/python/` | [web-app/05-python-runner.md](05-python-runner.md) |
 | middleware and plugins | `web/app/middleware/`, `web/app/plugins/` | [web-app/06-middleware-and-plugins.md](06-middleware-and-plugins.md) |

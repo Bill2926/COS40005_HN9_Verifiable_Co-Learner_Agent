@@ -68,7 +68,7 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `ConversationPanel.vue` | Bubbles for student, Teacher and Deskmate with portraits, typing rows, event rows (exercise and test summaries), the message box, and the VerifyShield switch and trace. Emits `send`, `openLearn`, `toggleVerifyShield`. |
+| `ConversationPanel.vue` | Bubbles for student, Teacher and Deskmate with portraits, typing rows, event rows (exercise and test summaries), the message box, and the VerifyShield switch and trace. Emits `send`, `openLearn`, `toggleVerifyShield`, and `close` (close button, Roadmap layout only). |
 | `ChatMarkdown.vue`, `ChatInline.vue` | Render the small Markdown subset of a reply from the tree that `chat-markdown.ts` produces (never raw HTML). |
 | `CourseRoadmap.vue` | Roadmap as a list grouped by part, with mastery bars, the threshold mark and the reason a module is closed. Emits `selectModule` and `prefetchModule`. |
 | `RoadmapCanvas.vue` | Roadmap as a canvas: draggable cards, zoom and pan, connectors. The student's arrangement is read and written through `createArrangementStore(localStorage, ...)`. |

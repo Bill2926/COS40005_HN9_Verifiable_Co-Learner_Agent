@@ -43,6 +43,7 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 const workspace = ref<RedrawState | null>(null)
 const latestTrace = ref<TurnTrace | null>(null)
 const verifyShieldOn = ref(true)
+const isProductOwner = ref(false)
 const verifyShieldBusy = ref(false)
 const verifyShieldError = ref('')
 
@@ -55,6 +56,7 @@ async function saveVerifyShield(enabled: boolean | null) {
       body: enabled === null ? {} : { event: 'verifyShield', enabled },
     })
     verifyShieldOn.value = payload.verifyShieldOn
+    isProductOwner.value = true
   }
   catch (caught) {
     const status = (caught as { statusCode?: number }).statusCode
@@ -85,6 +87,7 @@ const streamingDeskmate = ref('')
 const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
+const conversationClosed = ref(false)
 const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = [
   { id: 'roadmap', name: 'Roadmap' },
@@ -113,7 +116,7 @@ function openInLearn() {
   phonePanel.value = 'working'
 }
 
-function ideFrame(panel: 'working' | 'conversation') {
+function studyFrame(panel: 'working' | 'conversation') {
   const place = panel === 'working'
     ? 'md:col-start-1 md:row-start-2 lg:col-start-2 lg:row-start-1'
     : 'md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1'
@@ -498,6 +501,13 @@ function initialsOf(name: string): string {
             @click="navigate"
           >{{ option.name }}</a>
         </NuxtLink>
+        <NuxtLink
+          v-if="isProductOwner"
+          to="/admin"
+          class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 text-ink-500 hover:bg-paper/60 hover:text-ink-800 md:inline md:min-h-0 md:min-w-0"
+        >
+          Dashboard
+        </NuxtLink>
       </nav>
       <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
         <div class="flex items-center gap-2 border-r border-ink-200 pr-2 md:pr-[13px]">
@@ -546,7 +556,7 @@ function initialsOf(name: string): string {
     </div>
     <div
       class="min-h-0 min-w-0 flex-1"
-      :class="layout === 'ide'
+      :class="layout === 'study'
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
         : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
@@ -571,7 +581,7 @@ function initialsOf(name: string): string {
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
-      <div :class="layout === 'ide' ? ideFrame('working') : roadmapFrame('working')">
+      <div :class="layout === 'study' ? studyFrame('working') : roadmapFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
           :mode="workingMode"
@@ -591,7 +601,15 @@ function initialsOf(name: string): string {
           @quiz-answer="answerQuiz"
         />
       </div>
-      <div :class="layout === 'ide' ? ideFrame('conversation') : roadmapFrame('conversation')">
+      <button
+        v-if="layout === 'roadmap' && conversationClosed"
+        type="button"
+        class="fixed right-4 bottom-4 z-20 inline-flex min-h-11 items-center rounded-full border border-ink-200 bg-paper px-4 text-xs font-medium text-ink-800 shadow-md hover:bg-ink-50 md:absolute md:top-4 md:right-4 md:bottom-auto"
+        @click="conversationClosed = false"
+      >
+        Open conversation
+      </button>
+      <div v-show="layout !== 'roadmap' || !conversationClosed" :class="layout === 'study' ? studyFrame('conversation') : roadmapFrame('conversation')">
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
@@ -606,6 +624,7 @@ function initialsOf(name: string): string {
           :loading="pendingModuleName.length > 0"
           :floating="layout === 'roadmap'"
           @send="sendMessage"
+          @close="conversationClosed = true"
           @open-learn="openInLearn"
           @toggle-verify-shield="saveVerifyShield"
         />

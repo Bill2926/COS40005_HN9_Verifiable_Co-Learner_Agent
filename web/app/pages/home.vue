@@ -4,18 +4,17 @@ import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 // Public: no signed-in middleware. A signed-in student is sent to their workspace instead of sign-in.
 
 // The HN9 team. `handle` gives the GitHub link; a member without one shows only a name.
-const team: { handle?: string, name?: string, role?: string }[] = [
-  { handle: 'atuan1605', name: 'Le Anh Tuan' },
-  { handle: 'Bill2926', name: 'Nguyen Duc Manh' },
-  { handle: 'daotheone', name: 'Nguyen Xuan Doanh' },
-  { handle: 'nnqtrung', name: 'Nguyen Quoc Trung' },
-  { name: 'Do Trinh Thuan Minh' },
+const team: { handle?: string, name?: string, major: string }[] = [
+  { handle: 'atuan1605', name: 'Le Anh Tuan', major: 'Software Development' },
+  { handle: 'Bill2926', name: 'Nguyen Duc Manh', major: 'Artificial Intelligence' },
+  { handle: 'daotheone', name: 'Nguyen Xuan Doanh', major: 'Software Development' },
+  { handle: 'nnqtrung', name: 'Nguyen Quoc Trung', major: 'Cybersecurity' },
+  { handle: 'TM22187', name: 'Do Trinh Thuan Minh', major: 'Artificial Intelligence' },
 ]
 
 const supervisor = {
-  name: 'Le Minh Duc',
-  role: 'Project supervisor',
-  href: 'https://www.linkedin.com/in/leminhduc77',
+  name: 'Dr. Le Minh Duc',
+  roles: ['Head of Computer Science Department', 'Project supervisor'],
 }
 
 const repository = 'https://github.com/Bill2926/COS40005_HN9_Verifiable_Co-Learner_Agent'
@@ -36,19 +35,14 @@ const start = computed(() => signedIn.value
   ? { to: '/', label: 'Open your workspace' }
   : { to: '/sign-in', label: 'Sign in to start' })
 
-interface OutlineModule { number: number, name: string, part: string, summary: string, available: boolean }
-const { data: outline } = await useFetch<{ title: string, modules: OutlineModule[] }>('/course-outline')
-
-const parts = computed(() => {
-  const grouped: { label: string, modules: OutlineModule[] }[] = []
-  for (const module of outline.value?.modules ?? []) {
-    const last = grouped.at(-1)
-    if (last && last.modules[0]!.part === module.part) last.modules.push(module)
-    else grouped.push({ label: `Part ${grouped.length + 1}: ${module.part}`, modules: [module] })
-  }
-  return grouped
-})
-const firstModule = computed(() => outline.value?.modules[0])
+// A general picture of the learning path, not the module list.
+const steps = [
+  { title: 'Python basics', text: 'Variables, types and your first programs.' },
+  { title: 'Make decisions', text: 'Conditions and loops.' },
+  { title: 'Reuse your code', text: 'Functions and organising a program.' },
+  { title: 'Work with data', text: 'Lists, dictionaries and files.' },
+  { title: 'Build something', text: 'Put it together in a small project.' },
+]
 
 const roles = [
   {
@@ -72,7 +66,7 @@ const roles = [
 ] as const
 
 useHead({
-  title: 'About',
+  title: 'Home',
   meta: [
     { name: 'description', content: 'Verifiable Co-Learner: a Python co-learner for first-year students at Swinburne, with a teacher agent, a deskmate agent and a VerifyShield that checks every reply.' },
     { property: 'og:title', content: 'About Verifiable Co-Learner' },
@@ -94,11 +88,11 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
 
     <header class="sticky top-0 z-40 border-b border-default/80 bg-default/90 backdrop-blur">
       <div :class="wrap" class="flex h-16 items-center justify-between gap-4">
-        <NuxtLink to="/about" class="flex min-h-11 items-center gap-3 text-base font-semibold tracking-tight text-highlighted">
+        <NuxtLink to="/home" class="flex min-h-11 items-center gap-3 text-base font-semibold tracking-tight text-highlighted">
           <img src="/swinburne-fpt-logo.webp" alt="Swinburne University of Technology, in alliance with FPT Education" width="871" height="705" class="block h-10 w-auto shrink-0">
           <span class="max-sm:sr-only">Verifiable Co-Learner</span>
         </NuxtLink>
-        <nav aria-label="About" class="flex items-center gap-1 text-sm">
+        <nav aria-label="Home" class="flex items-center gap-1 text-sm">
           <a v-for="link in [{ href: '#how', label: 'How it works' }, { href: '#course', label: 'Course' }, { href: '#team', label: 'Team' }]" :key="link.href" :href="link.href" class="hidden min-h-10 items-center rounded-sm px-3 text-muted hover:bg-ink-100 hover:text-highlighted md:inline-flex">
             {{ link.label }}
           </a>
@@ -121,7 +115,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
               A Python co-learner for first-year students, with a teacher and a deskmate beside you.
             </h1>
             <p class="about-rise max-w-xl text-lg/7 text-muted" style="--i: 2">
-              Five modules, 45 automatic tests, and every agent reply checked by the VerifyShield before you see it.
+              Learn Python step by step with AI agents whose every reply is checked before you see it.
             </p>
             <div class="about-rise flex flex-col gap-3 pt-2 sm:flex-row" style="--i: 3">
               <NuxtLink :to="start.to" :class="primaryButton">
@@ -193,38 +187,22 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
         <div :class="wrap" class="grid gap-10 lg:grid-cols-[1fr_1.5fr] lg:gap-16">
           <div class="flex flex-col gap-4">
             <h2 class="text-3xl/tight font-semibold tracking-tight text-highlighted md:text-4xl/tight">
-              Eleven modules, in five parts, one at a time.
+              A step-by-step Python course.
             </h2>
             <p class="text-base/7 text-muted">
-              The first five are open to study today. Each later module opens when you master the one before it, and stays open after that.
+              Work through the course one module at a time. Each module opens when you master the one before it, and stays open after that.
             </p>
             <p class="text-base/7 text-muted">
               Questions about classes, pandas or anything else outside the course get a redirect back to your module, not an answer.
             </p>
           </div>
-          <ol class="grid gap-x-6 gap-y-6 sm:grid-cols-2">
-            <li v-for="part in parts" :key="part.label" class="flex flex-col gap-2">
-              <h3 class="text-xs font-semibold tracking-wide text-muted uppercase">
-                {{ part.label }}
-              </h3>
-              <ul class="flex flex-col gap-1.5">
-                <li
-                  v-for="module in part.modules"
-                  :key="module.number"
-                  class="flex items-start gap-3 rounded-md px-3 py-3 text-sm"
-                  :class="module.available
-                    ? 'bg-paper text-highlighted shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_90%,transparent),0px_1px_1px_rgba(0,0,0,0.02)]'
-                    : 'bg-ink-100/70 text-muted shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_60%,transparent)]'"
-                >
-                  <span class="w-5 shrink-0 pt-px font-mono text-xs text-muted">{{ module.number }}</span>
-                  <span class="min-w-0 flex-1">
-                    <span class="block font-medium">{{ module.name }}</span>
-                    <span class="mt-0.5 block text-xs/5 text-muted">{{ module.summary }}</span>
-                  </span>
-                  <img v-if="!module.available" src="/course-roadmap-lock.svg" alt="Not available yet" width="14" height="14" class="shrink-0 opacity-70">
-                  <span v-else class="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700 ring-1 ring-emerald-200">Open</span>
-                </li>
-              </ul>
+          <ol class="relative flex flex-col gap-4 before:absolute before:top-4 before:bottom-4 before:left-[15px] before:w-px before:bg-ink-200">
+            <li v-for="(step, index) in steps" :key="step.title" class="relative flex items-start gap-4">
+              <span class="z-10 grid size-8 shrink-0 place-items-center rounded-full bg-accent font-mono text-xs font-medium text-on-accent">{{ index + 1 }}</span>
+              <span class="flex-1 rounded-md bg-paper px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_90%,transparent)]">
+                <span class="block text-sm font-medium text-highlighted">{{ step.title }}</span>
+                <span class="mt-0.5 block text-xs/5 text-muted">{{ step.text }}</span>
+              </span>
             </li>
           </ol>
         </div>
@@ -251,20 +229,16 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
               <h3 class="text-sm font-medium text-muted">
                 Supervisor
               </h3>
-              <a
-                :href="supervisor.href"
-                class="group flex flex-1 flex-col justify-between gap-8 rounded-lg border border-default bg-default p-6 shadow-xs transition hover:-translate-y-0.5 hover:border-ink-300 hover:shadow-md md:p-8"
-              >
+              <div class="flex flex-1 flex-col justify-between gap-8 rounded-lg border border-default bg-default p-6 shadow-xs md:p-8">
                 <span class="flex flex-col gap-2">
                   <span class="text-3xl/tight font-semibold tracking-tight text-highlighted">{{ supervisor.name }}</span>
-                  <span class="text-base text-muted">{{ supervisor.role }}</span>
+                  <span v-for="line in supervisor.roles" :key="line" class="block text-base text-muted">{{ line }}</span>
                 </span>
-                <span class="w-fit text-sm font-medium text-primary-700 underline decoration-primary-300 underline-offset-4 group-hover:decoration-primary-700">View on LinkedIn</span>
-              </a>
+              </div>
             </div>
             <div class="flex flex-col gap-4">
               <h3 class="text-sm font-medium text-muted">
-                COS40005 team
+                Our Team Members
               </h3>
               <ul class="flex flex-1 flex-col divide-y divide-default overflow-hidden rounded-lg border border-default bg-default shadow-xs">
                 <li v-for="member in team" :key="member.handle ?? member.name" class="flex flex-1">
@@ -274,7 +248,10 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
                     class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3 transition"
                     :class="member.handle && 'hover:bg-ink-50'"
                   >
-                    <span class="truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
+                    <span class="min-w-0">
+                      <span class="block truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
+                      <span class="block text-xs text-muted">{{ member.major }}</span>
+                    </span>
                     <span v-if="member.handle" class="shrink-0 text-sm text-muted">@{{ member.handle }} on GitHub</span>
                   </component>
                 </li>
@@ -288,7 +265,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       <section id="start" :class="section" class="bg-feature text-on-feature md:justify-center">
         <div :class="wrap" class="flex flex-col items-start gap-8">
           <h2 class="max-w-4xl text-4xl/[1.05] font-semibold tracking-tight md:text-6xl/[1.02]">
-            Start with Module 1: {{ firstModule?.name ?? 'Getting Started with Programming and Python' }}.
+            Start your Python journey today.
           </h2>
           <p class="max-w-xl text-base/7 text-feature-muted">
             Sign in with your student account, and your module and conversation are waiting where you left them.
@@ -306,7 +283,9 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
           <img src="/swinburne-fpt-logo.webp" alt="Swinburne University of Technology, in alliance with FPT Education" width="871" height="705" class="h-20 w-auto">
           COS40005 Capstone Project A, team HN9, Swinburne University of Technology
         </p>
-        <a :href="repository" class="inline-flex min-h-11 items-center hover:text-highlighted hover:underline sm:min-h-0">GitHub repository</a>
+        <a :href="repository" aria-label="GitHub repository" class="inline-flex size-11 items-center justify-center rounded-sm hover:text-highlighted sm:size-8">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M12 .5a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2c-3.2.7-3.88-1.37-3.88-1.37-.52-1.33-1.28-1.69-1.28-1.69-1.04-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.69 1.25 3.35.96.1-.74.4-1.25.73-1.54-2.55-.29-5.24-1.28-5.24-5.69 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.17 1.18a11 11 0 0 1 5.78 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.42-2.69 5.39-5.25 5.68.41.36.78 1.06.78 2.14v3.17c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .5Z" /></svg>
+        </a>
       </div>
     </footer>
   </div>

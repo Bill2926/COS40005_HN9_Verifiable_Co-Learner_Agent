@@ -20,6 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   send: [text: string]
   openLearn: []
+  close: []
   toggleVerifyShield: [enabled: boolean]
 }>()
 
@@ -249,6 +250,15 @@ watch(() => props.sending, (sending) => {
             class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-paper shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
             :class="verifyShieldOn ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
           />
+        </button>
+        <button
+          v-if="floating"
+          type="button"
+          class="ml-1 inline-flex size-11 items-center justify-center rounded-sm text-ink-500 hover:bg-ink-100 hover:text-ink-900 md:size-7"
+          aria-label="Close conversation"
+          @click="emit('close')"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
         </button>
       </div>
     </header>

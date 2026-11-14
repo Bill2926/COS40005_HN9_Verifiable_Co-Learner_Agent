@@ -17,7 +17,7 @@ flowchart LR
     direction TB
     index["<b>pages/index.vue</b><br/>Workspace at /"]:::comp
     signin["<b>pages/sign-in.vue</b><br/>/sign-in"]:::comp
-    about["<b>pages/about.vue</b><br/>/about"]:::comp
+    home["<b>pages/home.vue</b><br/>/home"]:::comp
     admin["<b>pages/admin.vue</b><br/>/admin"]:::comp
     shell["<b>app.vue</b>, app.config.ts<br/>UApp, NuxtPage, colours"]:::comp
   end
@@ -34,13 +34,12 @@ flowchart LR
   signin -->|"claimIntro, introStart, ..."| helpers
   index -->|"sessionStudentId,<br/>studentIdFromAuth"| studentId
   signin -->|"sessionStudentId"| studentId
-  about -->|"studentIdFromAuth"| studentId
+  home -->|"studentIdFromAuth"| studentId
   signin ==>|"AboutSampleTurn"| aboutParts
-  about ==>|"AboutSampleTurn,<br/>AboutShieldDiagram"| aboutParts
+  home ==>|"AboutSampleTurn,<br/>AboutShieldDiagram"| aboutParts
   index ==>|"middleware: signed-in,<br/>workspace-layout"| mw
   admin ==>|"middleware: signed-in"| mw
   index ==>|"/turn, /api/admin"| server
-  about ==>|"/course-outline"| server
   admin ==>|"/api/admin"| server
 
   style pages fill:none,stroke:#8b949e,stroke-dasharray:5 4
@@ -50,18 +49,18 @@ flowchart LR
 
 | File | Responsibility (from the code) |
 |---|---|
-| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}`, reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Roadmap layouts (query `?layout=`, cookie). Also reads and sets the VerifyShield switch through `/api/admin`. Signs out with `$supabase.auth.signOut()`. |
+| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}`, reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Roadmap layouts (query `?layout=`, cookie). In the Roadmap layout the conversation panel can be closed and reopened. Shows a Dashboard link to `/admin` beside the layout switch once `/api/admin` confirms the user is a product owner. Also reads and sets the VerifyShield switch through `/api/admin`. Signs out with `$supabase.auth.signOut()`. |
 | `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. On the server it redirects a signed-in user to `/`. Plays a first-visit intro (`sign-in/intro`). |
-| `pages/about.vue` | Public About page: course outline from `/course-outline`, the shield diagram, the sample turn and the team. |
-| `pages/admin.vue` | Product-owner page: model provider settings, VerifyShield switch, newest 100 decisions with filters. Shows a refusal on 403. |
+| `pages/home.vue` | Public Home page: a general Python roadmap, the shield diagram, the sample turn and the team. |
+| `pages/admin.vue` | Product-owner page: model provider settings, VerifyShield switch, newest 100 decisions with filters, shown 10 per page. Shows a refusal on 403. |
 | `app.vue`, `app.config.ts` | `UApp` with `NuxtPage`, light colour mode, indigo and slate palette. |
 
 ## Verified imports
 
 - `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`.
 - `sign-in.vue`: `shared/student-id`, `sign-in/intro`.
-- `about.vue`: `shared/student-id`.
+- `home.vue`: `shared/student-id`.
 - `admin.vue`: no imports from this repo.
-- `AboutSampleTurn` and `AboutShieldDiagram` are used in templates without an import (Nuxt component auto-registration from `components/about/`).
-- Middleware is attached by name in `definePageMeta`: `index.vue` uses `['signed-in', 'workspace-layout']`, `admin.vue` uses `'signed-in'`. `about.vue` and `sign-in.vue` set none.
+- `AboutSampleTurn` and `AboutShieldDiagram` are used in templates without an import (Nuxt component auto-registration from `components/home/`).
+- Middleware is attached by name in `definePageMeta`: `index.vue` uses `['signed-in', 'workspace-layout']`, `admin.vue` uses `'signed-in'`. `home.vue` and `sign-in.vue` set none.
 - Nothing imports the pages; Nuxt routes them from the file names. No test imports them; the Playwright specs in `web/e2e/` drive them in a browser.

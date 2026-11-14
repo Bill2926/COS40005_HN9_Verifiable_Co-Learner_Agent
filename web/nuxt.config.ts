@@ -30,6 +30,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: 'en' },
+      link: [{ rel: 'icon', type: 'image/jpeg', href: '/swb.jpg' }],
       meta: [
         {
           name: 'viewport',

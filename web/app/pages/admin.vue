@@ -72,6 +72,27 @@ watch(data, (payload) => {
   verifyShieldOn.value = payload.verifyShieldOn
 }, { immediate: true })
 
+const pageSize = 10
+const page = ref(1)
+const pageCount = computed(() => Math.max(1, Math.ceil((data.value?.decisions.length ?? 0) / pageSize)))
+const pageDecisions = computed(() => (data.value?.decisions ?? []).slice((page.value - 1) * pageSize, page.value * pageSize))
+// 1 2 3 … 10: the first and last page, and the current page with its neighbours; null is a gap.
+const pageItems = computed(() => {
+  const last = pageCount.value
+  const wanted = new Set([1, last, page.value - 1, page.value, page.value + 1])
+  const numbers = [...wanted].filter(n => n >= 1 && n <= last).sort((x, y) => x - y)
+  const items: (number | null)[] = []
+  for (const n of numbers) {
+    const before = items.at(-1)
+    if (typeof before === 'number' && n - before === 2) items.push(before + 1)
+    else if (typeof before === 'number' && n - before > 2) items.push(null)
+    items.push(n)
+  }
+  return items
+})
+watch([appliedVerdict, appliedStudentId], () => { page.value = 1 })
+watch(pageCount, (count) => { if (page.value > count) page.value = count })
+
 const refused = computed(() => error.value?.statusCode === 403)
 const unavailable = computed(() => Boolean(error.value) && !refused.value)
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
@@ -442,7 +463,7 @@ function messageFrom(caught: unknown): string {
                   </td>
                 </tr>
                 <tr
-                  v-for="decision in data.decisions"
+                  v-for="decision in pageDecisions"
                   :key="`${decision.turnId}-${decision.agent}`"
                   class="border-t border-default align-top hover:bg-elevated/60"
                 >
@@ -497,6 +518,44 @@ function messageFrom(caught: unknown): string {
                 </tr>
               </tbody>
             </table>
+            <nav
+              v-if="data.decisions.length > pageSize"
+              class="flex items-center justify-center gap-1 border-t border-default px-4 py-3 text-xs"
+              aria-label="Decisions pages"
+            >
+              <button
+                type="button"
+                class="inline-flex size-11 items-center justify-center rounded-sm text-muted hover:bg-elevated disabled:opacity-40 md:size-8"
+                aria-label="Previous page"
+                :disabled="page <= 1"
+                @click="page -= 1"
+              >
+                &lsaquo;
+              </button>
+              <template v-for="(item, index) in pageItems" :key="index">
+                <span v-if="item === null" class="px-1 text-muted" aria-hidden="true">&hellip;</span>
+                <button
+                  v-else
+                  type="button"
+                  class="inline-flex size-11 items-center justify-center rounded-sm tabular-nums md:size-8"
+                  :class="item === page ? 'bg-accent font-medium text-on-accent' : 'text-default hover:bg-elevated'"
+                  :aria-current="item === page ? 'page' : undefined"
+                  :aria-label="`Page ${item}`"
+                  @click="page = item"
+                >
+                  {{ item }}
+                </button>
+              </template>
+              <button
+                type="button"
+                class="inline-flex size-11 items-center justify-center rounded-sm text-muted hover:bg-elevated disabled:opacity-40 md:size-8"
+                aria-label="Next page"
+                :disabled="page >= pageCount"
+                @click="page += 1"
+              >
+                &rsaquo;
+              </button>
+            </nav>
           </div>
         </section>
         </div>

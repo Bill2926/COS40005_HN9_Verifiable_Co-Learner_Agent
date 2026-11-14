@@ -25,7 +25,7 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
 
   await expect(switcher.getByRole('link')).toHaveText(['Study', 'Roadmap'])
   await expect(ide).toHaveAttribute('aria-current', 'page')
-  await expect(ide).toHaveAttribute('href', /[?&]layout=ide(?:&|$)/)
+  await expect(ide).toHaveAttribute('href', /[?&]layout=study(?:&|$)/)
   await expect(roadmapCanvas).toHaveAttribute('href', /[?&]layout=roadmap(?:&|$)/)
   await expect(roadmapCanvas).not.toHaveAttribute('aria-current', 'page')
   await expectIde(page)
@@ -517,7 +517,7 @@ async function forgetLayout(page: Page) {
   if (keep.length > 0) await page.context().addCookies(keep)
 }
 
-async function expectServerLayout(browser: Browser, storageState: Awaited<ReturnType<BrowserContext['storageState']>>, layout: 'ide' | 'roadmap-canvas') {
+async function expectServerLayout(browser: Browser, storageState: Awaited<ReturnType<BrowserContext['storageState']>>, layout: 'study' | 'roadmap-canvas') {
   const server = await browser.newContext({
     javaScriptEnabled: false,
     storageState,
@@ -526,7 +526,7 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
   const page = await server.newPage()
   try {
     await page.goto('/')
-    if (layout === 'ide') await expectIde(page)
+    if (layout === 'study') await expectIde(page)
     else await expectRoadmapCanvas(page)
   }
   finally {
@@ -629,7 +629,7 @@ async function expectIde(page: Page) {
   await expect.poll(async () => {
     const panels = await panelBoxes(page)
     return panels ? describeLayout(panels) : 'missing'
-  }).toBe('ide')
+  }).toBe('study')
 }
 
 async function expectRoadmapCanvas(page: Page) {
@@ -660,7 +660,7 @@ function describeLayout(panels: { map: Box, working: Box, conversation: Box }) {
     && panels.conversation.x > panels.working.x + 80
     && Math.abs(panels.working.y - panels.map.y) < 40
     && Math.abs(panels.conversation.y - panels.map.y) < 40
-  if (columns) return 'ide'
+  if (columns) return 'study'
   const canvas = panels.conversation.x > panels.working.x + 80
     && panels.working.y > panels.conversation.y + 40
   if (canvas) return 'roadmap-canvas'
