@@ -6,9 +6,9 @@ const moduleId = 'getting_started'
 
 // Three correct answers that are not exercise submissions: they raise the first
 // module to the threshold, but pass no exercise.
-const quizPasses: Observation[] = Array.from({ length: 3 }, () => ({
+const quizPasses: Observation[] = ['print-text', 'comment-line', 'program-steps'].map(questionId => ({
   moduleId,
-  kind: 'quiz_answer', questionId: 'quiz',
+  kind: 'quiz_answer', questionId,
   allPassed: true,
 }))
 

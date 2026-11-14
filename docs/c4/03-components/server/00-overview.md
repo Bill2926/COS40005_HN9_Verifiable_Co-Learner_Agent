@@ -45,9 +45,11 @@ flowchart LR
   routes -->|"createSupabase...Store"| storage
   routes -->|"verifyShieldForTurn"| shield
   routes -->|"sessionStudentId,<br/>sessionEmail"| shared
-  routes -->|"pythonCourse"| course
+  routes -->|"defaultCourseId"| course
   turn -->|"decide"| shield
-  turn -->|"pythonCourse, course helpers,<br/>studyModule"| course
+  turn -->|"defaultCourseId, course helpers,<br/>studyModule"| course
+  turn -->|"createMemoryCourseStore"| storage
+  storage -->|"courseFromSpec"| course
   turn -->|"moveKey, roleTable"| agents
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
   turn -->|"createMemoryQuizAnswerStore"| storage

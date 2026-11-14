@@ -3,6 +3,7 @@
 // a student sees. Code outside this folder imports only from here.
 export {
   courseFromSpec,
+  defaultCourseId,
   presentedRoadmap,
   pythonCourse,
   redirectText,

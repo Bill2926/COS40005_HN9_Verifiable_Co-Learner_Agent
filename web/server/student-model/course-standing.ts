@@ -15,8 +15,28 @@ export interface CourseEstimate {
 // What the student model needs of a course: its modules in order, and the mastery threshold its
 // course spec sets. The course is passed in, so this component never imports course content.
 export interface StudiedCourse {
-  modules: readonly UnlockableModule[]
+  modules: readonly StudiedModule[]
   masteryThreshold: number
+}
+
+// A module as the estimate sees it: its place in the unlocking chain, and the exercises and quiz
+// questions it has now, so evidence for ones the course no longer has can be left out.
+export interface StudiedModule extends UnlockableModule {
+  exerciseIds: readonly string[]
+  questionIds: readonly string[]
+}
+
+// Evidence whose module, exercise or quiz question the course no longer has (a lecturer removed
+// it) is not evidence about this course, so it is ignored rather than estimated or refused.
+function evidenceTheCourseHas(course: StudiedCourse, evidence: readonly Observation[]): Observation[] {
+  const modules = new Map(course.modules.map(module => [module.id, module]))
+  return evidence.filter((observation) => {
+    const module = modules.get(observation.moduleId)
+    if (!module) return false
+    return observation.kind === 'submission'
+      ? module.exerciseIds.includes(observation.exerciseId)
+      : module.questionIds.includes(observation.questionId)
+  })
 }
 
 export interface CourseStanding extends CourseEstimate {
@@ -30,7 +50,7 @@ export function estimateCourse(
   evidence: readonly Observation[],
 ): CourseEstimate {
   const estimated = estimateMastery(
-    evidence,
+    evidenceTheCourseHas(course, evidence),
     course.modules.map(module => module.id),
     masteryParametersFor(course.masteryThreshold),
   )

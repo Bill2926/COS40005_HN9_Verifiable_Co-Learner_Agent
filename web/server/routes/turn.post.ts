@@ -1,5 +1,7 @@
 import { sessionStudentId } from '../../shared/student-id'
 import { agentsForTurn } from '../agents'
+import { defaultCourseId } from '../course'
+import { createSupabaseCourseStore } from '../storage/supabase-course-store'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
@@ -20,7 +22,11 @@ export default defineEventHandler(async (event) => {
     url: config.public.supabaseUrl,
     secretKey: config.supabaseSecretKey,
   }
-  const store = createSupabaseConversationStore(connection)
+  // Every student is enrolled in the one course there is in sprint 1, so every turn is about it.
+  // The stores of student data read and write that course's rows only.
+  const courseId = defaultCourseId
+  const studentData = { ...connection, courseId }
+  const store = createSupabaseConversationStore(studentData)
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
   // Opening a module does not call the model. Skip those reads so the click
@@ -42,9 +48,11 @@ export default defineEventHandler(async (event) => {
       ])
   const options = {
     verifyShieldOn,
-    decisions: createSupabaseDecisionLogStore(connection),
-    evidence: createSupabaseEvidenceStore(connection),
-    quizAnswers: createSupabaseQuizAnswerStore(connection),
+    decisions: createSupabaseDecisionLogStore(studentData),
+    evidence: createSupabaseEvidenceStore(studentData),
+    quizAnswers: createSupabaseQuizAnswerStore(studentData),
+    courses: createSupabaseCourseStore(connection),
+    courseId,
   }
 
   try {

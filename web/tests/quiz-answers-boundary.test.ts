@@ -45,7 +45,7 @@ describe('quiz answers boundary', () => {
 
     const moduleId = 'getting_started'
     const questionId = `boundary_${crypto.randomUUID()}`
-    const store = createSupabaseQuizAnswerStore({ url, secretKey })
+    const store = createSupabaseQuizAnswerStore({ url, secretKey, courseId: 'intro_python' })
     const secret = createClient(url, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
@@ -71,6 +71,7 @@ describe('quiz answers boundary', () => {
       // Nor insert into it.
       const inserted = await supabase.from('quiz_answers').insert({
         student_id: studentId,
+        course_id: 'intro_python',
         module_id: moduleId,
         question_id: `${questionId}_forged`,
         choice: 0,
@@ -120,16 +121,16 @@ describe('quiz answers boundary', () => {
 
     try {
       const submitted = await secret.from('evidence').insert([
-        { student_id: studentId, module_id: 'getting_started', exercise_id: fixture, recorded_at: third, tests_passed: 3, tests_total: 3 },
-        { student_id: studentId, module_id: 'variables', exercise_id: fixture, recorded_at: first, tests_passed: 1, tests_total: 3 },
+        { student_id: studentId, course_id: 'intro_python', module_id: 'getting_started', exercise_id: fixture, recorded_at: third, tests_passed: 3, tests_total: 3 },
+        { student_id: studentId, course_id: 'intro_python', module_id: 'variables', exercise_id: fixture, recorded_at: first, tests_passed: 1, tests_total: 3 },
       ])
       expect(submitted.error).toBeNull()
       const answered = await secret.from('quiz_answers').insert({
-        student_id: studentId, module_id: 'loops', question_id: fixture, recorded_at: second, choice: 1, correct: true,
+        student_id: studentId, course_id: 'intro_python', module_id: 'loops', question_id: fixture, recorded_at: second, choice: 1, correct: true,
       })
       expect(answered.error).toBeNull()
 
-      const evidence = await createSupabaseEvidenceStore({ url, secretKey }).forStudent(studentId)
+      const evidence = await createSupabaseEvidenceStore({ url, secretKey, courseId: 'intro_python' }).forStudent(studentId)
       expect(evidence
         .filter(row => (row.kind === 'submission' ? row.exerciseId : row.questionId) === fixture)
         .map(({ kind, moduleId, allPassed }) => ({ kind, moduleId, allPassed }))).toEqual([

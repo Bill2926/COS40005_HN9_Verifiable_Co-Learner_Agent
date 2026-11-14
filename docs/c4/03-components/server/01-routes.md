@@ -42,7 +42,7 @@ flowchart LR
   adminRoute -->|"sessionEmail"| studentId
   adminRoute -->|"handleAdmin and 4 error classes"| handleAdmin
   adminRoute -->|"3 createSupabase...Store"| stores
-  outlineRoute -->|"pythonCourse"| course
+  outlineRoute -->|"defaultCourseId"| course
 
   style routes fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -53,13 +53,14 @@ flowchart LR
 |---|---|
 | `routes/turn.post.ts` | Returns 401 when there is no session. Navigation events (`select_module`, `select_exercise`, `preview_module`) skip the model and shield reads. `message` and `submission` events are answered as an NDJSON stream; the other events as JSON. Builds the Supabase stores on every request (the model-settings and shield stores only for events that call the model) and passes them to `handleTurn` or `streamTurn`. |
 | `api/admin.post.ts` | Passes the session email, `adminEmails`, the env model settings and three stores to `handleAdmin`. Maps `SignInRequiredError`, `ProductOwnerRequiredError`, `ModelSettingsError` and `AdminRequestError` to their `statusCode`. |
-| `routes/course-outline.get.ts` | Public course outline for the About page: number, name, part, summary, availability. No student data. |
+| `routes/course-outline.get.ts` | Public course outline for the About page: number, name, part, summary, availability, of the course read through the Supabase course store. No student data and none of the teacher-only content. |
 
 ## Verified imports
 
 - `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-evidence-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `verify-shield` (`verifyShieldForTurn`), `turn/handle-turn`.
 - `admin.post.ts`: `shared/student-id`, `admin/handle-admin`, `storage/supabase-decision-log`, `supabase-model-settings-store`, `supabase-verify-shield-store`.
-- `course-outline.get.ts`: `course` (`pythonCourse`).
+- `course-outline.get.ts`: `course` (`defaultCourseId`), `storage` (`supabase-course-store`).
+- `turn.post.ts` names the course of the turn (`defaultCourseId`: every student is enrolled in the Python course in sprint 1), creates the stores of student data for that course, and passes the Supabase course store and the course id to the turn handler.
 - Auto-imported, no import statement: `defineEventHandler`, `readBody`, `createError`, `sendStream`, `setResponseHeader`, `useRuntimeConfig`.
 
 ## Tests

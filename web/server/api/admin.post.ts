@@ -6,6 +6,7 @@ import {
   ProductOwnerRequiredError,
   SignInRequiredError,
 } from '../admin/handle-admin'
+import { defaultCourseId } from '../course'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
@@ -27,7 +28,8 @@ export default defineEventHandler(async (event) => {
         modelName: config.modelName,
       },
       store: createSupabaseModelSettingsStore(connection),
-      decisions: createSupabaseDecisionLogStore(connection),
+      // The decision log of the one course there is in sprint 1.
+      decisions: createSupabaseDecisionLogStore({ ...connection, courseId: defaultCourseId }),
       verifyShield: createSupabaseVerifyShieldStore(connection),
       verifyShieldEnv: config.verifyShield,
       body: await readBody(event),

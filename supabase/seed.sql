@@ -110,7 +110,8 @@ select private.seed_demo_student(
 
 drop function private.seed_demo_student(uuid, text, text, text);
 
--- Demo evidence for Bình: one passing submission on every exercise of Modules
+-- Demo evidence for Bình, in Introduction to Programming with Python (the course the
+-- migrations create): one passing submission on every exercise of Modules
 -- 1 to 4. Three first-time passes master a module, so that evidence alone
 -- masters those four and opens Module 5, which is where she starts. No mastery
 -- is stored anywhere; it is estimated from these rows every time the course
@@ -118,10 +119,11 @@ drop function private.seed_demo_student(uuid, text, text, text);
 delete from public.evidence
 where student_id = 'b22b22b2-2222-4222-8222-222222222222';
 
-insert into public.evidence (recorded_at, student_id, module_id, exercise_id, tests_passed, tests_total)
+insert into public.evidence (recorded_at, student_id, course_id, module_id, exercise_id, tests_passed, tests_total)
 select
   timestamptz '2026-11-01 09:00:00+00' + (passed.step - 1) * interval '5 minutes',
   'b22b22b2-2222-4222-8222-222222222222'::uuid,
+  'intro_python',
   passed.module_id,
   passed.exercise_id,
   3,

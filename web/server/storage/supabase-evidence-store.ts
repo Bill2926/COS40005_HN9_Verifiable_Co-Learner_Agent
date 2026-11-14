@@ -4,9 +4,11 @@ import { createSupabaseQuizAnswerStore } from './supabase-quiz-answer-store'
 
 const selected = 'recorded_at, student_id, module_id, exercise_id, attempt, tests_passed, tests_total, all_passed'
 
+// Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseEvidenceStore(options: {
   url: string
   secretKey: string
+  courseId: string
 }): EvidenceStore {
   const supabase = createClient(options.url, options.secretKey, {
     auth: {
@@ -22,6 +24,7 @@ export function createSupabaseEvidenceStore(options: {
     for (let offset = 0; ; offset += pageSize) {
       const result = await supabase.from('evidence').select(selected)
         .eq('student_id', studentId)
+        .eq('course_id', options.courseId)
         .order('recorded_at', { ascending: true })
         .order('id', { ascending: true })
         .range(offset, offset + pageSize - 1)
@@ -42,6 +45,7 @@ export function createSupabaseEvidenceStore(options: {
         .from('evidence')
         .insert({
           student_id: evidence.studentId,
+          course_id: options.courseId,
           module_id: evidence.moduleId,
           exercise_id: evidence.exerciseId,
           tests_passed: evidence.testsPassed,
