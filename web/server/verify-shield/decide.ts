@@ -145,6 +145,19 @@ function scopeDowngrade(
   }
   if (snapshot.unlockedModuleIds.includes(scope)) return null
 
+  // A scope the model invented is neither a module of the course nor out of
+  // course. The student is brought back to their module exactly as for an
+  // out-of-course move, so the log says which of the two happened.
+  if (!course.modules.some(module => module.id === scope)) {
+    return {
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'scope_in_course',
+      reasonCode: 'SCOPE_UNKNOWN',
+      move: { type: 'redirect_to_module', scope: 'out_of_course' },
+    }
+  }
+
   return {
     agent: 'teacher',
     decision: 'downgrade',
@@ -154,6 +167,10 @@ function scopeDowngrade(
   }
 }
 
+// The teacher may suggest only a module the course has and the student is not
+// already in. A module the course does not have is blocked, so nothing is said
+// about it; the module the student is in becomes a suggestion to keep
+// practising; a known but closed module redirects as usual.
 function advanceDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
@@ -161,8 +178,28 @@ function advanceDowngrade(
 ): Verdict | null {
   if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_module') return null
   const target = proposal.move.moduleId
-  const known = course.modules.some(module => module.id === target)
-  if (!known || snapshot.unlockedModuleIds.includes(target)) return null
+
+  if (!course.modules.some(module => module.id === target)) {
+    return {
+      agent: 'teacher',
+      decision: 'block',
+      ruleId: 'advance_known_module',
+      reasonCode: 'ADVANCE_UNKNOWN_MODULE',
+      move: null,
+    }
+  }
+
+  if (target === snapshot.moduleId) {
+    return {
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'advance_not_current_module',
+      reasonCode: 'ADVANCE_TO_CURRENT',
+      move: { type: 'stay_and_practise' },
+    }
+  }
+
+  if (snapshot.unlockedModuleIds.includes(target)) return null
 
   return {
     agent: 'teacher',

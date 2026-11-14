@@ -59,14 +59,14 @@ so leaving one out is a type error rather than a rule that silently does not run
 
 | Field | What it holds | Read by |
 |---|---|---|
-| `moduleId` | The module the student is placed on, which is also the current module (one field, not two). | Rule 2; the fallback scope in rule 4 |
+| `moduleId` | The module the student is placed on, which is also the current module (one field, not two). | Rule 2; the fallback scope in rule 4; the target compared in rule 9 |
 | `exerciseId` | The exercise the student is placed on. | Rule 2 |
 | `masteries` | Mastery per module. | Not ruled on; recorded in the decision log and the VerifyShield trace |
-| `unlockedModuleIds` | The open and mastered modules. | Rules 4 to 6 |
+| `unlockedModuleIds` | The open and mastered modules. | Rules 4, 7 and 10 |
 | `studentMessage` | The student's text this turn (empty for an opening turn or a submission). | Rule 4 |
 | `verifyShieldOn` | The switch. | Rule 1 |
-| `highestHintRung` | The highest hint rung already given in the module's conversation (0 if none), worked out by `handle-turn.ts` from the stored approved moves. | Rule 8 |
-| `misconceptionIds` | The ids of the current module's misconception responses, filled by `handle-turn.ts` from the module. | Rule 7 |
+| `highestHintRung` | The highest hint rung already given in the module's conversation (0 if none), worked out by `handle-turn.ts` from the stored approved moves. | Rule 12 |
+| `misconceptionIds` | The ids of the current module's misconception responses, filled by `handle-turn.ts` from the module. | Rule 11 |
 
 `verify-shield-contract.test-d.ts` holds the contract at the type level; `vitest run` checks it with `tsc` through
 `web/tsconfig.type-tests.json`.
@@ -83,10 +83,14 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 3 | `role_table` | `ROLE_FORBIDDEN` | The agent may not propose this move type (for example Deskmate proposing `explain_concept`): block. |
 | 4 | `scope_keyword` | `OUT_OF_COURSE_KEYWORD`, `MODULE_CLOSED_KEYWORD` | Teacher teaching move on an unlocked scope, but the student's message names an out-of-course keyword or a closed module: downgrade to `redirect_to_module`. |
 | 5 | `scope_in_course` | `OUT_OF_COURSE` | Teaching move labelled `out_of_course`: downgrade to redirect. |
-| 6 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | Teaching move whose scope is not unlocked: downgrade to redirect. Also applies to `advance_to_module` toward a locked module. |
-| 7 | `misconception_known` | `MISCONCEPTION_UNKNOWN` | Teacher `address_misconception` whose id is not in `misconceptionIds`: downgrade to `answer_question` with the same scope. Not a block, so the Teacher still answers while the student is wrong. The scope rules run first, so an invented id on a closed module still redirects. |
-| 8 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
-| 9 | `role_table` | `ROLE_PERMITTED` | Allow. |
+| 6 | `scope_in_course` | `SCOPE_UNKNOWN` | Teaching move whose scope is neither a module of the course nor `out_of_course`, i.e. a scope the model invented: downgrade to `redirect_to_module` toward `out_of_course`, so the log matches what the student is told. |
+| 7 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | Teaching move whose scope is a course module that is not unlocked: downgrade to redirect. |
+| 8 | `advance_known_module` | `ADVANCE_UNKNOWN_MODULE` | `advance_to_module` toward a module the course does not have: block, so the Teacher says nothing for that move. |
+| 9 | `advance_not_current_module` | `ADVANCE_TO_CURRENT` | `advance_to_module` toward the module the student is already placed on: downgrade to `stay_and_practise`, so the suggestion makes sense. |
+| 10 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | `advance_to_module` toward a module the course has but the student has not unlocked: downgrade to redirect. |
+| 11 | `misconception_known` | `MISCONCEPTION_UNKNOWN` | Teacher `address_misconception` whose id is not in `misconceptionIds`: downgrade to `answer_question` with the same scope. Not a block, so the Teacher still answers while the student is wrong. The scope rules run first, so an invented id on a closed module still redirects. |
+| 12 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
+| 13 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
 The shield-off reason code is `VERIFYSHIELD_OFF`. Set `NUXT_VERIFYSHELD` to configure the shield through the environment.
 
