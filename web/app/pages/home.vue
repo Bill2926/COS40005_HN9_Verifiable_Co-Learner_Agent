@@ -35,15 +35,6 @@ const start = computed(() => signedIn.value
   ? { to: '/', label: 'Open your workspace' }
   : { to: '/sign-in', label: 'Sign in to start' })
 
-// A general picture of the learning path, not the module list.
-const steps = [
-  { title: 'Python basics', text: 'Variables, types and your first programs.' },
-  { title: 'Make decisions', text: 'Conditions and loops.' },
-  { title: 'Reuse your code', text: 'Functions and organising a program.' },
-  { title: 'Work with data', text: 'Lists, dictionaries and files.' },
-  { title: 'Build something', text: 'Put it together in a small project.' },
-]
-
 const roles = [
   {
     name: 'Teacher agent',
@@ -68,9 +59,9 @@ const roles = [
 useHead({
   title: 'Home',
   meta: [
-    { name: 'description', content: 'Verifiable Co-Learner: a Python co-learner for first-year students at Swinburne, with a teacher agent, a deskmate agent and a VerifyShield that checks every reply.' },
+    { name: 'description', content: 'Verifiable Co-Learner: a co-learner for university students at Swinburne, with a teacher agent, a deskmate agent and a VerifyShield that checks every reply.' },
     { property: 'og:title', content: 'About Verifiable Co-Learner' },
-    { property: 'og:description', content: 'A Python co-learner for first-year students, with a teacher and a deskmate beside you.' },
+    { property: 'og:description', content: 'A co-learner for your course, with a teacher and a deskmate beside you.' },
   ],
 })
 
@@ -109,13 +100,13 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
         <div :class="wrap" class="grid items-center gap-12 lg:grid-cols-[1.25fr_1fr] lg:gap-16">
           <div class="flex flex-col gap-6">
             <p class="about-rise text-sm font-medium text-primary-700" style="--i: 0">
-              Introduction to Programming with Python
+              Built for university courses
             </p>
             <h1 class="about-rise text-4xl/[1.08] font-semibold tracking-tight text-highlighted md:text-5xl/[1.05] xl:text-[3.25rem]/[1.05]" style="--i: 1">
-              A Python co-learner for first-year students, with a teacher and a deskmate beside you.
+              A co-learner for your course, with a teacher and a deskmate beside you.
             </h1>
             <p class="about-rise max-w-xl text-lg/7 text-muted" style="--i: 2">
-              Learn Python step by step with AI agents whose every reply is checked before you see it.
+              Learn any course step by step with AI agents whose every reply is checked before you see it.
             </p>
             <div class="about-rise flex flex-col gap-3 pt-2 sm:flex-row" style="--i: 3">
               <NuxtLink :to="start.to" :class="primaryButton">
@@ -139,10 +130,10 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
           </p>
           <div class="grid gap-8 text-base/7 text-muted md:grid-cols-2 md:gap-12">
             <p>
-              An AI that hands over working code lets a student pass an exercise without the idea behind it. That shortcut feels like progress and leaves nothing for the exam.
+              An AI that hands over finished answers lets a student pass an exercise without the idea behind it. That shortcut feels like progress and leaves nothing for the exam.
             </p>
             <p>
-              Here the agents stay inside the course. Module 2 opens once your mastery of Module 1 reaches 90%, and mastery comes only from the code you submit.
+              Here the agents stay inside the course. The next module opens once your mastery reaches the threshold your lecturer sets, and mastery comes only from the work you submit.
             </p>
           </div>
         </div>
@@ -183,28 +174,22 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       </section>
 
       <!-- The course roadmap, from the course model. -->
-      <section id="course" :class="section" class="bg-ink-50/70">
-        <div :class="wrap" class="grid gap-10 lg:grid-cols-[1fr_1.5fr] lg:gap-16">
-          <div class="flex flex-col gap-4">
-            <h2 class="text-3xl/tight font-semibold tracking-tight text-highlighted md:text-4xl/tight">
-              A step-by-step Python course.
+      <section id="course" :class="section" class="bg-ink-50/70 md:justify-center">
+        <div :class="wrap" class="flex flex-col gap-10 lg:gap-12">
+          <div class="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-16">
+            <h2 class="text-3xl/tight font-semibold tracking-tight text-highlighted md:text-4xl/tight lg:pt-0.5">
+              A step-by-step learning guide.
             </h2>
-            <p class="text-base/7 text-muted">
-              Work through the course one module at a time. Each module opens when you master the one before it, and stays open after that.
-            </p>
-            <p class="text-base/7 text-muted">
-              Questions about classes, pandas or anything else outside the course get a redirect back to your module, not an answer.
-            </p>
+            <div class="flex flex-col gap-3 text-base/7 text-muted">
+              <p>
+                Work through your course one module at a time. In each one you learn with the teacher, talk it through with your deskmate and submit your own work.
+              </p>
+              <p>
+                Your mastery grows only from what you submit. When it reaches the threshold your lecturer sets, the next module opens. Questions outside the course get a redirect back to your module.
+              </p>
+            </div>
           </div>
-          <ol class="relative flex flex-col gap-4 before:absolute before:top-4 before:bottom-4 before:left-[15px] before:w-px before:bg-ink-200">
-            <li v-for="(step, index) in steps" :key="step.title" class="relative flex items-start gap-4">
-              <span class="z-10 grid size-8 shrink-0 place-items-center rounded-full bg-accent font-mono text-xs font-medium text-on-accent">{{ index + 1 }}</span>
-              <span class="flex-1 rounded-md bg-paper px-4 py-3 shadow-[inset_0_0_0_1px_color-mix(in_oklab,var(--color-ink-200)_90%,transparent)]">
-                <span class="block text-sm font-medium text-highlighted">{{ step.title }}</span>
-                <span class="mt-0.5 block text-xs/5 text-muted">{{ step.text }}</span>
-              </span>
-            </li>
-          </ol>
+          <AboutLearningRoadmap />
         </div>
       </section>
 
@@ -217,7 +202,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
             </h2>
             <div class="flex flex-col gap-3">
               <p class="text-base/7 text-muted">
-                Verifiable Co-Learner is our COS40005 capstone project: a study of how AI agents can help first-year students learn to program without taking the learning away from them.
+                Verifiable Co-Learner is our COS40005 capstone project: a study of how AI agents can help university students learn without taking the learning away from them.
               </p>
               <a :href="repository" class="inline-flex min-h-11 w-fit items-center text-sm font-medium text-primary-700 underline decoration-primary-300 underline-offset-4 hover:decoration-primary-700 md:min-h-0">
                 Read the code on GitHub
@@ -265,7 +250,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
       <section id="start" :class="section" class="bg-feature text-on-feature md:justify-center">
         <div :class="wrap" class="flex flex-col items-start gap-8">
           <h2 class="max-w-4xl text-4xl/[1.05] font-semibold tracking-tight md:text-6xl/[1.02]">
-            Start your Python journey today.
+            Start your learning journey today.
           </h2>
           <p class="max-w-xl text-base/7 text-feature-muted">
             Sign in with your student account, and your module and conversation are waiting where you left them.
