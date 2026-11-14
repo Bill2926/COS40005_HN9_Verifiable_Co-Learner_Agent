@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { courseModules } from '../server/course'
-import { estimateMastery, masteryParameters, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/student-model'
+import { pythonCourse } from '../server/course'
+import { estimateMastery, masteryParametersFor, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/student-model'
 
+const courseModules = pythonCourse.modules
+const masteryParameters = masteryParametersFor(pythonCourse.masteryThreshold)
 const moduleIds = courseModules.map(module => module.id)
 
 describe('mastery estimator', () => {

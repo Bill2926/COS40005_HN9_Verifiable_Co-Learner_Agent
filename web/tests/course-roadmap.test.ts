@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { courseModules, presentedRoadmap } from '../server/course'
+import { presentedRoadmap, pythonCourse } from '../server/course'
 import { estimateCourse, standingFor, type Observation } from '../server/student-model'
 
 const moduleId = 'getting_started'
@@ -17,8 +17,8 @@ const exercisePasses: Observation[] = ['say_hello', 'join_words', 'sign_the_prog
   .map(exerciseId => ({ moduleId, kind: 'submission', exerciseId, allPassed: true }))
 
 function roadmapFor(evidence: readonly Observation[]) {
-  const standing = standingFor(estimateCourse(courseModules, evidence), moduleId)
-  return presentedRoadmap(standing)
+  const standing = standingFor(estimateCourse(pythonCourse, evidence), moduleId)
+  return presentedRoadmap(pythonCourse, standing)
 }
 
 describe('presented roadmap', () => {

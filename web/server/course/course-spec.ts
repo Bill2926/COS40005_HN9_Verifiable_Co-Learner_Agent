@@ -1,0 +1,60 @@
+import type { ExerciseCheck, ModuleMaterials } from '../../shared/turn'
+
+// The course spec: the one value that declares everything a course contains (ADR-0004). The
+// tuple types carry the counts every course keeps: a quiz of three questions with four choices
+// and one correct, three tests per exercise, at least three exercises, and three hint rungs.
+
+export interface Exercise {
+  id: string
+  title: string
+  statement: string
+  starterCode: string
+  tests: readonly [ExerciseCheck, ExerciseCheck, ExerciseCheck]
+  referenceSolution: string
+}
+
+export interface MisconceptionResponse {
+  id: string
+  response: string
+}
+
+export interface QuizQuestion {
+  id: string
+  prompt: string
+  choices: readonly [string, string, string, string]
+  correctIndex: 0 | 1 | 2 | 3
+  explanation: string
+  // The misconception a wrong choice shows, by choice index. A wrong choice
+  // with no entry shows none.
+  misconceptions?: Partial<Record<0 | 1 | 2 | 3, string>>
+}
+
+// What a student studies in a module. A module whose spec has none is listed but not available.
+export interface ModuleContent {
+  materials: ModuleMaterials
+  quiz: readonly [QuizQuestion, QuizQuestion, QuizQuestion]
+  exercises: readonly [Exercise, Exercise, Exercise, ...Exercise[]]
+  hintLadder: readonly [string, string, string]
+  misconceptionResponses: readonly MisconceptionResponse[]
+}
+
+export interface ModuleSpec {
+  id: string
+  name: string
+  // One of the course spec's parts.
+  part: string
+  summary: string
+  keywords: readonly string[]
+  content?: ModuleContent
+}
+
+export interface CourseSpec {
+  specVersion: 1
+  courseId: string
+  title: string
+  masteryThreshold: number
+  parts: readonly string[]
+  // In course order: Module 1 first.
+  modules: readonly ModuleSpec[]
+  outOfCourseKeywords: readonly string[]
+}

@@ -70,10 +70,10 @@ Note: the two "PracticePanel" arrows are the same file importing two different f
 
 - As drawn. `runner.ts` imports `protocol.ts` at runtime; `browser-runner.ts` and `node-runner.ts` import `runner.ts` at runtime and `protocol.ts` as a type.
 - Packages: `pyodide` (both workers), `node:worker_threads` and `node:url` (`node-runner.ts`).
-- Importers: `PracticePanel.vue` (`runner`, `browser-runner`); `web/tests/python-runner.test.ts` (`node-runner`, `runner`, `study-module`).
+- Importers: `PracticePanel.vue` (`runner`, `browser-runner`); `web/tests/python-runner.test.ts` (`node-runner`, `runner`, `course`).
 - `server/python/*` is not imported by any server code. Only the test uses it, so the product runs student code in the browser only.
 
 ## Notes
 
 - Tests run in the student's browser, so the server gets only the counts the browser reports (ADR 0002).
-- `python-runner.test.ts` runs exercise reference solutions through the Node worker, which makes it a way to check that the course exercises pass their own tests. That is my reading of the test file's imports (`study-module`), not something I ran.
+- `python-runner.test.ts` runs exercise reference solutions through the Node worker, which makes it a way to check that the course exercises pass their own tests. That is my reading of the test file's imports (`course`), not something I ran.

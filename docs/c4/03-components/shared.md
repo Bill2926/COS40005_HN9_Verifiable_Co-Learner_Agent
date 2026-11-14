@@ -49,7 +49,7 @@ flowchart LR
 - `student-id.ts` imports `supabase-server.ts` at runtime and, as types, `@supabase/supabase-js` and `h3`. It also uses `useRuntimeConfig`, which is auto-imported.
 - `supabase-server.ts` imports `@supabase/ssr` and `h3`.
 - Runtime importers of `student-id.ts`: `routes/turn.post.ts`, `api/admin.post.ts`, `app/middleware/signed-in.ts`, `app/pages/index.vue`, `home.vue`, `sign-in.vue`.
-- Type-only importers of `turn.ts`: `course/course`, `course/study-module`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, six workspace components (`ConversationPanel`, `CourseRoadmap`, `PracticePanel`, `QuizPanel`, `RoadmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/roadmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
+- Type-only importers of `turn.ts`: `course/course`, `course/course-spec`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, six workspace components (`ConversationPanel`, `CourseRoadmap`, `PracticePanel`, `QuizPanel`, `RoadmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/roadmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
 - No test imports `student-id.ts` or `supabase-server.ts`. `roadmap-arrangement.test.ts` imports `turn.ts`.
 
 ## Notes

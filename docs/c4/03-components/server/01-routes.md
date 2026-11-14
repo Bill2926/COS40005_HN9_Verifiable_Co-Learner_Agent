@@ -42,7 +42,7 @@ flowchart LR
   adminRoute -->|"sessionEmail"| studentId
   adminRoute -->|"handleAdmin and 4 error classes"| handleAdmin
   adminRoute -->|"3 createSupabase...Store"| stores
-  outlineRoute -->|"courseModules, courseTitle"| course
+  outlineRoute -->|"pythonCourse"| course
 
   style routes fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -59,7 +59,7 @@ flowchart LR
 
 - `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-evidence-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `verify-shield` (`verifyShieldForTurn`), `turn/handle-turn`.
 - `admin.post.ts`: `shared/student-id`, `admin/handle-admin`, `storage/supabase-decision-log`, `supabase-model-settings-store`, `supabase-verify-shield-store`.
-- `course-outline.get.ts`: `course` (`courseModules`, `courseTitle`).
+- `course-outline.get.ts`: `course` (`pythonCourse`).
 - Auto-imported, no import statement: `defineEventHandler`, `readBody`, `createError`, `sendStream`, `setResponseHeader`, `useRuntimeConfig`.
 
 ## Tests

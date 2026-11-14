@@ -5,8 +5,8 @@
 // The Supabase version of the ledger stays in the storage component.
 export { estimateMastery, unlockedModuleIds } from './estimate'
 export type { MasteryParameters, ModuleMastery, Observation, UnlockableModule } from './estimate'
-export { masteryParameters, masteryThreshold } from './mastery-parameters'
+export { learningParameters, masteryParametersFor } from './mastery-parameters'
 export { estimateCourse, furthestUnlockedModuleId, standingFor } from './course-standing'
-export type { CourseEstimate, CourseStanding } from './course-standing'
+export type { CourseEstimate, CourseStanding, StudiedCourse } from './course-standing'
 export { createMemoryEvidenceStore, mergeObservations } from './evidence-store'
 export type { EvidenceRow, EvidenceStore, NewEvidence, TimedObservation } from './evidence-store'

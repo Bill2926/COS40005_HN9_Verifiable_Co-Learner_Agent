@@ -1,7 +1,6 @@
-import type { StudyModule } from '../study-module'
+import type { ModuleContent } from '../course-spec'
 
-export const gettingStartedModule: StudyModule = {
-  id: 'getting_started',
+export const gettingStartedModule: ModuleContent = {
   materials: {
     heading: 'A first program',
     body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',

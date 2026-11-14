@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAgents, createConfiguredAgents, createFakeAgents, proposalSchema, type Move } from '../server/agents'
-import { studyModule } from '../server/course'
+import { pythonCourse, studyModule } from '../server/course'
 import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
@@ -188,7 +188,7 @@ describe('turn endpoint', () => {
         { id: 'join_words', title: 'Join two words' },
         { id: 'sign_the_program', title: 'Sign the program' },
       ],
-      quiz: studyModule('getting_started')!.quiz.map(({ id, prompt, choices }) => ({ id, prompt, choices, result: null })),
+      quiz: studyModule(pythonCourse, 'getting_started')!.quiz.map(({ id, prompt, choices }) => ({ id, prompt, choices, result: null })),
     })
     expect(state.masteryThreshold).toBe(0.9)
     expect(state.conversation).toEqual([])
