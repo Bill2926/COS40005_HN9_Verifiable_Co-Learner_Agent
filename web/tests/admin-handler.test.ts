@@ -584,6 +584,7 @@ describe('admin handler', () => {
 const decisionFields = [
   'agent',
   'masteries',
+  'masteryThreshold',
   'proposedMove',
   'proposedScope',
   'reasonCode',
@@ -614,6 +615,7 @@ function loggedDecision(overrides: Partial<DecisionRecord> = {}): DecisionRecord
     masteries: priorMasteries,
     unlockedModuleIds: ['getting_started', 'variables', 'strings', 'conditionals', 'loops'],
     verifyShieldOn: true,
+    masteryThreshold: 0.9,
     ...overrides,
   }
 }

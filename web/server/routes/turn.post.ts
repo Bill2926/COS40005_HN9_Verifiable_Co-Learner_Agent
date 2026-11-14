@@ -8,6 +8,7 @@ import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
 import { createSupabaseQuizAnswerStore } from '../storage/supabase-quiz-answer-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
+import { createSupabaseUnlockStore } from '../storage/supabase-unlock-store'
 import { verifyShieldForTurn } from '../verify-shield'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
@@ -51,6 +52,7 @@ export default defineEventHandler(async (event) => {
     decisions: createSupabaseDecisionLogStore(studentData),
     evidence: createSupabaseEvidenceStore(studentData),
     quizAnswers: createSupabaseQuizAnswerStore(studentData),
+    unlocks: createSupabaseUnlockStore(studentData),
     courses: createSupabaseCourseStore(connection),
     courseId,
   }

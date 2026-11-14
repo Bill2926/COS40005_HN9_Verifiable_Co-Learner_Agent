@@ -43,20 +43,21 @@ export interface CourseStanding extends CourseEstimate {
   currentModuleId: string
 }
 
-// Mastery and unlocking are derived from the evidence ledger every time the
-// course roadmap is drawn; nothing about them is stored.
+// Recompute mastery and combine new unlocks with the ones already recorded.
 export function estimateCourse(
   course: StudiedCourse,
   evidence: readonly Observation[],
+  recordedUnlocks: readonly string[] = [],
 ): CourseEstimate {
   const estimated = estimateMastery(
     evidenceTheCourseHas(course, evidence),
     course.modules.map(module => module.id),
     masteryParametersFor(course.masteryThreshold),
   )
+  const unlocked = new Set([...recordedUnlocks, ...unlockedModuleIds(course.modules, estimated)])
   return {
     masteries: estimated.map(item => ({ moduleId: item.moduleId, mastery: item.mastery })),
-    unlockedModuleIds: unlockedModuleIds(course.modules, estimated),
+    unlockedModuleIds: course.modules.filter(module => module.available && unlocked.has(module.id)).map(module => module.id),
     passedExerciseModuleIds: estimated.filter(item => item.passedExercise).map(item => item.moduleId),
   }
 }

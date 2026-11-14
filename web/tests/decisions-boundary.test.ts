@@ -61,6 +61,7 @@ describe('decision log boundary', () => {
       masteries: [{ moduleId: 'loops', mastery: 0 }],
       unlockedModuleIds: ['loops'],
       verifyShieldOn: true,
+      masteryThreshold: 0.83,
     }
     const secret = createClient(url, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -84,6 +85,7 @@ describe('decision log boundary', () => {
         masteries: [{ moduleId: 'loops', mastery: 0 }],
         unlockedModuleIds: ['loops'],
         verifyShieldOn: true,
+        masteryThreshold: 0.83,
       })
       expect(await store.list({ studentId: 'not-an-id' })).toEqual([])
       expect(JSON.stringify(listed)).not.toContain(code)

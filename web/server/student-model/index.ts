@@ -10,3 +10,5 @@ export { estimateCourse, furthestUnlockedModuleId, standingFor } from './course-
 export type { CourseEstimate, CourseStanding, StudiedCourse, StudiedModule } from './course-standing'
 export { createMemoryEvidenceStore, mergeObservations } from './evidence-store'
 export type { EvidenceRow, EvidenceStore, NewEvidence, TimedObservation } from './evidence-store'
+export { createMemoryUnlockStore } from './unlock-store'
+export type { UnlockStore } from './unlock-store'

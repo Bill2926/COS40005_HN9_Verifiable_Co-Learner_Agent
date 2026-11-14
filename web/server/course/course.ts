@@ -25,6 +25,7 @@ export interface Course {
   id: string
   title: string
   masteryThreshold: number
+  legacyUnlocks?: { before: string, threshold: number }
   modules: readonly CourseModule[]
   studyModules: readonly StudyModule[]
   scope: CourseScope

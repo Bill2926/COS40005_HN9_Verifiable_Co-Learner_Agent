@@ -10,15 +10,25 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
   })
 
   return {
+    async setThreshold(email, courseId, threshold) {
+      const result = await supabase.rpc('set_course_mastery_threshold', {
+        course_key: courseId,
+        lecturer_email: email,
+        new_threshold: threshold,
+      })
+      if (result.error) throw new Error(result.error.message)
+      return result.data === true
+    },
     async forLecturer(email) {
-      const courses = await supabase.from('courses').select('id, title')
+      const courses = await supabase.from('courses').select('id, title, masteryThreshold:spec->masteryThreshold')
         .eq('owner_email', email).order('title').order('id')
       if (courses.error) throw new Error(courses.error.message)
 
-      return Promise.all(courses.data.map(async ({ id, title }) => {
+      return Promise.all(courses.data.map(async ({ id, title, masteryThreshold }) => {
+        if (typeof masteryThreshold !== 'number') throw new Error('The course has no mastery threshold.')
         const [enrollments, history] = await Promise.all([
           supabase.from('enrollments').select('course_id', { count: 'exact', head: true }).eq('course_id', id),
-          supabase.from('course_history').select('action, actor_email, recorded_at')
+          supabase.from('course_history').select('action, actor_email, recorded_at, previous_threshold, mastery_threshold')
             .eq('course_id', id).order('recorded_at', { ascending: false }).order('id', { ascending: false }),
         ])
         if (enrollments.error) throw new Error(enrollments.error.message)
@@ -27,8 +37,15 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
         return {
           id,
           title,
+          masteryThreshold,
           enrolledCount: enrollments.count,
-          history: history.data.map(row => ({ action: row.action, actorEmail: row.actor_email, time: row.recorded_at })),
+          history: history.data.map(row => ({
+            action: row.action,
+            actorEmail: row.actor_email,
+            time: row.recorded_at,
+            ...(row.previous_threshold === null ? {} : { previousThreshold: row.previous_threshold }),
+            ...(row.mastery_threshold === null ? {} : { masteryThreshold: row.mastery_threshold }),
+          })),
         }
       }))
     },

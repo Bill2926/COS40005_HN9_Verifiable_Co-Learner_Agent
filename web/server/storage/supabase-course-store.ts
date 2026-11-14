@@ -19,14 +19,21 @@ export function createSupabaseCourseStore(options: {
     async course(courseId) {
       const result = await supabase
         .from('courses')
-        .select('spec')
+        .select('spec, legacy_unlocks_before, legacy_unlock_threshold')
         .eq('id', courseId)
         .maybeSingle()
       if (result.error) throw new Error(result.error.message)
       if (!result.data) throw new Error(`There is no course ${courseId}.`)
       // Only the server writes this column, from a spec it has built or checked, so it is read as
       // one. courseFromSpec still refuses a spec the server could not run.
-      return courseFromSpec(result.data.spec as CourseSpec)
+      const course = courseFromSpec(result.data.spec as CourseSpec)
+      if (result.data.legacy_unlocks_before && result.data.legacy_unlock_threshold !== null) {
+        course.legacyUnlocks = {
+          before: result.data.legacy_unlocks_before,
+          threshold: result.data.legacy_unlock_threshold,
+        }
+      }
+      return course
     },
   }
 }

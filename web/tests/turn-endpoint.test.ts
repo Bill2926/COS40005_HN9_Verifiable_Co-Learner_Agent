@@ -4,7 +4,7 @@ import { pythonCourse, studyModule } from '../server/course'
 import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
-import { createMemoryEvidenceStore } from '../server/student-model'
+import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
 const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -26,6 +26,61 @@ function speakingTeacher() {
 }
 
 describe('turn endpoint', () => {
+  it('records unlocks earned before the first threshold change when the student returns', async () => {
+    const evidence = createMemoryEvidenceStore()
+    const unlocks = createMemoryUnlockStore()
+    for (const exerciseId of ['say_hello', 'join_words', 'sign_the_program']) {
+      await evidence.append({ studentId: signedInStudent, moduleId: 'getting_started', exerciseId, testsPassed: 3, testsTotal: 3 })
+    }
+    const course = {
+      ...pythonCourse,
+      masteryThreshold: 0.99,
+      legacyUnlocks: { before: new Date(Date.now() + 1000).toISOString(), threshold: 0.9 },
+    }
+    const state = await handleTurn({ sessionStudentId: signedInStudent, body: { event: 'open' } }, memoryStore(), undefined, {
+      evidence, unlocks, courses: { async course() { return course } },
+    })
+    expect(state.courseRoadmap[0]?.state).toBe('open')
+    expect(state.courseRoadmap[1]?.state).toBe('open')
+    expect(await unlocks.forStudent(signedInStudent)).toContain('variables')
+  })
+
+  it('uses the saved threshold on the next turn and keeps a previously opened module unlocked', async () => {
+    const store = memoryStore()
+    const evidence = createMemoryEvidenceStore()
+    const unlocks = createMemoryUnlockStore()
+    const decisions = createMemoryDecisionLogStore()
+    let masteryThreshold = 0.99
+    const courses = { async course() { return { ...pythonCourse, masteryThreshold } } }
+    const options = { evidence, unlocks, decisions, courses }
+    const moduleId = 'getting_started'
+    for (const exerciseId of ['say_hello', 'join_words', 'sign_the_program']) {
+      await evidence.append({ studentId: signedInStudent, moduleId, exerciseId, testsPassed: 3, testsTotal: 3 })
+    }
+    async function open() {
+      return handleTurn({ sessionStudentId: signedInStudent, body: { event: 'open' } }, store, undefined, options)
+    }
+
+    expect((await open()).courseRoadmap[1]?.state).toBe('closed')
+    masteryThreshold = 0.9
+    const lowered = await open()
+    expect(lowered.courseRoadmap[0]?.state).toBe('mastered')
+    expect(lowered.courseRoadmap[1]?.state).toBe('open')
+    expect(await unlocks.forStudent(signedInStudent)).toContain('variables')
+
+    masteryThreshold = 0.99
+    const raised = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What should I study next?' },
+    }, store, createFakeAgents({ proposal: { type: 'advance_to_module', moduleId: 'variables' }, text: 'You could study Variables next.' }), options)
+    expect(raised.masteryThreshold).toBe(0.99)
+    expect(raised.courseRoadmap[0]?.state).toBe('open')
+    expect(raised.courseRoadmap[1]?.state).toBe('open')
+    expect(await decisions.list()).toEqual([
+      expect.objectContaining({ masteryThreshold: 0.99, verdict: 'allow', ruledMove: 'advance_to_module:variables' }),
+    ])
+  })
+
   it('rejects a request when there is no session', () => {
     expect(() => handleTurn({
       sessionStudentId: null,

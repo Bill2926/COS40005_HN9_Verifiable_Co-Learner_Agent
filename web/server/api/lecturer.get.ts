@@ -15,6 +15,9 @@ export default defineEventHandler(async (event) => {
           secretKey: config.supabaseSecretKey,
         }).forLecturer(email)
       },
+      async setThreshold() {
+        throw new Error('Use POST to change the threshold')
+      },
     },
   })
 })
