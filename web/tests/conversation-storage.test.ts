@@ -55,6 +55,7 @@ describe('conversation storage boundary', () => {
 
     const conversation = await supabase.from('conversations').insert({
       student_id: studentId,
+      course_id: 'intro_python',
       module_id: 'for_loop',
     })
     expect(conversation.error?.code).toBe('42501')
@@ -62,6 +63,7 @@ describe('conversation storage boundary', () => {
 
     const resumePoint = await supabase.from('resume_points').insert({
       student_id: studentId,
+      course_id: 'intro_python',
       module_id: 'for_loop',
       exercise_id: 'sum_of_a_list',
     })
@@ -71,6 +73,7 @@ describe('conversation storage boundary', () => {
     const admin = supabaseClient(url, secretKey)
     const probe = await admin.from('conversations').insert({
       student_id: studentId,
+      course_id: 'intro_python',
       module_id: `boundary-${crypto.randomUUID()}`,
     }).select('id').single()
     expect(probe.error).toBeNull()
@@ -111,7 +114,7 @@ describe('supabase conversation store', () => {
     })
     expect(created.error).toBeNull()
     const studentId = created.data.user!.id
-    const store = createSupabaseConversationStore({ url, secretKey })
+    const store = createSupabaseConversationStore({ url, secretKey, courseId: 'intro_python' })
 
     try {
       expect(await store.displayName(studentId)).toBe('Round trip')

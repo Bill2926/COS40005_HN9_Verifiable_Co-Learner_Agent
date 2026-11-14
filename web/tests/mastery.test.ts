@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { pythonCourse } from '../server/course'
-import { estimateMastery, masteryParametersFor, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/student-model'
+import { estimateCourse, estimateMastery, masteryParametersFor, unlockedModuleIds, type ModuleMastery, type Observation } from '../server/student-model'
 
 const courseModules = pythonCourse.modules
 const masteryParameters = masteryParametersFor(pythonCourse.masteryThreshold)
@@ -216,6 +216,30 @@ describe('unlocking', () => {
   })
 })
 
+describe('course estimate on evidence the course no longer has', () => {
+  // Evidence recorded before a lecturer removed a module, an exercise or a quiz question.
+  const removed: Observation[] = [
+    { kind: 'submission', moduleId: 'lambdas', exerciseId: 'square_it', allPassed: true },
+    { kind: 'submission', moduleId: 'getting_started', exerciseId: 'retired_exercise', allPassed: true },
+    { kind: 'quiz_answer', moduleId: 'getting_started', questionId: 'retired_question', allPassed: false },
+  ]
+
+  it('leaves every module at the prior when all the evidence is for removed ids', () => {
+    const estimate = estimateCourse(pythonCourse, [...removed, ...removed, ...removed])
+
+    expect(estimate.masteries.every(item => item.mastery === 0.1)).toBe(true)
+    expect(estimate.passedExerciseModuleIds).toEqual([])
+    expect(estimate.unlockedModuleIds).toEqual(['getting_started'])
+  })
+
+  it('estimates the course as if the evidence for removed ids were not there', () => {
+    const kept = [...passes(2), ...quizPasses(1)]
+    const mixed = [removed[0]!, ...passes(1), removed[1]!, removed[2]!, ...passes(2).slice(1), ...quizPasses(1)]
+
+    expect(estimateCourse(pythonCourse, mixed)).toEqual(estimateCourse(pythonCourse, kept))
+  })
+})
+
 function unlocked(ledger: readonly Observation[]): string[] {
   return unlockedModuleIds(courseModules, estimateMastery(ledger, moduleIds, masteryParameters))
 }
@@ -238,9 +262,10 @@ function passes(count: number): Observation[] {
 // `count` correct answers on Module 1 that are not exercise submissions, which
 // raise mastery but never count as a passed exercise.
 function quizPasses(count: number): Observation[] {
-  return Array.from({ length: count }, () => ({
+  const questionIds = ['print-text', 'comment-line', 'program-steps']
+  return Array.from({ length: count }, (_, index) => ({
     moduleId: 'getting_started',
-    kind: 'quiz_answer', questionId: 'quiz',
+    kind: 'quiz_answer', questionId: questionIds[index % questionIds.length]!,
     allPassed: true,
   }))
 }

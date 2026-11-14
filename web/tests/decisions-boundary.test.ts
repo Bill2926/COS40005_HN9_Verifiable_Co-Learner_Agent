@@ -44,7 +44,7 @@ describe('decision log boundary', () => {
     const studentId = signedIn.data.user?.id
     expect(studentId).toBeTruthy()
 
-    const store = createSupabaseDecisionLogStore({ url, secretKey })
+    const store = createSupabaseDecisionLogStore({ url, secretKey, courseId: 'intro_python' })
     const turnId = crypto.randomUUID()
     const record: DecisionRecord = {
       time: new Date().toISOString(),
@@ -97,6 +97,7 @@ describe('decision log boundary', () => {
       const inserted = await supabase.from('decisions').insert({
         recorded_at: record.time,
         student_id: studentId,
+        course_id: 'intro_python',
         turn_id: crypto.randomUUID(),
         agent: 'deskmate',
         proposed_move: 'peer_question',

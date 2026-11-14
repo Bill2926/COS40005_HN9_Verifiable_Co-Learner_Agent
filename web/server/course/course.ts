@@ -14,6 +14,9 @@ export interface CourseModule {
   // Derived from the spec: a module is available exactly when the spec gives it content.
   available: boolean
   keywords: readonly string[]
+  // The ids of the module's exercises and quiz questions; empty for a module with no content.
+  exerciseIds: readonly string[]
+  questionIds: readonly string[]
 }
 
 // A course as the rest of the server reads it, built from its course spec. It is passed to the
@@ -63,6 +66,8 @@ export function courseFromSpec(spec: CourseSpec): Course {
     summary: module.summary,
     available: module.content !== undefined,
     keywords: module.keywords,
+    exerciseIds: module.content?.exercises.map(exercise => exercise.id) ?? [],
+    questionIds: module.content?.quiz.map(question => question.id) ?? [],
   }))
   const studyModules = spec.modules.flatMap(module =>
     module.content ? [{ id: module.id, ...module.content }] : [],
@@ -77,8 +82,12 @@ export function courseFromSpec(spec: CourseSpec): Course {
   }
 }
 
-// The one course there is today. Until courses are imported into the database (ADR-0004), the
-// turn handler and the routes read this.
+// The course every student studies until enrollment exists: in sprint 1 every student is
+// enrolled in Introduction to Programming with Python.
+export const defaultCourseId = 'intro_python'
+
+// The Python course built from the spec in code. The server reads the course from the database;
+// this is the copy the in-memory course store holds for tests.
 export const pythonCourse: Course = courseFromSpec(pythonCourseSpec)
 
 export function studyModule(course: Course, id: string): StudyModule | undefined {

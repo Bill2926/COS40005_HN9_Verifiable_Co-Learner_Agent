@@ -6,9 +6,11 @@ const selected = 'recorded_at, student_id, module_id, question_id, choice, corre
 // Postgres raises this on a unique-constraint violation.
 const uniqueViolation = '23505'
 
+// Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseQuizAnswerStore(options: {
   url: string
   secretKey: string
+  courseId: string
 }): QuizAnswerStore {
   const supabase = createClient(options.url, options.secretKey, {
     auth: {
@@ -22,6 +24,7 @@ export function createSupabaseQuizAnswerStore(options: {
       .from('quiz_answers')
       .select(selected)
       .eq('student_id', studentId)
+      .eq('course_id', options.courseId)
       .eq('module_id', moduleId)
       .eq('question_id', questionId)
       .single()
@@ -36,6 +39,7 @@ export function createSupabaseQuizAnswerStore(options: {
       for (let offset = 0; ; offset += pageSize) {
         const result = await supabase.from('quiz_answers').select(selected)
           .eq('student_id', studentId)
+          .eq('course_id', options.courseId)
           .order('recorded_at', { ascending: true })
           .order('id', { ascending: true })
           .range(offset, offset + pageSize - 1)
@@ -49,6 +53,7 @@ export function createSupabaseQuizAnswerStore(options: {
         .from('quiz_answers')
         .insert({
           student_id: answer.studentId,
+          course_id: options.courseId,
           module_id: answer.moduleId,
           question_id: answer.questionId,
           choice: answer.choice,
@@ -71,6 +76,7 @@ export function createSupabaseQuizAnswerStore(options: {
         .from('quiz_answers')
         .select(selected)
         .eq('student_id', studentId)
+        .eq('course_id', options.courseId)
         .eq('module_id', moduleId)
         .order('recorded_at', { ascending: true })
         .order('id', { ascending: true })

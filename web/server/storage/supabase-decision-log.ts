@@ -3,9 +3,11 @@ import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord }
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+// Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseDecisionLogStore(options: {
   url: string
   secretKey: string
+  courseId: string
 }): DecisionLogStore {
   const supabase = createClient(options.url, options.secretKey, {
     auth: {
@@ -19,6 +21,7 @@ export function createSupabaseDecisionLogStore(options: {
       const result = await supabase.from('decisions').insert({
         recorded_at: record.time,
         student_id: record.studentId,
+        course_id: options.courseId,
         turn_id: record.turnId,
         agent: record.agent,
         proposed_move: record.proposedMove,
@@ -42,6 +45,7 @@ export function createSupabaseDecisionLogStore(options: {
         .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
+        .eq('course_id', options.courseId)
         .limit(100)
       if (query.verdict) request = request.eq('verdict', query.verdict)
       if (query.studentId) request = request.eq('student_id', query.studentId)

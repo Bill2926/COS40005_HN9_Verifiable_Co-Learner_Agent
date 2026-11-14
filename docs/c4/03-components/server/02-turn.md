@@ -28,7 +28,7 @@ flowchart LR
 
   turnRoute -->|"handleTurn, streamTurn,<br/>UnknownExerciseError"| handleTurn
   handleTurn -->|"decide"| shield
-  handleTurn -->|"pythonCourse, studyModule,<br/>canonicalModuleId, presentedRoadmap,<br/>redirectText, ..."| course
+  handleTurn -->|"defaultCourseId, studyModule,<br/>canonicalModuleId, presentedRoadmap,<br/>redirectText, ..."| course
   handleTurn -->|"moveKey, roleTable"| agents
   handleTurn -->|"estimateCourse, standingFor,<br/>furthestUnlockedModuleId,<br/>createMemoryEvidenceStore"| studentModel
   handleTurn -.->|"type: CourseEstimate, CourseStanding,<br/>EvidenceStore"| studentModel
@@ -52,7 +52,7 @@ flowchart LR
 
 ## Verified imports
 
-- Runtime: `course` (`pythonCourse`, named once as the turn's `course` and passed to every helper, the student model and `decide`; `studyModule`, `canonicalModuleId`, roadmap helpers), `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
+- Runtime: `course` (`defaultCourseId`, `studyModule`, `canonicalModuleId`, roadmap helpers), `storage` (`createMemoryCourseStore`, the default when `options.courses` is not passed). The course is read once a turn from `options.courses` (`options.courseId`, else `defaultCourseId`), in parallel with the ledger and the resume point, and travels on the `Placement` (course, module, exercise), so every helper, the student model and `decide` read the same course; `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
 - Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`, `storage/quiz-answer-store` (`QuizAnswerStore`, `QuizAnswerRow`; its in-memory version is used at runtime when no store is passed).
 - It imports no Supabase code. The model, the stores and the options are passed in as arguments (`handleTurn(request, store, agents, options)`), which is why `turn-endpoint.test.ts` can run it with in-memory stores.
 

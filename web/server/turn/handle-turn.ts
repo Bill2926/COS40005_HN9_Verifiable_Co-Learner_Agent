@@ -1,15 +1,12 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
-import { canonicalModuleId, presentedRoadmap, pythonCourse, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
+import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
+import { createMemoryCourseStore, type CourseStore } from '../storage/course-store'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
 import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
-
-// The course every turn is about. There is one course today; once courses are imported into the
-// database (ADR-0004) this becomes the course the student is enrolled in.
-const course = pythonCourse
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -41,7 +38,10 @@ export class UnknownExerciseError extends Error {
   }
 }
 
+// Where the student is: a module and an exercise in one course. The course is the one read for
+// this turn, so every helper that has the placement reads the same course.
 interface Placement {
+  course: Course
   module: StudyModule
   exercise: Exercise
 }
@@ -56,6 +56,10 @@ export interface TurnOptions {
   decisions?: DecisionLogStore
   evidence?: EvidenceStore
   quizAnswers?: QuizAnswerStore
+  // Where the course is read from, once a turn, and which course. Without them the turn is about
+  // the Python course held in memory.
+  courses?: CourseStore
+  courseId?: string
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -113,12 +117,14 @@ async function* streamTurnBody(
   // counts the submission they just made.
   const quizStore = options?.quizAnswers ?? createMemoryQuizAnswerStore()
   const ledger = options?.evidence ?? createMemoryEvidenceStore(quizStore.observationsForStudent)
-  const [rows, knownPoint] = await Promise.all([
+  const courses = options?.courses ?? createMemoryCourseStore()
+  const [course, rows, knownPoint] = await Promise.all([
+    courses.course(options?.courseId ?? defaultCourseId),
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
   ])
   let estimate = estimateCourse(course, rows)
-  const settled = await viewPlacement(studentId, store, estimate, knownPoint)
+  const settled = await viewPlacement(course, studentId, store, estimate, knownPoint)
   let placement = settled.placement
   const openedPoint = settled.point
   let standing = standingFor(estimate, placement.module.id)
@@ -146,7 +152,7 @@ async function* streamTurnBody(
     const exercise = sameModule
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
-    const next = { module: chosen, exercise }
+    const next = { course, module: chosen, exercise }
     const [existing, displayName, quizAnswers] = await Promise.all([
       store.messages(studentId, chosen.id),
       store.displayName(studentId),
@@ -163,7 +169,7 @@ async function* streamTurnBody(
   if (isSelectExercise(body)) {
     const exercise = placement.module.exercises.find(choice => choice.id === body.exerciseId)
     if (!exercise) throw new UnknownExerciseError()
-    const next = { module: placement.module, exercise }
+    const next = { ...placement, exercise }
     await adoptPlacement(studentId, store, next)
     await store.appendMessage(studentId, next.module.id, {
       author: 'event',
@@ -273,7 +279,7 @@ async function* introduceModule(
   }
   const proposed = proposal ? { agent: 'teacher' as const, move: proposal } : null
   const proposedVerdict = proposed
-    ? decide([proposed], snapshot, roleTable, course.scope)[0]
+    ? decide([proposed], snapshot, roleTable, placement.course.scope)[0]
     : undefined
   const trace = verifyShieldTrace(proposal, null, proposedVerdict ? [proposedVerdict] : [], snapshot)
   const teaching = Boolean(proposal && isTeachingMove(proposal))
@@ -281,7 +287,7 @@ async function* introduceModule(
     ? null
     : { agent: 'teacher' as const, move: { type: 'explain_concept' as const, scope: placement.module.id } }
   const introductionVerdict = introduction
-    ? decide([introduction], snapshot, roleTable, course.scope)[0]
+    ? decide([introduction], snapshot, roleTable, placement.course.scope)[0]
     : undefined
   await recordDecisions(studentId, [
     ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
@@ -290,7 +296,7 @@ async function* introduceModule(
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(course, verdict.move.scope, snapshot.moduleId)
+    const text = redirectText(placement.course, verdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -454,7 +460,7 @@ async function* answerMessage(
   const turnId = crypto.randomUUID()
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
-  const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, course.scope)
+  const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, placement.course.scope)
   await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, options?.decisions, turnId, recordedAt)
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
@@ -465,7 +471,7 @@ async function* answerMessage(
     teacherFailed = true
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(course, teacherVerdict.move.scope, snapshot.moduleId)
+    const text = redirectText(placement.course, teacherVerdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -491,7 +497,7 @@ async function* answerMessage(
   const deskmateSettled = await deskmateTask
   const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
-  const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, course.scope)
+  const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, placement.course.scope)
   await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, options?.decisions, turnId, recordedAt)
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
@@ -677,7 +683,7 @@ async function teacherContext(
       text: message.text,
       approvedMove: message.approvedMove,
     })),
-    roadmap: roadmapForStanding(course, standing),
+    roadmap: roadmapForStanding(placement.course, standing),
     answeredQuiz: answeredQuiz(placement.module, quizAnswers),
   }
 }
@@ -760,6 +766,7 @@ async function rememberDeskmateCouldNotAnswer(
 }
 
 async function viewPlacement(
+  course: Course,
   studentId: string,
   store: ConversationStore,
   estimate: CourseEstimate,
@@ -778,7 +785,7 @@ async function viewPlacement(
       point = { moduleId: module.id, exerciseId: exercise.id }
       await store.saveResumePoint(studentId, point)
     }
-    return { placement: { module, exercise }, point }
+    return { placement: { course, module, exercise }, point }
   }
 
   const exercise = opening.exercises[0]
@@ -786,7 +793,7 @@ async function viewPlacement(
     point = { moduleId: opening.id, exerciseId: exercise.id }
     await store.saveResumePoint(studentId, point)
   }
-  return { placement: { module: opening, exercise }, point }
+  return { placement: { course, module: opening, exercise }, point }
 }
 
 async function adoptPlacement(
@@ -826,13 +833,13 @@ function composeState(
 ): RedrawState {
   return {
     displayName,
-    course: course.title,
-    courseRoadmap: presentedRoadmap(course, standing),
-    masteryThreshold: course.masteryThreshold,
+    course: placement.course.title,
+    courseRoadmap: presentedRoadmap(placement.course, standing),
+    masteryThreshold: placement.course.masteryThreshold,
     workingArea: {
       mode,
       moduleId: placement.module.id,
-      moduleName: nameOfModule(placement.module.id),
+      moduleName: nameOfModule(placement.course, placement.module.id),
       materials: { ...placement.module.materials },
       exercise: presentExercise(placement.exercise),
       exercises: placement.module.exercises.map(choice => ({
@@ -1078,7 +1085,7 @@ function isSelectExercise(input: unknown): input is { event: 'select_exercise', 
     && input.exerciseId.length > 0
 }
 
-function nameOfModule(id: string): string {
+function nameOfModule(course: Course, id: string): string {
   const named = course.modules.find(item => item.id === id)
   if (!named) throw new Error(`Study module ${id} is missing from the course module list.`)
   return named.name

@@ -1,9 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import type { ConversationStore, MessageAuthor, ResumePoint, StoredMessage } from './conversation-store'
 
+// Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseConversationStore(options: {
   url: string
   secretKey: string
+  courseId: string
 }): ConversationStore {
   const supabase = createClient(options.url, options.secretKey, {
     auth: {
@@ -17,6 +19,7 @@ export function createSupabaseConversationStore(options: {
       .from('conversations')
       .select('id')
       .eq('student_id', studentId)
+      .eq('course_id', options.courseId)
       .eq('module_id', moduleId)
       .maybeSingle()
     if (existing.error) throw new Error(existing.error.message)
@@ -24,7 +27,7 @@ export function createSupabaseConversationStore(options: {
 
     const inserted = await supabase
       .from('conversations')
-      .insert({ student_id: studentId, module_id: moduleId })
+      .insert({ student_id: studentId, course_id: options.courseId, module_id: moduleId })
       .select('id')
       .single()
     if (!inserted.error) return inserted.data.id
@@ -34,6 +37,7 @@ export function createSupabaseConversationStore(options: {
       .from('conversations')
       .select('id')
       .eq('student_id', studentId)
+      .eq('course_id', options.courseId)
       .eq('module_id', moduleId)
       .single()
     if (again.error) throw new Error(again.error.message)
@@ -55,6 +59,7 @@ export function createSupabaseConversationStore(options: {
         .from('resume_points')
         .select('module_id, exercise_id')
         .eq('student_id', studentId)
+        .eq('course_id', options.courseId)
         .maybeSingle()
       if (result.error) throw new Error(result.error.message)
       if (!result.data) return null
@@ -66,9 +71,10 @@ export function createSupabaseConversationStore(options: {
     async saveResumePoint(studentId, point) {
       const result = await supabase.from('resume_points').upsert({
         student_id: studentId,
+        course_id: options.courseId,
         module_id: point.moduleId,
         exercise_id: point.exerciseId,
-      }, { onConflict: 'student_id' })
+      }, { onConflict: 'student_id,course_id' })
       if (result.error) throw new Error(result.error.message)
     },
     async messages(studentId, moduleId) {
@@ -76,6 +82,7 @@ export function createSupabaseConversationStore(options: {
         .from('conversations')
         .select('id')
         .eq('student_id', studentId)
+        .eq('course_id', options.courseId)
         .eq('module_id', moduleId)
         .maybeSingle()
       if (conversation.error) throw new Error(conversation.error.message)
