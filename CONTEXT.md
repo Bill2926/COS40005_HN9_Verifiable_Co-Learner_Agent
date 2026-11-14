@@ -7,7 +7,7 @@ A web-based co-learner for first-year students learning Python, where a teacher 
 ### People and agents
 
 **Student**:
-The first-year learner, with no programming background, who uses the app. The only primary user.
+The first-year learner, with no programming background, who studies a course in the app. The primary user.
 _Avoid_: user, learner
 
 **Teacher agent**:
@@ -22,10 +22,34 @@ _Avoid_: companion, buddy, second tutor
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
 **Product owner**:
-The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Sees decisions and settings, never a student's code.
-_Avoid_: admin, lecturer, assessor
+The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Sees decisions and settings, never a student's code. Does not manage courses: that is the lecturer.
+_Avoid_: admin, assessor
+
+**Lecturer**:
+The person who owns a course: imports its course spec, sets its mastery threshold, and sees how many students are enrolled. Sees counts only, never a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and the product owner.
+_Avoid_: teacher, instructor, admin, product owner
 
 ### Course
+
+**Course**:
+A subject taught through Python exercises with automatic tests, such as Introduction to Programming with Python. It is made of parts and modules, is owned by one lecturer, and has its own mastery threshold. A student's mastery, evidence, conversations and resume point all belong to one course.
+_Avoid_: subject, class, program
+
+**Enrollment**:
+A student's membership of a course. A student studies only the courses they are enrolled in.
+_Avoid_: registration, subscription
+
+**Course spec**:
+The single file that declares everything a course contains: its parts, modules in order, and each module's materials, quiz, exercises, hint ladder and misconception responses, plus what counts as out of course. A lecturer imports it whole; the course is whatever its spec says.
+_Avoid_: syllabus, course file, curriculum
+
+**Mastery threshold**:
+The mastery a module must reach, together with one passed exercise, to count as mastered. Set by the lecturer for the whole course, the same for every module in it. The only part of the mastery estimate a lecturer can change.
+_Avoid_: pass mark, cut-off, BKT threshold
+
+**Course history**:
+The record of every change a lecturer made to a course: each course spec imported and each change of mastery threshold, with who made it and when. It records the course, never a student or a verdict.
+_Avoid_: audit log, decision log, changelog
 
 **Module**:
 One unit of the course that a student masters, such as Module 5: Loops. It has one mastery and its own conversation. Internal design documents call the same thing an *item*. The numbered system components (M1 to M7) are never written "Module N". In architecture, "module" is never used for a part of the system: see **Component**.
@@ -60,11 +84,11 @@ The three hints of a module, from gentlest (1) to most direct (3). The teacher a
 _Avoid_: hint list, hint level
 
 **Course roadmap**:
-The picture of the course that shows every module, grouped into parts, as mastered, open, or closed, with the student's mastery beside it and the reason a closed module is closed. A module with no content yet stays closed as not available.
+The picture of the course that shows every module, grouped into parts, as mastered, open, or closed, with the student's mastery beside it and the reason a closed module is closed. A module that its course spec lists without content stays closed as not available.
 _Avoid_: knowledge map, skill tree, course map, progress map
 
 **Unlocked module**:
-A module that is open or mastered. Module 1 is unlocked from the start; each later module unlocks when the one before it is mastered, and stays unlocked even if mastery later falls.
+A module that is open or mastered. Module 1 is unlocked from the start; each later module unlocks when the one before it is mastered, and stays unlocked even if mastery later falls or the lecturer raises the mastery threshold.
 _Avoid_: available, accessible
 
 **Out of course**:
@@ -142,7 +166,7 @@ The move the VerifyShield puts in place of a teacher move about a closed module 
 _Avoid_: refusal, decline
 
 **Decision log**:
-The record of every verdict the VerifyShield reached, with what it was proposed, what it knew, and whether it was switched on. It records the system, never the student's work.
+The record of every verdict the VerifyShield reached, with what it was proposed, what it knew (including the mastery threshold in force), and whether it was switched on. It records the system, never the student's work.
 _Avoid_: audit log, history, evidence
 
 **VerifyShield trace**:
