@@ -21,6 +21,7 @@ flowchart TB
 
   student(["<b>Student</b><br/>First-year learner"]):::person
   owner(["<b>Product owner</b><br/>Reviews decisions,<br/>sets model and shield"]):::person
+  lecturer(["<b>Lecturer</b><br/>Views enrollment and course history"]):::person
 
   app["<b>Verifiable Co-Learner</b><br/>Python course with a Teacher and a<br/>Deskmate agent inside a VerifyShield"]:::system
 
@@ -30,6 +31,7 @@ flowchart TB
 
   student -->|"Studies and chats in<br/>HTTPS"| app
   owner -->|"Reviews decisions and<br/>configures in, HTTPS"| app
+  lecturer -->|"Views owned courses, HTTPS"| app
   app -->|"Stores data in and<br/>signs users in with"| supabase
   app -->|"Requests moves and<br/>message text from"| llm
   app -->|"Downloads Pyodide from"| cdn
@@ -39,8 +41,9 @@ flowchart TB
 
 | Element | Type | Notes |
 |---|---|---|
-| Student | Person | The only primary user. Signs in with Supabase Auth. |
+| Student | Person | Signs in with Supabase Auth to study and practise. |
 | Product owner | Person | Identified by email against the `adminEmails` setting. Sees decisions and settings, never a student's code. |
+| Lecturer | Person | Identified by the `LECTURER_EMAILS` list. Sees enrollment counts and course history for owned courses. |
 | Verifiable Co-Learner | System | The system in scope. Detailed in [02-containers.md](02-containers.md). |
 | Supabase | External system | Hosts Postgres (schema in `supabase/migrations/`) and Supabase Auth. |
 | LLM provider | External system | Configured by env (`NUXT_MODEL_*`) or by the product owner on `/admin`. A scripted fake model exists for use without a network. |
