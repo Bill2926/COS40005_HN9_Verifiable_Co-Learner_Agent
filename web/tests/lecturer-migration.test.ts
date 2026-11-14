@@ -5,6 +5,7 @@ import { expect, it } from 'vitest'
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
 const lecturerMigration = '20261114085830_lecturer_enrollments_and_course_history.sql'
 const thresholdMigration = '20261114091244_mastery_threshold_and_module_unlocks.sql'
+const importMigration = '20261114094935_import_course_spec_with_history.sql'
 
 it('backfills students, enrolls new students, seeds history and keeps both ledgers private', async () => {
   const db = new PGlite()
@@ -68,6 +69,27 @@ it('backfills students, enrolls new students, seeds history and keeps both ledge
     expect((await setThreshold('lecturer@example.com', 0.99)).rows).toEqual([{ saved: true }])
     expect((await db.query("select previous_threshold, mastery_threshold from public.course_history where action = 'mastery_threshold_changed'")).rows)
       .toEqual([{ previous_threshold: 0.9, mastery_threshold: 0.99 }])
+
+    await db.exec('reset role')
+    await db.exec(await readFile(new URL(importMigration, migrations), 'utf8'))
+    const { rows: [before] } = await db.query<{ spec: Record<string, unknown>, updated_at: string }>(
+      "select spec, updated_at::text from public.courses where id = 'intro_python'",
+    )
+    const importSpec = (email: string, spec: Record<string, unknown>) => db.query(
+      'select public.import_course_spec($1, $2::jsonb) as imported', [email, JSON.stringify(spec)],
+    )
+    await db.exec('set role authenticated')
+    await expect(importSpec('lecturer@example.com', before!.spec)).rejects.toMatchObject({ code: '42501' })
+    await db.exec('reset role; set role service_role')
+    const changed = { ...before!.spec, title: 'Python Foundations' }
+    expect((await importSpec('other@example.com', changed)).rows).toEqual([{ imported: false }])
+    expect((await importSpec('lecturer@example.com', before!.spec)).rows).toEqual([{ imported: true }])
+    expect((await db.query("select spec, updated_at::text from public.courses where id = 'intro_python'")).rows).toEqual([before])
+    expect((await importSpec('lecturer@example.com', changed)).rows).toEqual([{ imported: true }])
+    expect((await db.query("select title, spec from public.courses where id = 'intro_python'")).rows)
+      .toEqual([{ title: changed.title, spec: changed }])
+    expect((await db.query("select actor_email from public.course_history where action = 'course_spec_imported' order by id")).rows)
+      .toEqual([{ actor_email: 'lecturer@example.com' }, { actor_email: 'lecturer@example.com' }])
   }
   finally {
     await db.close()

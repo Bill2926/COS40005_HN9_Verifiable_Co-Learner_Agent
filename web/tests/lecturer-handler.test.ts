@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleLecturer } from '../server/lecturer/handle-lecturer'
+import { handleCourseSpec, handleLecturer } from '../server/lecturer/handle-lecturer'
+import { pythonCourseSpec } from '../server/course'
 import { createMemoryLecturerStore } from '../server/storage/lecturer-store'
 
 const lecturerEmails = 'other@example.com, LECTURER@example.com'
@@ -47,5 +48,55 @@ describe('lecturer handler', () => {
       { action: 'mastery_threshold_changed', actorEmail: request.email, previousThreshold: 0.9, masteryThreshold: 0.99, time: expect.any(String) },
       seeded,
     ])
+  })
+})
+
+describe('lecturer course spec', () => {
+  function setup() {
+    const store = createMemoryLecturerStore([{ ...python, spec: pythonCourseSpec }])
+    const request = { email: 'lecturer@example.com', lecturerEmails, store }
+    const download = () => handleCourseSpec({ ...request, action: 'export', courseId: python.id })
+    const upload = (spec: unknown) => handleCourseSpec({ ...request, action: 'import', json: JSON.stringify(spec) })
+    return { request, download, upload }
+  }
+
+  it('exports the running content and preserves it on a round trip', async () => {
+    const { download, upload, request } = setup()
+    const exported = await download()
+    expect(exported).toEqual(pythonCourseSpec)
+    await upload(exported)
+    expect(await download()).toEqual(exported)
+    const { courses } = await handleLecturer(request)
+    expect(courses[0]?.history[0]).toMatchObject({ action: 'course_spec_imported', actorEmail: request.email })
+    expect(JSON.stringify(courses)).not.toContain('referenceSolution')
+  })
+
+  it('replaces content on a valid import', async () => {
+    const { download, upload } = setup()
+    const updated = { ...pythonCourseSpec, title: 'Python Foundations' }
+    await upload(updated)
+    expect(await download()).toEqual(updated)
+  })
+
+  it.each([
+    { ...pythonCourseSpec, courseId: 'other' },
+    { ...pythonCourseSpec, modules: [{ ...pythonCourseSpec.modules[0], content: { materials: {} } }] },
+  ])('refuses incompatible files without editing the course', async (invalid) => {
+    const { download, upload, request } = setup()
+    await expect(upload(invalid)).rejects.toMatchObject({ statusCode: 400 })
+    expect(await download()).toEqual(pythonCourseSpec)
+    expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
+  })
+
+  it.each([
+    { email: null, statusCode: 401 },
+    { email: 'an@example.com', statusCode: 403 },
+    { email: 'other@example.com', statusCode: 404 },
+  ])('refuses export and import for $email', async ({ email, statusCode }) => {
+    const { request } = setup()
+    await expect(handleCourseSpec({ ...request, email, action: 'export', courseId: python.id }))
+      .rejects.toMatchObject({ statusCode })
+    await expect(handleCourseSpec({ ...request, email, action: 'import', json: JSON.stringify(pythonCourseSpec) }))
+      .rejects.toMatchObject({ statusCode })
   })
 })

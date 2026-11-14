@@ -9,18 +9,51 @@ const { data, error, status } = await useFetch<LecturerResponse>('/api/lecturer'
   getCachedData: () => undefined,
 })
 
-const historyLabels: Record<string, string> = { seeded: 'Course seeded' }
+const historyLabels: Record<string, string> = {
+  seeded: 'Course seeded',
+  course_spec_imported: 'Course spec imported',
+}
 const drafts = reactive<Record<string, number>>({})
 const saving = ref<string | null>(null)
 const notice = ref('')
 const saveError = ref('')
+const importing = ref(false)
+
+async function importSpec(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importing.value || saving.value) return
+  importing.value = true
+  notice.value = ''
+  saveError.value = ''
+  try {
+    await $fetch('/api/lecturer/spec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: await file.text(),
+    })
+    data.value = await $fetch<LecturerResponse>('/api/lecturer')
+    delete drafts.intro_python
+    notice.value = 'Course spec imported.'
+  }
+  catch (error) {
+    const statusCode = (error as { statusCode?: number }).statusCode
+    saveError.value = statusCode === 400
+      ? 'Choose a valid JSON course spec for the Python course.'
+      : 'Could not import the course spec.'
+  }
+  finally {
+    importing.value = false
+  }
+}
 
 function percentage(value: number) {
   return new Intl.NumberFormat('en', { style: 'percent', maximumSignificantDigits: 15 }).format(value)
 }
 
 async function saveThreshold(course: LecturerCourse) {
-  if (saving.value) return
+  if (saving.value || importing.value) return
   saving.value = course.id
   notice.value = ''
   saveError.value = ''
@@ -101,13 +134,30 @@ const dateTime = new Intl.DateTimeFormat('en', {
           </label>
           <button
             type="submit"
-            :disabled="saving !== null"
+            :disabled="saving !== null || importing"
             class="min-h-11 rounded-sm bg-accent px-4 text-sm font-medium text-on-accent hover:bg-accent-hover disabled:opacity-50"
           >
             {{ saving === course.id ? 'Saving…' : 'Save threshold' }}
           </button>
           <p class="pb-3 text-sm text-muted">Current threshold {{ percentage(course.masteryThreshold) }}</p>
         </form>
+        <div v-if="course.id === 'intro_python'" class="flex flex-wrap items-center gap-4 border-t border-default p-4 md:px-8">
+          <a
+            href="/api/lecturer/spec?courseId=intro_python"
+            download="intro_python.json"
+            class="text-sm font-medium text-brand-700 underline underline-offset-4"
+          >Export course spec</a>
+          <label class="flex flex-wrap items-center gap-3 text-sm font-medium text-highlighted">
+            {{ importing ? 'Importing…' : 'Import course spec' }}
+            <input
+              type="file"
+              accept=".json,application/json"
+              :disabled="importing || saving !== null"
+              class="max-w-full text-sm text-default file:mr-3 file:min-h-11 file:rounded-sm file:border-0 file:bg-accent file:px-4 file:text-on-accent"
+              @change="importSpec"
+            >
+          </label>
+        </div>
         <section class="border-t border-default p-4 md:p-8">
           <h3 class="text-sm font-semibold text-highlighted">Course history</h3>
           <p v-if="!course.history.length" class="mt-3 text-sm text-muted">No course history yet.</p>
