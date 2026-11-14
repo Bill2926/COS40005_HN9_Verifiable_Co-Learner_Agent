@@ -6,8 +6,8 @@ const widths = [320, 390, 768, 1024, 1440] as const
 
 test('the About page says what the co-learner is and leads to sign-in', async ({ page }) => {
   await page.goto('/home')
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('Python co-learner for first-year students')
-  await expect(page.getByText('Python basics').first()).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('co-learner for your course')
+  await expect(page.getByText('Open your module').first()).toBeVisible()
 
   await page.getByRole('main').getByRole('link', { name: 'Sign in to start' }).first().click()
   await expect(page).toHaveURL(/\/sign-in$/)
