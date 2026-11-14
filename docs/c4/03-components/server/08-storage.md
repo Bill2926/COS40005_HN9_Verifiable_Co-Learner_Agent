@@ -62,6 +62,7 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 | evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Reads merge submissions with quiz answers by timestamp. Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
 | quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`, and `observationsForStudent` for the evidence store. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
 | decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
+| lecturer | `forLecturer` reads owned course titles, exact enrollment counts and course history. | `courses`, `enrollments`, `course_history` |
 | model settings | `read`, `save` (single row, id 1) | `model_settings` |
 | verify shield | `read`, `save`. Only the Supabase version is here; the interface, the in-memory version and the `verifyShieldEnabled` / `verifyShieldForTurn` rules live in [`verify-shield`](03-verify-shield.md). | `verify_shield_settings` |
 

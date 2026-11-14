@@ -31,6 +31,7 @@ flowchart LR
     lm["<b>language-model</b><br/>Real model, choice"]:::comp
     storage["<b>storage</b><br/>Store interfaces and<br/>Supabase versions"]:::comp
     admin["<b>admin</b><br/>Product-owner handler"]:::comp
+    lecturer["<b>lecturer</b><br/>Lecturer handler"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
 
@@ -41,6 +42,8 @@ flowchart LR
   spa ==>|"POST /turn, POST /api/admin,<br/>GET /course-outline"| routes
   routes -->|"handleTurn, streamTurn"| turn
   routes -->|"handleAdmin"| admin
+  routes -->|"GET /api/lecturer · handleLecturer"| lecturer
+  lecturer -.->|"LecturerStore"| storage
   routes -->|"agentsForTurn"| agents
   routes -->|"createSupabase...Store"| storage
   routes -->|"verifyShieldForTurn"| shield
@@ -77,6 +80,7 @@ flowchart LR
 | language-model | `web/server/language-model/` | [server/07-language-model.md](07-language-model.md) |
 | storage | `web/server/storage/` | [server/08-storage.md](08-storage.md) |
 | admin | `web/server/admin/` | [server/09-admin.md](09-admin.md) |
+| lecturer | `web/server/lecturer/` | [server/10-lecturer.md](10-lecturer.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)

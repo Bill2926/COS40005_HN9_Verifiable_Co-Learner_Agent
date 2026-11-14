@@ -17,6 +17,7 @@ flowchart TB
 
   student(["<b>Student</b>"]):::person
   owner(["<b>Product owner</b>"]):::person
+  lecturer(["<b>Lecturer</b>"]):::person
 
   subgraph sys["Verifiable Co-Learner"]
     direction TB
@@ -32,6 +33,7 @@ flowchart TB
 
   student -->|"Studies in"| spa
   owner -->|"Reviews and configures on /admin"| spa
+  lecturer -->|"Views owned courses on /lecturer"| spa
   spa -->|"Posts code and tests to"| pyodide
   spa -->|"Loads pages from, calls<br/>/turn and /api/admin on"| server
   spa -->|"Signs in and out via"| auth

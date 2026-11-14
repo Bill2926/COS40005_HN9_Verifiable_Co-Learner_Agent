@@ -13,10 +13,22 @@ const unreachableMessage = 'Sign-in is unavailable right now.'
 
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 ring-ink-300 md:min-h-0 md:text-sm/5'
 
+const requestFetch = useRequestFetch()
+
+async function signedInDestination() {
+  try {
+    await requestFetch('/api/lecturer')
+    return '/lecturer'
+  }
+  catch {
+    return '/'
+  }
+}
+
 if (import.meta.server) {
   const event = useRequestEvent()
   if (event && await sessionStudentId(event)) {
-    await navigateTo('/')
+    await navigateTo(await signedInDestination())
   }
 }
 
@@ -117,7 +129,7 @@ async function signIn() {
       credentialsRejected.value = true
       return
     }
-    await navigateTo('/')
+    await navigateTo(await signedInDestination())
   }
   catch {
     errorMessage.value = unreachableMessage
