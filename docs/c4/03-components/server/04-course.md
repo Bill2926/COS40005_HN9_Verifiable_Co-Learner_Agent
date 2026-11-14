@@ -61,10 +61,10 @@ may propose which move) is in [`agents`](06-agents.md).
 - Runtime: `course.ts` imports `student-model` (`masteryThreshold`); `study-module.ts` imports the five `modules/*` files.
 - Type only: `shared/turn`, `student-model` (`CourseStanding`), `verify-shield` (`CourseScope`), `study-module` (from the module files).
 - Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `routes/course-outline.get.ts`.
-- Tests: `decide.test.ts` (`courseScope`), `mastery.test.ts` (`courseModules`), `python-runner.test.ts` (`studyModule`, `studyModules`), all through `server/course`.
+- Tests: `decide.test.ts` (`courseScope`), `mastery.test.ts` and `course-roadmap.test.ts` (`courseModules`), `python-runner.test.ts` (`studyModule`, `studyModules`), `study-module-quiz.test.ts` (`studyModules`, the quiz shape), `turn-endpoint.test.ts`, all through `server/course`.
 
 ## Notes
 
-- `course.ts` and `study-module.ts` do not import each other. The list of available modules in `course.ts` and the list `studyModules` in `study-module.ts` are two separate lists kept in step by hand; I found no check in non-test code that they agree (I did not read the tests for one). The sprint-1 status document notes the course content has no runtime validation.
+- `course.ts` and `study-module.ts` do not import each other. The list of available modules in `course.ts` and the list `studyModules` in `study-module.ts` are two separate lists kept in step by hand; there is no check in non-test code that they agree. `study-module-quiz.test.ts` is the content test: for every available module it checks three questions, four choices each, a valid correct index, an explanation, and that each misconception a wrong choice names resolves to one of that module's misconception responses.
 - `course.ts` mixes course data with the roadmap a student sees (`roadmapForStanding`, `presentedRoadmap`) and the redirect text. They are in one file because they all read `courseModules`.
 - `CourseModule` in `course.ts` (the full module record) is a different type from `CourseModule` in `verify-shield` (`id` and `keywords` only). `courseScope` is the bridge between them.

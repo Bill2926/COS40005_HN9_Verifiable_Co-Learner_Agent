@@ -83,7 +83,7 @@ flowchart LR
 - Runtime importers, through `index.ts`: `routes/turn.post.ts` (`agentsForTurn`), `turn/handle-turn.ts` (`moveKey`, `roleTable`), `decide.test.ts` (`roleTable`).
 - Type-only importers: `turn/handle-turn.ts`, `verify-shield/decide.ts` (`Move`, `RoleTable`). `language-model` imports nothing from here.
 - Packages: `zod` (in `moves.ts`).
-- Tests: `turn-endpoint.test.ts` and `admin-handler.test.ts` (`createFakeAgents`, `createConfiguredAgents`, `agentsForTurn`); `move-contract.test.ts` and `real-language-model.test.ts` (`proposalSchema`, `roleTable`, `createAgents`); `prompt-hardening.test.ts` (`createAgents`, recording the prompts a turn sends).
+- Tests: `turn-endpoint.test.ts` and `admin-handler.test.ts` (`createFakeAgents`, `createConfiguredAgents`, `agentsForTurn`); `move-contract.test.ts` and `real-language-model.test.ts` (`proposalSchema`, `roleTable`, `createAgents`); `prompt-hardening.test.ts` (`createAgents`, recording the prompts a turn sends); `wrong-quiz-brings-agents.test.ts` (`createFakeAgents`, and the quiz results in each agent's context).
 
 ## Notes
 

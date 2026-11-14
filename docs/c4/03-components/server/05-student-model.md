@@ -18,6 +18,7 @@ flowchart LR
   turn["<b>turn/handle-turn.ts</b>"]:::near
   course["<b>course/course.ts</b>"]:::near
   supaStore["<b>storage/supabase-evidence-store.ts</b>"]:::near
+  quizStore["<b>storage/quiz-answer-store.ts</b>"]:::near
   tests["<b>mastery.test.ts</b>"]:::near
 
   subgraph sm["student-model"]
@@ -33,7 +34,9 @@ flowchart LR
   turn -.->|"types: CourseEstimate, CourseStanding,<br/>EvidenceStore"| index
   course -->|"masteryThreshold"| index
   course -.->|"type: CourseStanding"| index
-  supaStore -.->|"types: EvidenceStore, EvidenceRow"| index
+  supaStore -->|"mergeObservations"| index
+  supaStore -.->|"types: EvidenceStore, EvidenceRow,<br/>TimedObservation"| index
+  quizStore -.->|"type: TimedObservation"| index
   tests -->|"estimateMastery, unlockedModuleIds,<br/>masteryParameters"| index
   index --> standing
   index --> estimate
@@ -53,18 +56,20 @@ flowchart LR
 | `estimate.ts` | Pure Bayesian Knowledge Tracing and the unlock rule. `estimateMastery(evidence, moduleIds, parameters)`: one update per observation, in ledger order. For an exercise submission, the first pass counts and marks the module's `passedExercise`; once an exercise is passed, later submissions on it — passes and failures alike — stop being observations, so experimenting on a finished exercise never moves mastery. A `quiz_answer` observation always counts but never marks a passed exercise. `everMastered` is set only when mastery reaches the threshold **and** the module has a passed exercise, so understanding alone never masters a module. `unlockedModuleIds(modules, estimated)`: a straight, permanent chain, where the first available module is open and each later one opens once the one before it has ever been mastered; a module with `available: false` stays closed. |
 | `mastery-parameters.ts` | `masteryParameters` (`prior` 0.1, `learning` 0.15, `threshold` 0.9, and slip/guess by observation kind: submission 0.1/0.2 and quiz answer 0.1/0.25) and `masteryThreshold`. The one place they are written down. |
 | `course-standing.ts` | `estimateCourse(modules, evidence)`: mastery, unlocked modules and the modules with a passed exercise (`passedExerciseModuleIds`) for a whole course, derived from the ledger every time (nothing is stored). `standingFor(estimate, currentModuleId)` adds the module the student is on. `furthestUnlockedModuleId(modules, estimate)`: where a student with no resume point starts. |
-| `evidence-store.ts` | The server-side evidence ledger combines submissions and quiz answers. `EvidenceStore` (`append`, `forStudent`), `NewEvidence`, `EvidenceRow` and an in-memory version. Submissions append through the evidence store. The quiz-answer store records the first answer to each question. Reads merge both sources in timestamp order. |
-| `index.ts` | The interface: `estimateMastery`, `unlockedModuleIds`, `masteryParameters`, `masteryThreshold`, `estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, `createMemoryEvidenceStore`, and the types `MasteryParameters`, `ModuleMastery`, `Observation`, `UnlockableModule`, `CourseEstimate`, `CourseStanding`, `EvidenceStore`, `EvidenceRow`, `NewEvidence`. |
+| `evidence-store.ts` | The server-side evidence ledger combines submissions and quiz answers. `EvidenceStore` (`append`, `forStudent`), `NewEvidence`, `EvidenceRow`, `TimedObservation` (an observation with the time it was recorded), `mergeObservations` (one timestamp-ordered stream from both sources, used by the Supabase adapter) and an in-memory version. Submissions append through the evidence store. The quiz-answer store records the first answer to each question. |
+| `index.ts` | The interface: `estimateMastery`, `unlockedModuleIds`, `masteryParameters`, `masteryThreshold`, `estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, `createMemoryEvidenceStore`, `mergeObservations`, and the types `MasteryParameters`, `ModuleMastery`, `Observation`, `UnlockableModule`, `CourseEstimate`, `CourseStanding`, `EvidenceStore`, `EvidenceRow`, `NewEvidence`, `TimedObservation`. |
 
 The Supabase version of the ledger stays in [`storage`](08-storage.md) (`supabase-evidence-store.ts`), so the code that
-depends on Supabase stays in one place. It imports only the `EvidenceStore` and `EvidenceRow` types from here.
+depends on Supabase stays in one place. From here it takes the `EvidenceStore`, `EvidenceRow` and `TimedObservation`
+types and, at runtime, `mergeObservations`, which it uses to merge its two tables into one stream.
+`storage/quiz-answer-store.ts` takes the `TimedObservation` type.
 
 ## Verified imports
 
 - Imports: none outside its own files. It does not import `course`: `estimateCourse` and `furthestUnlockedModuleId` take the course's modules as an argument, and read only `id` and `available` from each. The estimator accepts observations tagged as `submission` or `quiz_answer`. Only a passing submission counts as a passed exercise.
-- Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `course/course.ts` (`masteryThreshold`).
-- Type-only importers: `turn/handle-turn.ts` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `course/course.ts` (`CourseStanding`), `storage/supabase-evidence-store.ts` (`EvidenceStore`, `EvidenceRow`).
-- Tests: `mastery.test.ts` (also imports `course`); `turn-endpoint.test.ts` and `admin-handler.test.ts` reach it through `handle-turn.ts`.
+- Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `course/course.ts` (`masteryThreshold`), `storage/supabase-evidence-store.ts` (`mergeObservations`).
+- Type-only importers: `turn/handle-turn.ts` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `course/course.ts` (`CourseStanding`), `storage/supabase-evidence-store.ts` (`EvidenceStore`, `EvidenceRow`, `TimedObservation`), `storage/quiz-answer-store.ts` (`TimedObservation`).
+- Tests: `mastery.test.ts` and `course-roadmap.test.ts` (both also import `course`); `turn-endpoint.test.ts` and `admin-handler.test.ts` reach it through `handle-turn.ts`.
 
 ## Notes
 

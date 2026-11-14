@@ -3,8 +3,8 @@
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
 Component-level view of `web/server/` and `web/shared/`. Every arrow below was checked against a real
-`import` statement (script over `web/server`, `web/shared`, `web/app`, `web/tests`, `web/e2e`; 164
-resolved relative imports, 0 unresolved).
+`import` statement (script over `web/server`, `web/shared`, `web/app`, `web/tests`, `web/e2e`; 229 resolved
+imports inside the repo — 204 relative and 25 through a Nuxt alias — 0 unresolved).
 
 Legend: solid arrow = runtime import (the code is called). Thick arrow = runtime link with no import (HTTP call).
 Blue = component in this server, grey = another container, brown = external, teal = database.
@@ -50,7 +50,9 @@ flowchart LR
   turn -->|"course helpers, studyModule"| course
   turn -->|"moveKey, roleTable"| agents
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
+  turn -->|"createMemoryQuizAnswerStore"| storage
   course -->|"masteryThreshold"| studentModel
+  storage -->|"mergeObservations"| studentModel
   admin -->|"resolveModelChoice"| lm
   admin -->|"verifyShieldEnabled"| shield
   shared -->|"Verifies the session claims with"| auth
@@ -84,7 +86,7 @@ flowchart LR
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
-| storage | verify-shield, student-model, language-model | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`; `ModelSettings` |
+| storage | verify-shield, student-model, language-model | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore` |
 | admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`; `ModelSettings`; `VerifyShieldStore` |
 
 Neither graph has a cycle. language-model imports nothing from agents: agents passes it the proposal schema as an
@@ -92,7 +94,7 @@ argument, so the move set is known only to agents.
 
 ## Not imported by any runtime code
 
-- `web/server/auth/demo-accounts.ts`: imported only by 5 tests and 6 files under `web/e2e/`. `supabase/seed.sql` repeats the same accounts by hand (its header comment says to keep them aligned).
+- `web/server/auth/demo-accounts.ts`: imported only by 6 tests and 6 files under `web/e2e/`. `supabase/seed.sql` repeats the same accounts by hand (its header comment says to keep them aligned).
 - `web/server/python/node-runner.ts` and `node-worker.mjs`: imported only by `web/tests/python-runner.test.ts`. See [web-app/05-python-runner.md](../web-app/05-python-runner.md).
 
 ## Nitro and Nuxt auto-imports (no import statement)

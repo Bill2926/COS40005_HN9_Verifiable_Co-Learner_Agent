@@ -50,7 +50,7 @@ flowchart LR
 
 | File | Responsibility (from the code) |
 |---|---|
-| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}`, reads streamed turn events (NDJSON), sends messages and submissions, selects modules and exercises, prefetches module views on hover, and switches between the Study and Roadmap layouts (query `?layout=`, cookie). Also reads and sets the VerifyShield switch through `/api/admin`. Signs out with `$supabase.auth.signOut()`. |
+| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}`, reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Roadmap layouts (query `?layout=`, cookie). Also reads and sets the VerifyShield switch through `/api/admin`. Signs out with `$supabase.auth.signOut()`. |
 | `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. On the server it redirects a signed-in user to `/`. Plays a first-visit intro (`sign-in/intro`). |
 | `pages/about.vue` | Public About page: course outline from `/course-outline`, the shield diagram, the sample turn and the team. |
 | `pages/admin.vue` | Product-owner page: model provider settings, VerifyShield switch, newest 100 decisions with filters. Shows a refusal on 403. |
