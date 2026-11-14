@@ -761,19 +761,24 @@ describe('turn endpoint', () => {
       expect(renderPrompts[1]).toContain('teacher [hint_level_1]: Rung 1 given.')
     })
 
+    // Rung 1 is given first, because the VerifyShield's hint ladder rule (#133) downgrades a rung
+    // above the next one, so hint_level_2 is only ever approved once rung 1 has been given.
     it('renders hint_level_2 from rung 2 alone', async () => {
-      const { agents, renderPrompts } = hintingModel([2])
+      const store = memoryStore()
+      const { agents, renderPrompts } = hintingModel([1, 2])
 
-      await handleTurn({
-        sessionStudentId: signedInStudent,
-        body: { event: 'message', text: 'I am stuck.' },
-      }, memoryStore(), agents)
+      for (const text of ['I am stuck.', 'Still stuck.']) {
+        await handleTurn({
+          sessionStudentId: signedInStudent,
+          body: { event: 'message', text },
+        }, store, agents)
+      }
 
-      expect(renderPrompts).toHaveLength(1)
-      expect(renderPrompts[0]).toContain(rungs[1])
-      expect(renderPrompts[0]).not.toContain(rungs[0])
-      expect(renderPrompts[0]).not.toContain(rungs[2])
-      expect(renderPrompts[0]).toContain('Approved move: hint_level_2')
+      expect(renderPrompts).toHaveLength(2)
+      expect(renderPrompts[1]).toContain(rungs[1])
+      expect(renderPrompts[1]).not.toContain(rungs[0])
+      expect(renderPrompts[1]).not.toContain(rungs[2])
+      expect(renderPrompts[1]).toContain('Approved move: hint_level_2')
     })
 
     it('lets the Teacher choose a rung from the whole ladder when proposing', async () => {
@@ -1875,6 +1880,17 @@ describe('turn endpoint', () => {
 
   it('presents each Teacher message with the plain-word name of its approved move', async () => {
     const store = memoryStore()
+    // Getting Started is passed, so Variables is open: the VerifyShield allows an
+    // advance only towards a module the course has and the student is not in.
+    // The resume point keeps the student on Getting Started all the same.
+    const evidence = createMemoryEvidenceStore()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_exercise', exerciseId: 'say_hello' },
+    }, store, undefined, { evidence })
+    for (const exerciseId of ['say_hello', 'join_words', 'sign_the_program']) {
+      await evidence.append({ studentId: signedInStudent, moduleId: 'getting_started', exerciseId, testsPassed: 3, testsTotal: 3 })
+    }
     const replies = [
       {
         proposal: { type: 'explain_concept' as const, scope: 'getting_started' },
@@ -1909,10 +1925,10 @@ describe('turn endpoint', () => {
         approvedMove: 'address_misconception:missing_quotes',
       },
       {
-        proposal: { type: 'advance_to_module' as const, moduleId: 'nested_loop' },
-        text: 'Nested loops is the next module.',
+        proposal: { type: 'advance_to_module' as const, moduleId: 'variables' },
+        text: 'Variables is the next module.',
         role: 'Next module',
-        approvedMove: 'advance_to_module:nested_loop',
+        approvedMove: 'advance_to_module:variables',
       },
       {
         proposal: { type: 'stay_and_practise' as const },
@@ -1929,7 +1945,7 @@ describe('turn endpoint', () => {
       }, store, createFakeAgents({
         proposal: reply.proposal,
         text: reply.text,
-      }))
+      }), { evidence })
 
       expect(state.conversation.find(message => message.text === reply.text)).toMatchObject({
         author: 'teacher',
@@ -2271,6 +2287,45 @@ describe('turn endpoint', () => {
     expect(JSON.stringify(state)).not.toContain('LISTS_ADVANCE_SHOULD_NOT_RENDER')
   })
 
+  it('says nothing when the teacher advances to a module the course does not have', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'What comes after this?' },
+    }, store, createFakeAgents({
+      proposal: { type: 'advance_to_module', moduleId: 'nested_loops' },
+      text: 'UNKNOWN_ADVANCE_SHOULD_NOT_RENDER',
+    }))
+
+    expect(state.conversation.filter(message => message.author === 'teacher')).toEqual([])
+    expect(state.workingArea.moduleId).toBe('getting_started')
+    expect(JSON.stringify(state)).not.toContain('UNKNOWN_ADVANCE_SHOULD_NOT_RENDER')
+    // The proposal is still in the trace, so the log shows what was blocked.
+    expect(state.trace.agents[0]).toMatchObject({
+      proposal: 'advance_to_module:nested_loops',
+      verdict: { decision: 'block', ruleId: 'advance_known_module', reasonCode: 'ADVANCE_UNKNOWN_MODULE' },
+    })
+  })
+
+  it('turns an advance to the module the student is in into a suggestion to keep practising', async () => {
+    const store = memoryStore()
+    const state = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: 'Should I move on?' },
+    }, store, createFakeAgents({
+      proposal: { type: 'advance_to_module', moduleId: 'getting_started' },
+      text: 'Stay with this one a little longer.',
+    }))
+
+    expect(state.conversation.at(-1)).toMatchObject({
+      author: 'teacher',
+      role: 'Keep practising',
+      text: 'Stay with this one a little longer.',
+      approvedMove: 'stay_and_practise',
+    })
+    expect(state.workingArea.moduleId).toBe('getting_started')
+  })
+
   it.each([
     {
       text: 'How do I print?',
@@ -2305,6 +2360,21 @@ describe('turn endpoint', () => {
       text: 'Can we start lists?',
       teacher: { type: 'advance_to_module', moduleId: 'lists_and_tuples' },
       logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruleId: 'scope_requires_unlocked_module', reasonCode: 'MODULE_CLOSED' }],
+    },
+    {
+      text: 'How does recursion work?',
+      teacher: { type: 'explain_concept', scope: 'recursion' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'redirect_to_module', ruledScope: 'out_of_course', ruleId: 'scope_in_course', reasonCode: 'SCOPE_UNKNOWN' }],
+    },
+    {
+      text: 'What comes after this?',
+      teacher: { type: 'advance_to_module', moduleId: 'nested_loops' },
+      logged: [{ agent: 'teacher', verdict: 'block', ruledMove: null, ruleId: 'advance_known_module', reasonCode: 'ADVANCE_UNKNOWN_MODULE' }],
+    },
+    {
+      text: 'Should I move on?',
+      teacher: { type: 'advance_to_module', moduleId: 'getting_started' },
+      logged: [{ agent: 'teacher', verdict: 'downgrade', ruledMove: 'stay_and_practise', ruleId: 'advance_not_current_module', reasonCode: 'ADVANCE_TO_CURRENT' }],
     },
   ] satisfies { text: string, teacher: Move, deskmate?: Move, logged: Partial<DecisionRecord>[] }[])('logs the $logged.0.reasonCode verdict for "$text"', async ({ text, teacher, deskmate, logged }) => {
     const decisions = createMemoryDecisionLogStore()

@@ -392,6 +392,99 @@ describe('decide', () => {
     }])
   })
 
+  it('blocks an advance aimed at a module the course does not have', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'nested_loops' } }],
+      snapshot({ studentMessage: 'What is next?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'block',
+      ruleId: 'advance_known_module',
+      reasonCode: 'ADVANCE_UNKNOWN_MODULE',
+      move: null,
+    }])
+  })
+
+  it('turns an advance aimed at the current module into a suggestion to keep practising', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'loops' } }],
+      snapshot({ studentMessage: 'Should I move on?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'advance_not_current_module',
+      reasonCode: 'ADVANCE_TO_CURRENT',
+      move: { type: 'stay_and_practise' },
+    }])
+  })
+
+  it('allows an advance aimed at another open module', () => {
+    const move = { type: 'advance_to_module' as const, moduleId: 'strings' }
+    expect(decide(
+      [{ agent: 'teacher', move }],
+      snapshot({ unlockedModuleIds: ['strings', 'loops'], studentMessage: 'Should I revisit strings?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'allow',
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      move,
+    }])
+  })
+
+  it('redirects a teaching move whose scope is not a module of the course', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'explain_concept', scope: 'recursion' } }],
+      snapshot({ studentMessage: 'How does recursion work?' }),
+      roleTable,
+      course,
+    )).toEqual([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'scope_in_course',
+      reasonCode: 'SCOPE_UNKNOWN',
+      move: { type: 'redirect_to_module', scope: 'out_of_course' },
+    }])
+  })
+
+  // Rule order: a closed module of the course is MODULE_CLOSED, not SCOPE_UNKNOWN,
+  // and the keyword backstop still wins over both.
+  it('keeps a closed course module apart from an invented scope', () => {
+    const invented = decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 1, scope: 'generators' } }],
+      snapshot({ studentMessage: 'Give me a hint.' }),
+      roleTable,
+      course,
+    )[0]
+    const closed = decide(
+      [{ agent: 'teacher', move: { type: 'hint_level_N', level: 1, scope: 'lists_and_tuples' } }],
+      snapshot({ studentMessage: 'Give me a hint.' }),
+      roleTable,
+      course,
+    )[0]
+
+    expect(invented).toMatchObject({ reasonCode: 'SCOPE_UNKNOWN', move: { type: 'redirect_to_module', scope: 'out_of_course' } })
+    expect(closed).toMatchObject({ reasonCode: 'MODULE_CLOSED', move: { type: 'redirect_to_module', scope: 'lists_and_tuples' } })
+  })
+
+  it('allows an invented scope and an unknown advance target with the VerifyShield off', () => {
+    expect(decide(
+      [
+        { agent: 'teacher', move: { type: 'explain_concept', scope: 'recursion' } },
+        { agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'nested_loops' } },
+      ],
+      snapshot({ verifyShieldOn: false, studentMessage: 'How does recursion work?' }),
+      roleTable,
+      course,
+    ).map(verdict => verdict.reasonCode)).toEqual(['VERIFYSHIELD_OFF', 'VERIFYSHIELD_OFF'])
+  })
+
   it('allows a misconception the current module has', () => {
     const move = { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' }
     expect(decide(
