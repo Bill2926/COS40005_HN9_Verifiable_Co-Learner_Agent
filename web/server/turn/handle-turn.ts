@@ -1,11 +1,15 @@
 import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
-import { canonicalModuleId, courseModules, courseScope, courseTitle, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
+import { canonicalModuleId, presentedRoadmap, pythonCourse, redirectText, roadmapForStanding, studyModule, type Exercise, type StudyModule } from '../course'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
-import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, masteryThreshold, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
+import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
+
+// The course every turn is about. There is one course today; once courses are imported into the
+// database (ADR-0004) this becomes the course the student is enrolled in.
+const course = pythonCourse
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -113,7 +117,7 @@ async function* streamTurnBody(
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
   ])
-  let estimate = estimateCourse(courseModules, rows)
+  let estimate = estimateCourse(course, rows)
   const settled = await viewPlacement(studentId, store, estimate, knownPoint)
   let placement = settled.placement
   const openedPoint = settled.point
@@ -131,7 +135,7 @@ async function* streamTurnBody(
   }
 
   if (isSelectModule(body) || isPreviewModule(body)) {
-    const chosen = studyModule(canonicalModuleId(body.moduleId))
+    const chosen = studyModule(course, canonicalModuleId(body.moduleId))
     // Choosing a closed module changes nothing. A preview never writes the resume point.
     if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
       yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
@@ -176,7 +180,7 @@ async function* streamTurnBody(
     // Only a stored answer feeds the ledger (through the quiz store), so mastery
     // is taken again only then; an invalid or repeat answer leaves it untouched.
     if (marked.stored) {
-      standing = standingFor(estimateCourse(courseModules, await ledger.forStudent(studentId)), placement.module.id)
+      standing = standingFor(estimateCourse(course, await ledger.forStudent(studentId)), placement.module.id)
     }
     // A wrong answer brings the agents in, as a failed submission does; a right
     // answer, and a repeat of an answered question, does not.
@@ -203,7 +207,7 @@ async function* streamTurnBody(
       testsPassed: body.results.filter(result => result.passed).length,
       testsTotal: body.results.length,
     })
-    estimate = estimateCourse(courseModules, await ledger.forStudent(studentId))
+    estimate = estimateCourse(course, await ledger.forStudent(studentId))
     standing = standingFor(estimate, placement.module.id)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
@@ -269,7 +273,7 @@ async function* introduceModule(
   }
   const proposed = proposal ? { agent: 'teacher' as const, move: proposal } : null
   const proposedVerdict = proposed
-    ? decide([proposed], snapshot, roleTable, courseScope)[0]
+    ? decide([proposed], snapshot, roleTable, course.scope)[0]
     : undefined
   const trace = verifyShieldTrace(proposal, null, proposedVerdict ? [proposedVerdict] : [], snapshot)
   const teaching = Boolean(proposal && isTeachingMove(proposal))
@@ -277,7 +281,7 @@ async function* introduceModule(
     ? null
     : { agent: 'teacher' as const, move: { type: 'explain_concept' as const, scope: placement.module.id } }
   const introductionVerdict = introduction
-    ? decide([introduction], snapshot, roleTable, courseScope)[0]
+    ? decide([introduction], snapshot, roleTable, course.scope)[0]
     : undefined
   await recordDecisions(studentId, [
     ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
@@ -286,7 +290,7 @@ async function* introduceModule(
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(verdict.move.scope, snapshot.moduleId)
+    const text = redirectText(course, verdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -450,7 +454,7 @@ async function* answerMessage(
   const turnId = crypto.randomUUID()
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
-  const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, courseScope)
+  const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, course.scope)
   await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, options?.decisions, turnId, recordedAt)
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
@@ -461,7 +465,7 @@ async function* answerMessage(
     teacherFailed = true
   }
   else if (teacherVerdict?.move?.type === 'redirect_to_module') {
-    const text = redirectText(teacherVerdict.move.scope, snapshot.moduleId)
+    const text = redirectText(course, teacherVerdict.move.scope, snapshot.moduleId)
     yield { type: 'text', author: 'teacher', delta: text }
     await speakRedirect(studentId, placement, store, text)
   }
@@ -487,7 +491,7 @@ async function* answerMessage(
   const deskmateSettled = await deskmateTask
   const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
-  const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, courseScope)
+  const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, course.scope)
   await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, options?.decisions, turnId, recordedAt)
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
@@ -673,7 +677,7 @@ async function teacherContext(
       text: message.text,
       approvedMove: message.approvedMove,
     })),
-    roadmap: roadmapForStanding(standing),
+    roadmap: roadmapForStanding(course, standing),
     answeredQuiz: answeredQuiz(placement.module, quizAnswers),
   }
 }
@@ -763,11 +767,11 @@ async function viewPlacement(
 ): Promise<{ placement: Placement, point: ResumePoint | null }> {
   // With no resume point the student starts on the furthest module their
   // evidence has unlocked, which is Module 1 when they have no evidence.
-  const opening = studyModule(furthestUnlockedModuleId(courseModules, estimate))
+  const opening = studyModule(course, furthestUnlockedModuleId(course, estimate))
   if (!opening) throw new Error('The first module of the course is missing.')
   let point = knownPoint
   const moduleId = point ? canonicalModuleId(point.moduleId) : opening.id
-  const module = studyModule(moduleId)
+  const module = studyModule(course, moduleId)
   if (module && estimate.unlockedModuleIds.includes(module.id)) {
     const exercise = module.exercises.find(item => item.id === point?.exerciseId) ?? module.exercises[0]
     if (!point || point.moduleId !== module.id || point.exerciseId !== exercise.id) {
@@ -822,9 +826,9 @@ function composeState(
 ): RedrawState {
   return {
     displayName,
-    course: courseTitle,
-    courseRoadmap: presentedRoadmap(standing),
-    masteryThreshold,
+    course: course.title,
+    courseRoadmap: presentedRoadmap(course, standing),
+    masteryThreshold: course.masteryThreshold,
     workingArea: {
       mode,
       moduleId: placement.module.id,
@@ -1075,7 +1079,7 @@ function isSelectExercise(input: unknown): input is { event: 'select_exercise', 
 }
 
 function nameOfModule(id: string): string {
-  const named = courseModules.find(item => item.id === id)
+  const named = course.modules.find(item => item.id === id)
   if (!named) throw new Error(`Study module ${id} is missing from the course module list.`)
   return named.name
 }

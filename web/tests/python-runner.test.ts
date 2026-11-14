@@ -1,9 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import { RunStopped, type PythonRunner } from '../app/python/runner'
-import { studyModule, studyModules } from '../server/course'
+import { pythonCourse, studyModule } from '../server/course'
 import { createPythonRunner } from '../server/python/node-runner'
 
-const loops = studyModule('loops')
+const loops = studyModule(pythonCourse, 'loops')
 if (!loops) throw new Error('Module 5 is missing.')
 const sumOfAList = loops.exercises[0]
 
@@ -98,7 +98,7 @@ describe('python runner', () => {
   it('passes every exercise when the reference solution is submitted', async () => {
     runner = createPythonRunner()
 
-    for (const module of studyModules) {
+    for (const module of pythonCourse.studyModules) {
       for (const exercise of module.exercises) {
         const check = runner.runTests(exercise.referenceSolution, exercise.tests)
         const report = await check.result

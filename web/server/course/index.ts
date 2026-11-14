@@ -1,13 +1,16 @@
-// The course component's interface: the course as data (its modules, scope keywords and the
-// roadmap a student sees) and the study content of the modules that have any. Code outside this
-// folder imports only from here.
+// The course component's interface: a course built from its course spec (its modules, scope
+// keywords, mastery threshold and the study content of the modules that have any) and the roadmap
+// a student sees. Code outside this folder imports only from here.
 export {
-  courseModules,
-  courseScope,
-  courseTitle,
+  courseFromSpec,
   presentedRoadmap,
+  pythonCourse,
   redirectText,
   roadmapForStanding,
+  studyModule,
 } from './course'
-export { canonicalModuleId, studyModule, studyModules } from './study-module'
-export type { Exercise, QuizQuestion, StudyModule } from './study-module'
+export type { Course, CourseModule } from './course'
+export { pythonCourseSpec } from './python-course'
+export type { CourseSpec, Exercise, ModuleContent, ModuleSpec, QuizQuestion } from './course-spec'
+export { canonicalModuleId } from './study-module'
+export type { StudyModule } from './study-module'

@@ -1,7 +1,6 @@
-import type { StudyModule } from '../study-module'
+import type { ModuleContent } from '../course-spec'
 
-export const loopsModule: StudyModule = {
-  id: 'loops',
+export const loopsModule: ModuleContent = {
   materials: {
     heading: 'Accumulating a total',
     body: 'A running total needs a variable that survives every pass of the loop. for walks a collection, range() builds a sequence of numbers, and while repeats while a condition stays true. break leaves the loop early, continue skips to the next pass, and a loop can sit inside another loop.',

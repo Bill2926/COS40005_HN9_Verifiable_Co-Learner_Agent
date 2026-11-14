@@ -1,5 +1,5 @@
 import { estimateMastery, unlockedModuleIds, type Observation, type UnlockableModule } from './estimate'
-import { masteryParameters } from './mastery-parameters'
+import { masteryParametersFor } from './mastery-parameters'
 
 // What the evidence says about the course, before anything is known about
 // where the student is sitting right now.
@@ -12,25 +12,31 @@ export interface CourseEstimate {
   passedExerciseModuleIds: readonly string[]
 }
 
+// What the student model needs of a course: its modules in order, and the mastery threshold its
+// course spec sets. The course is passed in, so this component never imports course content.
+export interface StudiedCourse {
+  modules: readonly UnlockableModule[]
+  masteryThreshold: number
+}
+
 export interface CourseStanding extends CourseEstimate {
   currentModuleId: string
 }
 
 // Mastery and unlocking are derived from the evidence ledger every time the
-// course roadmap is drawn; nothing about them is stored. The course supplies its
-// modules, in order, so this component never imports the course content.
+// course roadmap is drawn; nothing about them is stored.
 export function estimateCourse(
-  modules: readonly UnlockableModule[],
+  course: StudiedCourse,
   evidence: readonly Observation[],
 ): CourseEstimate {
   const estimated = estimateMastery(
     evidence,
-    modules.map(module => module.id),
-    masteryParameters,
+    course.modules.map(module => module.id),
+    masteryParametersFor(course.masteryThreshold),
   )
   return {
     masteries: estimated.map(item => ({ moduleId: item.moduleId, mastery: item.mastery })),
-    unlockedModuleIds: unlockedModuleIds(modules, estimated),
+    unlockedModuleIds: unlockedModuleIds(course.modules, estimated),
     passedExerciseModuleIds: estimated.filter(item => item.passedExercise).map(item => item.moduleId),
   }
 }
@@ -42,8 +48,8 @@ export function standingFor(estimate: CourseEstimate, currentModuleId: string): 
 // Where a student with no resume point starts: the furthest module their
 // evidence has unlocked, which is the first module when they have no evidence.
 export function furthestUnlockedModuleId(
-  modules: readonly UnlockableModule[],
+  course: StudiedCourse,
   estimate: CourseEstimate,
 ): string {
-  return estimate.unlockedModuleIds.at(-1) ?? modules[0]!.id
+  return estimate.unlockedModuleIds.at(-1) ?? course.modules[0]!.id
 }

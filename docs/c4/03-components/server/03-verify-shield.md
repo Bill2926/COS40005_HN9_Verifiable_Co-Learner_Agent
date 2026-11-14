@@ -24,7 +24,7 @@ flowchart LR
   subgraph shield["verify-shield"]
     direction TB
     index["<b>index.ts</b><br/>the interface"]:::comp
-    decide["<b>decide.ts</b><br/>decide(proposals, snapshot,<br/>roleTable, courseScope)"]:::comp
+    decide["<b>decide.ts</b><br/>decide(proposals, snapshot,<br/>roleTable, course.scope)"]:::comp
     store["<b>verify-shield-store.ts</b><br/>VerifyShieldStore, verifyShieldEnabled,<br/>verifyShieldForTurn"]:::comp
   end
 
@@ -46,7 +46,7 @@ flowchart LR
 |---|---|---|
 | `decide(proposals, snapshot, roleTable, courseScope)` | function | The ruling. Pure: the same inputs always give the same verdicts. Every argument is required. |
 | `Proposal`, `Verdict`, `TurnSnapshot` | types | What goes into and comes out of `decide`. |
-| `CourseScope`, `CourseModule`, `ModuleMastery` | types | The course facts `decide` reads. `course/course.ts` builds a `CourseScope`. |
+| `CourseScope`, `CourseModule`, `ModuleMastery` | types | The course facts `decide` reads. `course/course.ts` builds a `CourseScope` from the course spec (`Course.scope`); the turn handler passes it in. |
 | `VerifyShieldStore` | type | `read()` and `save(enabled)` for the saved switch. |
 | `createMemoryVerifyShieldStore` | function | In-memory store for tests and local runs. |
 | `verifyShieldEnabled(envValue, saved)` | function | A saved row wins; otherwise the environment is on unless it says `off`, `false` or `0`. |

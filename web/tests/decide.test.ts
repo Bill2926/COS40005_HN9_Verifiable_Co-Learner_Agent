@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { courseScope } from '../server/course'
+import { pythonCourse } from '../server/course'
 import { roleTable } from '../server/agents'
 import { decide, type CourseScope, type TurnSnapshot } from '../server/verify-shield'
 
@@ -271,14 +271,14 @@ describe('decide', () => {
       [{ agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } }],
       { ...onLoops, studentMessage: 'The loop sets the total back to zero for this list.' },
       roleTable,
-      courseScope,
+      pythonCourse.scope,
     )[0]).toMatchObject({ decision: 'allow', reasonCode: 'ROLE_PERMITTED' })
 
     expect(decide(
       [{ agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } }],
       { ...onLoops, studentMessage: 'Can we talk about Lists and Tuples?' },
       roleTable,
-      courseScope,
+      pythonCourse.scope,
     )[0]).toMatchObject({
       decision: 'downgrade',
       ruleId: 'scope_keyword',

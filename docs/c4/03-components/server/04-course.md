@@ -2,9 +2,11 @@
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
-`web/server/course/`, the course as data: its modules, the keywords that mark something as out of course, the
-study content of the modules that have any, and the roadmap a student sees. Everything outside the folder goes
-through `index.ts`. Part of [server/00-overview.md](00-overview.md).
+`web/server/course/`, the course as data. A course is built from its **course spec** (ADR-0004): one value that
+declares the parts, the modules in order, each module's content (materials, quiz, exercises, hint ladder,
+misconception responses) and the out-of-course keywords. From the spec the component builds a `Course`, which the
+turn handler passes to the student model and the VerifyShield, and draws the roadmap a student sees. Everything
+outside the folder goes through `index.ts`. Part of [server/00-overview.md](00-overview.md).
 
 Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = other components.
 
@@ -23,23 +25,29 @@ flowchart LR
   subgraph course["course"]
     direction TB
     index["<b>index.ts</b><br/>the interface"]:::comp
-    courseFile["<b>course.ts</b><br/>11 modules, roadmap,<br/>redirect text"]:::comp
-    studyModule["<b>study-module.ts</b><br/>StudyModule and quiz types, lookup"]:::comp
+    courseFile["<b>course.ts</b><br/>courseFromSpec, pythonCourse,<br/>roadmap, redirect text"]:::comp
+    spec["<b>course-spec.ts</b><br/>CourseSpec and content types"]:::comp
+    pythonSpec["<b>python-course.ts</b><br/>pythonCourseSpec (11 modules)"]:::comp
+    studyModule["<b>study-module.ts</b><br/>StudyModule, canonicalModuleId"]:::comp
     modules["<b>modules/*.ts</b> (5 files)<br/>getting-started, variables, strings,<br/>conditionals, loops"]:::comp
   end
 
-  handleTurn -->|"courseModules, courseScope, courseTitle,<br/>presentedRoadmap, redirectText,<br/>roadmapForStanding, studyModule,<br/>canonicalModuleId"| index
+  handleTurn -->|"pythonCourse, presentedRoadmap,<br/>redirectText, roadmapForStanding,<br/>studyModule, canonicalModuleId"| index
   handleTurn -.->|"types: Exercise, StudyModule"| index
-  outline -->|"courseModules, courseTitle"| index
+  outline -->|"pythonCourse"| index
   index --> courseFile
+  index --> pythonSpec
   index --> studyModule
-  studyModule -->|"5 module constants"| modules
-  modules -.->|"type: StudyModule"| studyModule
-  courseFile -->|"masteryThreshold"| studentModel
+  courseFile -->|"pythonCourseSpec"| pythonSpec
+  pythonSpec -->|"5 module contents"| modules
+  pythonSpec -.->|"type: CourseSpec"| spec
+  modules -.->|"type: ModuleContent"| spec
+  courseFile -.->|"types: CourseSpec, StudyModule"| spec
+  studyModule -.->|"type: ModuleContent"| spec
   courseFile -.->|"type: CourseStanding"| studentModel
   courseFile -.->|"type: CourseScope"| shield
   courseFile -.->|"type: RoadmapModule"| turnTypes
-  studyModule -.->|"type: ExerciseCheck,<br/>ModuleMaterials"| turnTypes
+  spec -.->|"type: ExerciseCheck,<br/>ModuleMaterials"| turnTypes
 
   style course fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -48,23 +56,26 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `course.ts` | `courseModules` (11 modules in 5 parts; modules 1 to 5 `available: true`, 6 to 11 `available: false`), out-of-course keywords, `courseScope` (what the VerifyShield reads), `roadmapForStanding`, `presentedRoadmap`, `redirectText`. |
-| `study-module.ts` | The `StudyModule`, `Exercise` and `QuizQuestion` types (a module has no name of its own; `CourseModule.name` is the only one; its `quiz` is exactly three questions of four choices), the list `studyModules` (5 entries), `studyModule(id)`, and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
-| `modules/*.ts` | One file per study module: materials, exercises (3 tests each), three quiz questions drawn from the module materials, hint ladder, and misconception responses. Quiz distractors can reference those responses. Each imports only the `StudyModule` type. |
-| `index.ts` | The interface: `courseModules`, `courseScope`, `courseTitle`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `studyModules`, `canonicalModuleId`, and the types `Exercise`, `QuizQuestion` and `StudyModule`. |
+| `course-spec.ts` | The course spec shape: `CourseSpec` (`specVersion` 1, `courseId`, `title`, `masteryThreshold`, `parts`, `modules` in order, `outOfCourseKeywords`), `ModuleSpec` (`id`, `name`, `part`, `summary`, `keywords`, optional `content`), `ModuleContent`, `Exercise`, `QuizQuestion`, `MisconceptionResponse`. Tuple types enforce the counts: a quiz of exactly three questions of four choices, three tests per exercise, at least three exercises, a hint ladder of three rungs. `course-spec.test-d.ts` checks that a spec breaking one does not compile. |
+| `python-course.ts` | `pythonCourseSpec`: Introduction to Programming with Python as one course spec. 11 modules in 5 parts; modules 1 to 5 carry content from `modules/*.ts`, 6 to 11 are listed without content. Mastery threshold 0.9. |
+| `modules/*.ts` | The content of one module each: materials, exercises (3 tests each), three quiz questions drawn from the module materials, hint ladder, and misconception responses. Quiz distractors can reference those responses. Each imports only the `ModuleContent` type. |
+| `course.ts` | `Course` and `courseFromSpec(spec)`: numbers modules by their order, derives `available` from whether the spec gives a module content, collects `studyModules`, builds `scope` (the `CourseScope` the VerifyShield reads), and refuses a spec the server could not run: no modules, a first module without content, two modules with one id, a part the spec does not list or modules out of the parts' order, or a mastery threshold outside (0, 1]. `pythonCourse`, the one course built today. `studyModule(course, id)`, and the roadmap and redirect functions, which all take the course: `roadmapForStanding`, `presentedRoadmap` (reads the course's mastery threshold), `redirectText`. |
+| `study-module.ts` | `StudyModule` (a module's content plus its id; a module has no name of its own, `CourseModule.name` is the only one) and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
+| `index.ts` | The interface: `courseFromSpec`, `pythonCourse`, `pythonCourseSpec`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `canonicalModuleId`, and the types `Course`, `CourseModule`, `CourseSpec`, `ModuleSpec`, `ModuleContent`, `Exercise`, `QuizQuestion`, `StudyModule`. |
 
-The mastery parameters are not here; they are in [`student-model`](05-student-model.md), and the role table (which agent
-may propose which move) is in [`agents`](06-agents.md).
+The learning parameters of the mastery estimate are not here; they are in [`student-model`](05-student-model.md),
+which takes the mastery threshold from the course. The role table (which agent may propose which move) is in
+[`agents`](06-agents.md).
 
 ## Verified imports
 
-- Runtime: `course.ts` imports `student-model` (`masteryThreshold`); `study-module.ts` imports the five `modules/*` files.
-- Type only: `shared/turn`, `student-model` (`CourseStanding`), `verify-shield` (`CourseScope`), `study-module` (from the module files).
+- Runtime: `course.ts` imports `python-course.ts`; `python-course.ts` imports the five `modules/*` files. Nothing outside the folder at runtime.
+- Type only: `shared/turn`, `student-model` (`CourseStanding`), `verify-shield` (`CourseScope`), `course-spec` (from `course.ts`, `study-module.ts`, `python-course.ts` and the module files).
 - Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `routes/course-outline.get.ts`.
-- Tests: `decide.test.ts` (`courseScope`), `mastery.test.ts` and `course-roadmap.test.ts` (`courseModules`), `python-runner.test.ts` (`studyModule`, `studyModules`), `study-module-quiz.test.ts` (`studyModules`, the quiz shape), `turn-endpoint.test.ts`, all through `server/course`.
+- Tests: `course-spec.test.ts` and `course-spec.test-d.ts` (the spec and the course built from it), `decide.test.ts` (`pythonCourse.scope`), `mastery.test.ts` and `course-roadmap.test.ts` (`pythonCourse`), `python-runner.test.ts` (`studyModule`, `pythonCourse.studyModules`), `study-module-quiz.test.ts` (the quiz content), `turn-endpoint.test.ts`, all through `server/course`.
 
 ## Notes
 
-- `course.ts` and `study-module.ts` do not import each other. The list of available modules in `course.ts` and the list `studyModules` in `study-module.ts` are two separate lists kept in step by hand; there is no check in non-test code that they agree. `study-module-quiz.test.ts` is the content test: for every available module it checks three questions, four choices each, a valid correct index, an explanation, and that each misconception a wrong choice names resolves to one of that module's misconception responses.
-- `course.ts` mixes course data with the roadmap a student sees (`roadmapForStanding`, `presentedRoadmap`) and the redirect text. They are in one file because they all read `courseModules`.
-- `CourseModule` in `course.ts` (the full module record) is a different type from `CourseModule` in `verify-shield` (`id` and `keywords` only). `courseScope` is the bridge between them.
+- Whether a module is available is never written by hand: it is whether its spec gives it content. `study-module-quiz.test.ts` is the content test: for every available module it checks a valid correct index, an explanation, and that each misconception a wrong choice names resolves to one of that module's misconception responses.
+- `pythonCourse` is the only course the server knows. The turn handler names it once (`const course = pythonCourse`) and passes it on; once course specs are imported into the database (ADR-0004), that becomes the student's course.
+- `CourseModule` in `course.ts` (the full module record) is a different type from `CourseModule` in `verify-shield` (`id` and `keywords` only). `Course.scope` is the bridge between them.

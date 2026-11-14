@@ -1,7 +1,6 @@
-import type { StudyModule } from '../study-module'
+import type { ModuleContent } from '../course-spec'
 
-export const variablesModule: StudyModule = {
-  id: 'variables',
+export const variablesModule: ModuleContent = {
   materials: {
     heading: 'Names for values',
     body: 'A variable is a name for a value. A value has a type: a whole number (int), a decimal (float), text (str), or true or false (bool). Operators such as +, *, and >= combine values. input() reads text, and int() turns that text into a whole number.',

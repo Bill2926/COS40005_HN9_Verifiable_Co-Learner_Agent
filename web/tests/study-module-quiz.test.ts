@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { courseModules, studyModules } from '../server/course'
+import { pythonCourse } from '../server/course'
+
+const { modules: courseModules, studyModules } = pythonCourse
 
 describe('study module content', () => {
   it('covers every available course module and nothing else', () => {

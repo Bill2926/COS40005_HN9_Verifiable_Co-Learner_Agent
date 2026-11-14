@@ -1,8 +1,9 @@
 import type { RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
-import { masteryThreshold, type CourseStanding } from '../student-model'
+import type { CourseStanding } from '../student-model'
 import type { CourseScope } from '../verify-shield'
-
-export const courseTitle = 'Introduction to Programming with Python'
+import type { CourseSpec } from './course-spec'
+import { pythonCourseSpec } from './python-course'
+import type { StudyModule } from './study-module'
 
 export interface CourseModule {
   id: string
@@ -10,147 +11,78 @@ export interface CourseModule {
   name: string
   part: string
   summary: string
+  // Derived from the spec: a module is available exactly when the spec gives it content.
   available: boolean
   keywords: readonly string[]
 }
 
-// Modules 1–5 are the ones a student can study today. Modules 6–11 stay
-// closed as not available, which is what the VerifyShield reads.
-export const courseModules: readonly CourseModule[] = [
-  {
-    id: 'getting_started',
-    number: 1,
-    name: 'Getting Started with Programming and Python',
-    part: 'Foundations',
-    summary: 'What programming is, algorithms as steps, and a first program with print() and comments',
-    available: true,
-    keywords: ['Getting Started with Programming and Python'],
-  },
-  {
-    id: 'variables',
-    number: 2,
-    name: 'Variables, Data Types, and Operators',
-    part: 'Foundations',
-    summary: 'Variables, data types, operators, input(), and type casting',
-    available: true,
-    keywords: ['Variables, Data Types, and Operators'],
-  },
-  {
-    id: 'strings',
-    number: 3,
-    name: 'Working with Strings',
-    part: 'Foundations',
-    summary: 'Indexing, slicing, string methods, and f-strings',
-    available: true,
-    keywords: ['Working with Strings'],
-  },
-  {
-    id: 'conditionals',
-    number: 4,
-    name: 'Conditional Statements',
-    part: 'Control Flow',
-    summary: 'if, elif, else, nested conditions, and logical operators',
-    available: true,
-    keywords: ['Conditional Statements'],
-  },
-  {
-    id: 'loops',
-    number: 5,
-    name: 'Loops',
-    part: 'Control Flow',
-    summary: 'for, range(), while, break, continue, and nested loops',
-    available: true,
-    keywords: ['Loops'],
-  },
-  {
-    id: 'lists_and_tuples',
-    number: 6,
-    name: 'Lists and Tuples',
-    part: 'Built-in Data Structures',
-    summary: 'Creating, changing, and looping over lists and tuples',
-    available: false,
-    keywords: ['Lists and Tuples'],
-  },
-  {
-    id: 'dictionaries_and_sets',
-    number: 7,
-    name: 'Dictionaries and Sets',
-    part: 'Built-in Data Structures',
-    summary: 'Dictionaries, sets, and basic list comprehensions',
-    available: false,
-    keywords: ['Dictionaries and Sets'],
-  },
-  {
-    id: 'functions',
-    number: 8,
-    name: 'Functions',
-    part: 'Organizing Code',
-    summary: 'Defining functions, parameters, return values, and scope',
-    available: false,
-    keywords: ['Functions'],
-  },
-  {
-    id: 'modules_and_library',
-    number: 9,
-    name: 'Modules and the Standard Library',
-    part: 'Organizing Code',
-    summary: 'import, the standard library, pip, and virtual environments',
-    available: false,
-    keywords: ['Modules and the Standard Library'],
-  },
-  {
-    id: 'file_handling',
-    number: 10,
-    name: 'File Handling',
-    part: 'Working with the Real World',
-    summary: 'Reading and writing text, CSV, and JSON files',
-    available: false,
-    keywords: ['File Handling'],
-  },
-  {
-    id: 'error_handling',
-    number: 11,
-    name: 'Error Handling and Debugging',
-    part: 'Working with the Real World',
-    summary: 'Errors, try / except / finally, tracebacks, and simple tests',
-    available: false,
-    keywords: ['Error Handling and Debugging'],
-  },
-]
+// A course as the rest of the server reads it, built from its course spec. It is passed to the
+// student model and the VerifyShield; neither imports course content.
+export interface Course {
+  id: string
+  title: string
+  masteryThreshold: number
+  modules: readonly CourseModule[]
+  studyModules: readonly StudyModule[]
+  scope: CourseScope
+}
 
-export const outOfScope = [
-  'OOP: classes, inheritance, and polymorphism',
-  'DSA: complexity, stacks, queues, linked lists, trees, graphs, and hand-written sorting and searching',
-  'decorators, generators, async, and multithreading',
-  'NumPy, pandas, matplotlib, Flask, Django, and machine learning',
-] as const
+// Refuses a spec the rest of the server could not run: every turn needs a first module to study,
+// and the student model, roadmap and VerifyShield all key on module ids.
+function checkSpec(spec: CourseSpec): void {
+  if (!(spec.masteryThreshold > 0 && spec.masteryThreshold <= 1)) {
+    throw new Error(`The mastery threshold ${spec.masteryThreshold} is not a fraction above 0 and at most 1.`)
+  }
+  const [first] = spec.modules
+  if (!first) throw new Error('The course spec lists no modules.')
+  if (!first.content) throw new Error(`The first module, ${first.id}, has no content to study.`)
+  const ids = new Set<string>()
+  let partIndex = 0
+  for (const module of spec.modules) {
+    if (ids.has(module.id)) throw new Error(`Two modules have the same id, ${module.id}.`)
+    ids.add(module.id)
+    const index = spec.parts.indexOf(module.part)
+    if (index === -1) {
+      throw new Error(`Module ${module.id} is in part "${module.part}", which the course spec does not list.`)
+    }
+    // Modules run through the parts in the order the spec lists them, so a part is never split.
+    if (index < partIndex) {
+      throw new Error(`Module ${module.id} is in part "${module.part}", out of the order the course spec lists its parts.`)
+    }
+    partIndex = index
+  }
+}
 
-export const outOfCourseKeywords = [
-  'classes',
-  'inheritance',
-  'polymorphism',
-  'algorithm complexity',
-  'stacks',
-  'queues',
-  'linked lists',
-  'trees',
-  'graphs',
-  'hand-written sorting and searching',
-  'decorators',
-  'generators',
-  'async',
-  'multithreading',
-  'numpy',
-  'pandas',
-  'matplotlib',
-  'flask',
-  'django',
-  'machine learning',
-] as const
+export function courseFromSpec(spec: CourseSpec): Course {
+  checkSpec(spec)
+  const modules = spec.modules.map((module, index) => ({
+    id: module.id,
+    number: index + 1,
+    name: module.name,
+    part: module.part,
+    summary: module.summary,
+    available: module.content !== undefined,
+    keywords: module.keywords,
+  }))
+  const studyModules = spec.modules.flatMap(module =>
+    module.content ? [{ id: module.id, ...module.content }] : [],
+  )
+  return {
+    id: spec.courseId,
+    title: spec.title,
+    masteryThreshold: spec.masteryThreshold,
+    modules,
+    studyModules,
+    scope: { modules, outOfCourseKeywords: spec.outOfCourseKeywords },
+  }
+}
 
-export const courseScope: CourseScope = {
-  modules: courseModules,
-  outOfCourseKeywords,
+// The one course there is today. Until courses are imported into the database (ADR-0004), the
+// turn handler and the routes read this.
+export const pythonCourse: Course = courseFromSpec(pythonCourseSpec)
+
+export function studyModule(course: Course, id: string): StudyModule | undefined {
+  return course.studyModules.find(module => module.id === id)
 }
 
 export interface RoadmapModule {
@@ -163,9 +95,9 @@ export interface RoadmapModule {
   current: boolean
 }
 
-export function roadmapForStanding(standing: CourseStanding): RoadmapModule[] {
-  return courseModules.map((module) => {
-    const placed = placeOnRoadmap(module, standing)
+export function roadmapForStanding(course: Course, standing: CourseStanding): RoadmapModule[] {
+  return course.modules.map((module) => {
+    const placed = placeOnRoadmap(course, module, standing)
     return {
       id: module.id,
       number: module.number,
@@ -190,11 +122,11 @@ interface RoadmapPlace {
 // Shown on an open module that has reached the threshold on understanding alone.
 const passExerciseReason = 'Pass an exercise to master this module.'
 
-function placeOnRoadmap(module: CourseModule, standing: CourseStanding): RoadmapPlace {
+function placeOnRoadmap(course: Course, module: CourseModule, standing: CourseStanding): RoadmapPlace {
   const mastery = standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0
   const unlocked = standing.unlockedModuleIds.includes(module.id)
   const passedExercise = standing.passedExerciseModuleIds.includes(module.id)
-  const atThreshold = mastery >= masteryThreshold
+  const atThreshold = mastery >= course.masteryThreshold
   // A module is only mastered with a passed exercise; at the threshold without
   // one it stays open and says so.
   const state = !unlocked ? 'closed' : atThreshold && passedExercise ? 'mastered' : 'open'
@@ -216,16 +148,16 @@ function shownMastery(mastery: number): number {
   return Math.floor(mastery * 100) / 100
 }
 
-export function closedReasonFor(module: CourseModule): string {
+function closedReasonFor(course: Course, module: CourseModule): string {
   if (!module.available) return 'Not available yet'
-  const previous = courseModules.find(item => item.number === module.number - 1)
+  const previous = course.modules.find(item => item.number === module.number - 1)
   if (!previous) return 'Not available yet'
   return `Needs Module ${previous.number}: ${previous.name} mastered`
 }
 
-export function presentedRoadmap(standing: CourseStanding): StudentRoadmapModule[] {
-  return courseModules.map((module) => {
-    const placed = placeOnRoadmap(module, standing)
+export function presentedRoadmap(course: Course, standing: CourseStanding): StudentRoadmapModule[] {
+  return course.modules.map((module) => {
+    const placed = placeOnRoadmap(course, module, standing)
     const named = {
       id: module.id,
       name: module.name,
@@ -236,7 +168,7 @@ export function presentedRoadmap(standing: CourseStanding): StudentRoadmapModule
     // A closed module shows the lock and the reason, and no mastery: a number
     // is only shown where it means something.
     if (placed.state === 'closed') {
-      return { ...named, state: 'closed', closedReason: closedReasonFor(module) }
+      return { ...named, state: 'closed', closedReason: closedReasonFor(course, module) }
     }
     if (placed.masteryReason) {
       return { ...named, state: placed.state, mastery: shownMastery(placed.mastery), masteryReason: placed.masteryReason }
@@ -245,17 +177,17 @@ export function presentedRoadmap(standing: CourseStanding): StudentRoadmapModule
   })
 }
 
-export function redirectText(scope: string, currentModuleId: string): string {
-  const current = courseModules.find(module => module.id === currentModuleId)
+export function redirectText(course: Course, scope: string, currentModuleId: string): string {
+  const current = course.modules.find(module => module.id === currentModuleId)
   const currentName = current?.name ?? 'this module'
   if (scope === 'out_of_course') {
     return `That's outside this course. Let's stay with ${currentName}.`
   }
 
-  const target = courseModules.find(module => module.id === scope)
+  const target = course.modules.find(module => module.id === scope)
   if (!target) return `That's outside this course. Let's stay with ${currentName}.`
 
-  const previous = courseModules.find(module => module.number === target.number - 1)
+  const previous = course.modules.find(module => module.number === target.number - 1)
   const where = target.available
     ? `which opens after you master ${previous?.name ?? 'the previous module'}`
     : 'which is not available yet'

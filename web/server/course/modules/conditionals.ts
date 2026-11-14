@@ -1,7 +1,6 @@
-import type { StudyModule } from '../study-module'
+import type { ModuleContent } from '../course-spec'
 
-export const conditionalsModule: StudyModule = {
-  id: 'conditionals',
+export const conditionalsModule: ModuleContent = {
   materials: {
     heading: 'Choosing a path',
     body: 'if, elif, and else choose which steps run. Python checks the conditions from top to bottom and runs only the first branch that is true. Conditions can be nested, and and, or, and not combine them.',

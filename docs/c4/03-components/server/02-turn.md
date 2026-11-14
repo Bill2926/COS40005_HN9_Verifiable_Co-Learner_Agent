@@ -28,9 +28,9 @@ flowchart LR
 
   turnRoute -->|"handleTurn, streamTurn,<br/>UnknownExerciseError"| handleTurn
   handleTurn -->|"decide"| shield
-  handleTurn -->|"courseModules, studyModule,<br/>canonicalModuleId, presentedRoadmap,<br/>courseScope, ..."| course
+  handleTurn -->|"pythonCourse, studyModule,<br/>canonicalModuleId, presentedRoadmap,<br/>redirectText, ..."| course
   handleTurn -->|"moveKey, roleTable"| agents
-  handleTurn -->|"estimateCourse, standingFor,<br/>furthestUnlockedModuleId, masteryThreshold,<br/>createMemoryEvidenceStore"| studentModel
+  handleTurn -->|"estimateCourse, standingFor,<br/>furthestUnlockedModuleId,<br/>createMemoryEvidenceStore"| studentModel
   handleTurn -.->|"type: CourseEstimate, CourseStanding,<br/>EvidenceStore"| studentModel
   handleTurn -.->|"type: Agents, Move, TeacherContext,<br/>DeskmateContext, SubmissionCheck"| agents
   handleTurn -->|"createMemoryQuizAnswerStore"| quizStore
@@ -52,7 +52,7 @@ flowchart LR
 
 ## Verified imports
 
-- Runtime: `course` (`courseModules`, `studyModule`, `canonicalModuleId`, roadmap helpers), `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, `masteryThreshold`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
+- Runtime: `course` (`pythonCourse`, named once as the turn's `course` and passed to every helper, the student model and `decide`; `studyModule`, `canonicalModuleId`, roadmap helpers), `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
 - Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`, `storage/quiz-answer-store` (`QuizAnswerStore`, `QuizAnswerRow`; its in-memory version is used at runtime when no store is passed).
 - It imports no Supabase code. The model, the stores and the options are passed in as arguments (`handleTurn(request, store, agents, options)`), which is why `turn-endpoint.test.ts` can run it with in-memory stores.
 
