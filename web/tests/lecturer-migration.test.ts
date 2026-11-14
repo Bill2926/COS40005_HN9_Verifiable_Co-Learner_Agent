@@ -4,6 +4,7 @@ import { expect, it } from 'vitest'
 
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
 const lecturerMigration = '20261114085830_lecturer_enrollments_and_course_history.sql'
+const thresholdMigration = '20261114091244_mastery_threshold_and_module_unlocks.sql'
 
 it('backfills students, enrolls new students, seeds history and keeps both ledgers private', async () => {
   const db = new PGlite()
@@ -53,6 +54,20 @@ it('backfills students, enrolls new students, seeds history and keeps both ledge
     expect((await db.query('select course_id, action, actor_email from public.course_history')).rows).toEqual([
       { course_id: 'intro_python', action: 'seeded', actor_email: 'lecturer@example.com' },
     ])
+
+    const setThreshold = (email: string, value: number) => db.query(
+      "select public.set_course_mastery_threshold('intro_python', $1, $2) as saved", [email, value],
+    )
+    await db.exec('reset role')
+    await db.exec(await readFile(new URL(thresholdMigration, migrations), 'utf8'))
+    await db.exec('set role authenticated')
+    await expect(setThreshold('lecturer@example.com', 0.99)).rejects.toMatchObject({ code: '42501' })
+    await db.exec('reset role; set role service_role')
+    expect((await setThreshold('other@example.com', 0.99)).rows).toEqual([{ saved: false }])
+    expect((await setThreshold('lecturer@example.com', 0.99)).rows).toEqual([{ saved: true }])
+    expect((await setThreshold('lecturer@example.com', 0.99)).rows).toEqual([{ saved: true }])
+    expect((await db.query("select previous_threshold, mastery_threshold from public.course_history where action = 'mastery_threshold_changed'")).rows)
+      .toEqual([{ previous_threshold: 0.9, mastery_threshold: 0.99 }])
   }
   finally {
     await db.close()

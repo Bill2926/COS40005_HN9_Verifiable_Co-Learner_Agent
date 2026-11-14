@@ -63,5 +63,7 @@ flowchart LR
 
 ## Notes
 
+- Each turn reads the current course threshold and uses the resulting standing for the roadmap and VerifyShield. The server records newly opened modules in `module_unlocks`. Decisions include the threshold used on that turn.
+
 - Render text is streamed straight from the model to the student. In this file there is no check of the rendered text, only of the proposed move. See the note in [server/03-verify-shield.md](03-verify-shield.md).
 - If a model call fails, the student sees a fixed fallback message and the server logs the cause with `console.error`.

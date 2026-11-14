@@ -18,6 +18,7 @@ export interface DecisionRecord {
   masteries: readonly DecisionMastery[]
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
+  masteryThreshold: number
 }
 
 export interface DecisionQuery {

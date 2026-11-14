@@ -34,6 +34,7 @@ export function createSupabaseDecisionLogStore(options: {
         masteries: record.masteries.map(item => ({ ...item })),
         unlocked_module_ids: [...record.unlockedModuleIds],
         verify_shield_on: record.verifyShieldOn,
+        mastery_threshold: record.masteryThreshold,
       })
       if (result.error) throw new Error(result.error.message)
     },
@@ -42,7 +43,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -72,6 +73,7 @@ interface DecisionRow {
   masteries: unknown
   unlocked_module_ids: unknown
   verify_shield_on: boolean
+  mastery_threshold: number
 }
 
 function presentDecision(row: DecisionRow): DecisionRecord {
@@ -96,6 +98,7 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     masteries: masteriesFrom(row.masteries),
     unlockedModuleIds: stringsFrom(row.unlocked_module_ids),
     verifyShieldOn: row.verify_shield_on,
+    masteryThreshold: row.mastery_threshold,
   }
 }
 

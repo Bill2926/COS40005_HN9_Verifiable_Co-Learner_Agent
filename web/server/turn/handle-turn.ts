@@ -4,7 +4,7 @@ import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roa
 import { createMemoryCourseStore, type CourseStore } from '../storage/course-store'
 import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
-import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore } from '../student-model'
+import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore, type UnlockStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
@@ -56,6 +56,7 @@ export interface TurnOptions {
   decisions?: DecisionLogStore
   evidence?: EvidenceStore
   quizAnswers?: QuizAnswerStore
+  unlocks?: UnlockStore
   // Where the course is read from, once a turn, and which course. Without them the turn is about
   // the Python course held in memory.
   courses?: CourseStore
@@ -123,7 +124,25 @@ async function* streamTurnBody(
     ledger.forStudent(studentId),
     store.resumePoint(studentId),
   ])
-  let estimate = estimateCourse(course, rows)
+  const unlocks = options?.unlocks
+  let recordedUnlocks = await unlocks?.forStudent(studentId) ?? []
+  let legacyUnlocks: readonly string[] = []
+  if (course.legacyUnlocks) {
+    const { before, threshold } = course.legacyUnlocks
+    const legacyEvidence = rows.filter(row => Date.parse(row.time) < Date.parse(before))
+    const legacy = estimateCourse({ ...course, masteryThreshold: threshold }, legacyEvidence)
+    legacyUnlocks = legacy.unlockedModuleIds
+  }
+  async function refreshEstimate(evidence: typeof rows): Promise<CourseEstimate> {
+    const estimate = estimateCourse(course, evidence, [...recordedUnlocks, ...legacyUnlocks])
+    const newlyUnlocked = estimate.unlockedModuleIds.filter(id => !recordedUnlocks.includes(id))
+    if (unlocks && newlyUnlocked.length) {
+      recordedUnlocks = await unlocks.record(studentId, newlyUnlocked)
+      return estimateCourse(course, evidence, recordedUnlocks)
+    }
+    return estimate
+  }
+  let estimate = await refreshEstimate(rows)
   const settled = await viewPlacement(course, studentId, store, estimate, knownPoint)
   let placement = settled.placement
   const openedPoint = settled.point
@@ -186,7 +205,7 @@ async function* streamTurnBody(
     // Only a stored answer feeds the ledger (through the quiz store), so mastery
     // is taken again only then; an invalid or repeat answer leaves it untouched.
     if (marked.stored) {
-      standing = standingFor(estimateCourse(course, await ledger.forStudent(studentId)), placement.module.id)
+      standing = standingFor(await refreshEstimate(await ledger.forStudent(studentId)), placement.module.id)
     }
     // A wrong answer brings the agents in, as a failed submission does; a right
     // answer, and a repeat of an answered question, does not.
@@ -213,7 +232,7 @@ async function* streamTurnBody(
       testsPassed: body.results.filter(result => result.passed).length,
       testsTotal: body.results.length,
     })
-    estimate = estimateCourse(course, await ledger.forStudent(studentId))
+    estimate = await refreshEstimate(await ledger.forStudent(studentId))
     standing = standingFor(estimate, placement.module.id)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
@@ -292,7 +311,7 @@ async function* introduceModule(
   await recordDecisions(studentId, [
     ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
     ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
-  ], snapshot, options?.decisions)
+  ], snapshot, placement.course.masteryThreshold, options?.decisions)
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
@@ -461,7 +480,7 @@ async function* answerMessage(
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
   const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, options?.decisions, turnId, recordedAt)
+  await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, placement.course.masteryThreshold, options?.decisions, turnId, recordedAt)
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
   let teacherFailed = false
@@ -498,7 +517,7 @@ async function* answerMessage(
   const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
   const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, options?.decisions, turnId, recordedAt)
+  await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, placement.course.masteryThreshold, options?.decisions, turnId, recordedAt)
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
 
@@ -577,6 +596,7 @@ async function recordDecisions(
   studentId: string,
   ruled: readonly { proposal: Proposal, verdict: Verdict }[],
   snapshot: TurnSnapshot,
+  masteryThreshold: number,
   decisions: DecisionLogStore | undefined,
   turnId = crypto.randomUUID(),
   time = new Date().toISOString(),
@@ -598,6 +618,7 @@ async function recordDecisions(
       masteries: snapshot.masteries.map(item => ({ ...item })),
       unlockedModuleIds: [...snapshot.unlockedModuleIds],
       verifyShieldOn: snapshot.verifyShieldOn,
+      masteryThreshold,
     })
   }
 }

@@ -1,5 +1,7 @@
 # Component: lecturer
 
+`POST /api/lecturer` saves an owned course’s mastery threshold between 0.5 and 0.99. The Supabase function locks the course row and writes the change and history entry in the same transaction. History records the previous and new values, lecturer and time.
+
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
 `GET /api/lecturer` verifies the Supabase session and passes its email to `handleLecturer`. The handler checks the lecturer allowlist and returns 401 for a missing session or 403 for an email outside the list.

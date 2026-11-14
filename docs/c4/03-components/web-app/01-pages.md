@@ -43,7 +43,7 @@ flowchart LR
   index ==>|"/turn, /api/admin"| server
   admin ==>|"/api/admin"| server
   lecturer ==>|"middleware: signed-in"| mw
-  lecturer ==>|"GET /api/lecturer"| server
+  lecturer ==>|"GET and POST /api/lecturer"| server
   signin ==>|"GET /api/lecturer"| server
 
   style pages fill:none,stroke:#8b949e,stroke-dasharray:5 4
@@ -57,7 +57,7 @@ flowchart LR
 | `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. On the server it redirects a signed-in user to `/`. Plays a first-visit intro (`sign-in/intro`). |
 | `pages/home.vue` | Public Home page: a general Python roadmap, the shield diagram, the sample turn and the team. |
 | `pages/admin.vue` | Product-owner page: model provider settings, VerifyShield switch, newest 100 decisions with filters, shown 10 per page. Shows a refusal on 403. |
-| `pages/lecturer.vue` | Shows course cards with enrollment counts and course history for the signed-in lecturer. Sign-in routes lecturers here when the lecturer endpoint authorizes the session. |
+| `pages/lecturer.vue` | Shows owned courses, enrollment counts and course history. Lecturers can save a mastery threshold between 50% and 99%. Sign-in routes authorized lecturers here. |
 | `app.vue`, `app.config.ts` | `UApp` with `NuxtPage`, light colour mode, indigo and slate palette. |
 
 ## Verified imports
