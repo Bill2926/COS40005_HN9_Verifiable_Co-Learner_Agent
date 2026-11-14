@@ -23,6 +23,7 @@ flowchart LR
   studentModel["<b>student-model/index.ts</b>"]:::near
   conversation["<b>storage/conversation-store.ts</b>"]:::near
   decisionLog["<b>storage/decision-log.ts</b>"]:::near
+  quizStore["<b>storage/quiz-answer-store.ts</b>"]:::near
   turnTypes["<b>shared/turn.ts</b>"]:::near
 
   turnRoute -->|"handleTurn, streamTurn,<br/>UnknownExerciseError"| handleTurn
@@ -32,6 +33,7 @@ flowchart LR
   handleTurn -->|"estimateCourse, standingFor,<br/>furthestUnlockedModuleId, masteryThreshold,<br/>createMemoryEvidenceStore"| studentModel
   handleTurn -.->|"type: CourseEstimate, CourseStanding,<br/>EvidenceStore"| studentModel
   handleTurn -.->|"type: Agents, Move, TeacherContext,<br/>DeskmateContext, SubmissionCheck"| agents
+  handleTurn -->|"createMemoryQuizAnswerStore"| quizStore
   handleTurn -.->|"type: ConversationStore"| conversation
   handleTurn -.->|"type: DecisionLogStore"| decisionLog
   handleTurn -.->|"type: RedrawState, TurnEvent, ..."| turnTypes
@@ -57,7 +59,7 @@ flowchart LR
 ## Importers and tests
 
 - Imported by `routes/turn.post.ts`.
-- Tests: `turn-endpoint.test.ts`, `admin-handler.test.ts`.
+- Tests: `turn-endpoint.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts`, `admin-handler.test.ts` — all call `handleTurn` with in-memory stores.
 
 ## Notes
 

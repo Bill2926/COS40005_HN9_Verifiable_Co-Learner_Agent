@@ -2,7 +2,7 @@
 
 > [C4 index](../../README.md) / Level 3: Components / Web app
 
-The panels of the workspace: conversation, course roadmap (list and canvas), materials and practice, editor.
+The panels of the workspace: conversation, course roadmap (list and canvas), materials, the module quiz, practice and editor.
 `web/app/components/workspace/`. Part of [web-app/00-overview.md](00-overview.md).
 
 Legend: solid = runtime import (dashed lines are not used here because every `shared/turn` import is a type and
@@ -25,6 +25,7 @@ flowchart LR
     cr["<b>CourseRoadmap</b><br/>Roadmap list"]:::comp
     rc["<b>RoadmapCanvas</b><br/>Roadmap canvas"]:::comp
     wa["<b>WorkingArea</b><br/>Learn and Practice tabs"]:::comp
+    qz["<b>QuizPanel</b><br/>Three questions, result<br/>once answered"]:::comp
     pp["<b>PracticePanel</b><br/>Run, Submit, results"]:::comp
     pe["<b>PythonEditor</b>"]:::comp
     px["<b>PythonExample</b>"]:::comp
@@ -47,8 +48,10 @@ flowchart LR
   cm -->|"parseChatMarkdown"| chatmd
   rc -->|"createArrangementStore,<br/>layout maths"| arr
   wa --> pp
+  wa --> qz
   wa --> px
   wa --> it
+  qz --> it
   pp --> pe
   pp --> it
   pp -->|"createDraftStore,<br/>draftAfterSwitch"| drafts
@@ -69,7 +72,8 @@ flowchart LR
 | `ChatMarkdown.vue`, `ChatInline.vue` | Render the small Markdown subset of a reply from the tree that `chat-markdown.ts` produces (never raw HTML). |
 | `CourseRoadmap.vue` | Roadmap as a list grouped by part, with mastery bars, the threshold mark and the reason a module is closed. Emits `selectModule` and `prefetchModule`. |
 | `RoadmapCanvas.vue` | Roadmap as a canvas: draggable cards, zoom and pan, connectors. The student's arrangement is read and written through `createArrangementStore(localStorage, ...)`. |
-| `WorkingArea.vue` | Learn mode (materials, example) and Practice mode (the practice panel). In the floating canvas layout it shows Learn only. |
+| `WorkingArea.vue` | Learn mode (materials, example, the module quiz) and Practice mode (the practice panel). In the floating canvas layout it shows Learn only. Passes the quiz's `answer` event up as `quizAnswer`, which the page binds as `@quiz-answer`. |
+| `QuizPanel.vue` | The module's three questions under the materials, four choices each. A choice on an unanswered question emits `answer`, which the page sends as a `quiz_answer` turn; the server marks it. Once a question is answered, its result (right or wrong, the correct choice, the explanation) comes back in the working area, and the student can click other choices to explore without another turn, because only the first answer counts. |
 | `PracticePanel.vue` | Exercise chips, editor, Run and Submit. Runs code and tests in the Pyodide worker, keeps the draft in `localStorage` per student and exercise, emits `draft`, `run`, `submit`. |
 | `PythonEditor.vue` | CodeMirror 6 editor bound with `v-model`. |
 | `PythonExample.vue` | Read-only, highlighted code example. |
@@ -78,7 +82,7 @@ flowchart LR
 ## Verified imports
 
 - As drawn. `CourseRoadmap.vue` and `ConversationPanel.vue` import only types from `shared/turn` (and `ChatMarkdown`).
-- Type-only imports of `shared/turn`: `ConversationPanel`, `CourseRoadmap`, `PracticePanel`, `RoadmapCanvas`, `WorkingArea`. `ChatInline` has a type-only import of `workspace/chat-markdown`.
+- Type-only imports of `shared/turn` (through the `#shared/turn` alias): `ConversationPanel`, `CourseRoadmap`, `PracticePanel`, `QuizPanel` (`QuizQuestionView`), `RoadmapCanvas`, `WorkingArea`. `ChatInline` has a type-only import of `workspace/chat-markdown`.
 - `PracticePanel` also has a runtime import of `python/runner` (`RunStopped`) and a dynamic import of `python/browser-runner`.
 - `PythonEditor` and `PythonExample` load `codemirror`, `@codemirror/lang-python`, `@codemirror/state` and `python/highlight` with dynamic `import()` inside `onMounted`.
 - Imported by: `pages/index.vue` (four panels); everything else is imported by sibling files only.

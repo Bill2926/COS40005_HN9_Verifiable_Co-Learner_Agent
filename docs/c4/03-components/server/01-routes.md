@@ -37,7 +37,7 @@ flowchart LR
   turnRoute -->|"sessionStudentId"| studentId
   turnRoute -->|"handleTurn, streamTurn,<br/>UnknownExerciseError"| handleTurn
   turnRoute -->|"agentsForTurn"| agents
-  turnRoute -->|"5 createSupabase...Store"| stores
+  turnRoute -->|"6 createSupabase...Store"| stores
   turnRoute -->|"verifyShieldForTurn"| shield
   adminRoute -->|"sessionEmail"| studentId
   adminRoute -->|"handleAdmin and 4 error classes"| handleAdmin
@@ -57,7 +57,7 @@ flowchart LR
 
 ## Verified imports
 
-- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-evidence-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `verify-shield` (`verifyShieldForTurn`), `turn/handle-turn`.
+- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-evidence-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `verify-shield` (`verifyShieldForTurn`), `turn/handle-turn`.
 - `admin.post.ts`: `shared/student-id`, `admin/handle-admin`, `storage/supabase-decision-log`, `supabase-model-settings-store`, `supabase-verify-shield-store`.
 - `course-outline.get.ts`: `course` (`courseModules`, `courseTitle`).
 - Auto-imported, no import statement: `defineEventHandler`, `readBody`, `createError`, `sendStream`, `setResponseHeader`, `useRuntimeConfig`.

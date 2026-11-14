@@ -67,7 +67,7 @@ counted with the python runner component in [web-app/05-python-runner.md](05-pyt
 
 | From | To | What |
 |---|---|---|
-| pages (`index.vue`), ws (5 files), py (`protocol.ts`), helpers (`arrangement.ts`) | shared | `shared/turn.ts` types: `RedrawState`, `RoadmapModule`, `ExerciseCheck`, ... |
+| pages (`index.vue`), ws (6 files), py (`protocol.ts`), helpers (`arrangement.ts`) | shared | `shared/turn.ts` types: `RedrawState`, `RoadmapModule`, `QuizQuestionView`, `ExerciseCheck`, ... |
 | ws (`ChatInline.vue`) | helpers | `InlineNode` from `workspace/chat-markdown.ts` |
 | py (`browser-runner.ts`) | py (`protocol.ts`) | `ToWorker`, `FromWorker` |
 

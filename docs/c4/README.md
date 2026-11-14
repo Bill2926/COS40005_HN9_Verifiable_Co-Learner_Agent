@@ -62,8 +62,10 @@ Components are ordered the way a request travels through them (server) or the wa
 ## How the component diagrams were checked
 
 Level 3 relationships come from the real `import` statements in `web/server`, `web/shared`, `web/app`, `web/tests`
-and `web/e2e` (164 relative imports, 0 unresolved). Where there is no import, the link is drawn thick and the file that creates it
-is named in the component's "Verified" section. Each component file ends with the importers and tests found by that check.
+and `web/e2e`: 229 imports inside the repo (204 relative and 25 through a Nuxt alias such as `#shared/turn` or
+`~/drafts/store`), 0 unresolved; 159 of them runtime and 70 type-only. Where there is no import, the link is drawn
+thick and the file that creates it is named in the component's "Verified" section. Each component file ends with the
+importers and tests found by that check.
 
 ## Reading paths
 
