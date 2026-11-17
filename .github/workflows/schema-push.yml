@@ -8,9 +8,10 @@ on:
 permissions:
   contents: read
 
+# Wait for the Check migrations job before using the temporary DB login.
 concurrency:
-  group: schema-push
-  cancel-in-progress: false
+  group: shared-supabase-migrations
+  queue: max
 
 jobs:
   push:

@@ -59,6 +59,10 @@ jobs:
   migrations:
     name: migrations
     runs-on: ubuntu-latest
+    # The dry-run also rotates the temporary DB login password.
+    concurrency:
+      group: shared-supabase-migrations
+      queue: max
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
