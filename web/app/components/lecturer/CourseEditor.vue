@@ -16,17 +16,26 @@ const moduleId = ref('')
 const message = ref('')
 const errorMessage = ref('')
 const busy = ref(false)
+const hasDraft = ref(false)
 
 const selected = computed(() => spec.value?.modules.find(module => module.id === moduleId.value) ?? null)
 
 onMounted(load)
 
-async function load() {
+async function load(): Promise<boolean> {
   errorMessage.value = ''
-  const draft = await $fetch<CourseSpec | null>(`/api/lecturer/spec?courseId=${props.courseId}&draft=1`)
-  const published = draft ?? await $fetch<CourseSpec>(`/api/lecturer/spec?courseId=${props.courseId}`)
-  spec.value = structuredClone(published) as Editable<CourseSpec>
-  moduleId.value = spec.value?.modules[0]?.id ?? ''
+  try {
+    const draft = await $fetch<CourseSpec | null>(`/api/lecturer/spec?courseId=${props.courseId}&draft=1`, { responseType: 'json' })
+    hasDraft.value = draft !== null
+    const published = draft ?? await $fetch<CourseSpec>(`/api/lecturer/spec?courseId=${props.courseId}`, { responseType: 'json' })
+    spec.value = structuredClone(published) as Editable<CourseSpec>
+    if (!spec.value.modules.some(module => module.id === moduleId.value)) moduleId.value = spec.value.modules[0]?.id ?? ''
+    return true
+  }
+  catch (error) {
+    errorMessage.value = error instanceof Error ? `The course could not be loaded: ${error.message}` : 'The course could not be loaded.'
+    return false
+  }
 }
 
 async function save(event: 'save' | 'publish' | 'discard') {
@@ -35,11 +44,15 @@ async function save(event: 'save' | 'publish' | 'discard') {
   errorMessage.value = ''
   message.value = ''
   try {
-    await $fetch('/api/lecturer/spec', {
-      method: 'POST',
-      body: event === 'save' ? { event, spec: spec.value } : { event },
-    })
-    message.value = event === 'publish' ? 'Published.' : event === 'discard' ? 'Draft discarded.' : 'Draft saved.'
+    // Publishing sends what is on screen: save it first, so unsaved edits are never lost.
+    if (event !== 'discard') {
+      await $fetch('/api/lecturer/spec', { method: 'POST', body: { event: 'save', spec: spec.value } })
+      hasDraft.value = true
+    }
+    if (event !== 'discard') message.value = 'Draft saved.'
+    if (event !== 'save') await $fetch('/api/lecturer/spec', { method: 'POST', body: { event } })
+    // The message states what the server did; a failed reload adds its own error beside it.
+    message.value = event === 'publish' ? 'Published. Students now see this version.' : event === 'discard' ? 'Draft discarded.' : 'Draft saved.'
     if (event !== 'save') await load()
   }
   catch (error) {
@@ -134,18 +147,20 @@ function moveBlock(index: number, delta: number) {
 </script>
 
 <template>
+  <p v-if="!spec && errorMessage" role="alert" class="text-sm text-rose-700">{{ errorMessage }}</p>
   <section v-if="spec" class="flex flex-col gap-6 rounded-lg border border-default bg-default p-4 md:p-8" aria-label="Course editor">
     <div class="flex flex-wrap gap-2">
       <button type="button" class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent" :disabled="busy" @click="save('save')">Save draft</button>
       <button type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" :disabled="busy" @click="save('publish')">Publish</button>
       <button type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" :disabled="busy" @click="save('discard')">Discard draft</button>
       <a class="inline-flex min-h-11 items-center text-sm text-brand-700 underline" :href="`/api/lecturer/spec?courseId=${courseId}`">Export published</a>
-      <a class="inline-flex min-h-11 items-center text-sm text-brand-700 underline" :href="`/api/lecturer/spec?courseId=${courseId}&draft=1`">Export draft</a>
+      <a v-if="hasDraft" class="inline-flex min-h-11 items-center text-sm text-brand-700 underline" :href="`/api/lecturer/spec?courseId=${courseId}&draft=1&download=1`">Export draft</a>
       <label class="inline-flex min-h-11 cursor-pointer items-center text-sm text-brand-700 underline">
         Import JSON
         <input type="file" accept="application/json,.json" class="sr-only" @change="importFile">
       </label>
     </div>
+    <p class="text-sm text-ink-500">{{ hasDraft ? 'Editing an unpublished draft. Students see the published course until you publish.' : 'No draft yet. Your edits become a draft when you save.' }}</p>
     <p v-if="message" role="status" class="text-sm text-emerald-700">{{ message }}</p>
     <p v-if="errorMessage" role="alert" class="text-sm text-rose-700">{{ errorMessage }}</p>
 
@@ -183,6 +198,12 @@ function moveBlock(index: number, delta: number) {
     <div v-if="selected" class="flex flex-col gap-4 border-t border-default pt-4">
       <label class="flex flex-col gap-1 text-sm">Name<input v-model="selected.name" class="min-h-11 rounded-sm border border-ink-300 px-3"></label>
       <label class="flex flex-col gap-1 text-sm">Summary<input v-model="selected.summary" class="min-h-11 rounded-sm border border-ink-300 px-3"></label>
+      <label class="flex flex-col gap-1 text-sm">
+        Part
+        <select v-model="selected.part" class="min-h-11 rounded-sm border border-ink-300 px-3">
+          <option v-for="part in spec.parts" :key="part" :value="part">{{ part }}</option>
+        </select>
+      </label>
       <template v-if="selected.content">
         <div class="flex flex-wrap gap-2">
           <button v-for="type in ['text', 'code', 'diagram', 'image', 'video']" :key="type" type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="addBlock(type as MaterialBlock['type'])">Add {{ type }}</button>
@@ -218,14 +239,20 @@ function moveBlock(index: number, delta: number) {
         </div>
         <div v-for="question in selected.content.quiz" :key="question.id" class="flex flex-col gap-2">
           <label class="text-sm">Quiz question<input v-model="question.prompt" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-3"></label>
-          <label v-for="(choice, choiceIndex) in question.choices" :key="choiceIndex" class="text-sm">
-            Choice {{ choiceIndex + 1 }}
-            <input v-model="question.choices[choiceIndex]" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-3">
-          </label>
+          <fieldset class="flex flex-col gap-2">
+            <legend class="text-sm">Choices (mark the correct one)</legend>
+            <div v-for="(choice, choiceIndex) in question.choices" :key="choiceIndex" class="flex items-center gap-2">
+              <input v-model="question.correctIndex" type="radio" :name="`correct-${question.id}`" :value="choiceIndex" class="size-5" :aria-label="`Choice ${choiceIndex + 1} is correct`">
+              <input v-model="question.choices[choiceIndex]" class="min-h-11 min-w-0 flex-1 rounded-sm border border-ink-300 px-3 text-sm" :aria-label="`Choice ${choiceIndex + 1}`">
+            </div>
+          </fieldset>
+          <label class="text-sm">Explanation<textarea v-model="question.explanation" rows="2" class="mt-1 w-full rounded-sm border border-ink-300 p-2" /></label>
         </div>
         <div v-for="exercise in selected.content.exercises" :key="exercise.id" class="flex flex-col gap-2">
           <label class="text-sm">Exercise<input v-model="exercise.title" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-3"></label>
           <textarea v-model="exercise.statement" rows="3" class="w-full rounded-sm border border-ink-300 p-2 text-sm" :aria-label="`Statement for ${exercise.title}`" />
+          <textarea v-model="exercise.starterCode" rows="3" class="w-full rounded-sm border border-ink-300 p-2 font-mono text-sm" :aria-label="`Starter code for ${exercise.title}`" />
+          <textarea v-model="exercise.referenceSolution" rows="3" class="w-full rounded-sm border border-ink-300 p-2 font-mono text-sm" :aria-label="`Reference solution for ${exercise.title}`" />
         </div>
         <div v-for="response in selected.content.misconceptionResponses" :key="response.id">
           <label class="text-sm">Misconception {{ response.id }}

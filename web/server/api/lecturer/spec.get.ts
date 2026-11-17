@@ -19,8 +19,12 @@ export default defineEventHandler(async (event) => {
     ? await handleCourseSpec({ ...identity, action: 'draft' })
     : await handleCourseSpec({ ...identity, action: 'export' })
   setResponseHeader(event, 'Content-Type', 'application/json; charset=utf-8')
-  if (query.draft !== '1') {
-    setResponseHeader(event, 'Content-Disposition', 'attachment; filename="intro_python.json"')
+  if (query.draft === '1' && query.download === '1' && spec === null) {
+    throw createError({ statusCode: 404, statusMessage: 'There is no draft to export.' })
+  }
+  if (query.draft !== '1' || query.download === '1') {
+    const name = query.draft === '1' ? 'intro_python-draft.json' : 'intro_python.json'
+    setResponseHeader(event, 'Content-Disposition', `attachment; filename="${name}"`)
   }
   return JSON.stringify(spec, null, 2) + '\n'
 })

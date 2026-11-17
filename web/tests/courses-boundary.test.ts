@@ -41,6 +41,12 @@ describe('courses boundary', () => {
       const selected = await client.from('courses').select('spec').eq('id', 'intro_python')
       expect(selected.error?.code).toBe(permissionDenied)
       expect(JSON.stringify(selected)).not.toContain('referenceSolution')
+      // The lecturer's unpublished course draft is never readable by a student.
+      const draft = await client.from('courses').select('draft').eq('id', 'intro_python')
+      expect(draft.error?.code).toBe(permissionDenied)
+      expect(draft.data).toBeNull()
+      const drafted = await client.from('courses').update({ draft: { courseId: 'intro_python' } }).eq('id', 'intro_python')
+      expect(drafted.error?.code).toBe(permissionDenied)
 
       const inserted = await client.from('courses').insert({ id: 'forged', title: 'Forged', spec: { courseId: 'forged', title: 'Forged' } })
       expect(inserted.error?.code).toBe(permissionDenied)

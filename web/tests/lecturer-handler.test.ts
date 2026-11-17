@@ -98,6 +98,39 @@ describe('lecturer course spec', () => {
     expect(JSON.stringify(courses)).not.toContain('referenceSolution')
   })
 
+  it.each(['export', 'draft', 'preview', 'publish', 'discard', 'import', 'save'] as const)(
+    'refuses %s to a non-lecturer with 403 and touches no draft',
+    async (action) => {
+      const store = {
+        exportSpec: vi.fn(), importSpec: vi.fn(), readDraft: vi.fn(), saveDraft: vi.fn(), discardDraft: vi.fn(),
+      }
+      const request = { email: 'an@example.com', lecturerEmails, store }
+      const call = action === 'import' || action === 'save'
+        ? handleCourseSpec({ ...request, action, json: JSON.stringify(pythonCourseSpec) })
+        : handleCourseSpec({ ...request, action, courseId: python.id } as Parameters<typeof handleCourseSpec>[0] & { action: 'export' })
+      await expect(call).rejects.toMatchObject({ statusCode: 403 })
+      for (const method of Object.values(store)) expect(method).not.toHaveBeenCalled()
+    },
+  )
+
+  it('saves an edited hint to the draft, survives a reload, and students see it only after publish', async () => {
+    const { download, request } = setup()
+    const edited = structuredClone(pythonCourseSpec)
+    edited.modules[0]!.content!.hintLadder[0] = 'Look at the first line again.'
+    await handleCourseSpec({ ...request, action: 'save', json: JSON.stringify(edited) })
+    const reloaded = await handleCourseSpec({ ...request, action: 'draft', courseId: python.id })
+    expect(reloaded?.modules[0]?.content?.hintLadder[0]).toBe('Look at the first line again.')
+    expect((await download()).modules[0]?.content?.hintLadder[0]).not.toBe('Look at the first line again.')
+    await handleCourseSpec({ ...request, action: 'publish', courseId: python.id })
+    expect((await download()).modules[0]?.content?.hintLadder[0]).toBe('Look at the first line again.')
+  })
+
+  it('refuses to publish when there is no draft and writes no history', async () => {
+    const { request } = setup()
+    await expect(handleCourseSpec({ ...request, action: 'publish', courseId: python.id })).rejects.toMatchObject({ statusCode: 400 })
+    expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
+  })
+
   it('discards a draft and leaves the published spec', async () => {
     const { download, upload, request } = setup()
     await upload({ ...pythonCourseSpec, title: 'Python Foundations' })
