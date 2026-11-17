@@ -153,6 +153,14 @@ _Avoid_: progress, score, level, SM
 **Turn**:
 One student message together with the agent messages that answer it.
 
+**Addressed agent**:
+The one agent a student names at the start of a message (`@Teacher` or `@Mai`); only that agent answers the turn. A message that names no agent is answered by both, teacher first. Naming an agent never widens what it may do: the deskmate agent still only asks peer questions or shares confusion.
+_Avoid_: mention, tag, target
+
+**Deskmate switch**:
+The student's own choice to keep the deskmate agent out of their conversations. While it is off the deskmate agent proposes nothing, so nothing of it reaches the decision log, and naming it as the addressed agent has no effect. On unless the student switches it off; it belongs to the student, across courses and devices. It is not the VerifyShield, which only the product owner switches.
+_Avoid_: Mai toggle, mute
+
 **Move**:
 A typed pedagogical action an agent proposes from a closed set; the agent writes text only for a move that has been approved.
 _Avoid_: action, intent, response
@@ -166,8 +174,12 @@ The move the VerifyShield puts in place of a teacher move about a closed module 
 _Avoid_: refusal, decline
 
 **Decision log**:
-The record of every verdict the VerifyShield reached, with what it was proposed, what it knew (including the mastery threshold in force), and whether it was switched on. It records the system, never the student's work.
+The record of every verdict the VerifyShield reached, with what it was proposed, what it knew (including the mastery threshold in force), the rule checks it made, the addressed agent of the turn, and whether it was switched on. It records the system, never the student's work.
 _Avoid_: audit log, history, evidence
+
+**Rule check**:
+One rule the VerifyShield applied to a proposed move, in order, with whether it passed and why. The last rule check is the one that decided the verdict. A verdict reached while the VerifyShield was off has none.
+_Avoid_: rule result, step
 
 **VerifyShield trace**:
 A panel, off by default, that shows the raw verdict for each turn, meant for assessors rather than students.
