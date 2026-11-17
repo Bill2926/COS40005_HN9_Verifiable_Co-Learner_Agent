@@ -32,7 +32,7 @@ flowchart LR
   auth["<b>Supabase Auth</b>"]:::ext
   cdn["<b>jsDelivr CDN</b>"]:::ext
 
-  pages -->|"imports 4 panels"| ws
+  pages -->|"imports 5 panels"| ws
   pages -->|"drafts/store, workspace/layout,<br/>sign-in/intro, activity/record,<br/>staff/landing"| helpers
   pages -->|"studentIdFromAuth,<br/>sessionStudentId"| shared
   pages ==>|"auto-registered"| home

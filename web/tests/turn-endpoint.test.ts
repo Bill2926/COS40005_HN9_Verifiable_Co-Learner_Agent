@@ -2611,7 +2611,7 @@ describe('turn endpoint', () => {
     }])
   })
 
-  it('records a module open on the student handler, not on the turn', async () => {
+  it('appends nothing when a turn opens or selects a module', async () => {
     const activity = createMemoryActivityLog()
     await handleTurn({
       sessionStudentId: signedInStudent,
