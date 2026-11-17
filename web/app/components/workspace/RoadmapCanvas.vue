@@ -3,6 +3,16 @@ import BusySpinner from '../BusySpinner.vue'
 import type { RoadmapModule } from '#shared/turn'
 import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
 
+interface CanvasNote {
+  id: string
+  title: string
+  colour: string
+  x: number
+  y: number
+  moduleId: string
+  moduleName: string
+}
+
 const props = defineProps<{
   modules: RoadmapModule[]
   course: string
@@ -12,6 +22,8 @@ const props = defineProps<{
   // The module a select turn is opening, shown with a spinner.
   selectingModuleId?: string
   positions?: readonly { moduleId: string, x: number, y: number }[]
+  notes?: readonly CanvasNote[]
+  selectedNoteId?: string
 }>()
 
 const emit = defineEmits<{
@@ -19,6 +31,8 @@ const emit = defineEmits<{
   prefetchModule: [moduleId: string]
   moved: [moduleId: string, point: Point]
   importLocal: [arrangement: Arrangement]
+  noteMoved: [noteId: string, point: Point]
+  selectNote: [noteId: string]
 }>()
 
 function onHover(event: PointerEvent, module: RoadmapModule) {
@@ -131,6 +145,81 @@ const boxes = computed(() => {
 })
 
 const lines = computed(() => connectors(props.modules, boxes.value))
+const noteCard: Size = { width: 184, height: 76 }
+const noteDrag = ref<{ id: string, point: Point } | null>(null)
+const noteStroke: Record<string, string> = {
+  ink: 'var(--color-ink-700)',
+  brand: 'var(--color-brand-600)',
+  sky: 'var(--color-sky-500)',
+  emerald: 'var(--color-emerald-500)',
+  amber: 'var(--color-amber-400)',
+  rose: 'var(--color-rose-500)',
+  purple: 'var(--color-purple-500)',
+}
+const noteSurface: Record<string, string> = {
+  ink: 'border-ink-300 bg-ink-100',
+  brand: 'border-brand-200 bg-brand-50',
+  sky: 'border-sky-200 bg-sky-50',
+  emerald: 'border-emerald-200 bg-emerald-50',
+  amber: 'border-amber-200 bg-amber-50',
+  rose: 'border-rose-200 bg-rose-50',
+  purple: 'border-purple-200 bg-purple-50',
+}
+
+function boardPoint(note: CanvasNote): boolean {
+  return Number.isFinite(note.x) && Number.isFinite(note.y) && Math.abs(note.x) <= 5 && Math.abs(note.y) <= 5
+}
+
+const noteBoxes = computed(() => {
+  const canvas = canvasSize.value
+  if (!canvas) return {} as Record<string, Box>
+  const placedNotes: Record<string, Box> = {}
+  const beside = new Map<string, number>()
+  for (const note of props.notes ?? []) {
+    let point: Point
+    if (boardPoint(note)) {
+      point = { x: note.x, y: note.y }
+    }
+    else {
+      const moduleBox = boxes.value[note.moduleId]
+      if (!moduleBox) continue
+      const index = beside.get(note.moduleId) ?? 0
+      beside.set(note.moduleId, index + 1)
+      point = pointAt(moduleBox.x, moduleBox.y + moduleBox.height + 20 + index * (noteCard.height + 16), noteCard, canvas)
+    }
+    const dragging = noteDrag.value
+    placedNotes[note.id] = placeCard(dragging?.id === note.id ? dragging.point : point, noteCard, canvas)
+  }
+  return placedNotes
+})
+
+const noteLines = computed(() => {
+  const links: { id: string, path: string, stroke: string }[] = []
+  for (const note of props.notes ?? []) {
+    const from = noteBoxes.value[note.id]
+    const to = boxes.value[note.moduleId]
+    if (!from || !to) continue
+    const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
+    const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
+    links.push({
+      id: note.id,
+      path: `M ${Math.round(start.x)} ${Math.round(start.y)} L ${Math.round(end.x)} ${Math.round(end.y)}`,
+      stroke: noteStroke[note.colour] ?? 'var(--color-brand-600)',
+    })
+  }
+  return links
+})
+
+function notePlacement(id: string) {
+  const box = noteBoxes.value[id]
+  if (!box) return { visibility: 'hidden' as const }
+  return {
+    visibility: 'visible' as const,
+    width: `${noteCard.width}px`,
+    height: `${noteCard.height}px`,
+    transform: `translate(${Math.round(box.x)}px, ${Math.round(box.y)}px)`,
+  }
+}
 const placed = computed(() => props.modules.every(module => boxes.value[module.id]))
 const cardScale = computed(() => {
   const canvas = canvasSize.value
@@ -542,6 +631,81 @@ function onPanMove(event: PointerEvent) {
   pan.value = { x: active.originX + event.clientX - active.startX, y: active.originY + event.clientY - active.startY }
 }
 
+interface NoteGesture {
+  id: string
+  pointerId: number
+  handle: HTMLElement
+  startX: number
+  startY: number
+  offsetX: number
+  offsetY: number
+  dragged: boolean
+}
+
+let noteGesture: NoteGesture | null = null
+
+function onNotePointerDown(event: PointerEvent, id: string) {
+  if (event.button !== 0 || gesture || noteGesture) return
+  const box = noteBoxes.value[id]
+  const element = canvasEl.value
+  const handle = event.currentTarget
+  if (!box || !element || !(handle instanceof HTMLElement)) return
+  event.stopPropagation()
+  const rect = element.getBoundingClientRect()
+  noteGesture = {
+    id,
+    pointerId: event.pointerId,
+    handle,
+    startX: event.clientX,
+    startY: event.clientY,
+    offsetX: toWorldX(event.clientX - rect.left) - box.x,
+    offsetY: toWorldY(event.clientY - rect.top) - box.y,
+    dragged: false,
+  }
+  try {
+    handle.setPointerCapture(event.pointerId)
+  }
+  catch {
+    // The pointer can already be gone.
+  }
+  window.addEventListener('pointermove', onNotePointerMove, true)
+  window.addEventListener('pointerup', onNotePointerUp, true)
+  window.addEventListener('pointercancel', onNotePointerUp, true)
+}
+
+function onNotePointerMove(event: PointerEvent) {
+  const active = noteGesture
+  const element = canvasEl.value
+  const limits = canvasSize.value
+  if (!active || !element || !limits || event.pointerId !== active.pointerId) return
+  if (!active.dragged && Math.hypot(event.clientX - active.startX, event.clientY - active.startY) < clickSlop) return
+  active.dragged = true
+  const rect = element.getBoundingClientRect()
+  noteDrag.value = {
+    id: active.id,
+    point: pointAt(toWorldX(event.clientX - rect.left) - active.offsetX, toWorldY(event.clientY - rect.top) - active.offsetY, noteCard, limits),
+  }
+}
+
+function onNotePointerUp(event: PointerEvent) {
+  const active = noteGesture
+  if (!active || event.pointerId !== active.pointerId) return
+  const point = noteDrag.value?.id === active.id ? noteDrag.value.point : null
+  noteGesture = null
+  noteDrag.value = null
+  window.removeEventListener('pointermove', onNotePointerMove, true)
+  window.removeEventListener('pointerup', onNotePointerUp, true)
+  window.removeEventListener('pointercancel', onNotePointerUp, true)
+  try {
+    if (active.handle.hasPointerCapture(event.pointerId)) active.handle.releasePointerCapture(event.pointerId)
+  }
+  catch {
+    // Already released.
+  }
+  if (active.dragged && point) emit('noteMoved', active.id, point)
+  else if (!active.dragged) emit('selectNote', active.id)
+}
+
 function endPan(event: PointerEvent) {
   if (!panGesture || event.pointerId !== panGesture.pointerId) return
   panGesture = null
@@ -582,6 +746,10 @@ onMounted(() => {
 onUnmounted(() => {
   observer?.disconnect()
   stopTracking()
+  noteGesture = null
+  window.removeEventListener('pointermove', onNotePointerMove, true)
+  window.removeEventListener('pointerup', onNotePointerUp, true)
+  window.removeEventListener('pointercancel', onNotePointerUp, true)
   panGesture = null
   window.removeEventListener('pointermove', onPanMove, true)
   window.removeEventListener('pointerup', endPan, true)
@@ -746,6 +914,44 @@ onUnmounted(() => {
             v-if="module.state !== 'closed' && module.masteryReason"
             class="mt-2 block text-pretty text-[11px] leading-4 text-ink-500"
           >{{ module.masteryReason }}</span>
+        </button>
+      </li>
+    </ul>
+    <svg
+      v-if="noteLines.length > 0"
+      class="pointer-events-none absolute inset-0 h-full w-full overflow-visible"
+      role="img"
+      aria-label="Note links"
+    >
+      <path
+        v-for="line in noteLines"
+        :key="line.id"
+        :d="line.path"
+        fill="none"
+        :stroke="line.stroke"
+        stroke-linecap="round"
+        stroke-width="1.5"
+      />
+    </svg>
+    <ul v-if="(notes?.length ?? 0) > 0" class="pointer-events-none absolute inset-0" aria-label="Notes on the map">
+      <li
+        v-for="note in notes ?? []"
+        :key="note.id"
+        class="pointer-events-auto absolute top-0 left-0 overflow-hidden rounded-[14px] border"
+        :class="[noteSurface[note.colour] ?? noteSurface.brand, selectedNoteId === note.id ? 'z-[3] ring-2 ring-ink-800' : 'z-[1]']"
+        :style="notePlacement(note.id)"
+      >
+        <button
+          type="button"
+          class="flex h-full w-full flex-col px-3 py-2 text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900"
+          :class="noteDrag?.id === note.id ? 'cursor-grabbing' : 'cursor-grab'"
+          :aria-label="`${note.title}, linked to ${note.moduleName}`"
+          :aria-pressed="selectedNoteId === note.id"
+          @pointerdown="onNotePointerDown($event, note.id)"
+          @dragstart.prevent
+        >
+          <span class="truncate text-sm font-semibold text-ink-900">{{ note.title }}</span>
+          <span class="mt-1 truncate text-[11px] leading-4 text-ink-500">{{ note.moduleName }}</span>
         </button>
       </li>
     </ul>

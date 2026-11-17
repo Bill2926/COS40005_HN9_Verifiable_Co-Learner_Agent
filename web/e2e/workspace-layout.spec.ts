@@ -162,7 +162,8 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
 
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toHaveCount(0)
 })
 
 test('drags a module with the mouse and leaves the current module and working area unchanged', async ({ page }) => {
@@ -183,7 +184,7 @@ test('drags a module with the mouse and leaves the current module and working ar
   await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
 
   const tick = moduleCard(page, 'Variables, Data Types, and Operators').locator('img')
   const tickBox = await tick.boundingBox()
@@ -264,7 +265,7 @@ test('moves a module anywhere on the board, and fit all brings every module back
   await expectRoadmapCanvas(page)
   await page.getByRole('button', { name: 'Fit all modules', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
-  const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+  const conversation = await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
   expect(conversation).not.toBeNull()
   const cards = page.getByRole('list', { name: 'Modules' }).getByRole('listitem')
   await expect(cards).toHaveCount(11)
@@ -621,7 +622,7 @@ async function expectRoadmapCanvas(page: Page) {
 async function expectFloatingPanels(page: Page) {
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
-  const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+  const conversation = await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
   expect(conversation).not.toBeNull()
   expect(conversation!.x + conversation!.width).toBeGreaterThan(1400)
   expect(conversation!.y).toBeLessThan(120)
@@ -648,6 +649,7 @@ async function panelBoxes(page: Page) {
   const map = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
   const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+    ?? await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
   if (!map || !conversation) return null
   return { map, working, conversation }
 }

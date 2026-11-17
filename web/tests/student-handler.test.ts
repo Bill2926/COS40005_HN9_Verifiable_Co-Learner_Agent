@@ -217,6 +217,17 @@ describe('student handler', () => {
     expect(JSON.stringify(activity.events)).not.toContain('A loop keeps')
   })
 
+  it('links a note to a module once', async () => {
+    const { activity, call } = setup()
+    const created = await call({ event: 'note_created', text: 'A loop keeps going', colour: 'brand', x: 1, y: 1 })
+    const noteId = created.mindmap.notes[0]!.id
+    await call({ event: 'note_linked', noteId, target: { kind: 'module', moduleId: 'loops' } })
+    await call({ event: 'note_linked', noteId, target: { kind: 'module', moduleId: 'loops' } })
+    const linked = await call({ event: 'open' })
+    expect(linked.mindmap.links).toHaveLength(1)
+    expect(activity.events.map(event => event.type)).toEqual(['note_created', 'note_linked'])
+  })
+
   it('rejects a note colour outside the palette', async () => {
     const { call } = setup()
     await expect(call({ event: 'note_created', text: 'Hmm', colour: 'neon', x: 0, y: 0 })).rejects.toMatchObject({
