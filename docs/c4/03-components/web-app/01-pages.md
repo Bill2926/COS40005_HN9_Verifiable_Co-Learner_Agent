@@ -82,7 +82,7 @@ flowchart LR
 - `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`.
 - `sign-in.vue`: `shared/student-id`, `sign-in/intro`.
 - `home.vue`: `shared/student-id`.
-- `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue` and `admin/students.vue`: `AdminHeader`, `admin/decisions` (type). `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
+- `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue` and `admin/students.vue`: `AdminHeader`, `admin/decisions` (type), `admin/message`. `admin/students.vue` also imports `shared/student-number`. `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
 - `AboutSampleTurn`, `AboutShieldDiagram` and `AboutLearningRoadmap` are used in templates without an import (Nuxt component auto-registration from `components/about/`).
 - Middleware is attached by name in `definePageMeta`: `index.vue` uses `['signed-in', 'staff-landing', 'workspace-layout']`; the three admin pages and `lecturer.vue` use `'signed-in'`. `home.vue` and `sign-in.vue` set none.
 - Nothing imports the pages; Nuxt routes them from the file names. No test imports them; the Playwright specs in `web/e2e/` drive them in a browser.
