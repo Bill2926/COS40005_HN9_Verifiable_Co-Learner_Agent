@@ -91,44 +91,38 @@ const stroke = {
   closed: 'var(--color-roadmap-line)',
 } as const
 
-const arrangement = computed(() => {
-  const canvas = canvasSize.value
-  if (!canvas) return null
-  return mergeArrangement(
-    defaultArrangement(props.modules.map(module => module.id), canvas),
-    savedArrangement.value,
-  )
-})
-
-// Where every card rests. A card still in its starting spot keeps clear of the
-// floating panels, which line up with the board at the starting view. A card the
-// Student has moved stays where they put it, anywhere on the unbounded board,
-// and only steps off other cards. Panels sit on the screen, not the board, so
-// once the board is zoomed or panned they can say nothing about a moved card.
+// Calculate the starting positions together, even for cards that have moved.
+// Otherwise a card can slide into a gap during a nudge and block that move.
 const settledBoxes = computed(() => {
   const canvas = canvasSize.value
-  const points = arrangement.value
-  if (!canvas || !points) return {}
-  const startingIds: string[] = []
-  const starting: Box[] = []
-  const movedIds: string[] = []
-  const moved: Box[] = []
-  for (const module of props.modules) {
-    const size = cardSizes.value[module.id]
-    const point = points[module.id]
-    if (!size || !point) continue
-    if (module.id in savedArrangement.value) {
-      movedIds.push(module.id)
-      moved.push(placeCard(point, size, canvas))
+  if (!canvas) return {}
+
+  const defaults = defaultArrangement(props.modules.map(module => module.id), canvas)
+  const points = mergeArrangement(defaults, savedArrangement.value)
+  const measured = props.modules.flatMap(({ id }) => {
+    const size = cardSizes.value[id]
+    const point = defaults[id]
+    if (!size || !point) return []
+    return [{ id, size, box: avoid(placeCard(point, size, canvas), obstacles.value, canvas) }]
+  })
+  const starting = spread(measured.map(card => card.box), canvas, 12, obstacles.value)
+  const still = []
+  const moved = []
+  for (const [index, card] of measured.entries()) {
+    const saved = points[card.id]
+    if (saved && card.id in savedArrangement.value) {
+      moved.push({ id: card.id, box: placeCard(saved, card.size, canvas) })
     }
     else {
-      startingIds.push(module.id)
-      starting.push(avoid(placeCard(point, size, canvas), obstacles.value, canvas))
+      still.push({ id: card.id, box: starting[index] ?? card.box })
     }
   }
-  const settled = spread(spread(starting, canvas, 12, obstacles.value).concat(moved), canvas, 12, [], false)
+
+  // Moved cards may lie beyond the starting board and only avoid other cards.
+  const ordered = [...still, ...moved]
+  const settled = spread(ordered.map(card => card.box), canvas, 12, [], false)
   const placedBoxes: Record<string, Box> = {}
-  ;[...startingIds, ...movedIds].forEach((id, index) => {
+  ordered.forEach(({ id }, index) => {
     const box = settled[index]
     if (box) placedBoxes[id] = box
   })

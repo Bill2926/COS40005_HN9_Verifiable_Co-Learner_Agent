@@ -85,6 +85,9 @@ export async function resetDemoMindmapPositions() {
   const ids = (await demoStudents(admin)).map(student => student.id)
   const positions = await admin.from('mindmap_positions').delete().in('student_id', ids)
   if (positions.error) throw new Error(positions.error.message)
+  const resets = await admin.from('mindmap_arrangement_resets').delete().in('student_id', ids)
+  // The same suite can run against the shared database before the migration lands.
+  if (resets.error && resets.error.code !== 'PGRST205') throw new Error(resets.error.message)
 }
 
 function clearableIds(students: readonly DemoStudent[]): string[] {
