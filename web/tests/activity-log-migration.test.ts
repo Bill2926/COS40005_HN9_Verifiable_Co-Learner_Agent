@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { expect, it } from 'vitest'
 
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
-const activityMigration = '20261117140000_activity_profile_mindmap_and_quotes.sql'
+const activityMigration = '20261117081101_activity_profile_mindmap_and_quotes.sql'
 const an = 'a11a11a1-1111-4111-8111-111111111111'
 
 it('keeps the activity log append-only and mindmap rows private to the server', async () => {

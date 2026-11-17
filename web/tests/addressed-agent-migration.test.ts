@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { expect, it } from 'vitest'
 
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
-const migration = '20261117120000_addressed_agent_and_deskmate_settings.sql'
+const migration = '20261117045708_addressed_agent_and_deskmate_settings.sql'
 
 it('adds the addressed agent to messages and decisions, and a deskmate switch per student, over existing rows', async () => {
   const db = new PGlite()

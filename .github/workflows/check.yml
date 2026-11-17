@@ -65,7 +65,9 @@ jobs:
         with:
           version: 2.117.0
       # Asks the shared project whether these files would apply. Does not write.
+      # --include-all: rename_for_loop_to_loops was never recorded, and its
+      # timestamp is older than migrations already on the project.
       - name: Dry-run pending migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --dry-run --project-ref nopyjjyimtmvuucsirxb --yes
+        run: supabase db push --dry-run --include-all --project-ref nopyjjyimtmvuucsirxb --yes

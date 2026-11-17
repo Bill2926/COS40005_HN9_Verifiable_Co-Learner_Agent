@@ -21,7 +21,8 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
+      # Same --include-all as the Check, so the unrecorded for-loop rename is applied.
       - name: Apply pending migrations
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase db push --project-ref nopyjjyimtmvuucsirxb --yes
+        run: supabase db push --include-all --project-ref nopyjjyimtmvuucsirxb --yes
