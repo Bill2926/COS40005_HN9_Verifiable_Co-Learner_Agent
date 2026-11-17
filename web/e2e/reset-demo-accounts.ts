@@ -67,6 +67,17 @@ export async function resetDemoAccounts() {
   // Each rehearsal starts with Mai switched on.
   const deskmate = await admin.from('deskmate_settings').delete().in('student_id', ids)
   if (deskmate.error) throw new Error(deskmate.error.message)
+  // A picture and a new name are the student's, so the next run starts without
+  // them: the portrait file is removed and the name returns to the seeded one.
+  const portraits = await admin.storage.from('student-files').remove(ids.map(id => `${id}/portrait`))
+  if (portraits.error) throw new Error(portraits.error.message)
+  for (const [index, account] of demoAccounts.entries()) {
+    const restored = await admin
+      .from('students')
+      .update({ display_name: account.displayName, picture_path: null })
+      .eq('id', students[index].id)
+    if (restored.error) throw new Error(restored.error.message)
+  }
 }
 
 function clearableIds(students: readonly DemoStudent[]): string[] {
