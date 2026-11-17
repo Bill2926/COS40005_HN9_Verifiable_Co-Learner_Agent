@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
 import BusySpinner from '~/components/BusySpinner.vue'
+import { messageFrom } from '~/admin/message'
 import type { AdminPayload } from '~/admin/decisions'
 
 definePageMeta({
@@ -48,7 +49,7 @@ async function onVerifyShield(event: Event) {
     await refresh()
   }
   catch (caught) {
-    switchError.value = messageFrom(caught)
+    switchError.value = messageFrom(caught, 'The settings could not be saved.')
     await refresh()
   }
   finally {
@@ -76,23 +77,11 @@ async function save() {
     savedNotice.value = 'Saved. The next turn uses these settings.'
   }
   catch (caught) {
-    saveError.value = messageFrom(caught)
+    saveError.value = messageFrom(caught, 'The settings could not be saved.')
   }
   finally {
     saving.value = false
   }
-}
-
-function messageFrom(caught: unknown): string {
-  if (typeof caught === 'object' && caught !== null) {
-    if ('statusMessage' in caught && typeof caught.statusMessage === 'string' && caught.statusMessage) {
-      return caught.statusMessage
-    }
-    if ('data' in caught && typeof caught.data === 'object' && caught.data !== null && 'statusMessage' in caught.data && typeof caught.data.statusMessage === 'string') {
-      return caught.data.statusMessage
-    }
-  }
-  return 'The settings could not be saved.'
 }
 </script>
 

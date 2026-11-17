@@ -643,6 +643,24 @@ describe('admin student numbers', () => {
     expect(viewed.students).toEqual([an, binh])
   })
 
+  it('reads the directory only when the request asks for it', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'read-back' }))
+    const students = {
+      list: async (): Promise<never> => {
+        throw new Error('The directory should not be read')
+      },
+      changeNumber: async (): Promise<never> => {
+        throw new Error('The directory should not be written')
+      },
+    }
+
+    const viewed = await handleAdmin(ownerRequest({ decisions, students, body: { event: 'read' } }))
+
+    expect(viewed.students).toEqual([])
+    expect(viewed.decisions.map(decision => decision.turnId)).toEqual(['read-back'])
+  })
+
   it('changes a number and records who changed it, from what and to what', async () => {
     const students = createMemoryStudentDirectoryStore([an, binh])
 

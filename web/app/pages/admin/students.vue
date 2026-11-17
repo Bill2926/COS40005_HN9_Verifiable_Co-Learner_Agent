@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
+import { messageFrom } from '~/admin/message'
+import { isStudentNumber, studentNumberRule } from '#shared/student-number'
 import type { AdminPayload } from '~/admin/decisions'
 
 definePageMeta({
@@ -24,7 +26,7 @@ const refused = computed(() => error.value?.statusCode === 403)
 const unavailable = computed(() => Boolean(error.value) && !refused.value)
 
 function validNumber(value: string): boolean {
-  return /^SWB\d{4,}$/.test(value.trim())
+  return isStudentNumber(value.trim())
 }
 
 async function changeNumber(studentId: string) {
@@ -33,7 +35,7 @@ async function changeNumber(studentId: string) {
   notice.value = ''
   const studentNumber = (drafts[studentId] ?? '').trim()
   if (!validNumber(studentNumber)) {
-    changeError.value = 'A student number is SWB followed by at least four digits, like SWB0001.'
+    changeError.value = studentNumberRule
     return
   }
   saving.value = studentId
@@ -47,23 +49,11 @@ async function changeNumber(studentId: string) {
     notice.value = 'Student number changed.'
   }
   catch (caught) {
-    changeError.value = messageFrom(caught)
+    changeError.value = messageFrom(caught, 'The student number could not be changed.')
   }
   finally {
     saving.value = null
   }
-}
-
-function messageFrom(caught: unknown): string {
-  if (typeof caught === 'object' && caught !== null) {
-    if ('statusMessage' in caught && typeof caught.statusMessage === 'string' && caught.statusMessage) {
-      return caught.statusMessage
-    }
-    if ('data' in caught && typeof caught.data === 'object' && caught.data !== null && 'statusMessage' in caught.data && typeof caught.data.statusMessage === 'string') {
-      return caught.data.statusMessage
-    }
-  }
-  return 'The student number could not be changed.'
 }
 </script>
 
