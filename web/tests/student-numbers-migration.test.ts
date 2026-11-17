@@ -65,6 +65,11 @@ it('numbers students in sign-up order, never reuses a number and keeps the direc
     expect((await change('owner@example.com', an, 'SWB9001')).rows).toEqual([{ result: 'changed' }])
     expect((await db.query('select old_number, new_number, actor_email from public.student_number_changes')).rows)
       .toEqual([{ old_number: 'SWB0002', new_number: 'SWB9001', actor_email: 'owner@example.com' }])
+    const recorded = (await db.query<{ changed_at: Date | string | null }>(
+      'select changed_at from public.student_number_changes',
+    )).rows
+    expect(recorded).toHaveLength(1)
+    expect(recorded.every(row => row.changed_at !== null && String(row.changed_at).length > 0)).toBe(true)
     expect((await change('owner@example.com', an, 'SWB9001')).rows).toEqual([{ result: 'unchanged' }])
     expect((await change('owner@example.com', an, 'SWB12')).rows).toEqual([{ result: 'invalid' }])
     expect((await change('owner@example.com', missing, 'SWB9002')).rows).toEqual([{ result: 'not-found' }])

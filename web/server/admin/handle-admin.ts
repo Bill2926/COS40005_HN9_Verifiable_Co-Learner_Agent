@@ -3,6 +3,7 @@ import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
 import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
+import { isStudentNumber, studentNumberRule } from '../../shared/student-number'
 
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
@@ -127,8 +128,14 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
       request.verifyShield ? await request.verifyShield.read() : null,
     ),
     decisions: request.decisions ? await request.decisions.list(decisionQuery(request.body)) : [],
-    students: request.students ? await request.students.list() : [],
+    students: wantsDirectory(request.body) && request.students ? await request.students.list() : [],
   }
+}
+
+// Only the page that shows the directory asks for it; every other call pays no query.
+function wantsDirectory(body: unknown): boolean {
+  if (typeof body !== 'object' || body === null) return false
+  return 'event' in body && (body.event === 'students' || body.event === 'studentNumber')
 }
 
 // The product owner may correct a number to SWB followed by at least four
@@ -143,8 +150,8 @@ function studentNumberBody(body: unknown): { studentId: string, studentNumber: s
     throw new AdminRequestError('The student number is missing.')
   }
   const studentNumber = body.studentNumber.trim()
-  if (!/^SWB\d{4,}$/.test(studentNumber)) {
-    throw new AdminRequestError('A student number is SWB followed by at least four digits, like SWB0001.')
+  if (!isStudentNumber(studentNumber)) {
+    throw new AdminRequestError(studentNumberRule)
   }
   return { studentId: body.studentId.trim(), studentNumber }
 }

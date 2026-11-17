@@ -38,12 +38,12 @@ flowchart LR
 | `role` event | `checkAdminRole`: the same 401/403 checks, then `{ productOwner: true }`. Reads no settings and no decisions; `api/admin.post.ts` routes it there before `handleAdmin`. |
 | `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. |
 | `verifyShield` event | Saves the on or off switch. |
-| `studentNumber` event | Checks `SWB` + at least four digits (400 otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting product owner's email. |
-| Every other call | Returns the model settings with the API key masked, the current shield state, up to 100 decisions filtered by verdict and student id, and every student in the directory (`students` event and any read). |
+| `studentNumber` event | Checks the number against `isStudentNumber` in `shared/student-number.ts` (`SWB` + at least four digits, 400 with `studentNumberRule` otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting product owner's email. |
+| Every other call | Returns the model settings with the API key masked, the current shield state and up to 100 decisions filtered by verdict and student id. `students` is empty unless the body's `event` is `students` or `studentNumber`, so no other call reads the directory. |
 
 ## Verified imports
 
-- Runtime: `language-model` (`resolveModelChoice`; type `ModelSettings`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`).
+- Runtime: `language-model` (`resolveModelChoice`; type `ModelSettings`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`), `shared/student-number` (`isStudentNumber`, `studentNumberRule`).
 - Type only: `storage/decision-log`, `storage/model-settings-store`, `storage/student-directory` (`StudentDirectoryStore`, `AdminStudent`).
 - It never imports Supabase code; the route passes the stores in, including the student directory.
 - Each decision it returns includes `ruleChecks` when the decision log recorded them.
