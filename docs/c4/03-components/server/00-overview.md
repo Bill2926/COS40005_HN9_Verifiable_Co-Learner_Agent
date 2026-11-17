@@ -66,6 +66,7 @@ flowchart LR
   admin -->|"verifyShieldEnabled"| shield
   shared -->|"Verifies the session claims with"| auth
   storage -->|"supabase-js, secret key"| db
+  agents -->|"materialsText"| shared
   agents -->|"createRealLanguageModel,<br/>resolveModelChoice"| lm
   lm -->|"AI SDK, HTTPS"| llm
 

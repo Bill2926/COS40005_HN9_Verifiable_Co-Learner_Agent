@@ -117,6 +117,12 @@ describe('parseChatMarkdown', () => {
     ])
   })
 
+  it('keeps a materials heading as a heading', () => {
+    expect(parseChatMarkdown('## A first program', { headings: true })).toEqual([
+      { type: 'heading', level: 2, children: [{ type: 'text', value: 'A first program' }] },
+    ])
+  })
+
   it('never produces markup from html in a reply', () => {
     expect(parseChatMarkdown('<b>hi</b> <script>alert(1)</script>')).toEqual([
       { type: 'paragraph', children: [{ type: 'text', value: '<b>hi</b> <script>alert(1)</script>' }] },

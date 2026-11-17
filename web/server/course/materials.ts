@@ -68,7 +68,7 @@ function assertModuleBlocks(module: ModuleSpec): void {
       throw new Error(`${where}: type is missing.`)
     }
     const fields = blockFields[block.type as MaterialBlock['type']]
-    if (!fields) throw new Error(`${where}: type is missing.`)
+    if (!fields) throw new Error(`${where}: type is not a materials block.`)
     for (const field of fields) {
       const value = (block as unknown as Record<string, unknown>)[field]
       if (typeof value !== 'string' || value.trim() === '') {

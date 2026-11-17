@@ -59,7 +59,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div ref="host" />
+  <div ref="host" class="min-w-0 max-w-full overflow-hidden" />
 </template>
 
 <style scoped>

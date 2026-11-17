@@ -136,8 +136,48 @@ describe('course spec parser', () => {
     expect(() => parseCourseSpec(JSON.stringify(spec))).toThrow('Module getting_started, block 1: mermaid is missing.')
   })
 
+  it.each([
+    ['markdown', { type: 'text', markdown: ' ' }],
+    ['code', { type: 'code', code: '' }],
+    ['url', { type: 'image', url: ' ', alt: 'A sketch of a variable' }],
+    ['alt', { type: 'image', url: 'https://example.com/a.png', alt: '' }],
+    ['title', { type: 'video', url: 'https://example.com/clip', title: ' ' }],
+  ])('rejects a block missing %s and names the module and block', (field, block) => {
+    const raw = JSON.parse(JSON.stringify(pythonCourseSpec)) as { modules: { content: { materials: unknown } }[] }
+    raw.modules[0]!.content.materials = [block]
+    expect(() => parseCourseSpec(JSON.stringify(raw))).toThrow(`Module getting_started, block 1: ${field} is missing.`)
+  })
+
+  it('names the module and the block by their place when a later block is malformed', () => {
+    const raw = JSON.parse(JSON.stringify(pythonCourseSpec)) as { modules: { id: string, content?: { materials: unknown } }[] }
+    raw.modules[1]!.content!.materials = [
+      { type: 'text', markdown: 'Kept' },
+      { type: 'code', code: '' },
+    ]
+    expect(() => parseCourseSpec(JSON.stringify(raw))).toThrow('Module variables, block 2: code is missing.')
+  })
+
+  it('rejects a block whose type is not a materials block and names the module and block', () => {
+    const raw = JSON.parse(JSON.stringify(pythonCourseSpec)) as { modules: { content: { materials: unknown } }[] }
+    raw.modules[0]!.content.materials = [{ type: 'audio', url: 'https://example.com/a.mp3' }]
+    expect(() => parseCourseSpec(JSON.stringify(raw))).toThrow('Module getting_started, block 1: type is not a materials block.')
+  })
+
   it('parses the seeded Python spec', () => {
     expect(parseCourseSpec(JSON.stringify(pythonCourseSpec))).toEqual(pythonCourseSpec)
+  })
+
+  it('includes a diagram and a video in the seeded Python spec', () => {
+    const blocks = pythonCourseSpec.modules.flatMap(module => module.content?.materials ?? [])
+    expect(blocks).toContainEqual({
+      type: 'diagram',
+      mermaid: 'flowchart LR\n  program[A program] --> shown["print()"]',
+    })
+    expect(blocks).toContainEqual({
+      type: 'video',
+      url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8',
+      title: 'A first Python program',
+    })
   })
 })
 

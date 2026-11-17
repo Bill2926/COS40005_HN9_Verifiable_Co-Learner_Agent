@@ -2,7 +2,8 @@
 // inline code, bold, italic, bullet and numbered lists, and fenced code. It
 // produces a tree, never HTML, so a reply cannot inject markup. Every rule
 // degrades to plain text while a reply is still streaming in, so a half-typed
-// `code span or **bold never flashes or throws.
+// `code span or **bold never flashes or throws. A heading in a reply stays
+// bold text. Materials pass { headings: true } so a lesson title is a heading.
 
 export type InlineNode =
   | { type: 'text', value: string }
@@ -13,15 +14,16 @@ export type InlineNode =
 
 export type BlockNode =
   | { type: 'paragraph', children: InlineNode[] }
+  | { type: 'heading', level: number, children: InlineNode[] }
   | { type: 'codeblock', language: string, value: string }
   | { type: 'list', ordered: boolean, items: InlineNode[][] }
 
 const fence = /^\s*```\s*([\w+-]*)\s*$/
 const bullet = /^\s*[-*+]\s+(.*)$/
 const numbered = /^\s*\d+[.)]\s+(.*)$/
-const heading = /^\s{0,3}#{1,6}\s+(.*)$/
+const heading = /^\s{0,3}(#{1,6})\s+(.*)$/
 
-export function parseChatMarkdown(source: string): BlockNode[] {
+export function parseChatMarkdown(source: string, options?: { headings?: boolean }): BlockNode[] {
   const lines = source.replace(/\r\n?/g, '\n').split('\n')
   const blocks: BlockNode[] = []
   let paragraph: string[] = []
@@ -83,10 +85,13 @@ export function parseChatMarkdown(source: string): BlockNode[] {
     if (headingMatch) {
       endParagraph()
       endList()
-      blocks.push({
-        type: 'paragraph',
-        children: [{ type: 'strong', children: parseInline(headingMatch[1] ?? '') }],
-      })
+      const title = parseInline(headingMatch[2] ?? '')
+      if (options?.headings) {
+        blocks.push({ type: 'heading', level: (headingMatch[1] ?? '##').length, children: title })
+      }
+      else {
+        blocks.push({ type: 'paragraph', children: [{ type: 'strong', children: title }] })
+      }
       continue
     }
 

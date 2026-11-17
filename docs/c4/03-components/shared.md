@@ -24,7 +24,11 @@ flowchart LR
     studentId["<b>student-id.ts</b><br/>sessionStudentId, sessionEmail,<br/>studentIdFromAuth"]:::comp
     supabaseServer["<b>supabase-server.ts</b><br/>createRequestClient"]:::comp
     turnTypes["<b>turn.ts</b><br/>RedrawState and view types"]:::comp
+    materials["<b>materials.ts</b><br/>materialsText, videoEmbed"]:::comp
   end
+
+  prompts["<b>agents/prompts.ts</b>"]:::near
+  video["<b>MaterialVideo.vue</b>"]:::near
 
   routes -->|"sessionStudentId,<br/>sessionEmail"| studentId
   pagesmw -->|"studentIdFromAuth,<br/>sessionStudentId"| studentId
@@ -32,6 +36,9 @@ flowchart LR
   supabaseServer -->|"@supabase/ssr, cookies"| auth
   studentId -->|"getClaims"| auth
   typeUsers -.->|"types"| turnTypes
+  prompts -->|"materialsText"| materials
+  video -->|"videoEmbed"| materials
+  materials -.->|"type: MaterialBlock,<br/>ModuleMaterials"| turnTypes
 
   style shared fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -42,7 +49,8 @@ flowchart LR
 |---|---|
 | `student-id.ts` | `studentIdFromAuth(client)` reads the signed-in user's id from the session claims (`getClaims`). `sessionStudentId(event)` and `sessionEmail(event)` do the same on the server from request cookies and return `null` when Supabase is not configured. |
 | `supabase-server.ts` | `createRequestClient(event, url, publishableKey)`: a Supabase server client that reads cookies from the request and writes refreshed ones to the response. |
-| `turn.ts` | The screen state (`RedrawState`), roadmap, working area, conversation, trace and the `TurnEvent` stream; `AddressedAgent`, `RuleCheck`, and the one runtime value `agentNames` (Teacher, Mai), the single agent-to-display-name map. |
+| `turn.ts` | The screen state (`RedrawState`), roadmap, working area, conversation, trace and the `TurnEvent` stream; `AddressedAgent`, `RuleCheck`, and the one runtime value `agentNames` (Teacher, Mai), the single agent-to-display-name map. `MaterialBlock` is one materials block: text, code, diagram, image or video. |
+| `materials.ts` | `materialsText` flattens a module's blocks for the Teacher prompt. `videoEmbed` returns a YouTube or Vimeo player address, or null so any other address stays a link. |
 
 ## Verified imports
 
@@ -50,7 +58,8 @@ flowchart LR
 - `supabase-server.ts` imports `@supabase/ssr` and `h3`.
 - Runtime importers of `student-id.ts`: `routes/turn.post.ts`, `api/admin.post.ts`, `app/middleware/signed-in.ts`, `app/pages/index.vue`, `home.vue`, `sign-in.vue`.
 - `agentNames` is imported at runtime by `app/workspace/addressed-agent` and `app/admin/decisions`; `AddressedAgent`/`RuleCheck` by `verify-shield/decide`, `storage/decision-log`, `storage/conversation-store`, `storage/supabase-decision-log`.
-- Type-only importers of `turn.ts`: `course/course`, `course/course-spec`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, six workspace components (`ConversationPanel`, `CourseRoadmap`, `PracticePanel`, `QuizPanel`, `RoadmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/roadmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
+- Type-only importers of `turn.ts`: `course/course`, `course/course-spec`, `course/materials`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, seven workspace components (`ConversationPanel`, `CourseRoadmap`, `MaterialBlocks`, `PracticePanel`, `QuizPanel`, `RoadmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/roadmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
+- Runtime importers of `materials.ts`: `agents/prompts.ts` (`materialsText`) and `MaterialVideo.vue` (`videoEmbed`). `materials.test.ts` tests `videoEmbed` and `diagramTheme`.
 - No test imports `student-id.ts` or `supabase-server.ts`. `roadmap-arrangement.test.ts` imports `turn.ts`.
 
 ## Notes
