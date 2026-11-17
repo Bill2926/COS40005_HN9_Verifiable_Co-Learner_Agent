@@ -102,5 +102,5 @@ flowchart LR
 - `MaterialVideo` imports `videoEmbed` from `shared/materials` at runtime. `MermaidDiagram` imports `diagram-theme.ts` and loads `mermaid` with a dynamic `import()`.
 - `PracticePanel` also has a runtime import of `python/runner` (`RunStopped`) and a dynamic import of `python/browser-runner`.
 - `PythonEditor` and `PythonExample` load `codemirror`, `@codemirror/lang-python`, `@codemirror/state` and `python/highlight` with dynamic `import()` inside `onMounted`.
-- Imported by: `pages/index.vue` (the workspace panels). `CoursePreviewPanel.vue` imports `MaterialBlocks`. `CourseEditor.vue` imports `MermaidDiagram`. The other files are imported by siblings only.
+- Imported by: `pages/index.vue` (the workspace panels). `CoursePreviewPanel.vue` imports `MaterialBlocks` and `PracticePanel`. `CourseEditor.vue` imports `MermaidDiagram`. The other files are imported by siblings only.
 - `diagram-theme.ts` and `shared/materials.ts` are tested by `materials.test.ts`. No test imports the Vue files.
