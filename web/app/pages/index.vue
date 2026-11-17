@@ -40,10 +40,6 @@ watch(layout, (value, previous) => {
   if (previous && value !== previous) void recordStudentActivity({ event: 'layout_switched', layout: value })
 })
 
-watch(workingMode, (value, previous) => {
-  if (value !== previous) void recordStudentActivity({ event: 'mode_switched', mode: value })
-})
-
 const { data, error } = await useFetch<RedrawState>('/turn', {
   method: 'POST',
   body: { event: 'open' },
@@ -74,6 +70,9 @@ async function saveDeskmate(on: boolean) {
   }
 }
 const workingMode = ref<'learn' | 'practice'>('learn')
+watch(workingMode, (value, previous) => {
+  if (value !== previous) void recordStudentActivity({ event: 'mode_switched', mode: value })
+})
 const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
