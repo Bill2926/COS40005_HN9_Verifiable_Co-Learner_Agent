@@ -64,9 +64,29 @@ export interface AdminResponse {
   decisions: DecisionRecord[]
 }
 
-export async function handleAdmin(request: AdminRequest): Promise<AdminResponse> {
+// The answer to a role check: reaching it at all means the caller is the product owner.
+export interface AdminRoleResponse {
+  productOwner: true
+}
+
+// The `role` event: answers who the caller is and reads nothing, so a sign-in
+// or landing probe costs no query.
+export function checkAdminRole(request: Pick<AdminRequest, 'email' | 'adminEmails'>): AdminRoleResponse {
+  requireProductOwner(request)
+  return { productOwner: true }
+}
+
+export function isRoleCheck(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'event' in body && body.event === 'role'
+}
+
+function requireProductOwner(request: Pick<AdminRequest, 'email' | 'adminEmails'>): void {
   if (request.email === null || request.email.trim() === '') throw new SignInRequiredError()
   if (!isProductOwner(request.email, request.adminEmails)) throw new ProductOwnerRequiredError()
+}
+
+export async function handleAdmin(request: AdminRequest): Promise<AdminResponse> {
+  requireProductOwner(request)
 
   const save = saveBody(request.body)
   if (save) await request.store.save(await settingsToStore(save, request))

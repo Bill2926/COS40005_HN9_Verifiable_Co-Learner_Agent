@@ -3,7 +3,7 @@ import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
-import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
+import type { AddressedAgent, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
 import { resolveWorkspaceLayout, workspaceLayoutCookie, workspaceLayoutCookieOptions, workspaceLayoutFrom, workspaceLayouts, type WorkspaceLayoutId } from '~/workspace/layout'
@@ -14,7 +14,7 @@ interface SubmissionPayload {
 }
 
 definePageMeta({
-  middleware: ['signed-in', 'workspace-layout'],
+  middleware: ['signed-in', 'product-owner-landing', 'workspace-layout'],
 })
 
 async function signOut() {
@@ -42,33 +42,26 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 
 const workspace = ref<RedrawState | null>(null)
 const latestTrace = ref<TurnTrace | null>(null)
-const verifyShieldOn = ref(true)
-const isProductOwner = ref(false)
-const verifyShieldBusy = ref(false)
-const verifyShieldError = ref('')
+const deskmateBusy = ref(false)
+const deskmateError = ref('')
 
-async function saveVerifyShield(enabled: boolean | null) {
-  verifyShieldBusy.value = true
-  verifyShieldError.value = ''
+// The student's own deskmate switch, saved through the turn endpoint.
+async function saveDeskmate(on: boolean) {
+  if (deskmateBusy.value) return
+  deskmateBusy.value = true
+  deskmateError.value = ''
   try {
-    const payload = await $fetch<{ verifyShieldOn: boolean }>('/api/admin', {
+    const state = await $fetch<RedrawState>('/turn', {
       method: 'POST',
-      body: enabled === null ? {} : { event: 'verifyShield', enabled },
+      body: { event: 'deskmate_switch', on },
     })
-    verifyShieldOn.value = payload.verifyShieldOn
-    isProductOwner.value = true
+    if (workspace.value) workspace.value = { ...workspace.value, deskmateOn: state.deskmateOn }
   }
-  catch (caught) {
-    const status = (caught as { statusCode?: number }).statusCode
-    // Only product owners may change or read the saved setting; others keep the turn-reported state.
-    if (enabled !== null) {
-      verifyShieldError.value = status === 403 || status === 401
-        ? 'Only the product owner can change VerifyShield.'
-        : 'Could not save the VerifyShield setting. Try again.'
-    }
+  catch {
+    deskmateError.value = 'Could not save the deskmate switch. Try again.'
   }
   finally {
-    verifyShieldBusy.value = false
+    deskmateBusy.value = false
   }
 }
 const workingMode = ref<'learn' | 'practice'>('learn')
@@ -77,6 +70,10 @@ const selecting = ref(false)
 const selectError = ref('')
 const pendingModuleId = ref('')
 const pendingModuleName = ref('')
+// What the current select turn is waiting on, so that control shows a spinner.
+const selectingModuleId = ref('')
+const selectingExerciseId = ref('')
+const answering = ref<{ questionId: string, choice: number } | null>(null)
 const moduleViews = new Map<string, RedrawState>()
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
@@ -162,7 +159,6 @@ function syncPhone() {
 }
 
 onMounted(() => {
-  void saveVerifyShield(null)
   phoneMedia = window.matchMedia('(width < 48rem)')
   syncPhone()
   phoneMedia.addEventListener('change', syncPhone)
@@ -190,10 +186,7 @@ function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
 
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
-  if (state.trace) {
-    latestTrace.value = state.trace
-    verifyShieldOn.value = state.trace.verifyShieldOn
-  }
+  if (state.trace) latestTrace.value = state.trace
   workspace.value = state
   rememberModule(state)
 }
@@ -252,6 +245,7 @@ async function selectModule(moduleId: string) {
   const generation = ++selectGeneration
   rememberModule(snapshot)
   selecting.value = true
+  selectingModuleId.value = moduleId
   selectError.value = ''
   const cached = moduleViews.get(moduleId)
   if (cached) {
@@ -285,6 +279,7 @@ async function selectModule(moduleId: string) {
   }
   finally {
     selecting.value = false
+    selectingModuleId.value = ''
     pendingModuleId.value = ''
     pendingModuleName.value = ''
   }
@@ -296,6 +291,7 @@ async function selectExercise(exerciseId: string) {
   if (current.workingArea.exercise.id === exerciseId) return
 
   selecting.value = true
+  selectingExerciseId.value = exerciseId
   selectError.value = ''
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
@@ -308,6 +304,7 @@ async function selectExercise(exerciseId: string) {
   }
   finally {
     selecting.value = false
+    selectingExerciseId.value = ''
   }
 }
 
@@ -316,12 +313,12 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   // A quiz turn replaces the whole workspace, so it holds the same lock as a
   // module or exercise select: a stale answer must not land on a newer view.
   if (!current || selecting.value || sending.value) return
-  // A question already answered keeps its first answer; re-picking is explored
-  // on the client without a turn.
+  // A question already answered keeps its first answer and is locked.
   const question = current.workingArea.quiz.find(item => item.id === answer.questionId)
   if (!question || question.result) return
 
   selecting.value = true
+  answering.value = answer
   selectError.value = ''
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
@@ -339,6 +336,7 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   }
   finally {
     selecting.value = false
+    answering.value = null
   }
 }
 
@@ -402,7 +400,7 @@ function nextPaint(): Promise<void> {
   })
 }
 
-async function sendMessage(text: string) {
+async function sendMessage(text: string, addressedAgent: AddressedAgent | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
   const storedDraft = studentId.value
@@ -411,6 +409,7 @@ async function sendMessage(text: string) {
   await streamAgentTurn({
     event: 'message',
     text,
+    ...(addressedAgent ? { addressedAgent } : {}),
     draft: liveDraft.value ?? storedDraft,
     run: latestRun.value,
   }, 'That message could not be sent.')
@@ -501,13 +500,6 @@ function initialsOf(name: string): string {
             @click="navigate"
           >{{ option.name }}</a>
         </NuxtLink>
-        <NuxtLink
-          v-if="isProductOwner"
-          to="/admin"
-          class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 text-ink-500 hover:bg-paper/60 hover:text-ink-800 md:inline md:min-h-0 md:min-w-0"
-        >
-          Dashboard
-        </NuxtLink>
       </nav>
       <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
         <div class="flex items-center gap-2 border-r border-ink-200 pr-2 md:pr-[13px]">
@@ -568,6 +560,7 @@ function initialsOf(name: string): string {
         :student-id="studentId"
         :mastery-threshold="workspace.masteryThreshold"
         :pending-module-id="pendingModuleId"
+        :selecting-module-id="selectingModuleId"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
@@ -578,6 +571,7 @@ function initialsOf(name: string): string {
         :modules="workspace.courseRoadmap"
         :mastery-threshold="workspace.masteryThreshold"
         :pending-module-id="pendingModuleId"
+        :selecting-module-id="selectingModuleId"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
@@ -590,6 +584,8 @@ function initialsOf(name: string): string {
           :select-error="selectError"
           :pending-module-name="pendingModuleName"
           :submitting="sending"
+          :answering="answering"
+          :selecting-exercise-id="selectingExerciseId"
           :floating="layout === 'roadmap'"
           :expanded="workingAreaExpanded"
           @update:mode="workingMode = $event"
@@ -614,9 +610,10 @@ function initialsOf(name: string): string {
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
           :trace="latestTrace"
-          :verify-shield-on="verifyShieldOn"
-          :verify-shield-busy="verifyShieldBusy"
-          :verify-shield-error="verifyShieldError"
+          :deskmate-on="workspace.deskmateOn"
+          :deskmate-busy="deskmateBusy"
+          :deskmate-error="deskmateError"
+          :notice="workspace.notice"
           :sending="sending"
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
@@ -626,7 +623,7 @@ function initialsOf(name: string): string {
           @send="sendMessage"
           @close="conversationClosed = true"
           @open-learn="openInLearn"
-          @toggle-verify-shield="saveVerifyShield"
+          @toggle-deskmate="saveDeskmate"
         />
       </div>
     </div>

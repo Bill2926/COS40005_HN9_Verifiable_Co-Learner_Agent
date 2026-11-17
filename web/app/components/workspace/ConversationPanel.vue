@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import type { ConversationMessage, TurnTrace } from '#shared/turn'
+import { addresseeName, addressMenu, chooseAddressee, type AddressedAgent } from '~/workspace/addressed-agent'
+import { dateMessages } from '~/workspace/conversation-dates'
+import BusySpinner from '../BusySpinner.vue'
 import ChatMarkdown from './ChatMarkdown.vue'
 
 const props = defineProps<{
@@ -12,16 +15,17 @@ const props = defineProps<{
   streamingDeskmate: string
   loading?: boolean
   floating?: boolean
-  verifyShieldOn: boolean
-  verifyShieldBusy?: boolean
-  verifyShieldError?: string
+  deskmateOn: boolean
+  deskmateBusy?: boolean
+  deskmateError?: string
+  notice?: string
 }>()
 
 const emit = defineEmits<{
-  send: [text: string]
+  send: [text: string, addressedAgent: AddressedAgent | null]
   openLearn: []
   close: []
-  toggleVerifyShield: [enabled: boolean]
+  toggleDeskmate: [on: boolean]
 }>()
 
 interface BubbleRow {
@@ -33,6 +37,9 @@ interface BubbleRow {
   text: string
   openInLearn: boolean
   writing: boolean
+  day: string | null
+  time: string | null
+  addressedAgent: AddressedAgent | null
 }
 
 interface TypingRow {
@@ -47,6 +54,8 @@ interface EventRow {
   kind: 'event'
   name: string
   text: string
+  day: string | null
+  time: string | null
 }
 
 const bubbleClass = {
@@ -81,8 +90,55 @@ const roleClass = {
 
 const text = ref('')
 const pending = ref('')
+const addressee = ref<AddressedAgent | null>(null)
+const pendingAddressee = ref<AddressedAgent | null>(null)
+const menuIndex = ref(0)
+const menu = computed(() => addressee.value ? [] : addressMenu(text.value, props.deskmateOn))
+const messageInput = ref<HTMLInputElement | null>(null)
+
+watch(menu, () => {
+  menuIndex.value = 0
+})
+
+// Switching Mai off takes her chip out of the composer.
+watch(() => props.deskmateOn, (on) => {
+  if (!on && addressee.value === 'deskmate') addressee.value = null
+})
+
+function choose(agent: AddressedAgent) {
+  const chosen = chooseAddressee(text.value, agent)
+  addressee.value = chosen.addressedAgent
+  text.value = chosen.text
+  messageInput.value?.focus()
+}
+
+function removeAddressee() {
+  addressee.value = null
+  messageInput.value?.focus()
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (menu.value.length > 0) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault()
+      const step = event.key === 'ArrowDown' ? 1 : -1
+      menuIndex.value = (menuIndex.value + step + menu.value.length) % menu.value.length
+      return
+    }
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      event.preventDefault()
+      choose(menu.value[menuIndex.value]!.agent)
+      return
+    }
+  }
+  if (event.key === 'Backspace' && addressee.value && text.value.length === 0) {
+    event.preventDefault()
+    addressee.value = null
+  }
+}
 const scroller = ref<HTMLElement | null>(null)
 let revealObserver: IntersectionObserver | null = null
+const mounted = ref(false)
 
 function scrollToNewest() {
   const element = scroller.value
@@ -91,13 +147,21 @@ function scrollToNewest() {
 }
 
 const rows = computed(() => {
-  const shown: Array<BubbleRow | EventRow | TypingRow> = props.messages.map((message) => {
+  // Dated in the browser's time zone. On the server the times are hidden so
+  // the first render cannot disagree with the student's clock.
+  const dates = mounted.value
+    ? dateMessages(props.messages)
+    : props.messages.map(() => ({ day: null, time: null }))
+  const shown: Array<BubbleRow | EventRow | TypingRow> = props.messages.map((message, index) => {
+    const { day, time } = dates[index]!
     if (message.author === 'event') {
       return {
         key: message.id,
         kind: 'event' as const,
         name: message.name,
         text: message.text,
+        day,
+        time,
       }
     }
     return {
@@ -109,6 +173,9 @@ const rows = computed(() => {
       text: message.text,
       openInLearn: message.openInLearn,
       writing: false,
+      day,
+      time,
+      addressedAgent: message.addressedAgent ?? null,
     }
   })
 
@@ -122,6 +189,9 @@ const rows = computed(() => {
       text: pending.value,
       openInLearn: false,
       writing: false,
+      day: null,
+      time: null,
+      addressedAgent: pendingAddressee.value,
     })
   }
   if (props.streamingTeacher) {
@@ -134,9 +204,12 @@ const rows = computed(() => {
       text: props.streamingTeacher,
       openInLearn: false,
       writing: true,
+      day: null,
+      time: null,
+      addressedAgent: null,
     })
   }
-  else if (props.sending) {
+  else if (props.sending && pendingAddressee.value !== 'deskmate') {
     shown.push({
       key: 'typing-teacher',
       kind: 'typing',
@@ -154,9 +227,12 @@ const rows = computed(() => {
       text: props.streamingDeskmate,
       openInLearn: false,
       writing: true,
+      day: null,
+      time: null,
+      addressedAgent: null,
     })
   }
-  else if (props.sending) {
+  else if (props.sending && props.deskmateOn && pendingAddressee.value !== 'teacher') {
     shown.push({
       key: 'typing-deskmate',
       kind: 'typing',
@@ -172,6 +248,7 @@ watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate,
 })
 
 onMounted(() => {
+  mounted.value = true
   const element = scroller.value
   if (!element) return
   let wasHidden = element.clientHeight === 0
@@ -193,15 +270,20 @@ onBeforeUnmount(() => {
 
 function submit() {
   const value = text.value.trim()
-  if (!value || props.sending) return
+  if (!value || props.sending || menu.value.length > 0) return
   pending.value = value
-  emit('send', value)
+  pendingAddressee.value = addressee.value
+  emit('send', value, addressee.value)
 }
 
 watch(() => props.sending, (sending) => {
   if (sending) return
-  if (!props.sendError && text.value.trim() === pending.value) text.value = ''
+  if (!props.sendError && text.value.trim() === pending.value) {
+    text.value = ''
+    addressee.value = null
+  }
   pending.value = ''
+  pendingAddressee.value = null
 })
 </script>
 
@@ -228,27 +310,32 @@ watch(() => props.sending, (sending) => {
       </div>
       <div class="flex shrink-0 items-center gap-2">
         <span
-          id="conversation-shield"
+          id="conversation-deskmate"
           class="text-[11px] leading-[16.5px] text-ink-500"
-        >VerifyShield</span>
+        >Deskmate</span>
+        <BusySpinner
+          v-if="deskmateBusy"
+          class="text-ink-400"
+        />
         <button
           type="button"
           role="switch"
-          class="relative h-11 w-11 shrink-0 md:h-4 md:w-7 md:rounded-full"
-          :class="verifyShieldOn ? 'md:bg-brand-600' : 'md:bg-ink-200'"
-          :aria-checked="verifyShieldOn"
-          :disabled="verifyShieldBusy"
-          aria-labelledby="conversation-shield"
-          @click="emit('toggleVerifyShield', !verifyShieldOn)"
+          class="relative h-11 w-11 shrink-0 disabled:opacity-60 md:h-4 md:w-7 md:rounded-full"
+          :class="deskmateOn ? 'md:bg-amber-500' : 'md:bg-ink-200'"
+          :aria-checked="deskmateOn"
+          :aria-busy="deskmateBusy"
+          :disabled="deskmateBusy"
+          aria-labelledby="conversation-deskmate"
+          @click="emit('toggleDeskmate', !deskmateOn)"
         >
           <span
             class="absolute top-1/2 left-1/2 h-4 w-7 -translate-x-1/2 -translate-y-1/2 rounded-full md:hidden"
-            :class="verifyShieldOn ? 'bg-brand-600' : 'bg-ink-200'"
+            :class="deskmateOn ? 'bg-amber-500' : 'bg-ink-200'"
             aria-hidden="true"
           />
           <span
             class="absolute top-1/2 size-3 -translate-y-1/2 rounded-full bg-paper shadow-[0px_1px_2px_rgba(0,0,0,0.05)]"
-            :class="verifyShieldOn ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
+            :class="deskmateOn ? 'left-[22px] md:left-3.5' : 'left-[10px] md:left-0.5'"
           />
         </button>
         <button
@@ -264,11 +351,11 @@ watch(() => props.sending, (sending) => {
     </header>
 
     <p
-      v-if="verifyShieldError"
+      v-if="deskmateError"
       class="shrink-0 border-b border-red-200 bg-red-50 px-4 py-2 text-xs text-red-700"
       role="alert"
     >
-      {{ verifyShieldError }}
+      {{ deskmateError }}
     </p>
 
     <div
@@ -292,9 +379,20 @@ watch(() => props.sending, (sending) => {
         v-else
         class="flex flex-col gap-4"
       >
-        <li
+        <template
           v-for="row in rows"
           :key="row.key"
+        >
+        <li
+          v-if="row.kind !== 'typing' && row.day"
+          class="flex w-full items-center gap-3"
+          data-day-separator
+        >
+          <span class="h-px flex-1 bg-ink-200" aria-hidden="true" />
+          <span class="text-[11px] leading-4 font-medium text-ink-500">{{ row.day }}</span>
+          <span class="h-px flex-1 bg-ink-200" aria-hidden="true" />
+        </li>
+        <li
           class="flex w-full"
           :class="row.kind === 'event' ? 'justify-center' : row.author === 'student' ? 'justify-end' : 'justify-start'"
         >
@@ -302,7 +400,8 @@ watch(() => props.sending, (sending) => {
             v-if="row.kind === 'event'"
             class="rounded-full bg-ink-100 px-2.5 py-0.5 text-center font-mono text-[10px] leading-[15px] text-ink-500"
           >
-            {{ row.name }} · {{ row.text }}
+            {{ row.name }} · {{ row.text }}<template v-if="row.time">
+              · <time data-message-time>{{ row.time }}</time></template>
           </p>
           <div
             v-else-if="row.kind === 'typing'"
@@ -366,9 +465,18 @@ watch(() => props.sending, (sending) => {
                   class="text-[11px] leading-4"
                   :class="roleClass[row.author]"
                 >{{ row.role }}</span>
+                <time
+                  v-if="row.time"
+                  class="ml-auto pl-2 font-mono text-[10px] leading-4 opacity-60"
+                  data-message-time
+                >{{ row.time }}</time>
               </p>
               <p v-if="row.author === 'student'">
-                {{ row.text }}
+                <span
+                  v-if="row.addressedAgent"
+                  class="mr-1 inline-flex rounded-full bg-paper/70 px-1.5 text-[11px] leading-4 font-medium"
+                  data-addressed-agent
+                >@{{ addresseeName(row.addressedAgent) }}</span>{{ row.text }}
               </p>
               <ChatMarkdown
                 v-else
@@ -386,6 +494,7 @@ watch(() => props.sending, (sending) => {
             </article>
           </div>
         </li>
+        </template>
       </ol>
     </div>
 
@@ -393,26 +502,79 @@ watch(() => props.sending, (sending) => {
       class="shrink-0 border-t border-ink-200 bg-paper p-3 md:px-4"
       @submit.prevent="submit"
     >
+      <ul
+        v-if="menu.length > 0"
+        id="address-menu"
+        role="listbox"
+        aria-label="Address an agent"
+        class="mb-2 flex flex-col gap-0.5 rounded-[4px] border border-ink-200 bg-paper p-1 shadow-sm"
+      >
+        <li
+          v-for="(option, index) in menu"
+          :id="`address-option-${option.agent}`"
+          :key="option.agent"
+          role="option"
+          :aria-selected="index === menuIndex"
+          class="flex min-h-11 cursor-pointer items-center rounded-[3px] px-2 text-sm text-ink-800 md:min-h-8 md:text-xs"
+          :class="index === menuIndex ? 'bg-brand-50' : 'hover:bg-ink-50'"
+          @mousedown.prevent="choose(option.agent)"
+        >
+          {{ option.name }}
+        </li>
+      </ul>
       <div class="flex items-center gap-2">
-        <label class="min-w-0 flex-1">
-          <span class="sr-only">Message</span>
-          <input
-            v-model="text"
-            name="message"
-            placeholder="Message"
-            :disabled="sending"
-            class="h-11 w-full rounded-[4px] border border-ink-200 bg-ink-50 px-[13px] text-base text-ink-800 outline-none placeholder:text-ink-400 focus-visible:border-brand-500 disabled:opacity-60 md:h-[34px] md:text-xs"
+        <div class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[4px] border border-ink-200 bg-ink-50 pl-1.5 focus-within:border-brand-500">
+          <span
+            v-if="addressee"
+            class="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-100 py-0.5 pr-0.5 pl-2 text-xs leading-4 font-medium text-brand-900"
+            data-addressee-chip
           >
-        </label>
+            @{{ addresseeName(addressee) }}
+            <button
+              type="button"
+              class="inline-flex size-6 items-center justify-center rounded-full text-brand-700 hover:bg-brand-200"
+              :aria-label="`Stop addressing ${addresseeName(addressee)}`"
+              :disabled="sending"
+              @click.prevent="removeAddressee"
+            >
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          </span>
+          <label class="min-w-0 flex-1">
+            <span class="sr-only">Message</span>
+            <input
+              ref="messageInput"
+              v-model="text"
+              name="message"
+              placeholder="Message, or @ to address an agent"
+              autocomplete="off"
+              aria-autocomplete="list"
+              aria-controls="address-menu"
+              :disabled="sending"
+              class="h-11 w-full bg-transparent pr-[13px] pl-1 text-base text-ink-800 outline-none placeholder:text-ink-400 disabled:opacity-60 md:h-[32px] md:text-xs"
+              @keydown="onKeydown"
+            >
+          </label>
+        </div>
         <button
           type="submit"
           class="h-11 min-w-11 shrink-0 rounded-[4px] bg-accent px-3 text-xs leading-4 font-medium text-on-accent shadow-[0px_1px_1px_rgba(0,0,0,0.05)] hover:bg-accent-hover disabled:bg-accent disabled:text-on-accent disabled:opacity-100 md:h-[34px] md:min-w-0 md:px-3.5"
           :disabled="sending || text.trim().length === 0"
           :aria-busy="sending"
         >
-          Send
+          <span class="inline-flex items-center gap-1.5">
+            <BusySpinner v-if="sending" />
+            Send
+          </span>
         </button>
       </div>
+      <p
+        v-if="notice"
+        role="status"
+        class="mt-2 text-xs text-ink-500"
+      >
+        {{ notice }}
+      </p>
       <p
         v-if="sendError"
         role="alert"

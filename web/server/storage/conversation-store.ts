@@ -1,3 +1,7 @@
+import type { AddressedAgent } from '../../shared/turn'
+
+export type { AddressedAgent }
+
 export type MessageAuthor = 'student' | 'teacher' | 'deskmate' | 'event'
 
 export interface StoredMessage {
@@ -7,6 +11,11 @@ export interface StoredMessage {
   approvedMove: string | null
   text: string
   exerciseId: string
+  // When the message was written, as an ISO time. Messages written before
+  // times were recorded have none.
+  createdAt: string | null
+  // Only a student message can be addressed; every other message holds null.
+  addressedAgent: AddressedAgent | null
 }
 
 export interface ResumePoint {
@@ -19,6 +28,7 @@ export interface NewMessage {
   approvedMove: string | null
   text: string
   exerciseId: string
+  addressedAgent?: AddressedAgent | null
 }
 
 export interface ConversationStore {
@@ -64,6 +74,8 @@ export function createMemoryConversationStore(
         approvedMove: message.approvedMove,
         text: message.text,
         exerciseId: message.exerciseId,
+        createdAt: new Date().toISOString(),
+        addressedAgent: message.addressedAgent ?? null,
       }
       stored.push(appended)
       conversations.set(key(studentId, moduleId), stored)

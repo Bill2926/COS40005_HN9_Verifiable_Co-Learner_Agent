@@ -52,7 +52,7 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   await expect(composer).toHaveCSS('font-size', '12px')
   await expect(composer).toHaveCSS('height', '34px')
 
-  const traceSwitch = await page.getByRole('switch', { name: 'VerifyShield' }).boundingBox()
+  const traceSwitch = await page.getByRole('switch', { name: 'Deskmate' }).boundingBox()
   expect(traceSwitch).not.toBeNull()
   expect(traceSwitch!.height).toBeCloseTo(16, 0)
   expect(traceSwitch!.width).toBeCloseTo(28, 0)
@@ -135,7 +135,7 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     await expectReachable(page, send)
     expect(await fontSize(composer)).toBeGreaterThanOrEqual(16)
     await expectTapTarget(send)
-    await expectTapTarget(page.getByRole('switch', { name: 'VerifyShield' }))
+    await expectTapTarget(page.getByRole('switch', { name: 'Deskmate' }))
     await expectNoDocumentScroll(page)
 
     await composer.fill('still typing')
@@ -375,6 +375,53 @@ async function boxOf(locator: Locator): Promise<PanelBox | null> {
     }
   })
 }
+
+test('locks an answered quiz question and shows Submit busy at phone width', async ({ page }) => {
+  test.setTimeout(240_000)
+  await openWorkspace(page, { width: 390, height: 800 })
+
+  const quiz = page.getByRole('region', { name: 'Module quiz' })
+  const questions = quiz.locator('ol > li')
+  const first = questions.nth(0).getByRole('button')
+  const second = questions.nth(1).getByRole('button')
+  await expect(first.first()).toBeEnabled()
+
+  await first.first().click()
+  await expect(questions.nth(0)).toContainText(/Correct|Not quite/)
+  for (const choice of await first.all()) await expect(choice).toBeDisabled()
+  await expect(first.first()).toHaveCSS('cursor', 'not-allowed')
+  await expect(first.first()).toHaveAttribute('aria-pressed', 'true')
+  for (const choice of await second.all()) await expect(choice).toBeEnabled()
+
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/turn', async (route) => {
+    const body = route.request().postData() ?? ''
+    if (route.request().method() === 'POST' && body.includes('"event":"submission"')) await gate
+    await route.continue()
+  })
+
+  try {
+    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    const submit = page.getByRole('button', { name: 'Submit', exact: true })
+    const sent = page.waitForRequest(request => request.method() === 'POST' && (request.postData() ?? '').includes('"event":"submission"'), { timeout: 180_000 })
+    await submit.click()
+    await expect(submit).toHaveAttribute('aria-busy', 'true')
+    await expect(submit).toBeDisabled()
+    await sent
+    await expect(submit).toHaveAttribute('aria-busy', 'true')
+    await expect(submit).toBeDisabled()
+    release()
+    await expect(submit).toBeEnabled({ timeout: 60_000 })
+    await expect(submit).toHaveAttribute('aria-busy', 'false')
+  }
+  finally {
+    release()
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+  }
+})
 
 async function openWorkspace(page: Page, size: { width: number, height: number }) {
   if (!anAccount) throw new Error('Demo account An is missing.')

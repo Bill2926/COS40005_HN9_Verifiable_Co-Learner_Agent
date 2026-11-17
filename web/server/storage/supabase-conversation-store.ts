@@ -90,7 +90,7 @@ export function createSupabaseConversationStore(options: {
 
       const result = await supabase
         .from('messages')
-        .select('id, sequence, author, approved_move, text, exercise_id')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent')
         .eq('conversation_id', conversation.data.id)
         .order('sequence', { ascending: true })
       if (result.error) throw new Error(result.error.message)
@@ -106,8 +106,9 @@ export function createSupabaseConversationStore(options: {
           approved_move: message.approvedMove,
           text: message.text,
           exercise_id: message.exerciseId,
+          addressed_agent: message.addressedAgent ?? null,
         })
-        .select('id, sequence, author, approved_move, text, exercise_id')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent')
         .single()
       if (result.error) throw new Error(result.error.message)
       return presentRow(result.data)
@@ -122,6 +123,8 @@ function presentRow(row: {
   approved_move: string | null
   text: string
   exercise_id: string
+  created_at: string | null
+  addressed_agent: string | null
 }): StoredMessage {
   return {
     id: row.id,
@@ -130,6 +133,8 @@ function presentRow(row: {
     approvedMove: row.approved_move,
     text: row.text,
     exerciseId: row.exercise_id,
+    createdAt: row.created_at === null ? null : new Date(row.created_at).toISOString(),
+    addressedAgent: row.addressed_agent === 'teacher' || row.addressed_agent === 'deskmate' ? row.addressed_agent : null,
   }
 }
 

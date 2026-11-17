@@ -1,3 +1,5 @@
+import type { AddressedAgent, RuleCheck } from '../../shared/turn'
+
 export interface DecisionMastery {
   moduleId: string
   mastery: number
@@ -7,7 +9,7 @@ export interface DecisionRecord {
   time: string
   studentId: string
   turnId: string
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   proposedMove: string
   proposedScope: string | null
   verdict: 'allow' | 'block' | 'downgrade'
@@ -19,6 +21,12 @@ export interface DecisionRecord {
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
   masteryThreshold: number
+  // The ordered rule checks behind the verdict, ending with the deciding one.
+  // Empty when the VerifyShield was off; absent on a record from before they were recorded.
+  ruleChecks?: readonly RuleCheck[]
+  // The agent the student addressed in this turn, null when none was (or Mai was
+  // addressed while switched off). Absent on a record from before it was recorded.
+  addressedAgent?: AddressedAgent | null
 }
 
 export interface DecisionQuery {
@@ -57,9 +65,11 @@ export function createMemoryDecisionLogStore(): DecisionLogStore {
 }
 
 function copyDecision(record: DecisionRecord): DecisionRecord {
+  const { ruleChecks, ...rest } = record
   return {
-    ...record,
+    ...rest,
     masteries: record.masteries.map(item => ({ ...item })),
     unlockedModuleIds: [...record.unlockedModuleIds],
+    ...(ruleChecks ? { ruleChecks: ruleChecks.map(check => ({ ...check })) } : {}),
   }
 }

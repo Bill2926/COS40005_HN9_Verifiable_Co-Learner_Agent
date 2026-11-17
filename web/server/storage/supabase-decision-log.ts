@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
+import type { RuleCheck } from '../../shared/turn'
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -35,6 +36,8 @@ export function createSupabaseDecisionLogStore(options: {
         unlocked_module_ids: [...record.unlockedModuleIds],
         verify_shield_on: record.verifyShieldOn,
         mastery_threshold: record.masteryThreshold,
+        rule_checks: record.ruleChecks ? record.ruleChecks.map(check => ({ ...check })) : null,
+        addressed_agent: record.addressedAgent ?? null,
       })
       if (result.error) throw new Error(result.error.message)
     },
@@ -43,7 +46,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -74,6 +77,8 @@ interface DecisionRow {
   unlocked_module_ids: unknown
   verify_shield_on: boolean
   mastery_threshold: number
+  rule_checks: unknown
+  addressed_agent: string | null
 }
 
 function presentDecision(row: DecisionRow): DecisionRecord {
@@ -99,7 +104,25 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     unlockedModuleIds: stringsFrom(row.unlocked_module_ids),
     verifyShieldOn: row.verify_shield_on,
     masteryThreshold: row.mastery_threshold,
+    // A row from before rule checks were recorded holds null: leave the field out.
+    addressedAgent: row.addressed_agent === 'teacher' || row.addressed_agent === 'deskmate' ? row.addressed_agent : null,
+    ...(row.rule_checks === null || row.rule_checks === undefined ? {} : { ruleChecks: ruleChecksFrom(row.rule_checks) }),
   }
+}
+
+function ruleChecksFrom(value: unknown): RuleCheck[] {
+  if (!Array.isArray(value)) throw new Error('A decision row has rule checks that are not a list.')
+  return value.map((item) => {
+    if (
+      typeof item !== 'object' || item === null
+      || typeof item.ruleId !== 'string'
+      || typeof item.passed !== 'boolean'
+      || typeof item.reasonCode !== 'string'
+    ) {
+      throw new Error('A decision row has a malformed rule check.')
+    }
+    return { ruleId: item.ruleId, passed: item.passed, reasonCode: item.reasonCode }
+  })
 }
 
 function masteriesFrom(value: unknown): DecisionMastery[] {

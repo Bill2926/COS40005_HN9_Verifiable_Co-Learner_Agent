@@ -87,6 +87,7 @@ flowchart LR
 
 ## Notes
 
+- The turn decides which agents are called: an `@`-addressed message calls only that agent, and with the student's deskmate switch off the Deskmate is never called (see [turn](02-turn.md)). An addressed Deskmate is still held to the role table (peer questions and shared confusion).
 - `verify-shield` receives the role table as an argument to `decide`; it does not import the table itself, only the `RoleTable` type.
 - `agents` depends on `language-model`, never the reverse: `create-agents.ts` passes `proposalSchema` into `proposeMove`, so the language model holds a reply to a schema it does not define.
 - One schema for both agents is deliberate (ADR 0003): a Deskmate proposing a Teacher move still parses, so the VerifyShield blocks and logs it as `ROLE_FORBIDDEN` rather than it vanishing as a parse failure.

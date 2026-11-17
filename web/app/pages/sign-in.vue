@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { sessionStudentId } from '#shared/student-id'
+import { isProductOwner } from '~/admin/landing'
 import { claimIntro, introAttribute, introHeadScript, introSeenKey, introStart } from '~/sign-in/intro'
 
 const email = ref('')
@@ -15,7 +16,9 @@ const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 ring-ink-
 
 const requestFetch = useRequestFetch()
 
+// Product owner first, then lecturer, otherwise the course.
 async function signedInDestination() {
+  if (await isProductOwner(requestFetch)) return '/admin'
   try {
     await requestFetch('/api/lecturer')
     return '/lecturer'

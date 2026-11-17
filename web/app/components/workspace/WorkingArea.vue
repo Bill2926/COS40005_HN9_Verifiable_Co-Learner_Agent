@@ -13,6 +13,10 @@ const props = defineProps<{
   selectError: string
   pendingModuleName?: string
   submitting: boolean
+  // The quiz answer being marked, if any.
+  answering?: { questionId: string, choice: number } | null
+  // The exercise being opened, if any.
+  selectingExerciseId?: string
   floating?: boolean
   expanded?: boolean
 }>()
@@ -193,6 +197,8 @@ watch(() => props.mode, (mode) => {
         <QuizPanel
           v-if="!floating && area.quiz.length > 0"
           :questions="area.quiz"
+          :answering-id="answering?.questionId"
+          :answering-choice="answering?.choice"
           @answer="emit('quizAnswer', $event)"
         />
       </article>
@@ -208,6 +214,7 @@ watch(() => props.mode, (mode) => {
           :student-id="studentId"
           :active="shownMode === 'practice'"
           :selecting="selecting"
+          :selecting-exercise-id="selectingExerciseId"
           :select-error="selectError"
           :submitting="submitting"
           @select-exercise="emit('selectExercise', $event)"

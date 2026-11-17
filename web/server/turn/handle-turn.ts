@@ -2,7 +2,8 @@ import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResu
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
 import { createMemoryCourseStore, type CourseStore } from '../storage/course-store'
-import type { ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
+import type { AddressedAgent, ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
+import type { DeskmateSettingStore } from '../storage/deskmate-setting-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
 import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore, type UnlockStore } from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
@@ -10,6 +11,18 @@ import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verif
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
+const deskmateOffNotice = 'Mai is switched off.'
+
+// A turn's state before the student's deskmate switch and the turn's notice are added.
+type TurnState = Omit<RedrawState, 'deskmateOn' | 'notice'>
+type InnerEvent = Exclude<TurnEvent, { type: 'state' }> | { type: 'state', state: TurnState }
+
+// Who takes part in an agent turn, and the agent the student addressed (for the decision log).
+interface Participants {
+  teacher: boolean
+  deskmate: boolean
+  addressedAgent: AddressedAgent | null
+}
 
 // A failed call to the provider used to be swallowed whole, so a wrong model
 // name or an unsupported request shape reached the student as "could not
@@ -61,6 +74,8 @@ export interface TurnOptions {
   // the Python course held in memory.
   courses?: CourseStore
   courseId?: string
+  // The students' deskmate switches. Without it Mai is always switched on.
+  deskmateSettings?: DeskmateSettingStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -112,7 +127,32 @@ async function* streamTurnBody(
   options?: TurnOptions,
 ): AsyncGenerator<TurnEvent> {
   const studentId = studentIdForTurn(request)
-  const body = request.body
+  const flags = {
+    deskmateOn: await options?.deskmateSettings?.read(studentId) ?? true,
+    notice: null as string | null,
+  }
+  for await (const event of turnBody(studentId, request.body, store, flags, agents, options)) {
+    if (event.type !== 'state') {
+      yield event
+      continue
+    }
+    yield {
+      type: 'state',
+      state: { ...event.state, deskmateOn: flags.deskmateOn, ...(flags.notice ? { notice: flags.notice } : {}) },
+    }
+  }
+}
+
+async function* turnBody(
+  studentId: string,
+  body: unknown,
+  store: ConversationStore,
+  flags: { deskmateOn: boolean, notice: string | null },
+  agents?: Agents,
+  options?: TurnOptions,
+): AsyncGenerator<InnerEvent> {
+  // A turn with no addressed agent: the Teacher, then Mai if she is switched on.
+  const everyone: Participants = { teacher: true, deskmate: flags.deskmateOn, addressedAgent: null }
   // The ledger is read once a turn. A submission appends to it below and the
   // estimate is taken again, so the roadmap the student gets back already
   // counts the submission they just made.
@@ -156,6 +196,14 @@ async function* streamTurnBody(
     }
     const mode = existing.length === 0 ? 'learn' : null
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode) }
+    return
+  }
+
+  if (isDeskmateSwitch(body)) {
+    // Only the session student's own switch is ever read or written.
+    await options?.deskmateSettings?.save(studentId, body.on)
+    flags.deskmateOn = body.on
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
     return
   }
 
@@ -214,7 +262,7 @@ async function* streamTurnBody(
         draft: null,
         runOutput: null,
         submission: null,
-      }, store, quizStore, agents, '', options)
+      }, store, quizStore, agents, '', everyone, options)
       return
     }
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
@@ -244,24 +292,34 @@ async function* streamTurnBody(
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
-    }, store, quizStore, agents, '', options)
+    }, store, quizStore, agents, '', everyone, options)
     return
   }
 
   if (isMessage(body)) {
     if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
+    // The switch wins: a message to Mai while she is off goes to the Teacher alone.
+    let addressedAgent = messageAddressedAgent(body)
+    if (addressedAgent === 'deskmate' && !flags.deskmateOn) {
+      addressedAgent = null
+      flags.notice = deskmateOffNotice
+    }
     await store.appendMessage(studentId, placement.module.id, {
       author: 'student',
       approvedMove: null,
       text: body.text.trim(),
       exerciseId: placement.exercise.id,
+      addressedAgent,
     })
+    const participants: Participants = addressedAgent === null
+      ? everyone
+      : { teacher: addressedAgent === 'teacher', deskmate: addressedAgent === 'deskmate', addressedAgent }
     yield* answerMessage(studentId, placement, standing, {
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, quizStore, agents, body.text.trim(), options)
+    }, store, quizStore, agents, body.text.trim(), participants, options)
     return
   }
 
@@ -276,7 +334,7 @@ async function* introduceModule(
   quizStore: QuizAnswerStore,
   agents: Agents,
   options?: TurnOptions,
-): AsyncGenerator<TurnEvent> {
+): AsyncGenerator<InnerEvent> {
   const context = await teacherContext(studentId, placement, standing, store, quizStore, {
     draft: null,
     runOutput: null,
@@ -308,10 +366,17 @@ async function* introduceModule(
   const introductionVerdict = introduction
     ? decide([introduction], snapshot, roleTable, placement.course.scope)[0]
     : undefined
-  await recordDecisions(studentId, [
-    ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
-    ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
-  ], snapshot, placement.course.masteryThreshold, options?.decisions)
+  await recordDecisions({
+    studentId,
+    ruled: [
+      ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
+      ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
+    ],
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent: null,
+    decisions: options?.decisions,
+  })
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
@@ -440,7 +505,7 @@ async function* streamTeacherReply(
   agents: Agents,
   context: TeacherContext,
   move: Move,
-): AsyncGenerator<TurnEvent, string | null> {
+): AsyncGenerator<InnerEvent, string | null> {
   let text = ''
   try {
     for await (const delta of agents.teacher.render(context, move)) {
@@ -464,15 +529,19 @@ async function* answerMessage(
   quizStore: QuizAnswerStore,
   agents: Agents,
   studentMessage: string,
+  participants: Participants,
   options?: TurnOptions,
-): AsyncGenerator<TurnEvent> {
+): AsyncGenerator<InnerEvent> {
   const context = await teacherContext(studentId, placement, standing, store, quizStore, seen)
   const deskmate = deskmateContext(context)
   // Mai's proposal runs while the Teacher is already writing, so the first
-  // words are not held back for the second model call.
-  const teacherTask = settleCall(agents.teacher.propose(context))
-  const deskmateTask = settleCall(agents.deskmate.propose(deskmate))
+  // words are not held back for the second model call. An agent that does not
+  // take part in the turn is never called, and so proposes nothing.
+  const silent = Promise.resolve<PromiseSettledResult<Move | null>>({ status: 'fulfilled', value: null })
+  const teacherTask = participants.teacher ? settleCall(agents.teacher.propose(context)) : silent
+  const deskmateTask = participants.deskmate ? settleCall(agents.deskmate.propose(deskmate)) : silent
   const teacherSettled = await teacherTask
+  const addressedAgent = participants.addressedAgent
 
   const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
   const snapshot = turnSnapshot(placement, standing, studentMessage, highestHintRung(context.conversation), options)
@@ -480,7 +549,16 @@ async function* answerMessage(
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
   const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, placement.course.masteryThreshold, options?.decisions, turnId, recordedAt)
+  await recordDecisions({
+    studentId,
+    ruled: ruledPairs(teacherProposals, teacherVerdicts),
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent,
+    decisions: options?.decisions,
+    turnId,
+    time: recordedAt,
+  })
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
   let teacherFailed = false
@@ -517,7 +595,16 @@ async function* answerMessage(
   const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
   const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, placement.course.masteryThreshold, options?.decisions, turnId, recordedAt)
+  await recordDecisions({
+    studentId,
+    ruled: ruledPairs(deskmateProposals, deskmateVerdicts),
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent,
+    decisions: options?.decisions,
+    turnId,
+    time: recordedAt,
+  })
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
 
@@ -568,7 +655,7 @@ async function redrawWithTrace(
   quizStore: QuizAnswerStore,
   mode: 'learn' | null,
   trace: TurnTrace,
-): Promise<RedrawState> {
+): Promise<TurnState> {
   return {
     ...await redraw(studentId, placement, standing, store, quizStore, mode),
     trace,
@@ -592,15 +679,28 @@ function ruledPairs(
   })
 }
 
-async function recordDecisions(
-  studentId: string,
-  ruled: readonly { proposal: Proposal, verdict: Verdict }[],
-  snapshot: TurnSnapshot,
-  masteryThreshold: number,
-  decisions: DecisionLogStore | undefined,
+interface DecisionsToRecord {
+  studentId: string
+  ruled: readonly { proposal: Proposal, verdict: Verdict }[]
+  snapshot: TurnSnapshot
+  masteryThreshold: number
+  addressedAgent: AddressedAgent | null
+  decisions: DecisionLogStore | undefined
+  // Shared by every proposal of one turn; a fresh id and time when left out.
+  turnId?: string
+  time?: string
+}
+
+async function recordDecisions({
+  studentId,
+  ruled,
+  snapshot,
+  masteryThreshold,
+  addressedAgent,
+  decisions,
   turnId = crypto.randomUUID(),
   time = new Date().toISOString(),
-): Promise<void> {
+}: DecisionsToRecord): Promise<void> {
   if (!decisions || ruled.length === 0) return
   for (const { proposal, verdict } of ruled) {
     await decisions.append({
@@ -619,6 +719,8 @@ async function recordDecisions(
       unlockedModuleIds: [...snapshot.unlockedModuleIds],
       verifyShieldOn: snapshot.verifyShieldOn,
       masteryThreshold,
+      ruleChecks: verdict.ruleChecks.map(check => ({ ...check })),
+      addressedAgent,
     })
   }
 }
@@ -642,7 +744,7 @@ function verifyShieldTrace(
 }
 
 function tracedAgent(
-  agent: 'teacher' | 'deskmate',
+  agent: AddressedAgent,
   move: Move | null,
   verdicts: readonly Verdict[],
 ): AgentTrace {
@@ -835,7 +937,7 @@ async function redraw(
   store: ConversationStore,
   quizStore: QuizAnswerStore,
   mode: 'learn' | null = null,
-): Promise<RedrawState> {
+): Promise<TurnState> {
   const [messages, displayName, quizAnswers] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
@@ -851,7 +953,7 @@ function composeState(
   displayName: string,
   mode: 'learn' | null,
   quizAnswers: readonly QuizAnswerRow[],
-): RedrawState {
+): TurnState {
   return {
     displayName,
     course: placement.course.title,
@@ -919,6 +1021,8 @@ function presentMessage(message: StoredMessage, displayName: string): Conversati
     approvedMove: message.approvedMove,
     openInLearn: message.author === 'teacher'
       && (message.approvedMove === 'explain_concept' || message.approvedMove === 'answer_question'),
+    ...(message.createdAt ? { createdAt: message.createdAt } : {}),
+    ...(message.addressedAgent ? { addressedAgent: message.addressedAgent } : {}),
   }
 }
 
@@ -955,6 +1059,21 @@ interface MessageEvent {
   text: string
   draft?: unknown
   run?: unknown
+  addressedAgent?: unknown
+}
+
+// Anything but a known agent is read as no addressed agent.
+function messageAddressedAgent(body: MessageEvent): AddressedAgent | null {
+  return body.addressedAgent === 'teacher' || body.addressedAgent === 'deskmate' ? body.addressedAgent : null
+}
+
+function isDeskmateSwitch(input: unknown): input is { event: 'deskmate_switch', on: boolean } {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'deskmate_switch'
+    && 'on' in input
+    && typeof input.on === 'boolean'
 }
 
 function copySubmission(submission: SubmissionCheck | null): SubmissionCheck | null {

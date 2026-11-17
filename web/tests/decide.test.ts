@@ -40,7 +40,7 @@ describe('decide', () => {
       snapshot(),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -61,7 +61,7 @@ describe('decide', () => {
       }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -79,7 +79,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'What are lists?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_requires_unlocked_module',
@@ -97,7 +97,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'hey how are you' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_in_course',
@@ -115,7 +115,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Can you show me Pandas?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_keyword',
@@ -133,7 +133,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'What are lists?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_keyword',
@@ -155,7 +155,7 @@ describe('decide', () => {
       off,
       roleTable,
       course,
-    )).toEqual([
+    )).toMatchObject([
       {
         agent: 'teacher',
         decision: 'allow',
@@ -185,7 +185,7 @@ describe('decide', () => {
       snapshot(overrides),
       roleTable,
       course,
-    )).toEqual([
+    )).toMatchObject([
       {
         agent: 'teacher',
         decision: 'block',
@@ -217,8 +217,8 @@ describe('decide', () => {
       move: { type: 'redirect_to_module' as const, scope: 'lists_and_tuples' },
     }]
 
-    expect(decide(proposals, frozen, roleTable, course)).toEqual(expected)
-    expect(decide(proposals, frozen, roleTable, course)).toEqual(expected)
+    expect(decide(proposals, frozen, roleTable, course)).toMatchObject(expected)
+    expect(decide(proposals, frozen, roleTable, course)).toMatchObject(expected)
   })
 
   it('leaves the deskmate alone when the message names a closed module', () => {
@@ -230,7 +230,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'What are lists?' }),
       roleTable,
       course,
-    )).toEqual([
+    )).toMatchObject([
       {
         agent: 'teacher',
         decision: 'downgrade',
@@ -254,7 +254,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Can you show me Pandas?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_keyword',
@@ -293,7 +293,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Why is my list total zero?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -308,7 +308,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 0 }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'hint_ladder',
@@ -325,7 +325,7 @@ describe('decide', () => {
       afterRung1,
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -338,7 +338,7 @@ describe('decide', () => {
       afterRung1,
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'hint_ladder',
@@ -353,7 +353,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 2 }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -368,7 +368,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Give me a hint.', highestHintRung: 0, verifyShieldOn: false }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'verify_shield',
@@ -383,7 +383,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Can we start lists?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_requires_unlocked_module',
@@ -398,7 +398,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'What is next?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'block',
       ruleId: 'advance_known_module',
@@ -413,7 +413,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Should I move on?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'advance_not_current_module',
@@ -429,7 +429,7 @@ describe('decide', () => {
       snapshot({ unlockedModuleIds: ['strings', 'loops'], studentMessage: 'Should I revisit strings?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -444,7 +444,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'How does recursion work?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_in_course',
@@ -492,7 +492,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Why is my total always the last number?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'allow',
       ruleId: 'role_table',
@@ -507,7 +507,7 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Why is my total always the last number?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'misconception_known',
@@ -522,12 +522,93 @@ describe('decide', () => {
       snapshot({ studentMessage: 'Why does my code fail?' }),
       roleTable,
       course,
-    )).toEqual([{
+    )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_requires_unlocked_module',
       reasonCode: 'MODULE_CLOSED',
       move: { type: 'redirect_to_module', scope: 'lists_and_tuples' },
     }])
+  })
+
+  describe('rule checks', () => {
+    function checks(proposal: Parameters<typeof decide>[0][number], overrides: Partial<TurnSnapshot> = {}) {
+      return decide([proposal], snapshot(overrides), roleTable, course)[0]?.ruleChecks
+    }
+
+    it('lists the passed checks in the order they ran and ends with the allow on an allow', () => {
+      expect(checks({ agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } })).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
+      ])
+    })
+
+    it('checks only the role table for a deskmate move', () => {
+      expect(checks({ agent: 'deskmate', move: { type: 'peer_question' } })).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
+      ])
+    })
+
+    it('ends with the failed role table check on a block', () => {
+      expect(checks({ agent: 'deskmate', move: { type: 'explain_concept', scope: 'loops' } })).toEqual([
+        { ruleId: 'role_table', passed: false, reasonCode: 'ROLE_FORBIDDEN' },
+      ])
+    })
+
+    it('ends with the failed scope check on a redirect downgrade', () => {
+      expect(checks(
+        { agent: 'teacher', move: { type: 'explain_concept', scope: 'lists_and_tuples' } },
+        { studentMessage: 'What are lists?' },
+      )).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: false, reasonCode: 'MODULE_CLOSED' },
+      ])
+    })
+
+    it('ends with the failed hint ladder check on a skipped rung', () => {
+      expect(checks({ agent: 'teacher', move: { type: 'hint_level_N', level: 3, scope: 'loops' } })).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' },
+        { ruleId: 'hint_ladder', passed: false, reasonCode: 'HINT_SKIPPED' },
+      ])
+    })
+
+    it('ends with the failed misconception check on an unknown misconception', () => {
+      expect(checks({ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'invented', scope: 'loops' } })).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' },
+        { ruleId: 'misconception_known', passed: false, reasonCode: 'MISCONCEPTION_UNKNOWN' },
+      ])
+    })
+
+    it('has no checks when the VerifyShield is off', () => {
+      expect(checks({ agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } }, { verifyShieldOn: false })).toEqual([])
+    })
+
+    it('ends every list with the deciding rule and gives the same checks each time', () => {
+      const proposals = [
+        { agent: 'teacher' as const, move: { type: 'explain_concept' as const, scope: 'pandas' } },
+        { agent: 'teacher' as const, move: { type: 'advance_to_module' as const, moduleId: 'loops' } },
+        { agent: 'deskmate' as const, move: { type: 'share_confusion' as const } },
+      ]
+      const first = decide(proposals, snapshot({ moduleId: '' }), roleTable, course)
+      const again = decide(proposals, snapshot({ studentMessage: 'Tell me about pandas' }), roleTable, course)
+      for (const verdict of [...first, ...again]) {
+        const deciding = verdict.decision === 'allow'
+          ? { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' }
+          : { ruleId: verdict.ruleId, reasonCode: verdict.reasonCode }
+        expect(verdict.ruleChecks.at(-1)).toMatchObject(deciding)
+      }
+      expect(decide(proposals, snapshot({ studentMessage: 'Tell me about pandas' }), roleTable, course)).toEqual(again)
+    })
   })
 })

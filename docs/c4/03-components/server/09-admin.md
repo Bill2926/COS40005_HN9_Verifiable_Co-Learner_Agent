@@ -32,13 +32,15 @@ flowchart LR
 | Step | What happens |
 |---|---|
 | Who may call | No email: `SignInRequiredError` (401). Email not in the comma-separated `adminEmails`: `ProductOwnerRequiredError` (403). |
+| `role` event | `checkAdminRole`: the same 401/403 checks, then `{ productOwner: true }`. Reads no settings and no decisions; `api/admin.post.ts` routes it there before `handleAdmin`. |
 | `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. |
 | `verifyShield` event | Saves the on or off switch. |
-| Every call | Returns the model settings with the API key masked, the current shield state, and up to 100 decisions filtered by verdict and student id. |
+| Every other call | Returns the model settings with the API key masked, the current shield state, and up to 100 decisions filtered by verdict and student id. |
 
 ## Verified imports
 
 - Runtime: `language-model` (`resolveModelChoice`; type `ModelSettings`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`).
 - Type only: `storage/decision-log`, `storage/model-settings-store`.
 - It never imports Supabase code; the route passes the stores in.
+- Each decision it returns includes `ruleChecks` when the decision log recorded them.
 - Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`.

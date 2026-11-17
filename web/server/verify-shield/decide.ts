@@ -1,3 +1,4 @@
+import type { AddressedAgent, RuleCheck } from '../../shared/turn'
 import type { Move, RoleTable } from '../agents'
 
 export interface ModuleMastery {
@@ -32,17 +33,27 @@ export interface CourseScope {
 }
 
 export interface Proposal {
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   move: Move
 }
 
+export type { RuleCheck }
+
 export interface Verdict {
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   decision: 'allow' | 'block' | 'downgrade'
   ruleId: string
   reasonCode: string
   move: Move | null
+  // Ends with the check that decided the verdict; empty when the VerifyShield is off.
+  // Rules after the deciding one are not evaluated and do not appear.
+  ruleChecks: RuleCheck[]
 }
+
+// The deciding check of an allow: every rule above it passed.
+const allowedCheck: RuleCheck = { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' }
+
+type Ruling = Omit<Verdict, 'agent' | 'ruleChecks'>
 
 const teachingMoves = new Set<Move['type']>([
   'explain_concept',
@@ -64,6 +75,7 @@ export function decide(
       ruleId: 'verify_shield',
       reasonCode: 'VERIFYSHIELD_OFF',
       move: proposal.move,
+      ruleChecks: [],
     }))
   }
 
@@ -74,48 +86,52 @@ export function decide(
       ruleId: 'turn_placement',
       reasonCode: 'NO_PLACEMENT',
       move: null,
+      ruleChecks: [{ ruleId: 'turn_placement', passed: false, reasonCode: 'NO_PLACEMENT' }],
     }))
   }
 
   return proposals.map((proposal) => {
-    const permitted = roleTable[proposal.agent].includes(proposal.move.type)
-    if (!permitted) {
-      return {
-        agent: proposal.agent,
-        decision: 'block',
-        ruleId: 'role_table',
-        reasonCode: 'ROLE_FORBIDDEN',
-        move: null,
-      }
+    const checks: RuleCheck[] = []
+    const ruling = rule(proposal, snapshot, roleTable, course, checks)
+    if (ruling.decision !== 'allow') {
+      checks.push({ ruleId: ruling.ruleId, passed: false, reasonCode: ruling.reasonCode })
     }
-
-    const scoped = scopeDowngrade(proposal, snapshot, course)
-    if (scoped) return scoped
-
-    const advance = advanceDowngrade(proposal, snapshot, course)
-    if (advance) return advance
-
-    const misconception = misconceptionDowngrade(proposal, snapshot)
-    if (misconception) return misconception
-
-    const hint = hintLadderDowngrade(proposal, snapshot)
-    if (hint) return hint
-
-    return {
-      agent: proposal.agent,
-      decision: 'allow',
-      ruleId: 'role_table',
-      reasonCode: 'ROLE_PERMITTED',
-      move: proposal.move,
+    else {
+      // An allow is decided by every rule passing, so that ends the list.
+      checks.push(allowedCheck)
     }
+    return { agent: proposal.agent, ...ruling, ruleChecks: checks }
   })
+}
+
+// Applies the rules in order and records each one passed in `checks`. The
+// failing rule, if any, is returned as the ruling and not recorded here.
+function rule(
+  proposal: Proposal,
+  snapshot: TurnSnapshot,
+  roleTable: RoleTable,
+  course: CourseScope,
+  checks: RuleCheck[],
+): Ruling {
+  const permitted = roleTable[proposal.agent].includes(proposal.move.type)
+  if (!permitted) {
+    return { decision: 'block', ruleId: 'role_table', reasonCode: 'ROLE_FORBIDDEN', move: null }
+  }
+  checks.push({ ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' })
+
+  return scopeDowngrade(proposal, snapshot, course, checks)
+    ?? advanceDowngrade(proposal, snapshot, course, checks)
+    ?? misconceptionDowngrade(proposal, snapshot, checks)
+    ?? hintLadderDowngrade(proposal, snapshot, checks)
+    ?? { decision: 'allow', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED', move: proposal.move }
 }
 
 function scopeDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
   course: CourseScope,
-): Verdict | null {
+  checks: RuleCheck[],
+): Ruling | null {
   if (proposal.agent !== 'teacher') return null
   if (!teachingMoves.has(proposal.move.type)) return null
   const scope = moveScope(proposal.move) ?? snapshot.moduleId
@@ -125,32 +141,34 @@ function scopeDowngrade(
     const keyword = keywordHit(snapshot.studentMessage, snapshot.unlockedModuleIds, course)
     if (keyword) {
       return {
-        agent: 'teacher',
         decision: 'downgrade',
         ruleId: 'scope_keyword',
         reasonCode: keyword.reasonCode,
         move: { type: 'redirect_to_module', scope: keyword.scope },
       }
     }
+    checks.push({ ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' })
   }
 
   if (scope === 'out_of_course') {
     return {
-      agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_in_course',
       reasonCode: 'OUT_OF_COURSE',
       move: { type: 'redirect_to_module', scope: 'out_of_course' },
     }
   }
-  if (snapshot.unlockedModuleIds.includes(scope)) return null
+  if (snapshot.unlockedModuleIds.includes(scope)) {
+    checks.push({ ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' })
+    checks.push({ ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' })
+    return null
+  }
 
   // A scope the model invented is neither a module of the course nor out of
   // course. The student is brought back to their module exactly as for an
   // out-of-course move, so the log says which of the two happened.
   if (!course.modules.some(module => module.id === scope)) {
     return {
-      agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'scope_in_course',
       reasonCode: 'SCOPE_UNKNOWN',
@@ -158,8 +176,8 @@ function scopeDowngrade(
     }
   }
 
+  checks.push({ ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' })
   return {
-    agent: 'teacher',
     decision: 'downgrade',
     ruleId: 'scope_requires_unlocked_module',
     reasonCode: 'MODULE_CLOSED',
@@ -175,34 +193,32 @@ function advanceDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
   course: CourseScope,
-): Verdict | null {
+  checks: RuleCheck[],
+): Ruling | null {
   if (proposal.agent !== 'teacher' || proposal.move.type !== 'advance_to_module') return null
   const target = proposal.move.moduleId
 
   if (!course.modules.some(module => module.id === target)) {
-    return {
-      agent: 'teacher',
-      decision: 'block',
-      ruleId: 'advance_known_module',
-      reasonCode: 'ADVANCE_UNKNOWN_MODULE',
-      move: null,
-    }
+    return { decision: 'block', ruleId: 'advance_known_module', reasonCode: 'ADVANCE_UNKNOWN_MODULE', move: null }
   }
+  checks.push({ ruleId: 'advance_known_module', passed: true, reasonCode: 'MODULE_KNOWN' })
 
   if (target === snapshot.moduleId) {
     return {
-      agent: 'teacher',
       decision: 'downgrade',
       ruleId: 'advance_not_current_module',
       reasonCode: 'ADVANCE_TO_CURRENT',
       move: { type: 'stay_and_practise' },
     }
   }
+  checks.push({ ruleId: 'advance_not_current_module', passed: true, reasonCode: 'NOT_CURRENT_MODULE' })
 
-  if (snapshot.unlockedModuleIds.includes(target)) return null
+  if (snapshot.unlockedModuleIds.includes(target)) {
+    checks.push({ ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' })
+    return null
+  }
 
   return {
-    agent: 'teacher',
     decision: 'downgrade',
     ruleId: 'scope_requires_unlocked_module',
     reasonCode: 'MODULE_CLOSED',
@@ -216,13 +232,16 @@ function advanceDowngrade(
 function misconceptionDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
-): Verdict | null {
+  checks: RuleCheck[],
+): Ruling | null {
   if (proposal.agent !== 'teacher') return null
   if (proposal.move.type !== 'address_misconception') return null
-  if (snapshot.misconceptionIds.includes(proposal.move.misconceptionId)) return null
+  if (snapshot.misconceptionIds.includes(proposal.move.misconceptionId)) {
+    checks.push({ ruleId: 'misconception_known', passed: true, reasonCode: 'MISCONCEPTION_KNOWN' })
+    return null
+  }
 
   return {
-    agent: proposal.agent,
     decision: 'downgrade',
     ruleId: 'misconception_known',
     reasonCode: 'MISCONCEPTION_UNKNOWN',
@@ -236,14 +255,17 @@ function misconceptionDowngrade(
 function hintLadderDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
-): Verdict | null {
+  checks: RuleCheck[],
+): Ruling | null {
   if (proposal.agent !== 'teacher') return null
   if (proposal.move.type !== 'hint_level_N') return null
   const ceiling = snapshot.highestHintRung + 1
-  if (proposal.move.level <= ceiling) return null
+  if (proposal.move.level <= ceiling) {
+    checks.push({ ruleId: 'hint_ladder', passed: true, reasonCode: 'HINT_IN_ORDER' })
+    return null
+  }
 
   return {
-    agent: proposal.agent,
     decision: 'downgrade',
     ruleId: 'hint_ladder',
     reasonCode: 'HINT_SKIPPED',

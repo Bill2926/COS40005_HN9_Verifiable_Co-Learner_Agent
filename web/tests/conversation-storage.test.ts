@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { createClient } from '@supabase/supabase-js'
 import { describe, expect, it } from 'vitest'
 import { demoAccounts } from '../server/auth/demo-accounts'
+import { createSupabaseDeskmateSettingStore } from '../server/storage/supabase-deskmate-setting-store'
 import { createSupabaseConversationStore } from '../server/storage/supabase-conversation-store'
 
 function envValue(name: string): string {
@@ -128,6 +129,7 @@ describe('supabase conversation store', () => {
         approvedMove: null,
         text: 'Where does the total live?',
         exerciseId: 'sum_of_a_list',
+        addressedAgent: 'deskmate',
       })
       await store.appendMessage(studentId, 'for_loop', {
         author: 'event',
@@ -146,6 +148,7 @@ describe('supabase conversation store', () => {
         approvedMove: message.approvedMove,
         text: message.text,
         exerciseId: message.exerciseId,
+        addressedAgent: message.addressedAgent,
       }))).toEqual([
         {
           sequence: 1,
@@ -153,6 +156,7 @@ describe('supabase conversation store', () => {
           approvedMove: null,
           text: 'Where does the total live?',
           exerciseId: 'sum_of_a_list',
+          addressedAgent: 'deskmate',
         },
         {
           sequence: 2,
@@ -160,9 +164,22 @@ describe('supabase conversation store', () => {
           approvedMove: null,
           text: 'Count the even numbers',
           exerciseId: 'count_the_even_numbers',
+          addressedAgent: null,
         },
       ])
+      for (const message of await store.messages(studentId, 'for_loop')) {
+        expect(Number.isNaN(Date.parse(message.createdAt ?? ''))).toBe(false)
+      }
       expect(await store.messages(studentId, 'variable')).toEqual([])
+
+      // The deskmate switch round-trips for this student, on until switched off.
+      const switches = createSupabaseDeskmateSettingStore({ url, secretKey })
+      expect(await switches.read(studentId)).toBe(true)
+      await switches.save(studentId, false)
+      expect(await switches.read(studentId)).toBe(false)
+      const signedIn = supabaseClient(url, envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'))
+      const read = await signedIn.from('deskmate_settings').select('*')
+      expect(read.data ?? []).toEqual([])
     }
     finally {
       await admin.auth.admin.deleteUser(studentId)

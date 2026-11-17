@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { handleAdmin } from '../server/admin/handle-admin'
+import { checkAdminRole, handleAdmin } from '../server/admin/handle-admin'
 import { productOwnerAccount } from '../server/auth/demo-accounts'
 import { agentsForTurn, createFakeAgents } from '../server/agents'
 import type { ModelSettings } from '../server/language-model'
@@ -67,6 +67,12 @@ describe('admin handler', () => {
     }))).rejects.toMatchObject({ statusCode: 403 })
 
     expect(await store.read()).toBeNull()
+  })
+
+  it('answers a role check for the product owner and refuses anyone else', () => {
+    expect(checkAdminRole({ email: owner, adminEmails })).toEqual({ productOwner: true })
+    expect(() => checkAdminRole({ email: 'an@example.com', adminEmails })).toThrow(expect.objectContaining({ statusCode: 403 }))
+    expect(() => checkAdminRole({ email: null, adminEmails })).toThrow(expect.objectContaining({ statusCode: 401 }))
   })
 
   it('refuses a request with no session', async () => {
@@ -349,6 +355,11 @@ describe('admin handler', () => {
       masteries: priorMasteries,
       unlockedModuleIds: ['getting_started'],
       verifyShieldOn: true,
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: false, reasonCode: 'MODULE_CLOSED' },
+      ],
     })
     expect(deskmate).toMatchObject({
       studentId: signedInStudent,
@@ -361,6 +372,10 @@ describe('admin handler', () => {
       ruleId: 'role_table',
       reasonCode: 'ROLE_PERMITTED',
       verifyShieldOn: true,
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
+      ],
     })
     expect(JSON.stringify(viewed.decisions)).not.toContain(lesson)
     expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
@@ -382,6 +397,28 @@ describe('admin handler', () => {
     expect(viewed.decisions[0]?.turnId).toBe('turn-100')
     expect(viewed.decisions[99]?.turnId).toBe('turn-1')
     expect(viewed.decisions.map(decision => decision.turnId)).not.toContain('turn-0')
+  })
+
+  it('reads a decision recorded before rule checks with its rule checks absent', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'older' }))
+    await decisions.append(loggedDecision({ turnId: 'off', time: '2026-01-02T00:00:00.000Z', verifyShieldOn: false, ruleChecks: [] }))
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions.find(decision => decision.turnId === 'older')).not.toHaveProperty('ruleChecks')
+    expect(viewed.decisions.find(decision => decision.turnId === 'off')?.ruleChecks).toEqual([])
+  })
+
+  it('reads back the addressed agent of each decision', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'to-mai', agent: 'deskmate', addressedAgent: 'deskmate' }))
+    await decisions.append(loggedDecision({ turnId: 'to-nobody', time: '2026-01-02T00:00:00.000Z', addressedAgent: null }))
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions.find(decision => decision.turnId === 'to-mai')?.addressedAgent).toBe('deskmate')
+    expect(viewed.decisions.find(decision => decision.turnId === 'to-nobody')?.addressedAgent).toBeNull()
   })
 
   it('filters decisions by verdict and by student', async () => {
@@ -582,12 +619,14 @@ describe('admin handler', () => {
 })
 
 const decisionFields = [
+  'addressedAgent',
   'agent',
   'masteries',
   'masteryThreshold',
   'proposedMove',
   'proposedScope',
   'reasonCode',
+  'ruleChecks',
   'ruleId',
   'ruledMove',
   'ruledScope',

@@ -27,7 +27,7 @@ function requiredEnv(name: string): string {
   return value
 }
 
-function adminClient(): SupabaseClient {
+export function adminClient(): SupabaseClient {
   return createClient(requiredEnv('NUXT_PUBLIC_SUPABASE_URL'), requiredEnv('NUXT_SUPABASE_SECRET_KEY'), {
     auth: {
       persistSession: false,
@@ -64,6 +64,9 @@ export async function resetDemoAccounts() {
   // mastery the next run starts from. The seeded ledger is left as it is.
   const evidence = await admin.from('evidence').delete().in('student_id', clearableIds(students))
   if (evidence.error) throw new Error(evidence.error.message)
+  // Each rehearsal starts with Mai switched on.
+  const deskmate = await admin.from('deskmate_settings').delete().in('student_id', ids)
+  if (deskmate.error) throw new Error(deskmate.error.message)
 }
 
 function clearableIds(students: readonly DemoStudent[]): string[] {
