@@ -1,7 +1,7 @@
 <script setup lang="ts">
 // The header both product owner pages share: the nav between Decisions and
-// Settings, a link to the lecturer page for a product owner who also lectures,
-// and the way back to the course workspace.
+// Settings, and the switch to the lecturer page for a product owner who also
+// lectures.
 const route = useRoute()
 
 const pages = [
@@ -21,6 +21,11 @@ onMounted(async () => {
 })
 
 const linkClass = 'text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current'
+
+async function signOut() {
+  await useNuxtApp().$supabase.auth.signOut()
+  await navigateTo('/sign-in')
+}
 </script>
 
 <template>
@@ -61,12 +66,14 @@ const linkClass = 'text-sm text-muted underline decoration-transparent underline
         >
           Lecturer page
         </NuxtLink>
-        <NuxtLink
-          :to="{ path: '/', query: { workspace: '1' } }"
+        <button
+          type="button"
           :class="linkClass"
+          class="min-h-11 md:min-h-0"
+          @click="signOut"
         >
-          Back to the course
-        </NuxtLink>
+          Sign out
+        </button>
       </div>
     </div>
   </header>

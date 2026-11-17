@@ -63,17 +63,14 @@ test.afterAll(async () => {
   await adminClient().from('decisions').delete().eq('turn_id', turnId)
 })
 
-test('lands the product owner on Decisions, and Back to the course still opens the workspace', async ({ page }) => {
+test('lands the product owner on Decisions and keeps them out of the course', async ({ page }) => {
   await signInAsOwner(page)
   await expect(page).toHaveURL(/\/admin$/)
   await expect(page.getByRole('heading', { name: 'Decisions', exact: true })).toBeVisible()
 
   await page.goto('/')
   await expect(page).toHaveURL(/\/admin$/)
-
-  await page.getByRole('link', { name: 'Back to the course' }).click()
-  await expect(page).toHaveURL(/[?&]workspace=1/)
-  await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('link', { name: 'Back to the course' })).toHaveCount(0)
 })
 
 test('splits Decisions and Settings, and the nav marks the current page', async ({ page }) => {

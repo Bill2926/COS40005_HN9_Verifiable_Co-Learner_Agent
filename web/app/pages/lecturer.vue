@@ -1,8 +1,19 @@
 <script setup lang="ts">
 import type { LecturerCourse, LecturerResponse } from '#shared/lecturer'
+import { isProductOwner } from '~/staff/landing'
 
 definePageMeta({ middleware: 'signed-in' })
 useHead({ title: 'Lecturer' })
+
+const productOwner = ref(false)
+onMounted(async () => {
+  productOwner.value = await isProductOwner($fetch)
+})
+
+async function signOut() {
+  await useNuxtApp().$supabase.auth.signOut()
+  await navigateTo('/sign-in')
+}
 
 const { data, error, status } = await useFetch<LecturerResponse>('/api/lecturer', {
   key: 'lecturer-courses',
@@ -88,12 +99,22 @@ const dateTime = new Intl.DateTimeFormat('en', {
           <img src="/swinburne-fpt-logo.webp" alt="" width="871" height="705" class="block h-8 w-auto shrink-0">
           Verifiable Co-Learner
         </p>
-        <NuxtLink
-          to="/"
-          class="text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current"
-        >
-          Back to the course
-        </NuxtLink>
+        <div class="flex items-center gap-4">
+          <NuxtLink
+            v-if="productOwner"
+            to="/admin"
+            class="text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current"
+          >
+            Admin page
+          </NuxtLink>
+          <button
+            type="button"
+            class="min-h-11 text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current md:min-h-0"
+            @click="signOut"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </header>
 
