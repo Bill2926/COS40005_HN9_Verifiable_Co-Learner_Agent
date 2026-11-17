@@ -376,6 +376,53 @@ async function boxOf(locator: Locator): Promise<PanelBox | null> {
   })
 }
 
+test('locks an answered quiz question and shows Submit busy at phone width', async ({ page }) => {
+  test.setTimeout(240_000)
+  await openWorkspace(page, { width: 390, height: 800 })
+
+  const quiz = page.getByRole('region', { name: 'Module quiz' })
+  const questions = quiz.locator('ol > li')
+  const first = questions.nth(0).getByRole('button')
+  const second = questions.nth(1).getByRole('button')
+  await expect(first.first()).toBeEnabled()
+
+  await first.first().click()
+  await expect(questions.nth(0)).toContainText(/Correct|Not quite/)
+  for (const choice of await first.all()) await expect(choice).toBeDisabled()
+  await expect(first.first()).toHaveCSS('cursor', 'not-allowed')
+  await expect(first.first()).toHaveAttribute('aria-pressed', 'true')
+  for (const choice of await second.all()) await expect(choice).toBeEnabled()
+
+  let release = () => {}
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  await page.route('**/turn', async (route) => {
+    const body = route.request().postData() ?? ''
+    if (route.request().method() === 'POST' && body.includes('"event":"submission"')) await gate
+    await route.continue()
+  })
+
+  try {
+    await page.getByRole('button', { name: 'Practice', exact: true }).click()
+    const submit = page.getByRole('button', { name: 'Submit', exact: true })
+    const sent = page.waitForRequest(request => request.method() === 'POST' && (request.postData() ?? '').includes('"event":"submission"'), { timeout: 180_000 })
+    await submit.click()
+    await expect(submit).toHaveAttribute('aria-busy', 'true')
+    await expect(submit).toBeDisabled()
+    await sent
+    await expect(submit).toHaveAttribute('aria-busy', 'true')
+    await expect(submit).toBeDisabled()
+    release()
+    await expect(submit).toBeEnabled({ timeout: 60_000 })
+    await expect(submit).toHaveAttribute('aria-busy', 'false')
+  }
+  finally {
+    release()
+    await page.unrouteAll({ behavior: 'ignoreErrors' })
+  }
+})
+
 async function openWorkspace(page: Page, size: { width: number, height: number }) {
   if (!anAccount) throw new Error('Demo account An is missing.')
   await page.setViewportSize(size)

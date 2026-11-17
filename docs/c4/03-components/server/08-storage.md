@@ -58,7 +58,7 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 | Store | Interface offers | Tables (from the Supabase version) |
 |---|---|---|
 | course | `course(courseId)`: the course built from its stored spec with `courseFromSpec`; throws for an unknown id. Read on every call, so an imported spec applies on the next request. The in-memory version holds `pythonCourse` unless given others. | `courses` |
-| conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage`. One resume point per student per course. | `students`, `resume_points`, `conversations`, `messages` |
+| conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage`. One resume point per student per course. Each stored message carries `createdAt`, the time the database stamped it on insert, or `null` for messages written before times were recorded. | `students`, `resume_points`, `conversations`, `messages` |
 | evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Reads merge submissions with quiz answers by timestamp. Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
 | quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`, and `observationsForStudent` for the evidence store. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
 | decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
@@ -73,7 +73,7 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 - The course store imports `course` (`courseFromSpec` in the Supabase version, `pythonCourse` in the in-memory one).
 - Runtime importers from outside: `routes/turn.post.ts` (all seven Supabase files), `routes/course-outline.get.ts` (`supabase-course-store`), `api/admin.post.ts` (three Supabase files). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` and `course-store.ts` at runtime for their in-memory defaults.
 - Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
-- Tests: `courses-boundary.test.ts`, `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts`, `quiz-answers-boundary.test.ts` (Supabase versions, against the live project); `turn-endpoint.test.ts`, `admin-handler.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts` (the interfaces and their in-memory versions).
+- Tests: `message-time-migration.test.ts` (the `messages.created_at` migration, on PGlite); `courses-boundary.test.ts`, `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts`, `quiz-answers-boundary.test.ts` (Supabase versions, against the live project); `turn-endpoint.test.ts`, `admin-handler.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts` (the interfaces and their in-memory versions).
 
 ## Notes
 

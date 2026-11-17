@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import type { QuizQuestionView } from '#shared/turn'
+import BusySpinner from '../BusySpinner.vue'
 import InlineText from './InlineText.vue'
 
 const props = defineProps<{
   questions: readonly QuizQuestionView[]
+  // The question whose answer is being marked, if any. While one is marked, no
+  // other choice can be picked: the answer replaces the whole workspace.
+  answeringId?: string
+  // The choice being marked, shown with a spinner.
+  answeringChoice?: number
 }>()
 
 const emit = defineEmits<{
@@ -12,49 +18,35 @@ const emit = defineEmits<{
 
 const letters = ['A', 'B', 'C', 'D']
 
-// Once a question is answered, the correct choice and explanation are known, so
-// the student can try other choices and see right or wrong without another turn.
-// This holds the choice each answered question is currently showing.
-const explored = reactive<Record<string, number>>({})
+// A question locks once answered: only the first answer counts, so its choices
+// stay disabled while the answer, the correct choice and the explanation show.
+function locked(question: QuizQuestionView): boolean {
+  return question.result !== null || Boolean(props.answeringId)
+}
 
 function pick(question: QuizQuestionView, choice: number) {
-  if (question.result) {
-    explored[question.id] = choice
-    return
-  }
+  if (locked(question)) return
   emit('answer', { questionId: question.id, choice })
 }
 
-function shownChoice(question: QuizQuestionView): number | null {
-  if (!question.result) return null
-  return explored[question.id] ?? question.result.choice
+function marking(question: QuizQuestionView, choice: number): boolean {
+  return props.answeringId === question.id && props.answeringChoice === choice
 }
 
 function choiceState(question: QuizQuestionView, choice: number): 'idle' | 'correct' | 'wrong' {
   const result = question.result
   if (!result) return 'idle'
   if (choice === result.correctIndex) return 'correct'
-  if (choice === shownChoice(question)) return 'wrong'
+  if (choice === result.choice) return 'wrong'
   return 'idle'
 }
 
-function choiceClass(state: 'idle' | 'correct' | 'wrong', answered: boolean): string {
-  if (state === 'correct') return 'border-emerald-300 bg-emerald-50 text-emerald-900'
-  if (state === 'wrong') return 'border-rose-300 bg-rose-50 text-rose-900'
-  if (answered) return 'border-ink-200 bg-paper text-ink-600'
+function choiceClass(state: 'idle' | 'correct' | 'wrong', answered: boolean, waiting: boolean): string {
+  if (state === 'correct') return 'cursor-not-allowed border-emerald-300 bg-emerald-50 text-emerald-900'
+  if (state === 'wrong') return 'cursor-not-allowed border-rose-300 bg-rose-50 text-rose-900'
+  if (answered) return 'cursor-not-allowed border-ink-200 bg-ink-50 text-ink-500'
+  if (waiting) return 'cursor-wait border-ink-200 bg-paper text-ink-700'
   return 'border-ink-200 bg-paper text-ink-700 hover:border-brand-300 hover:bg-brand-50'
-}
-
-function verdict(question: QuizQuestionView): { label: string, tone: 'correct' | 'wrong' } | null {
-  const result = question.result
-  if (!result) return null
-  const shown = explored[question.id] ?? result.choice
-  const right = shown === result.correctIndex
-  const exploring = shown !== result.choice
-  const label = exploring
-    ? (right ? 'Correct choice' : 'Not correct')
-    : (result.correct ? 'Correct' : 'Not quite')
-  return { label, tone: right ? 'correct' : 'wrong' }
 }
 </script>
 
@@ -88,26 +80,32 @@ function verdict(question: QuizQuestionView): { label: string, tone: 'correct' |
             :key="choiceIndex"
             type="button"
             class="flex items-start gap-2 rounded-[6px] border px-3 py-2 text-left text-[13px] leading-5 transition-colors"
-            :class="choiceClass(choiceState(question, choiceIndex), question.result !== null)"
-            :aria-pressed="shownChoice(question) === choiceIndex"
+            :class="choiceClass(choiceState(question, choiceIndex), question.result !== null, Boolean(answeringId))"
+            :aria-pressed="question.result?.choice === choiceIndex"
+            :aria-busy="marking(question, choiceIndex) ? true : undefined"
+            :disabled="locked(question)"
             @click="pick(question, choiceIndex)"
           >
             <span class="font-mono text-[11px] leading-5 text-ink-400">{{ letters[choiceIndex] }}</span>
-            <span class="min-w-0"><InlineText :text="choice" /></span>
+            <span class="min-w-0 flex-1"><InlineText :text="choice" /></span>
+            <span
+              v-if="marking(question, choiceIndex)"
+              class="mt-1 text-brand-600"
+            ><BusySpinner /></span>
           </button>
         </div>
         <div
-          v-if="verdict(question)"
+          v-if="question.result"
           class="flex flex-col gap-1 rounded-[6px] border border-ink-200 bg-paper px-3 py-2"
         >
           <p
             class="text-xs leading-5 font-semibold"
-            :class="verdict(question)!.tone === 'wrong' ? 'text-rose-700' : 'text-emerald-700'"
+            :class="question.result.correct ? 'text-emerald-700' : 'text-rose-700'"
           >
-            {{ verdict(question)!.label }}
+            {{ question.result.correct ? 'Correct' : 'Not quite' }}
           </p>
           <p class="text-xs leading-5 text-ink-600">
-            <InlineText :text="question.result!.explanation" />
+            <InlineText :text="question.result.explanation" />
           </p>
         </div>
       </li>

@@ -77,6 +77,10 @@ const selecting = ref(false)
 const selectError = ref('')
 const pendingModuleId = ref('')
 const pendingModuleName = ref('')
+// What the current select turn is waiting on, so that control shows a spinner.
+const selectingModuleId = ref('')
+const selectingExerciseId = ref('')
+const answering = ref<{ questionId: string, choice: number } | null>(null)
 const moduleViews = new Map<string, RedrawState>()
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
@@ -252,6 +256,7 @@ async function selectModule(moduleId: string) {
   const generation = ++selectGeneration
   rememberModule(snapshot)
   selecting.value = true
+  selectingModuleId.value = moduleId
   selectError.value = ''
   const cached = moduleViews.get(moduleId)
   if (cached) {
@@ -285,6 +290,7 @@ async function selectModule(moduleId: string) {
   }
   finally {
     selecting.value = false
+    selectingModuleId.value = ''
     pendingModuleId.value = ''
     pendingModuleName.value = ''
   }
@@ -296,6 +302,7 @@ async function selectExercise(exerciseId: string) {
   if (current.workingArea.exercise.id === exerciseId) return
 
   selecting.value = true
+  selectingExerciseId.value = exerciseId
   selectError.value = ''
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
@@ -308,6 +315,7 @@ async function selectExercise(exerciseId: string) {
   }
   finally {
     selecting.value = false
+    selectingExerciseId.value = ''
   }
 }
 
@@ -316,12 +324,12 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   // A quiz turn replaces the whole workspace, so it holds the same lock as a
   // module or exercise select: a stale answer must not land on a newer view.
   if (!current || selecting.value || sending.value) return
-  // A question already answered keeps its first answer; re-picking is explored
-  // on the client without a turn.
+  // A question already answered keeps its first answer and is locked.
   const question = current.workingArea.quiz.find(item => item.id === answer.questionId)
   if (!question || question.result) return
 
   selecting.value = true
+  answering.value = answer
   selectError.value = ''
   try {
     showWorkspace(await $fetch<RedrawState>('/turn', {
@@ -339,6 +347,7 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   }
   finally {
     selecting.value = false
+    answering.value = null
   }
 }
 
@@ -568,6 +577,7 @@ function initialsOf(name: string): string {
         :student-id="studentId"
         :mastery-threshold="workspace.masteryThreshold"
         :pending-module-id="pendingModuleId"
+        :selecting-module-id="selectingModuleId"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
@@ -578,6 +588,7 @@ function initialsOf(name: string): string {
         :modules="workspace.courseRoadmap"
         :mastery-threshold="workspace.masteryThreshold"
         :pending-module-id="pendingModuleId"
+        :selecting-module-id="selectingModuleId"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
@@ -590,6 +601,8 @@ function initialsOf(name: string): string {
           :select-error="selectError"
           :pending-module-name="pendingModuleName"
           :submitting="sending"
+          :answering="answering"
+          :selecting-exercise-id="selectingExerciseId"
           :floating="layout === 'roadmap'"
           :expanded="workingAreaExpanded"
           @update:mode="workingMode = $event"

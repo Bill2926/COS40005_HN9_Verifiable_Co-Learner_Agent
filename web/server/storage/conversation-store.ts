@@ -7,6 +7,9 @@ export interface StoredMessage {
   approvedMove: string | null
   text: string
   exerciseId: string
+  // When the message was written, as an ISO time. Messages written before
+  // times were recorded have none.
+  createdAt: string | null
 }
 
 export interface ResumePoint {
@@ -64,6 +67,7 @@ export function createMemoryConversationStore(
         approvedMove: message.approvedMove,
         text: message.text,
         exerciseId: message.exerciseId,
+        createdAt: new Date().toISOString(),
       }
       stored.push(appended)
       conversations.set(key(studentId, moduleId), stored)
