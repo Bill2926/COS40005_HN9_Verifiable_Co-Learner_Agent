@@ -3,7 +3,7 @@ import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
-import type { PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
+import type { AddressedAgent, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
 import { resolveWorkspaceLayout, workspaceLayoutCookie, workspaceLayoutCookieOptions, workspaceLayoutFrom, workspaceLayouts, type WorkspaceLayoutId } from '~/workspace/layout'
@@ -400,7 +400,7 @@ function nextPaint(): Promise<void> {
   })
 }
 
-async function sendMessage(text: string, addressedAgent: 'teacher' | 'deskmate' | null) {
+async function sendMessage(text: string, addressedAgent: AddressedAgent | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
   const storedDraft = studentId.value

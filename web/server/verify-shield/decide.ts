@@ -1,3 +1,4 @@
+import type { AddressedAgent, RuleCheck } from '../../shared/turn'
 import type { Move, RoleTable } from '../agents'
 
 export interface ModuleMastery {
@@ -32,19 +33,14 @@ export interface CourseScope {
 }
 
 export interface Proposal {
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   move: Move
 }
 
-// One rule the VerifyShield applied to a proposal, in the order it applied them.
-export interface RuleCheck {
-  ruleId: string
-  passed: boolean
-  reasonCode: string
-}
+export type { RuleCheck }
 
 export interface Verdict {
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   decision: 'allow' | 'block' | 'downgrade'
   ruleId: string
   reasonCode: string
@@ -53,6 +49,9 @@ export interface Verdict {
   // Rules after the deciding one are not evaluated and do not appear.
   ruleChecks: RuleCheck[]
 }
+
+// The deciding check of an allow: every rule above it passed.
+const allowedCheck: RuleCheck = { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' }
 
 type Ruling = Omit<Verdict, 'agent' | 'ruleChecks'>
 
@@ -98,9 +97,8 @@ export function decide(
       checks.push({ ruleId: ruling.ruleId, passed: false, reasonCode: ruling.reasonCode })
     }
     else {
-      // The role table is the deciding rule of an allow, so it ends the list.
-      const roleCheck = checks.shift()
-      if (roleCheck) checks.push(roleCheck)
+      // An allow is decided by every rule passing, so that ends the list.
+      checks.push(allowedCheck)
     }
     return { agent: proposal.agent, ...ruling, ruleChecks: checks }
   })

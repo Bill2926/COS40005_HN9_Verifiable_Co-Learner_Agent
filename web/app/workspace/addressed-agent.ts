@@ -1,19 +1,19 @@
 // The composer's `@` menu: one addressed agent per message, chosen only at
 // its start. An `@` anywhere else is plain text.
-export type AddressedAgent = 'teacher' | 'deskmate'
+import { agentNames, type AddressedAgent } from '../../shared/turn'
+
+export type { AddressedAgent }
 
 export interface AddressOption {
   agent: AddressedAgent
   name: string
 }
 
-const options: readonly AddressOption[] = [
-  { agent: 'teacher', name: 'Teacher' },
-  { agent: 'deskmate', name: 'Mai' },
-]
+const options: readonly AddressOption[] = (['teacher', 'deskmate'] as const)
+  .map(agent => ({ agent, name: agentNames[agent] }))
 
 export function addresseeName(agent: AddressedAgent): string {
-  return agent === 'teacher' ? 'Teacher' : 'Mai'
+  return agentNames[agent]
 }
 
 // The agents the menu offers for the message typed so far: none unless it is

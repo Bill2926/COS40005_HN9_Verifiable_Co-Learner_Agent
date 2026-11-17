@@ -1,17 +1,15 @@
 // What the product owner's pages read from the admin endpoint, and how the
 // verdict drawer turns a decision's rule checks into plain English.
 
-export interface RuleCheckView {
-  ruleId: string
-  passed: boolean
-  reasonCode: string
-}
+import { agentNames, type AddressedAgent, type RuleCheck } from '../../shared/turn'
+
+export type RuleCheckView = RuleCheck
 
 export interface DecisionView {
   time: string
   studentId: string
   turnId: string
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   proposedMove: string
   proposedScope: string | null
   verdict: 'allow' | 'block' | 'downgrade'
@@ -26,7 +24,7 @@ export interface DecisionView {
   // Absent on a decision recorded before rule checks were kept.
   ruleChecks?: readonly RuleCheckView[]
   // The agent the student addressed in the turn; null when none was.
-  addressedAgent?: 'teacher' | 'deskmate' | null
+  addressedAgent?: AddressedAgent | null
 }
 
 export interface ModelSettingsView {
@@ -47,6 +45,7 @@ export interface AdminPayload {
 const reasons: Record<string, string> = {
   VERIFYSHIELD_OFF: 'VerifyShield was off, so the move was allowed unchecked.',
   NO_PLACEMENT: 'The turn had no module or exercise to rule against.',
+  ALL_RULES_PASSED: 'Every rule passed, so the move was allowed.',
   ROLE_PERMITTED: 'The role table lets this agent make this move.',
   ROLE_FORBIDDEN: 'The role table does not let this agent make this move.',
   NO_CLOSED_KEYWORD: 'The student\'s message names no closed module and nothing out of course.',
@@ -113,5 +112,10 @@ export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode
 export function addressedText(agent: DecisionView['addressedAgent']): string {
   if (agent === undefined) return 'not recorded'
   if (agent === null) return 'no one'
-  return agent === 'teacher' ? '@Teacher' : '@Mai'
+  return `@${agentNames[agent]}`
+}
+
+// The agent behind a decision, named as the student sees it.
+export function agentText(agent: AddressedAgent): string {
+  return agentNames[agent]
 }

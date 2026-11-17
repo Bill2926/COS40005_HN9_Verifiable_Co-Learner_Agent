@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { handleAdmin } from '../server/admin/handle-admin'
+import { checkAdminRole, handleAdmin } from '../server/admin/handle-admin'
 import { productOwnerAccount } from '../server/auth/demo-accounts'
 import { agentsForTurn, createFakeAgents } from '../server/agents'
 import type { ModelSettings } from '../server/language-model'
@@ -67,6 +67,12 @@ describe('admin handler', () => {
     }))).rejects.toMatchObject({ statusCode: 403 })
 
     expect(await store.read()).toBeNull()
+  })
+
+  it('answers a role check for the product owner and refuses anyone else', () => {
+    expect(checkAdminRole({ email: owner, adminEmails })).toEqual({ productOwner: true })
+    expect(() => checkAdminRole({ email: 'an@example.com', adminEmails })).toThrow(expect.objectContaining({ statusCode: 403 }))
+    expect(() => checkAdminRole({ email: null, adminEmails })).toThrow(expect.objectContaining({ statusCode: 401 }))
   })
 
   it('refuses a request with no session', async () => {
@@ -366,7 +372,10 @@ describe('admin handler', () => {
       ruleId: 'role_table',
       reasonCode: 'ROLE_PERMITTED',
       verifyShieldOn: true,
-      ruleChecks: [{ ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' }],
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
+      ],
     })
     expect(JSON.stringify(viewed.decisions)).not.toContain(lesson)
     expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')

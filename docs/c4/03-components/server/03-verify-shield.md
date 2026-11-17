@@ -95,7 +95,7 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 ## Rule checks
 
 Each verdict carries `ruleChecks`: the ordered rule checks `decide` made for that proposal, each `{ ruleId, passed, reasonCode }`.
-The list ends with the deciding check, whose rule id and reason code are the verdict's `ruleId` and `reasonCode`. Rules
+The list ends with the deciding check; on a block or downgrade its rule id and reason code are the verdict's `ruleId` and `reasonCode`. Rules
 after the deciding one are not evaluated and do not appear. A rule that passed is recorded with its own reason code:
 
 | Rule id | Passed reason code |
@@ -109,8 +109,10 @@ after the deciding one are not evaluated and do not appear. A rule that passed i
 | `misconception_known` | `MISCONCEPTION_KNOWN` |
 | `hint_ladder` | `HINT_IN_ORDER` |
 
-A block or downgrade lists `role_table` first and the failed rule last. An allow lists the rules that passed, then
-`role_table` / `ROLE_PERMITTED` as the deciding check. A shield-off verdict has an empty list; a `NO_PLACEMENT` block has
+Checks stay in the order the rules ran, so `role_table` is always first. A block or downgrade ends with the failed rule.
+An allow lists the rules that passed, then a final deciding `all_rules` / `ALL_RULES_PASSED` check (the verdict itself
+keeps `role_table` / `ROLE_PERMITTED`, as logged before). The `RuleCheck` type lives in `shared/turn.ts` and is shared
+with the decision log. A shield-off verdict has an empty list; a `NO_PLACEMENT` block has
 only the failed `turn_placement` check. `decide` stays pure: the same input gives the same checks. The plain-English
 wording of each reason code lives in the web app (`app/admin/decisions.ts`), not here.
 

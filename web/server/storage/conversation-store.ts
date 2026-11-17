@@ -1,7 +1,8 @@
-export type MessageAuthor = 'student' | 'teacher' | 'deskmate' | 'event'
+import type { AddressedAgent } from '../../shared/turn'
 
-// The agent a student message was addressed to with an `@` tag.
-export type AddressedAgent = 'teacher' | 'deskmate'
+export type { AddressedAgent }
+
+export type MessageAuthor = 'student' | 'teacher' | 'deskmate' | 'event'
 
 export interface StoredMessage {
   id: string

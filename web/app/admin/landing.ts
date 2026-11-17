@@ -4,7 +4,7 @@ type Fetcher = (url: string, options: { method: 'POST', body: Record<string, str
 
 export async function isProductOwner(fetcher: Fetcher): Promise<boolean> {
   try {
-    await fetcher('/api/admin', { method: 'POST', body: { event: 'read' } })
+    await fetcher('/api/admin', { method: 'POST', body: { event: 'role' } })
     return true
   }
   catch {

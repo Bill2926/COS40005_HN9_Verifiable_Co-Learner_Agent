@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addressedText, drawerChecks, reasonText } from '../app/admin/decisions'
+import { addressedText, agentText, drawerChecks, reasonText } from '../app/admin/decisions'
 
 const base = {
   ruleId: 'scope_requires_unlocked_module',
@@ -41,8 +41,28 @@ describe('verdict drawer checks', () => {
     })
   })
 
+  it('words the deciding check of an allow', () => {
+    expect(drawerChecks({
+      ...base,
+      verdict: 'allow',
+      ruleId: 'role_table',
+      reasonCode: 'ROLE_PERMITTED',
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
+      ],
+    }).checks.at(-1)).toEqual({ ruleId: 'all_rules', passed: true, reason: 'Every rule passed, so the move was allowed.', deciding: true })
+  })
+
   it('falls back to the reason code for a code it does not know', () => {
     expect(reasonText('SOMETHING_NEW')).toBe('SOMETHING_NEW')
+  })
+})
+
+describe('verdict drawer agent', () => {
+  it('names the deskmate agent Mai, as the student sees her', () => {
+    expect(agentText('teacher')).toBe('Teacher')
+    expect(agentText('deskmate')).toBe('Mai')
   })
 })
 

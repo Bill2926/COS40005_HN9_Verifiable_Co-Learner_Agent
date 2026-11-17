@@ -1,7 +1,9 @@
 import { sessionEmail } from '../../shared/student-id'
 import {
   AdminRequestError,
+  checkAdminRole,
   handleAdmin,
+  isRoleCheck,
   ModelSettingsError,
   ProductOwnerRequiredError,
   SignInRequiredError,
@@ -18,8 +20,11 @@ export default defineEventHandler(async (event) => {
     secretKey: config.supabaseSecretKey,
   }
   try {
+    const body = await readBody(event)
+    const email = await sessionEmail(event)
+    if (isRoleCheck(body)) return checkAdminRole({ email, adminEmails: config.adminEmails })
     return await handleAdmin({
-      email: await sessionEmail(event),
+      email,
       adminEmails: config.adminEmails,
       env: {
         provider: config.model,
@@ -32,7 +37,7 @@ export default defineEventHandler(async (event) => {
       decisions: createSupabaseDecisionLogStore({ ...connection, courseId: defaultCourseId }),
       verifyShield: createSupabaseVerifyShieldStore(connection),
       verifyShieldEnv: config.verifyShield,
-      body: await readBody(event),
+      body,
     })
   }
   catch (error) {

@@ -67,7 +67,7 @@ flowchart LR
 | `pages/admin/settings.vue` | Settings page: the VerifyShield switch and the language model form. Shows a refusal on 403. |
 | `components/admin/AdminHeader.vue` | Header shared by both admin pages: the Decisions/Settings nav (`aria-current` on the current page), a Lecturer page link when `GET /api/lecturer` succeeds, and Back to the course (`/?workspace=1`, the opt-out from the product owner redirect). |
 | `components/admin/VerdictDrawer.vue` | Native modal `<dialog>` drawer: the rule checks in order with ✓/✗ and plain-English reasons, the deciding check highlighted, proposed and ruled move, masteries, unlocked modules, threshold and VerifyShield state. Escape, the close button or a click on the backdrop close it; full screen on a phone. |
-| `admin/decisions.ts`, `admin/landing.ts` | The admin payload types, the reason-code wording and `drawerChecks` (shield off: no checks and a note; older record: the deciding rule only and a note); `isProductOwner` through `POST /api/admin`. |
+| `admin/decisions.ts`, `admin/landing.ts` | The admin payload types, the reason-code wording and `drawerChecks` (shield off: no checks and a note; older record: the deciding rule only and a note); `isProductOwner` through `POST /api/admin` with the cheap `{event: 'role'}` check (no decisions query). Agent names (`Teacher`, `Mai`) come from `agentNames` in `shared/turn.ts`, shared with the `@` menu. |
 | `pages/lecturer.vue` | Shows owned courses, enrollment counts and course history. Lecturers can set the mastery threshold and import or download the Python course spec as JSON. Sign-in routes authorized lecturers here. |
 | `app.vue`, `app.config.ts` | `UApp` with `NuxtPage`, light colour mode, indigo and slate palette. |
 

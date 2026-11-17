@@ -366,10 +366,17 @@ async function* introduceModule(
   const introductionVerdict = introduction
     ? decide([introduction], snapshot, roleTable, placement.course.scope)[0]
     : undefined
-  await recordDecisions(studentId, [
-    ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
-    ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
-  ], snapshot, placement.course.masteryThreshold, null, options?.decisions)
+  await recordDecisions({
+    studentId,
+    ruled: [
+      ...(proposed && proposedVerdict ? [{ proposal: proposed, verdict: proposedVerdict }] : []),
+      ...(introduction && introductionVerdict ? [{ proposal: introduction, verdict: introductionVerdict }] : []),
+    ],
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent: null,
+    decisions: options?.decisions,
+  })
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
   if (verdict?.move?.type === 'redirect_to_module') {
@@ -542,7 +549,16 @@ async function* answerMessage(
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
   const teacherVerdicts = decide(teacherProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(teacherProposals, teacherVerdicts), snapshot, placement.course.masteryThreshold, addressedAgent, options?.decisions, turnId, recordedAt)
+  await recordDecisions({
+    studentId,
+    ruled: ruledPairs(teacherProposals, teacherVerdicts),
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent,
+    decisions: options?.decisions,
+    turnId,
+    time: recordedAt,
+  })
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
   let teacherFailed = false
@@ -579,7 +595,16 @@ async function* answerMessage(
   const deskmateMove = deskmateSettled.status === 'fulfilled' ? deskmateSettled.value : null
   const deskmateProposals = deskmateMove ? [{ agent: 'deskmate' as const, move: deskmateMove }] : []
   const deskmateVerdicts = decide(deskmateProposals, snapshot, roleTable, placement.course.scope)
-  await recordDecisions(studentId, ruledPairs(deskmateProposals, deskmateVerdicts), snapshot, placement.course.masteryThreshold, addressedAgent, options?.decisions, turnId, recordedAt)
+  await recordDecisions({
+    studentId,
+    ruled: ruledPairs(deskmateProposals, deskmateVerdicts),
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent,
+    decisions: options?.decisions,
+    turnId,
+    time: recordedAt,
+  })
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
 
@@ -654,16 +679,28 @@ function ruledPairs(
   })
 }
 
-async function recordDecisions(
-  studentId: string,
-  ruled: readonly { proposal: Proposal, verdict: Verdict }[],
-  snapshot: TurnSnapshot,
-  masteryThreshold: number,
-  addressedAgent: AddressedAgent | null,
-  decisions: DecisionLogStore | undefined,
+interface DecisionsToRecord {
+  studentId: string
+  ruled: readonly { proposal: Proposal, verdict: Verdict }[]
+  snapshot: TurnSnapshot
+  masteryThreshold: number
+  addressedAgent: AddressedAgent | null
+  decisions: DecisionLogStore | undefined
+  // Shared by every proposal of one turn; a fresh id and time when left out.
+  turnId?: string
+  time?: string
+}
+
+async function recordDecisions({
+  studentId,
+  ruled,
+  snapshot,
+  masteryThreshold,
+  addressedAgent,
+  decisions,
   turnId = crypto.randomUUID(),
   time = new Date().toISOString(),
-): Promise<void> {
+}: DecisionsToRecord): Promise<void> {
   if (!decisions || ruled.length === 0) return
   for (const { proposal, verdict } of ruled) {
     await decisions.append({
@@ -707,7 +744,7 @@ function verifyShieldTrace(
 }
 
 function tracedAgent(
-  agent: 'teacher' | 'deskmate',
+  agent: AddressedAgent,
   move: Move | null,
   verdicts: readonly Verdict[],
 ): AgentTrace {

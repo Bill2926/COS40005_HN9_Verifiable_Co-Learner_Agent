@@ -536,18 +536,20 @@ describe('decide', () => {
       return decide([proposal], snapshot(overrides), roleTable, course)[0]?.ruleChecks
     }
 
-    it('lists the passed checks and ends with the role table on an allow', () => {
+    it('lists the passed checks in the order they ran and ends with the allow on an allow', () => {
       expect(checks({ agent: 'teacher', move: { type: 'explain_concept', scope: 'loops' } })).toEqual([
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
         { ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' },
         { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
         { ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' },
-        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
       ])
     })
 
     it('checks only the role table for a deskmate move', () => {
       expect(checks({ agent: 'deskmate', move: { type: 'peer_question' } })).toEqual([
         { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' },
       ])
     })
 
@@ -601,7 +603,10 @@ describe('decide', () => {
       const first = decide(proposals, snapshot({ moduleId: '' }), roleTable, course)
       const again = decide(proposals, snapshot({ studentMessage: 'Tell me about pandas' }), roleTable, course)
       for (const verdict of [...first, ...again]) {
-        expect(verdict.ruleChecks.at(-1)).toMatchObject({ ruleId: verdict.ruleId, reasonCode: verdict.reasonCode })
+        const deciding = verdict.decision === 'allow'
+          ? { ruleId: 'all_rules', passed: true, reasonCode: 'ALL_RULES_PASSED' }
+          : { ruleId: verdict.ruleId, reasonCode: verdict.reasonCode }
+        expect(verdict.ruleChecks.at(-1)).toMatchObject(deciding)
       }
       expect(decide(proposals, snapshot({ studentMessage: 'Tell me about pandas' }), roleTable, course)).toEqual(again)
     })

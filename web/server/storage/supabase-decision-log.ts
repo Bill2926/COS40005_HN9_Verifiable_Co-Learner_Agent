@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord, DecisionRuleCheck } from './decision-log'
+import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
+import type { RuleCheck } from '../../shared/turn'
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -109,7 +110,7 @@ function presentDecision(row: DecisionRow): DecisionRecord {
   }
 }
 
-function ruleChecksFrom(value: unknown): DecisionRuleCheck[] {
+function ruleChecksFrom(value: unknown): RuleCheck[] {
   if (!Array.isArray(value)) throw new Error('A decision row has rule checks that are not a list.')
   return value.map((item) => {
     if (

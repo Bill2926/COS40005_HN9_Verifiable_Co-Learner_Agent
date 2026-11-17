@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
 import VerdictDrawer from '~/components/admin/VerdictDrawer.vue'
-import type { AdminPayload, DecisionView } from '~/admin/decisions'
+import { agentText, type AdminPayload, type DecisionView } from '~/admin/decisions'
 
 definePageMeta({
   middleware: 'signed-in',
@@ -24,7 +24,7 @@ function decisionRequest() {
 }
 
 const requestFetch = useRequestFetch()
-const { data, error, status } = await useAsyncData(
+const { data, error, status, refresh } = await useAsyncData(
   'product-owner',
   () => requestFetch<AdminPayload>('/api/admin', { method: 'POST', body: decisionRequest() }),
   { watch: [appliedVerdict, appliedStudentId] },
@@ -58,10 +58,16 @@ const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-
 
 useHead({ title: 'Decisions' })
 
-function applyFilters() {
+// Filter always fetches and shows the spinner, even when the filters are
+// unchanged, so pressing it is never silent.
+async function applyFilters() {
   const nextStudentId = studentId.value.trim()
-  if (verdict.value === appliedVerdict.value && nextStudentId === appliedStudentId.value) return
   filtering.value = true
+  if (verdict.value === appliedVerdict.value && nextStudentId === appliedStudentId.value) {
+    await refresh()
+    filtering.value = false
+    return
+  }
   appliedVerdict.value = verdict.value
   appliedStudentId.value = nextStudentId
 }
@@ -240,7 +246,7 @@ function timeText(value: string): string {
                     >{{ decision.turnId }}</span>
                   </td>
                   <td class="px-3 py-2 whitespace-nowrap">
-                    {{ decision.agent === 'teacher' ? 'Teacher' : 'Deskmate' }}
+                    {{ agentText(decision.agent) }}
                   </td>
                   <td class="px-3 py-2">
                     {{ proposedText(decision) }}

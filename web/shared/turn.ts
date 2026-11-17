@@ -74,6 +74,22 @@ export interface WorkingAreaView {
   quiz: readonly QuizQuestionView[]
 }
 
+// The two agents a student can address with an `@` tag, and that make proposals.
+export type AddressedAgent = 'teacher' | 'deskmate'
+
+// What the student and the product owner see each agent called.
+export const agentNames: Readonly<Record<AddressedAgent, string>> = {
+  teacher: 'Teacher',
+  deskmate: 'Mai',
+}
+
+// One rule the VerifyShield applied to a proposal, in the order it applied them.
+export interface RuleCheck {
+  ruleId: string
+  passed: boolean
+  reasonCode: string
+}
+
 export interface ConversationMessage {
   id: string
   author: 'student' | 'teacher' | 'deskmate' | 'event'
@@ -87,7 +103,7 @@ export interface ConversationMessage {
   // times were recorded.
   createdAt?: string
   // The agent a student message was addressed to; absent when none was.
-  addressedAgent?: 'teacher' | 'deskmate'
+  addressedAgent?: AddressedAgent
 }
 
 export interface RunOutput {
@@ -114,7 +130,7 @@ export interface TraceVerdict {
 }
 
 export interface AgentTrace {
-  agent: 'teacher' | 'deskmate'
+  agent: AddressedAgent
   proposal: string | null
   scope: string | null
   verdict: TraceVerdict | null
