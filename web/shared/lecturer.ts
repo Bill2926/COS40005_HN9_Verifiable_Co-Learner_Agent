@@ -6,12 +6,20 @@ export interface CourseHistoryEntry {
   masteryThreshold?: number
 }
 
+export interface LecturerStudent {
+  displayName: string
+  studentNumber: string
+  email: string
+  enrolledAt: string
+}
+
 export interface LecturerCourse {
   id: string
   title: string
   enrolledCount: number
   masteryThreshold: number
   history: CourseHistoryEntry[]
+  students: LecturerStudent[]
 }
 
 export interface LecturerResponse {

@@ -8,6 +8,7 @@ const route = useRoute()
 
 const pages = [
   { to: '/admin', label: 'Decisions' },
+  { to: '/admin/students', label: 'Students' },
   { to: '/admin/settings', label: 'Settings' },
 ] as const
 

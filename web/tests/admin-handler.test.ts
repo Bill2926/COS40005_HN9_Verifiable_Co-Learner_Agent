@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { checkAdminRole, handleAdmin } from '../server/admin/handle-admin'
-import { productOwnerAccount } from '../server/auth/demo-accounts'
+import { lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
 import { agentsForTurn, createFakeAgents } from '../server/agents'
 import type { ModelSettings } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryModelSettingsStore } from '../server/storage/model-settings-store'
+import { createMemoryStudentDirectoryStore } from '../server/storage/student-directory'
 import { createMemoryVerifyShieldStore, verifyShieldForTurn } from '../server/verify-shield'
 import { handleTurn } from '../server/turn/handle-turn'
 
@@ -37,6 +38,7 @@ function ownerRequest(overrides: {
   store?: ReturnType<typeof createMemoryModelSettingsStore>
   decisions?: ReturnType<typeof createMemoryDecisionLogStore>
   verifyShield?: ReturnType<typeof createMemoryVerifyShieldStore>
+  students?: ReturnType<typeof createMemoryStudentDirectoryStore>
   verifyShieldEnv?: string
   body?: unknown
 } = {}) {
@@ -47,6 +49,7 @@ function ownerRequest(overrides: {
     store: overrides.store ?? createMemoryModelSettingsStore(),
     decisions: overrides.decisions,
     verifyShield: overrides.verifyShield,
+    students: overrides.students,
     verifyShieldEnv: overrides.verifyShieldEnv,
     body: overrides.body ?? { event: 'read' },
   }
@@ -615,6 +618,111 @@ describe('admin handler', () => {
       { agent: 'teacher', proposedMove: 'stay_and_practise', verdict: 'allow', ruledMove: 'stay_and_practise' },
     ])
     expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
+  })
+})
+
+describe('admin student numbers', () => {
+  const an = {
+    id: signedInStudent,
+    displayName: 'An',
+    studentNumber: 'SWB0001',
+    email: 'an@example.com',
+  }
+  const binh = {
+    id: '6f1b0c1e-2222-4222-8222-222222222222',
+    displayName: 'Bình',
+    studentNumber: 'SWB0002',
+    email: 'binh@example.com',
+  }
+
+  it('lists every student for the product owner', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+
+    const viewed = await handleAdmin(ownerRequest({ students, body: { event: 'students' } }))
+
+    expect(viewed.students).toEqual([an, binh])
+  })
+
+  it('changes a number and records who changed it, from what and to what', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+
+    const changed = await handleAdmin(ownerRequest({
+      students,
+      body: { event: 'studentNumber', studentId: an.id, studentNumber: 'SWB9001' },
+    }))
+
+    expect(changed.students).toContainEqual({ ...an, studentNumber: 'SWB9001' })
+    expect(students.changes).toEqual([{
+      studentId: an.id,
+      oldNumber: 'SWB0001',
+      newNumber: 'SWB9001',
+      actorEmail: owner,
+    }])
+  })
+
+  it.each(['SWB001', 'swb0001', 'SWB0001x', '', '  '])(
+    'refuses the number "%s" before touching the directory',
+    async (studentNumber) => {
+      const students = createMemoryStudentDirectoryStore([an])
+
+      await expect(handleAdmin(ownerRequest({
+        students,
+        body: { event: 'studentNumber', studentId: an.id, studentNumber },
+      }))).rejects.toMatchObject({ statusCode: 400 })
+
+      expect(students.changes).toEqual([])
+      expect((await students.list())[0]?.studentNumber).toBe('SWB0001')
+    },
+  )
+
+  it('refuses a number another student already has', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+
+    await expect(handleAdmin(ownerRequest({
+      students,
+      body: { event: 'studentNumber', studentId: an.id, studentNumber: binh.studentNumber },
+    }))).rejects.toMatchObject({ statusCode: 400 })
+
+    expect(students.changes).toEqual([])
+  })
+
+  it('refuses a number a student had before, so a number is never given out twice', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await handleAdmin(ownerRequest({
+      students,
+      body: { event: 'studentNumber', studentId: an.id, studentNumber: 'SWB9001' },
+    }))
+
+    await expect(handleAdmin(ownerRequest({
+      students,
+      body: { event: 'studentNumber', studentId: binh.id, studentNumber: 'SWB0001' },
+    }))).rejects.toMatchObject({ statusCode: 400 })
+
+    expect((await students.list()).find(student => student.id === binh.id)?.studentNumber).toBe('SWB0002')
+  })
+
+  it('refuses a student the directory does not have', async () => {
+    const students = createMemoryStudentDirectoryStore([an])
+
+    await expect(handleAdmin(ownerRequest({
+      students,
+      body: { event: 'studentNumber', studentId: '6f1b0c1e-3333-4333-8333-333333333333', studentNumber: 'SWB9001' },
+    }))).rejects.toMatchObject({ statusCode: 404 })
+  })
+
+  it.each([
+    { email: 'an@example.com', name: 'student' },
+    { email: lecturerAccount.email, name: 'lecturer' },
+  ])('refuses a $name and leaves the numbers alone', async ({ email }) => {
+    const students = createMemoryStudentDirectoryStore([an])
+
+    await expect(handleAdmin(ownerRequest({
+      email,
+      students,
+      body: { event: 'studentNumber', studentId: an.id, studentNumber: 'SWB9001' },
+    }))).rejects.toMatchObject({ statusCode: 403 })
+
+    expect(students.changes).toEqual([])
   })
 })
 

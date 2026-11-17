@@ -35,10 +35,18 @@ export interface ModelSettingsView {
   saved: boolean
 }
 
+export interface AdminStudentView {
+  id: string
+  displayName: string
+  studentNumber: string
+  email: string
+}
+
 export interface AdminPayload {
   model: ModelSettingsView
   verifyShieldOn: boolean
   decisions: DecisionView[]
+  students: AdminStudentView[]
 }
 
 // The reason code stays the stored value; this is the only place it is worded.

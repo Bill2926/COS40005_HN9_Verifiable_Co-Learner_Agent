@@ -6,7 +6,19 @@ import { createMemoryLecturerStore } from '../server/storage/lecturer-store'
 const lecturerEmails = 'other@example.com, LECTURER@example.com'
 const title = 'Introduction to Programming with Python'
 const seeded = { action: 'seeded' as const, actorEmail: 'lecturer@example.com', time: '2026-11-14T08:00:00Z' }
-const python = { ownerEmail: 'lecturer@example.com', id: 'intro_python', title, enrolledCount: 2, masteryThreshold: 0.9, history: [seeded] }
+const students = [
+  { displayName: 'An', studentNumber: 'SWB0001', email: 'an@example.com', enrolledAt: '2026-11-14T08:00:00Z' },
+  { displayName: 'Bình', studentNumber: 'SWB0002', email: 'binh@example.com', enrolledAt: '2026-11-14T08:05:00Z' },
+]
+const python = {
+  ownerEmail: 'lecturer@example.com',
+  id: 'intro_python',
+  title,
+  enrolledCount: 2,
+  masteryThreshold: 0.9,
+  history: [seeded],
+  students,
+}
 
 describe('lecturer handler', () => {
   it.each([
@@ -19,14 +31,22 @@ describe('lecturer handler', () => {
     expect(store.forLecturer).not.toHaveBeenCalled()
   })
 
-  it('shows the demo lecturer two enrollments and the seeded history for their course only', async () => {
+  it('shows the demo lecturer two enrollments, their students and the seeded history for their course only', async () => {
     const store = createMemoryLecturerStore([
       python,
-      { ownerEmail: 'other@example.com', id: 'other', title: 'Other course', enrolledCount: 4, masteryThreshold: 0.9, history: [] },
+      {
+        ownerEmail: 'other@example.com',
+        id: 'other',
+        title: 'Other course',
+        enrolledCount: 1,
+        masteryThreshold: 0.9,
+        history: [],
+        students: [{ displayName: 'Elsewhere', studentNumber: 'SWB0009', email: 'else@example.com', enrolledAt: '2026-11-14T09:00:00Z' }],
+      },
     ])
 
     await expect(handleLecturer({ email: 'Lecturer@example.com', lecturerEmails, store })).resolves.toEqual({
-      courses: [{ id: 'intro_python', title, enrolledCount: 2, masteryThreshold: 0.9, history: [seeded] }],
+      courses: [{ id: 'intro_python', title, enrolledCount: 2, masteryThreshold: 0.9, history: [seeded], students }],
     })
   })
 

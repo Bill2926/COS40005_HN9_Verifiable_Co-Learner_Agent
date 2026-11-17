@@ -19,6 +19,7 @@ flowchart LR
     signin["<b>pages/sign-in.vue</b><br/>/sign-in"]:::comp
     home["<b>pages/home.vue</b><br/>/home"]:::comp
     admin["<b>pages/admin/index.vue</b><br/>/admin (Decisions)"]:::comp
+    students["<b>pages/admin/students.vue</b><br/>/admin/students"]:::comp
     settings["<b>pages/admin/settings.vue</b><br/>/admin/settings"]:::comp
     lecturer["<b>pages/lecturer.vue</b><br/>/lecturer"]:::comp
     shell["<b>app.vue</b>, app.config.ts<br/>UApp, NuxtPage, colours"]:::comp
@@ -42,13 +43,16 @@ flowchart LR
   home ==>|"AboutSampleTurn, AboutShieldDiagram,<br/>AboutLearningRoadmap"| aboutParts
   index ==>|"middleware: signed-in,<br/>staff-landing, workspace-layout"| mw
   admin ==>|"middleware: signed-in"| mw
+  students ==>|"middleware: signed-in"| mw
   settings ==>|"middleware: signed-in"| mw
   admin -->|"AdminHeader, VerdictDrawer"| adminParts
+  students -->|"AdminHeader"| adminParts
   settings -->|"AdminHeader"| adminParts
   signin -->|"staffLanding"| adminParts
   settings ==>|"/api/admin"| server
   index ==>|"/turn"| server
   admin ==>|"/api/admin"| server
+  students ==>|"/api/admin"| server
   lecturer ==>|"middleware: signed-in"| mw
   lecturer ==>|"GET and POST /api/lecturer and /api/lecturer/spec"| server
   lecturer -->|"isProductOwner"| adminParts
@@ -65,11 +69,12 @@ flowchart LR
 | `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. After sign-in, and on the server for a user already signed in, `staffLanding` (`staff/landing`) sends the product owner to `/admin`, a lecturer to `/lecturer`, and anyone else to `/`. Plays a first-visit intro (`sign-in/intro`). |
 | `pages/home.vue` | Public Home page: a small course roadmap that plays one module unlock, the shield diagram, the sample turn and the team. |
 | `pages/admin/index.vue` | Decisions page: the newest 100 decisions at full width with verdict and student filters, shown 10 per page. Each verdict is a button that opens `VerdictDrawer` from the decision already loaded (no extra request), showing the rule checks, the proposed and ruled moves and the addressed agent of the turn; closing returns focus to the verdict. Shows a refusal on 403. |
+| `pages/admin/students.vue` | Students page: every student's name, student number and email, with an inline form to change one student's number. The page checks `SWB` + at least four digits before sending; the server's 400 keeps the reason (wrong format, duplicate, a number used before) as an alert, and a successful change refreshes the list. Shows a refusal on 403. |
 | `pages/admin/settings.vue` | Settings page: the VerifyShield switch and the language model form. Shows a refusal on 403. |
-| `components/admin/AdminHeader.vue` | Header shared by both admin pages: the Decisions/Settings nav (`aria-current` on the current page), a Lecturer page link when `isLecturer` succeeds (the switch for someone who also lectures), and Sign out. It has no link to a student page. |
+| `components/admin/AdminHeader.vue` | Header shared by the three admin pages: the Decisions/Students/Settings nav (`aria-current` on the current page), a Lecturer page link when `isLecturer` succeeds (the switch for someone who also lectures), and Sign out. It has no link to a student page. |
 | `components/admin/VerdictDrawer.vue` | Native modal `<dialog>` drawer: the rule checks in order with ✓/✗ and plain-English reasons, the deciding check highlighted, proposed and ruled move, masteries, unlocked modules, threshold and VerifyShield state. Escape, the close button or a click on the backdrop close it; full screen on a phone. |
-| `admin/decisions.ts`, `staff/landing.ts` | The admin payload types, the reason-code wording and `drawerChecks` (shield off: no checks and a note; older record: the deciding rule only and a note); `isProductOwner` and `isLecturer` through the cheap role checks (`POST /api/admin` with `{event: 'role'}`, `GET /api/lecturer`), and `staffLanding`, which runs both checks and sends a product owner to `/admin`, a lecturer to `/lecturer` and a student nowhere. Agent names (`Teacher`, `Mai`) come from `agentNames` in `shared/turn.ts`, shared with the `@` menu. |
-| `pages/lecturer.vue` | Shows owned courses, enrollment counts and course history. Lecturers can set the mastery threshold and import or download the Python course spec as JSON. A product owner who also lectures gets the Admin page switch; staff sign out from this header. Sign-in routes authorized lecturers here, and the page has no link to a student page. |
+| `admin/decisions.ts`, `staff/landing.ts` | The admin payload types (decisions, model settings, the student directory), the reason-code wording and `drawerChecks` (shield off: no checks and a note; older record: the deciding rule only and a note); `isProductOwner` and `isLecturer` through the cheap role checks (`POST /api/admin` with `{event: 'role'}`, `GET /api/lecturer`), and `staffLanding`, which runs both checks and sends a product owner to `/admin`, a lecturer to `/lecturer` and a student nowhere. Agent names (`Teacher`, `Mai`) come from `agentNames` in `shared/turn.ts`, shared with the `@` menu. |
+| `pages/lecturer.vue` | Shows owned courses, enrollment counts, course history and the enrolled students of each course: name, student number, email and enrollment date, searchable by name or student number and sortable by any of those columns client-side. The page never shows code, conversations, mastery or activity. Lecturers can set the mastery threshold and import or download the Python course spec as JSON. A product owner who also lectures gets the Admin page switch; staff sign out from this header. Sign-in routes authorized lecturers here, and the page has no link to a student page. |
 | `app.vue`, `app.config.ts` | `UApp` with `NuxtPage`, light colour mode, indigo and slate palette. |
 
 ## Verified imports
@@ -77,7 +82,7 @@ flowchart LR
 - `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`.
 - `sign-in.vue`: `shared/student-id`, `sign-in/intro`.
 - `home.vue`: `shared/student-id`.
-- `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue`: `AdminHeader`, `admin/decisions` (type). `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
+- `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue` and `admin/students.vue`: `AdminHeader`, `admin/decisions` (type). `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
 - `AboutSampleTurn`, `AboutShieldDiagram` and `AboutLearningRoadmap` are used in templates without an import (Nuxt component auto-registration from `components/about/`).
-- Middleware is attached by name in `definePageMeta`: `index.vue` uses `['signed-in', 'staff-landing', 'workspace-layout']`; both admin pages and `lecturer.vue` use `'signed-in'`. `home.vue` and `sign-in.vue` set none.
+- Middleware is attached by name in `definePageMeta`: `index.vue` uses `['signed-in', 'staff-landing', 'workspace-layout']`; the three admin pages and `lecturer.vue` use `'signed-in'`. `home.vue` and `sign-in.vue` set none.
 - Nothing imports the pages; Nuxt routes them from the file names. No test imports them; the Playwright specs in `web/e2e/` drive them in a browser.

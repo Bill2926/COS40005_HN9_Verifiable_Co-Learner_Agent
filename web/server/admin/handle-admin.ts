@@ -1,6 +1,7 @@
 import { resolveModelChoice, type ModelSettings } from '../language-model'
 import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
+import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
 import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
 
 export class SignInRequiredError extends Error {
@@ -39,6 +40,15 @@ export class AdminRequestError extends Error {
   }
 }
 
+export class AdminNotFoundError extends Error {
+  readonly statusCode = 404
+
+  constructor() {
+    super('Student not found')
+    this.name = 'AdminNotFoundError'
+  }
+}
+
 export interface AdminModelView {
   provider: 'real' | 'fake'
   apiKeyMask: string
@@ -55,6 +65,7 @@ export interface AdminRequest {
   decisions?: DecisionLogStore
   verifyShield?: VerifyShieldStore
   verifyShieldEnv?: string
+  students?: StudentDirectoryStore
   body: unknown
 }
 
@@ -62,6 +73,7 @@ export interface AdminResponse {
   model: AdminModelView
   verifyShieldOn: boolean
   decisions: DecisionRecord[]
+  students: AdminStudent[]
 }
 
 // The answer to a role check: reaching it at all means the caller is the product owner.
@@ -80,13 +92,15 @@ export function isRoleCheck(body: unknown): boolean {
   return typeof body === 'object' && body !== null && 'event' in body && body.event === 'role'
 }
 
-function requireProductOwner(request: Pick<AdminRequest, 'email' | 'adminEmails'>): void {
-  if (request.email === null || request.email.trim() === '') throw new SignInRequiredError()
-  if (!isProductOwner(request.email, request.adminEmails)) throw new ProductOwnerRequiredError()
+function requireProductOwner(request: Pick<AdminRequest, 'email' | 'adminEmails'>): string {
+  const email = request.email?.trim() ?? ''
+  if (email === '') throw new SignInRequiredError()
+  if (!isProductOwner(email, request.adminEmails)) throw new ProductOwnerRequiredError()
+  return email
 }
 
 export async function handleAdmin(request: AdminRequest): Promise<AdminResponse> {
-  requireProductOwner(request)
+  const email = requireProductOwner(request)
 
   const save = saveBody(request.body)
   if (save) await request.store.save(await settingsToStore(save, request))
@@ -97,6 +111,15 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
     await request.verifyShield.save(verifyShieldSwitch.enabled)
   }
 
+  const numberChange = studentNumberBody(request.body)
+  if (numberChange) {
+    if (!request.students) throw new AdminRequestError('The student directory is unavailable.')
+    const result = await request.students.changeNumber({ ...numberChange, actorEmail: email })
+    if (result === 'not-found') throw new AdminNotFoundError()
+    if (result === 'duplicate') throw new AdminRequestError('Another student already has that student number.')
+    if (result === 'used') throw new AdminRequestError('That student number has been used before and cannot be given out again.')
+  }
+
   return {
     model: await present(request.store, request.env),
     verifyShieldOn: verifyShieldEnabled(
@@ -104,7 +127,26 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
       request.verifyShield ? await request.verifyShield.read() : null,
     ),
     decisions: request.decisions ? await request.decisions.list(decisionQuery(request.body)) : [],
+    students: request.students ? await request.students.list() : [],
   }
+}
+
+// The product owner may correct a number to SWB followed by at least four
+// digits. Whether the number is free is the store's decision.
+function studentNumberBody(body: unknown): { studentId: string, studentNumber: string } | null {
+  if (typeof body !== 'object' || body === null) return null
+  if (!('event' in body) || body.event !== 'studentNumber') return null
+  if (!('studentId' in body) || typeof body.studentId !== 'string' || body.studentId.trim() === '') {
+    throw new AdminRequestError('The student is missing.')
+  }
+  if (!('studentNumber' in body) || typeof body.studentNumber !== 'string') {
+    throw new AdminRequestError('The student number is missing.')
+  }
+  const studentNumber = body.studentNumber.trim()
+  if (!/^SWB\d{4,}$/.test(studentNumber)) {
+    throw new AdminRequestError('A student number is SWB followed by at least four digits, like SWB0001.')
+  }
+  return { studentId: body.studentId.trim(), studentNumber }
 }
 
 function verifyShieldBody(body: unknown): { enabled: boolean } | null {

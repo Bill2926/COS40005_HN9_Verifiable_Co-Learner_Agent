@@ -11,7 +11,11 @@ export interface LecturerStore {
 export function createMemoryLecturerStore(
   courses: readonly (LecturerCourse & { ownerEmail: string, spec?: CourseSpec })[],
 ): LecturerStore {
-  const stored = courses.map(course => ({ ...course, history: [...course.history] }))
+  const stored = courses.map(course => ({
+    ...course,
+    history: [...course.history],
+    students: course.students.map(student => ({ ...student })),
+  }))
   return {
     async exportSpec(email, courseId) {
       const course = stored.find(item => item.ownerEmail === email && item.id === courseId)
@@ -28,8 +32,13 @@ export function createMemoryLecturerStore(
     },
     async forLecturer(email) {
       return stored.filter(course => course.ownerEmail === email)
-        .map(({ id, title, enrolledCount, masteryThreshold, history }) => ({
-          id, title, enrolledCount, masteryThreshold, history: history.map(entry => ({ ...entry })),
+        .map(({ id, title, enrolledCount, masteryThreshold, history, students }) => ({
+          id,
+          title,
+          enrolledCount,
+          masteryThreshold,
+          history: history.map(entry => ({ ...entry })),
+          students: students.map(student => ({ ...student })),
         }))
     },
     async setThreshold(email, courseId, threshold) {

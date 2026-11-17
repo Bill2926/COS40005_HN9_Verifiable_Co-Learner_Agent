@@ -1,5 +1,6 @@
 import { sessionEmail } from '../../shared/student-id'
 import {
+  AdminNotFoundError,
   AdminRequestError,
   checkAdminRole,
   handleAdmin,
@@ -11,6 +12,7 @@ import {
 import { defaultCourseId } from '../course'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
+import { createSupabaseStudentDirectoryStore } from '../storage/supabase-student-directory'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
 
 export default defineEventHandler(async (event) => {
@@ -37,6 +39,7 @@ export default defineEventHandler(async (event) => {
       decisions: createSupabaseDecisionLogStore({ ...connection, courseId: defaultCourseId }),
       verifyShield: createSupabaseVerifyShieldStore(connection),
       verifyShieldEnv: config.verifyShield,
+      students: createSupabaseStudentDirectoryStore(connection),
       body,
     })
   }
@@ -46,6 +49,7 @@ export default defineEventHandler(async (event) => {
       || error instanceof ProductOwnerRequiredError
       || error instanceof ModelSettingsError
       || error instanceof AdminRequestError
+      || error instanceof AdminNotFoundError
     ) {
       throw createError({ statusCode: error.statusCode, statusMessage: error.message })
     }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { LecturerCourse, LecturerResponse } from '#shared/lecturer'
+import type { LecturerCourse, LecturerResponse, LecturerStudent } from '#shared/lecturer'
 import { isProductOwner } from '~/staff/landing'
 
 definePageMeta({ middleware: 'signed-in' })
@@ -89,6 +89,48 @@ const dateTime = new Intl.DateTimeFormat('en', {
   timeStyle: 'short',
   timeZone: 'UTC',
 })
+const enrolledDate = new Intl.DateTimeFormat('en', {
+  dateStyle: 'medium',
+  timeZone: 'UTC',
+})
+
+type StudentSortKey = 'displayName' | 'studentNumber' | 'enrolledAt'
+const studentSearch = reactive<Record<string, string>>({})
+const studentSort = reactive<Record<string, { key: StudentSortKey, asc: boolean }>>({})
+
+function sortOf(courseId: string) {
+  return studentSort[courseId] ?? { key: 'displayName' as StudentSortKey, asc: true }
+}
+
+function toggleSort(courseId: string, key: StudentSortKey) {
+  const current = sortOf(courseId)
+  studentSort[courseId] = { key, asc: current.key === key ? !current.asc : true }
+}
+
+function ariaSort(courseId: string, key: StudentSortKey): 'none' | 'ascending' | 'descending' {
+  const sort = sortOf(courseId)
+  if (sort.key !== key) return 'none'
+  return sort.asc ? 'ascending' : 'descending'
+}
+
+function studentsOf(course: LecturerCourse): LecturerStudent[] {
+  const term = (studentSearch[course.id] ?? '').trim().toLowerCase()
+  const sort = sortOf(course.id)
+  return course.students
+    .filter(student => !term
+      || student.displayName.toLowerCase().includes(term)
+      || student.studentNumber.toLowerCase().includes(term))
+    .sort((left, right) => {
+      const direction = sort.asc ? 1 : -1
+      return left[sort.key].localeCompare(right[sort.key], 'en', { numeric: true }) * direction
+    })
+}
+
+function enrolledText(value: string): string {
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) return value
+  return enrolledDate.format(parsed)
+}
 </script>
 
 <template>
@@ -162,6 +204,94 @@ const dateTime = new Intl.DateTimeFormat('en', {
           </button>
           <p class="pb-3 text-sm text-muted">Current threshold {{ percentage(course.masteryThreshold) }}</p>
         </form>
+        <section
+          class="border-t border-default p-4 md:p-8"
+          data-testid="course-students"
+        >
+          <div class="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            <h3 class="text-sm font-semibold text-highlighted">
+              Enrolled students
+            </h3>
+            <label class="flex w-full flex-col gap-1.5 text-xs font-medium leading-4 text-default md:w-64">
+              <span>Search students</span>
+              <UInput
+                v-model="studentSearch[course.id]"
+                type="search"
+                autocomplete="off"
+                color="neutral"
+                fixed
+                placeholder="Name or student number"
+                class="w-full"
+                :ui="{ base: 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5' }"
+              />
+            </label>
+          </div>
+          <p v-if="!course.students.length" class="mt-3 text-sm text-muted">
+            No students enrolled yet.
+          </p>
+          <p v-else-if="!studentsOf(course).length" class="mt-3 text-sm text-muted">
+            No students match.
+          </p>
+          <div
+            v-else
+            class="mt-3 overflow-hidden rounded-lg border border-default"
+          >
+            <table class="w-full border-collapse text-left text-sm text-default">
+              <thead class="border-b border-default bg-muted text-xs text-muted">
+                <tr>
+                  <th scope="col" class="px-3 py-2 font-medium" :aria-sort="ariaSort(course.id, 'displayName')">
+                    <button type="button" class="inline-flex min-h-11 items-center gap-1 hover:text-highlighted md:min-h-0" @click="toggleSort(course.id, 'displayName')">
+                      Name<span v-if="sortOf(course.id).key === 'displayName'" aria-hidden="true">{{ sortOf(course.id).asc ? '↑' : '↓' }}</span>
+                    </button>
+                  </th>
+                  <th scope="col" class="px-3 py-2 font-medium" :aria-sort="ariaSort(course.id, 'studentNumber')">
+                    <button type="button" class="inline-flex min-h-11 items-center gap-1 hover:text-highlighted md:min-h-0" @click="toggleSort(course.id, 'studentNumber')">
+                      Student number<span v-if="sortOf(course.id).key === 'studentNumber'" aria-hidden="true">{{ sortOf(course.id).asc ? '↑' : '↓' }}</span>
+                    </button>
+                  </th>
+                  <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">
+                    Email
+                  </th>
+                  <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell" :aria-sort="ariaSort(course.id, 'enrolledAt')">
+                    <button type="button" class="inline-flex min-h-11 items-center gap-1 hover:text-highlighted md:min-h-0" @click="toggleSort(course.id, 'enrolledAt')">
+                      Enrolled<span v-if="sortOf(course.id).key === 'enrolledAt'" aria-hidden="true">{{ sortOf(course.id).asc ? '↑' : '↓' }}</span>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="student in studentsOf(course)"
+                  :key="student.studentNumber"
+                  class="border-t border-default align-top"
+                >
+                  <td class="px-3 py-3">
+                    <p class="font-medium text-highlighted [overflow-wrap:anywhere]">
+                      {{ student.displayName }}
+                    </p>
+                    <p class="text-xs text-muted [overflow-wrap:anywhere] md:hidden">
+                      {{ student.email }}
+                    </p>
+                  </td>
+                  <td class="px-3 py-3">
+                    <p class="font-mono whitespace-nowrap">
+                      {{ student.studentNumber }}
+                    </p>
+                    <p class="text-xs text-muted whitespace-nowrap md:hidden">
+                      Enrolled {{ enrolledText(student.enrolledAt) }}
+                    </p>
+                  </td>
+                  <td class="hidden px-3 py-3 [overflow-wrap:anywhere] md:table-cell">
+                    {{ student.email }}
+                  </td>
+                  <td class="hidden px-3 py-3 whitespace-nowrap md:table-cell">
+                    <time :datetime="student.enrolledAt">{{ enrolledText(student.enrolledAt) }}</time>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
         <div v-if="course.id === 'intro_python'" class="flex flex-wrap items-center gap-4 border-t border-default p-4 md:px-8">
           <a
             href="/api/lecturer/spec?courseId=intro_python"

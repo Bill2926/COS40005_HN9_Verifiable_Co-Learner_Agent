@@ -34,15 +34,16 @@ flowchart LR
     dec["<b>decision-log.ts</b><br/>supabase-decision-log.ts"]:::comp
     ms["<b>model-settings-store.ts</b><br/>supabase-model-settings-store.ts"]:::comp
     vs["<b>supabase-verify-shield-store.ts</b>"]:::comp
+    dir["<b>student-directory.ts</b><br/>supabase-student-directory.ts"]:::comp
   end
 
-  routes -->|"7 createSupabase...Store"| storage
+  routes -->|"10 createSupabase...Store"| storage
   courses -->|"courseFromSpec, pythonCourse"| course
   ev -.->|"type: EvidenceStore, EvidenceRow"| evIface
   turn -.->|"type: ConversationStore,<br/>DecisionLogStore"| storage
   turn -->|"createMemoryCourseStore"| courses
   vs -.->|"type: VerifyShieldStore"| shieldIface
-  admin -.->|"type: DecisionLogStore,<br/>ModelSettingsStore"| storage
+  admin -.->|"type: DecisionLogStore,<br/>ModelSettingsStore,<br/>StudentDirectoryStore"| storage
   ms -.->|"type: ModelSettings"| choice
   storage -->|"supabase-js, secret key"| db
 
@@ -52,7 +53,6 @@ flowchart LR
 Each box is a pair of files: the interface file (with its in-memory version) and the `supabase-` file that
 implements it with `import type` from the interface file. The verify shield and evidence boxes are the exceptions: their interface
 files are in the `verify-shield` and `student-model` components, so only the `supabase-` file is here.
-
 ## Stores and the tables they use
 
 | Store | Interface offers | Tables (from the Supabase version) |
@@ -66,19 +66,21 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 | lecturer | Reads owned course titles, enrollment counts, thresholds and history. Saves threshold and history together. | `courses`, `enrollments`, `course_history` |
 | module unlocks | Reads and records unlocked module IDs for one student and course. | `module_unlocks` |
 | model settings | `read`, `save` (single row, id 1) | `model_settings` |
+| student directory | `list`: each student's id, display name, student number and email. `changeNumber`: `changed`, `unchanged`, `duplicate` (another student holds it), `used` (a different student had it before), or `not-found`. The Supabase version calls the `set_student_number` function, which locks the row, keeps the number's first assignment in the write-once assignments table and writes the history row; the student's own earlier number may be restored, no other student's may. | `students`, `student_directory` view, `student_number_changes`, `private.student_number_assignments` |
 | verify shield | `read`, `save`. Only the Supabase version is here; the interface, the in-memory version and the `verifyShieldEnabled` / `verifyShieldForTurn` rules live in [`verify-shield`](03-verify-shield.md). | `verify_shield_settings` |
 
 ## Verified imports
 
 - The Supabase stores use `@supabase/supabase-js` and import their store interfaces. The evidence adapter also calls the quiz-answer adapter and merges the observations using `student-model/index.ts`.
 - The course store imports `course` (`courseFromSpec` in the Supabase version, `pythonCourse` in the in-memory one).
-- Runtime importers from outside: `routes/turn.post.ts` (all eight Supabase files, including `supabase-deskmate-setting-store`), `routes/course-outline.get.ts` (`supabase-course-store`), `api/admin.post.ts` (three Supabase files). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` and `course-store.ts` at runtime for their in-memory defaults.
-- Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`), `agents/configured-agents.ts` (`model-settings-store`).
-- Tests: `message-time-migration.test.ts` (the `messages.created_at` migration, on PGlite); `courses-boundary.test.ts`, `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts`, `quiz-answers-boundary.test.ts` (Supabase versions, against the live project); `turn-endpoint.test.ts`, `admin-handler.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts` (the interfaces and their in-memory versions).
+- Runtime importers from outside: `routes/turn.post.ts` (all seven turn stores, including `supabase-deskmate-setting-store`), `routes/course-outline.get.ts` (`supabase-course-store`), `api/admin.post.ts` (four Supabase files, including `supabase-student-directory`). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` and `course-store.ts` at runtime for their in-memory defaults.
+- Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`, `student-directory`), `agents/configured-agents.ts` (`model-settings-store`).
+- Tests: `message-time-migration.test.ts` (the `messages.created_at` migration, on PGlite); `student-numbers-migration.test.ts` (the student number backfill and the change function, on PGlite); `courses-boundary.test.ts`, `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts`, `quiz-answers-boundary.test.ts`, `student-numbers-boundary.test.ts` (Supabase versions, against the live project); `turn-endpoint.test.ts`, `admin-handler.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts` (the interfaces and their in-memory versions).
 
 ## Notes
 
 - Every row of `evidence`, `quiz_answers`, `conversations`, `resume_points` and `decisions` carries a required `course_id` (rows from before were backfilled with `intro_python`). The Supabase stores of student data take a `courseId` when created, write it on every insert and filter every read by it, so their interfaces carry no course.
 - `courses` holds one row per course: its id, title and whole course spec as `jsonb`. The spec includes teacher-only content (hint ladders, misconception responses, reference solutions, the correct quiz choices), so RLS is on with no policy and every privilege is revoked from anon and authenticated; only the secret key reaches it. The migration that created the table inserted the Python course, so a fresh database has it.
-- All seven Supabase files create their own client with the same options (secret key, no session). They share no helper, so the setup is repeated seven times, and `routes/turn.post.ts` creates them again on every request (each `createSupabase...Store` call makes a new client).
+- All eight Supabase files create their own client with the same options (secret key, no session). They share no helper, so the setup is repeated eight times, and `routes/turn.post.ts` creates the turn stores again on every request (each `createSupabase...Store` call makes a new client).
+- `students.student_number` is unique when present and null for staff. A BEFORE INSERT trigger takes the next value from `private.student_number_seq`, formats `SWB` plus at least four digits and writes it to `private.student_number_assignments` before stamping the row; the assignments table is write-once and the sequence skips any number already recorded there, so a number is never handed out twice. The migration backfilled existing students in sign-up order (`auth.users.created_at`). `public.set_student_number` is the only way to renumber, is executable only with the server key, and records the actor, old and new value in `student_number_changes` in the same statement. The `student_directory` view joins the profile to its account for the email, leaves out staff, and is granted only to `service_role`.
 - The decision log, evidence and quiz-answers tables have no RLS policy, so only the server's secret key can read or write them. On the two ledgers (`evidence` and `quiz_answers`) update and delete are revoked from the anon and authenticated roles as well, so append-only is enforced there even if a policy were added later; `quiz_answers` keeps only the first answer through a `unique (student_id, course_id, module_id, question_id)` constraint.

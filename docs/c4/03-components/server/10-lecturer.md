@@ -8,6 +8,8 @@
 
 The handler reads through `LecturerStore`. The Supabase adapter selects course IDs and titles by owner email, counts enrollments in Postgres and reads course history with the server key. The page receives the count, history, title and ID for each owned course.
 
+The course also carries its enrolled students: display name, student number, email and enrollment date. The Supabase adapter reads the course's enrollments and resolves each student through the `student_directory` view, which joins the student profile to the account email. It never reads code, conversations, mastery or activity, and staff have no student number so they never appear.
+
 The migration assigns the seeded Python course to the demo lecturer, records its first history entry, backfills enrollments and adds a trigger for new students. Supabase grants access to both tables to the server role. The handler tests use the memory store.
 
 `GET /api/lecturer/spec` downloads the owned Python course's stored JSON spec. `POST /api/lecturer/spec` validates a complete spec and records the import with the lecturer and timestamp in the same transaction as the replacement. The next student turn reads the stored course again. The download is private to the owning lecturer and includes the hints, quiz answers and reference solutions.
