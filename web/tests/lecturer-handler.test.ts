@@ -80,22 +80,53 @@ describe('lecturer course spec', () => {
     return { request, download, upload }
   }
 
-  it('exports the running content and preserves it on a round trip', async () => {
+  it('keeps an import in the draft until publish writes course history', async () => {
     const { download, upload, request } = setup()
     const exported = await download()
     expect(exported).toEqual(pythonCourseSpec)
-    await upload(exported)
-    expect(await download()).toEqual(exported)
+    const updated = { ...pythonCourseSpec, title: 'Python Foundations' }
+    await upload(updated)
+    expect(await download()).toEqual(pythonCourseSpec)
+    expect(await handleCourseSpec({ ...request, action: 'draft', courseId: python.id })).toEqual(updated)
+    expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
+
+    await handleCourseSpec({ ...request, action: 'publish', courseId: python.id })
+    expect(await download()).toEqual(updated)
+    expect(await handleCourseSpec({ ...request, action: 'draft', courseId: python.id })).toBeNull()
     const { courses } = await handleLecturer(request)
     expect(courses[0]?.history[0]).toMatchObject({ action: 'course_spec_imported', actorEmail: request.email })
     expect(JSON.stringify(courses)).not.toContain('referenceSolution')
   })
 
-  it('replaces content on a valid import', async () => {
-    const { download, upload } = setup()
-    const updated = { ...pythonCourseSpec, title: 'Python Foundations' }
-    await upload(updated)
-    expect(await download()).toEqual(updated)
+  it('discards a draft and leaves the published spec', async () => {
+    const { download, upload, request } = setup()
+    await upload({ ...pythonCourseSpec, title: 'Python Foundations' })
+    await handleCourseSpec({ ...request, action: 'discard', courseId: python.id })
+    expect(await download()).toEqual(pythonCourseSpec)
+    expect(await handleCourseSpec({ ...request, action: 'draft', courseId: python.id })).toBeNull()
+    expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
+  })
+
+  it('names the module and block when the draft is invalid', async () => {
+    const { upload, download } = setup()
+    const spec = structuredClone(pythonCourseSpec)
+    spec.modules[0]!.content!.materials = [{ type: 'diagram', mermaid: '' }]
+    await expect(upload(spec)).rejects.toThrow('Module getting_started, block 1: mermaid is missing.')
+    expect(await download()).toEqual(pythonCourseSpec)
+  })
+
+  it('previews the draft, marks teacher-only fields, and writes nothing', async () => {
+    const { upload, download, request } = setup()
+    await upload({ ...pythonCourseSpec, title: 'Python Foundations' })
+    const preview = await handleCourseSpec({ ...request, action: 'preview', courseId: python.id })
+    expect(preview.draft).toBe(true)
+    expect(preview.title).toBe('Python Foundations')
+    expect(preview.modules[0]?.quiz[0]).toMatchObject({ teacherOnly: true, correctIndex: expect.any(Number) })
+    expect(preview.modules[0]?.hintLadder).toMatchObject({ teacherOnly: true })
+    expect(preview.modules[0]?.misconceptionResponses[0]).toMatchObject({ teacherOnly: true })
+    expect(JSON.stringify(preview)).not.toContain('referenceSolution')
+    expect(await download()).toEqual(pythonCourseSpec)
+    expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
   })
 
   it.each([

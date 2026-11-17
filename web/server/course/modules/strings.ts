@@ -1,13 +1,14 @@
 import type { ModuleContent } from '../course-spec'
+import { legacyMaterials } from '../materials'
 
 export const stringsModule: ModuleContent = {
-  materials: {
+  materials: legacyMaterials({
     heading: 'Text, piece by piece',
     body: 'A string is text. Indexing picks one character, and the first character is at 0. Slicing takes a stretch of the text. Methods such as upper, split, replace, and strip tidy or change it. An f-string drops a value into the text.',
     example: 'name = "An"\nprint(f"Hello, {name}")',
     keyPoint: 'The first character is at index 0, not 1.',
     scopeNote: 'These materials belong to this module alone.',
-  },
+  }),
   exercises: [
     {
       id: 'first_character',

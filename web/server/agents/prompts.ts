@@ -1,3 +1,4 @@
+import { materialsText } from '../../shared/materials'
 import type { AnsweredQuizResult, DeskmateContext, DeskmateQuizResult, SubmissionCheck, TeacherContext } from './contexts'
 import { moveKey, scopedMoveTypes, type Move } from './moves'
 import { roleTable } from './role-table'
@@ -181,11 +182,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
       `Module ${module.number}: ${module.name} (${module.id}), part ${module.part}, ${module.state}, mastery ${module.mastery}${module.current ? ', current module' : ''}`),
     '',
     'Module materials',
-    context.materials.heading,
-    context.materials.body,
-    context.materials.example,
-    context.materials.keyPoint,
-    context.materials.scopeNote,
+    materialsText(context.materials),
     '',
     ...hintLadderLines(context.hintLadder, move),
     '',

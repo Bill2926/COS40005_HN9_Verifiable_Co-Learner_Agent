@@ -8,7 +8,7 @@ const binh = 'b22b22b2-2222-4222-8222-222222222222'
 const card = { width: 200, height: 100 }
 const canvas = { width: 1000, height: 500 }
 
-describe('roadmap arrangement', () => {
+describe('mindmap arrangement', () => {
   it('converts between a point and a box, including a card past the starting canvas', () => {
     expect(placeCard({ x: 0.25, y: 0.5 }, card, canvas)).toEqual({
       x: 200,
@@ -266,7 +266,7 @@ describe('roadmap arrangement', () => {
   })
 })
 
-describe('saved roadmap arrangement', () => {
+describe('saved mindmap arrangement', () => {
   it('reads back the arrangement it saved', () => {
     const store = createArrangementStore(memoryStorage(), an, 'wide')
 

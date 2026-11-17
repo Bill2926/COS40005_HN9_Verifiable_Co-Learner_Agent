@@ -11,11 +11,14 @@ const props = defineProps<{
   pendingModuleId?: string
   // The module a select turn is opening, shown with a spinner.
   selectingModuleId?: string
+  positions?: readonly { moduleId: string, x: number, y: number }[]
 }>()
 
 const emit = defineEmits<{
   selectModule: [moduleId: string]
   prefetchModule: [moduleId: string]
+  moved: [moduleId: string, point: Point]
+  importLocal: [arrangement: Arrangement]
 }>()
 
 function onHover(event: PointerEvent, module: RoadmapModule) {
@@ -37,6 +40,11 @@ const canvasSize = ref<Size | null>(null)
 const cardSizes = ref<Record<string, Size>>({})
 const obstacles = ref<Box[]>([])
 const savedArrangement = ref<Arrangement>({})
+
+watch(() => props.positions, (positions) => {
+  if (!positions?.length) return
+  savedArrangement.value = Object.fromEntries(positions.map(position => [position.moduleId, { x: position.x, y: position.y }]))
+}, { immediate: true })
 const dragPoint = ref<{ id: string, point: Point } | null>(null)
 const selectedId = ref<string | null>(null)
 // The view: the arrangement lives in world pixels, the canvas shows it scaled then shifted.
@@ -410,6 +418,7 @@ function saveModule(id: string, point: Point) {
   createArrangementStore(localStorage, props.studentId, sizeClass).write(next)
   loadedClass = sizeClass
   loadedStudent = props.studentId
+  emit('moved', id, point)
 }
 
 function resetArrangement() {
@@ -432,9 +441,13 @@ function syncSaved(canvas: Size) {
   if (loadedClass !== null) cancelGesture()
   loadedClass = sizeClass
   loadedStudent = props.studentId
-  savedArrangement.value = props.studentId.length === 0
-    ? {}
-    : createArrangementStore(localStorage, props.studentId, sizeClass).read()
+  if (props.positions?.length) {
+    savedArrangement.value = Object.fromEntries(props.positions.map(position => [position.moduleId, { x: position.x, y: position.y }]))
+    return
+  }
+  const local = props.studentId.length === 0 ? {} : createArrangementStore(localStorage, props.studentId, sizeClass).read()
+  savedArrangement.value = local
+  if (Object.keys(local).length > 0) emit('importLocal', local)
 }
 
 function cancelGesture() {

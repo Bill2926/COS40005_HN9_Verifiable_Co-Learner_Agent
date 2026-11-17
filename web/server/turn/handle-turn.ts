@@ -1,4 +1,5 @@
-import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { ActivityRecorder } from '../activity-recorder'
+import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
 import { createMemoryCourseStore, type CourseStore } from '../storage/course-store'
@@ -76,6 +77,8 @@ export interface TurnOptions {
   courseId?: string
   // The students' deskmate switches. Without it Mai is always switched on.
   deskmateSettings?: DeskmateSettingStore
+  // Append-only activity. Absent in tests that are not about the log.
+  activity?: ActivityRecorder
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -254,6 +257,12 @@ async function* turnBody(
     // is taken again only then; an invalid or repeat answer leaves it untouched.
     if (marked.stored) {
       standing = standingFor(await refreshEstimate(await ledger.forStudent(studentId)), placement.module.id)
+      await options?.activity?.record({
+        studentId,
+        courseId: options.courseId ?? defaultCourseId,
+        type: 'quiz_answered',
+        payload: { moduleId: placement.module.id, questionId: body.questionId, correct: marked.correct },
+      })
     }
     // A wrong answer brings the agents in, as a failed submission does; a right
     // answer, and a repeat of an answered question, does not.
@@ -273,12 +282,24 @@ async function* turnBody(
     if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
     // Record the submission before refreshing mastery.
+    const testsPassed = body.results.filter(result => result.passed).length
     await ledger.append({
       studentId,
       moduleId: placement.module.id,
       exerciseId: placement.exercise.id,
-      testsPassed: body.results.filter(result => result.passed).length,
+      testsPassed,
       testsTotal: body.results.length,
+    })
+    await options?.activity?.record({
+      studentId,
+      courseId: options?.courseId ?? defaultCourseId,
+      type: 'submitted',
+      payload: {
+        moduleId: placement.module.id,
+        exerciseId: placement.exercise.id,
+        testsPassed,
+        testsTotal: body.results.length,
+      },
     })
     estimate = await refreshEstimate(await ledger.forStudent(studentId))
     standing = standingFor(estimate, placement.module.id)
@@ -305,12 +326,21 @@ async function* turnBody(
       addressedAgent = null
       flags.notice = deskmateOffNotice
     }
+    const quote = messageQuote(body)
+    const text = body.text.trim()
     await store.appendMessage(studentId, placement.module.id, {
       author: 'student',
       approvedMove: null,
-      text: body.text.trim(),
+      text,
       exerciseId: placement.exercise.id,
       addressedAgent,
+      quote,
+    })
+    await options?.activity?.record({
+      studentId,
+      courseId: options.courseId ?? defaultCourseId,
+      type: 'message_sent',
+      payload: { moduleId: placement.module.id, hasQuote: quote !== null },
     })
     const participants: Participants = addressedAgent === null
       ? everyone
@@ -319,7 +349,7 @@ async function* turnBody(
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, quizStore, agents, body.text.trim(), participants, options)
+    }, store, quizStore, agents, quote ? `${quote.text}\n${text}` : text, participants, options)
     return
   }
 
@@ -789,7 +819,7 @@ async function teacherContext(
     quizStore.forStudentModule(studentId, placement.module.id),
   ])
   return {
-    materials: { ...placement.module.materials },
+    materials: placement.module.materials.map(block => ({ ...block })),
     hintLadder: [...placement.module.hintLadder],
     misconceptionResponses: placement.module.misconceptionResponses.map(response => ({ ...response })),
     exercise: {
@@ -803,7 +833,7 @@ async function teacherContext(
     submission: copySubmission(seen.submission),
     conversation: messages.map(message => ({
       author: message.author,
-      text: message.text,
+      text: textWithQuote(message),
       approvedMove: message.approvedMove,
     })),
     roadmap: roadmapForStanding(placement.course, standing),
@@ -856,10 +886,14 @@ async function deskmateContextWithConversation(
     ...context,
     conversation: messages.map(message => ({
       author: message.author,
-      text: message.text,
+      text: textWithQuote(message),
       approvedMove: message.approvedMove,
     })),
   }
+}
+
+function textWithQuote(message: StoredMessage): string {
+  return message.quote ? `${message.quote.text}\n${message.text}` : message.text
 }
 
 async function rememberTeacherCouldNotAnswer(
@@ -963,7 +997,7 @@ function composeState(
       mode,
       moduleId: placement.module.id,
       moduleName: nameOfModule(placement.course, placement.module.id),
-      materials: { ...placement.module.materials },
+      materials: placement.module.materials.map(block => ({ ...block })),
       exercise: presentExercise(placement.exercise),
       exercises: placement.module.exercises.map(choice => ({
         id: choice.id,
@@ -1023,6 +1057,7 @@ function presentMessage(message: StoredMessage, displayName: string): Conversati
       && (message.approvedMove === 'explain_concept' || message.approvedMove === 'answer_question'),
     ...(message.createdAt ? { createdAt: message.createdAt } : {}),
     ...(message.addressedAgent ? { addressedAgent: message.addressedAgent } : {}),
+    ...(message.quote ? { quote: message.quote } : {}),
   }
 }
 
@@ -1060,6 +1095,16 @@ interface MessageEvent {
   draft?: unknown
   run?: unknown
   addressedAgent?: unknown
+  quote?: unknown
+}
+
+function messageQuote(body: MessageEvent): Quote | null {
+  const quote = body.quote
+  if (typeof quote !== 'object' || quote === null) return null
+  if (!('text' in quote) || typeof quote.text !== 'string' || quote.text.trim() === '') return null
+  if (!('moduleId' in quote) || typeof quote.moduleId !== 'string' || quote.moduleId.trim() === '') return null
+  if (!('source' in quote) || (quote.source !== 'agent' && quote.source !== 'materials')) return null
+  return { text: quote.text.trim(), source: quote.source, moduleId: quote.moduleId.trim() }
 }
 
 // Anything but a known agent is read as no addressed agent.

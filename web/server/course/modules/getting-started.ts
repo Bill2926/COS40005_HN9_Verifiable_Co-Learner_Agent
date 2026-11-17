@@ -1,13 +1,25 @@
 import type { ModuleContent } from '../course-spec'
+import { legacyMaterials } from '../materials'
 
 export const gettingStartedModule: ModuleContent = {
-  materials: {
-    heading: 'A first program',
-    body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
-    example: '# Show a greeting\nprint("Hello, world")',
-    keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
-    scopeNote: 'These materials belong to this module alone.',
-  },
+  materials: [
+    ...legacyMaterials({
+      heading: 'A first program',
+      body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
+      example: '# Show a greeting\nprint("Hello, world")',
+      keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
+      scopeNote: 'These materials belong to this module alone.',
+    }),
+    {
+      type: 'diagram',
+      mermaid: 'flowchart LR\n  program[A program] --> shown["print()"]',
+    },
+    {
+      type: 'video',
+      url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8',
+      title: 'A first Python program',
+    },
+  ],
   exercises: [
     {
       id: 'say_hello',

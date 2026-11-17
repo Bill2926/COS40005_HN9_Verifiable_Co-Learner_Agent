@@ -11,6 +11,7 @@ import { createSupabaseModelSettingsStore } from '../storage/supabase-model-sett
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
 import { createSupabaseUnlockStore } from '../storage/supabase-unlock-store'
 import { verifyShieldForTurn } from '../verify-shield'
+import { createSupabaseActivityLog } from '../storage/supabase-activity-log'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
@@ -58,6 +59,7 @@ export default defineEventHandler(async (event) => {
     unlocks: createSupabaseUnlockStore(studentData),
     courses: createSupabaseCourseStore(connection),
     courseId,
+    activity: createSupabaseActivityLog(connection),
   }
 
   try {

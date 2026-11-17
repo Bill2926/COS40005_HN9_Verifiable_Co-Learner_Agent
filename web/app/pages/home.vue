@@ -107,6 +107,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
             </h1>
             <p class="about-rise max-w-xl text-lg/7 text-muted" style="--i: 2">
               Learn any course step by step with AI agents whose every reply is checked before you see it.
+              Your activity in the app is recorded. It is not used to grade you, and no screen shows it.
             </p>
             <div class="about-rise flex flex-col gap-3 pt-2 sm:flex-row" style="--i: 3">
               <NuxtLink :to="start.to" :class="primaryButton">

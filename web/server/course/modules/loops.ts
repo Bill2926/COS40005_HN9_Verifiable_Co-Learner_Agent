@@ -1,13 +1,14 @@
 import type { ModuleContent } from '../course-spec'
+import { legacyMaterials } from '../materials'
 
 export const loopsModule: ModuleContent = {
-  materials: {
+  materials: legacyMaterials({
     heading: 'Accumulating a total',
     body: 'A running total needs a variable that survives every pass of the loop. for walks a collection, range() builds a sequence of numbers, and while repeats while a condition stays true. break leaves the loop early, continue skips to the next pass, and a loop can sit inside another loop.',
     example: '# Create the total before the loop\ns = 0\nfor x in ds:\n    s = s + x',
     keyPoint: 'Look at where `s = 0` is. If it were inside the loop, the total would go back to zero on every pass and forget the numbers before it.',
     scopeNote: 'These materials belong to this module alone.',
-  },
+  }),
   exercises: [
     {
       id: 'sum_of_a_list',

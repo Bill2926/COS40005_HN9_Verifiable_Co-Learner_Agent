@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { courseFromSpec } from './course'
 import type { CourseSpec } from './course-spec'
+import { normaliseCourseSpec } from './materials'
 
 const exerciseCheck = z.strictObject({ name: z.string(), expression: z.string(), expected: z.string() })
 const exercise = z.strictObject({
@@ -19,21 +20,22 @@ const quizQuestion = z.strictObject({
   explanation: z.string(),
   misconceptions: z.partialRecord(z.enum(['0', '1', '2', '3']), z.string()).optional(),
 })
+const materialBlock = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('text'), markdown: z.string().min(1) }),
+  z.strictObject({ type: z.literal('code'), code: z.string().min(1) }),
+  z.strictObject({ type: z.literal('diagram'), mermaid: z.string().min(1) }),
+  z.strictObject({ type: z.literal('image'), url: z.string().min(1), alt: z.string().min(1) }),
+  z.strictObject({ type: z.literal('video'), url: z.string().min(1), title: z.string().min(1) }),
+])
 const moduleContent = z.strictObject({
-  materials: z.strictObject({
-    heading: z.string(),
-    body: z.string(),
-    example: z.string(),
-    keyPoint: z.string(),
-    scopeNote: z.string(),
-  }),
+  materials: z.array(materialBlock).min(1),
   quiz: z.tuple([quizQuestion, quizQuestion, quizQuestion]),
   exercises: z.tuple([exercise, exercise, exercise], exercise),
   hintLadder: z.tuple([z.string(), z.string(), z.string()]),
   misconceptionResponses: z.array(z.strictObject({ id: z.string().min(1), response: z.string() })),
 })
 const courseSpec = z.strictObject({
-  specVersion: z.literal(1),
+  specVersion: z.literal(2),
   courseId: z.string().min(1),
   title: z.string().min(1),
   masteryThreshold: z.number().min(0.5).max(0.99),
@@ -50,7 +52,7 @@ const courseSpec = z.strictObject({
 })
 
 export function parseCourseSpec(json: string): CourseSpec {
-  const spec: CourseSpec = courseSpec.parse(JSON.parse(json))
+  const spec = courseSpec.parse(normaliseCourseSpec(JSON.parse(json)))
   courseFromSpec(spec)
   return spec
 }

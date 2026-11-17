@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { sessionStudentId } from '#shared/student-id'
+import { recordStudentActivity } from '~/activity/record'
 import { staffLanding } from '~/staff/landing'
 import { claimIntro, introAttribute, introHeadScript, introSeenKey, introStart } from '~/sign-in/intro'
 
@@ -125,7 +126,9 @@ async function signIn() {
       credentialsRejected.value = true
       return
     }
-    await navigateTo(await signedInDestination())
+    const destination = await signedInDestination()
+    if (destination === '/') await recordStudentActivity({ event: 'signed_in' })
+    await navigateTo(destination)
   }
   catch {
     errorMessage.value = unreachableMessage

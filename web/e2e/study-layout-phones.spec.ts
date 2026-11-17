@@ -222,7 +222,7 @@ test('shows a reply that arrives on another tab and Open in Learn returns to the
     await expect(page.getByRole('textbox', { name: 'Python editor' })).toBeHidden()
 
     await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
-    await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+    await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
     await page.getByRole('link', { name: 'Study', exact: true }).click()
     await expect(page.getByRole('tab', { name: 'Conversation', exact: true })).toHaveAttribute('aria-selected', 'true')
     await expectOnlyPanel(page, 'conversation')
@@ -240,7 +240,7 @@ async function expectPhoneTopBar(page: Page) {
   await expectNotOnScreen(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: /^An$/ }))
   await expect(page.locator('header span[aria-hidden="true"]').filter({ hasText: /^An$/ })).toBeVisible()
   const ide = page.getByRole('link', { name: 'Study', exact: true })
-  const roadmapCanvas = page.getByRole('link', { name: 'Roadmap', exact: true })
+  const roadmapCanvas = page.getByRole('link', { name: 'Mindmap', exact: true })
   const signOut = page.getByRole('button', { name: 'Sign out', exact: true })
   await expect(ide).toBeVisible()
   await expect(roadmapCanvas).toBeVisible()

@@ -1,6 +1,6 @@
 export const workspaceLayouts = [
   { id: 'study', name: 'Study' },
-  { id: 'roadmap', name: 'Roadmap' },
+  { id: 'mindmap', name: 'Mindmap' },
 ] as const
 
 export type WorkspaceLayoutId = (typeof workspaceLayouts)[number]['id']
@@ -16,7 +16,7 @@ export const workspaceLayoutCookieOptions = {
 export function workspaceLayoutFrom(value: unknown): WorkspaceLayoutId | null {
   const raw = Array.isArray(value) ? value[0] : value
   // Cookies and links saved under the old names still open the right layout.
-  const id = raw === 'map' ? 'roadmap' : raw === 'ide' ? 'study' : raw
+  const id = raw === 'map' || raw === 'roadmap' ? 'mindmap' : raw === 'ide' ? 'study' : raw
   return workspaceLayouts.find(layout => layout.id === id)?.id ?? null
 }
 

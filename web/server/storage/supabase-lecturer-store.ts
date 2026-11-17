@@ -10,6 +10,24 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
   })
 
   return {
+    async readDraft(email, courseId) {
+      const result = await supabase.from('courses').select('draft')
+        .eq('id', courseId).eq('owner_email', email).maybeSingle()
+      if (result.error) throw new Error(result.error.message)
+      return result.data?.draft ?? null
+    },
+    async saveDraft(email, courseId, spec) {
+      const result = await supabase.from('courses').update({ draft: spec })
+        .eq('id', courseId).eq('owner_email', email).select('id')
+      if (result.error) throw new Error(result.error.message)
+      return result.data.length > 0
+    },
+    async discardDraft(email, courseId) {
+      const result = await supabase.from('courses').update({ draft: null })
+        .eq('id', courseId).eq('owner_email', email).select('id')
+      if (result.error) throw new Error(result.error.message)
+      return result.data.length > 0
+    },
     async exportSpec(email, courseId) {
       const result = await supabase.from('courses').select('spec')
         .eq('id', courseId).eq('owner_email', email).maybeSingle()

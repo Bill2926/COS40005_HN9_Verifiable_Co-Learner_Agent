@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ConversationMessage, TurnTrace } from '#shared/turn'
+import type { ConversationMessage, Quote, TurnTrace } from '#shared/turn'
 import { addresseeName, addressMenu, chooseAddressee, type AddressedAgent } from '~/workspace/addressed-agent'
 import { dateMessages } from '~/workspace/conversation-dates'
 import BusySpinner from '../BusySpinner.vue'
@@ -19,10 +19,12 @@ const props = defineProps<{
   deskmateBusy?: boolean
   deskmateError?: string
   notice?: string
+  portraitUrl?: string | null
+  incomingQuote?: Quote | null
 }>()
 
 const emit = defineEmits<{
-  send: [text: string, addressedAgent: AddressedAgent | null]
+  send: [text: string, addressedAgent: AddressedAgent | null, quote: Quote | null]
   openLearn: []
   close: []
   toggleDeskmate: [on: boolean]
@@ -40,6 +42,7 @@ interface BubbleRow {
   day: string | null
   time: string | null
   addressedAgent: AddressedAgent | null
+  quote: Quote | null
 }
 
 interface TypingRow {
@@ -89,6 +92,10 @@ const roleClass = {
 } as const
 
 const text = ref('')
+const quote = ref<Quote | null>(null)
+watch(() => props.incomingQuote, (value) => {
+  quote.value = value ?? null
+})
 const pending = ref('')
 const addressee = ref<AddressedAgent | null>(null)
 const pendingAddressee = ref<AddressedAgent | null>(null)
@@ -176,6 +183,7 @@ const rows = computed(() => {
       day,
       time,
       addressedAgent: message.addressedAgent ?? null,
+      quote: message.quote ?? null,
     }
   })
 
@@ -192,6 +200,7 @@ const rows = computed(() => {
       day: null,
       time: null,
       addressedAgent: pendingAddressee.value,
+      quote: quote.value,
     })
   }
   if (props.streamingTeacher) {
@@ -207,6 +216,7 @@ const rows = computed(() => {
       day: null,
       time: null,
       addressedAgent: null,
+      quote: null,
     })
   }
   else if (props.sending && pendingAddressee.value !== 'deskmate') {
@@ -230,6 +240,7 @@ const rows = computed(() => {
       day: null,
       time: null,
       addressedAgent: null,
+      quote: null,
     })
   }
   else if (props.sending && props.deskmateOn && pendingAddressee.value !== 'teacher') {
@@ -273,13 +284,14 @@ function submit() {
   if (!value || props.sending || menu.value.length > 0) return
   pending.value = value
   pendingAddressee.value = addressee.value
-  emit('send', value, addressee.value)
+  emit('send', value, addressee.value, quote.value)
 }
 
 watch(() => props.sending, (sending) => {
   if (sending) return
   if (!props.sendError && text.value.trim() === pending.value) {
     text.value = ''
+    quote.value = null
     addressee.value = null
   }
   pending.value = ''
@@ -415,9 +427,10 @@ watch(() => props.sending, (sending) => {
               aria-hidden="true"
             >
               <img
-                :src="portraitSrc[row.author]"
+                :src="row.author === 'student' && portraitUrl ? portraitUrl : portraitSrc[row.author]"
                 alt=""
-                class="size-full object-cover [image-rendering:pixelated]"
+                class="size-full object-cover"
+                :class="row.author === 'student' && portraitUrl ? '' : '[image-rendering:pixelated]'"
               >
             </span>
             <article
@@ -446,14 +459,16 @@ watch(() => props.sending, (sending) => {
               aria-hidden="true"
             >
               <img
-                :src="portraitSrc[row.author]"
+                :src="row.author === 'student' && portraitUrl ? portraitUrl : portraitSrc[row.author]"
                 alt=""
-                class="size-full object-cover [image-rendering:pixelated]"
+                class="size-full object-cover"
+                :class="row.author === 'student' && portraitUrl ? '' : '[image-rendering:pixelated]'"
               >
             </span>
             <article
               class="w-fit max-w-full min-w-0 text-[13px] leading-5 break-words"
               :class="bubbleClass[row.author]"
+              :data-quote-source="row.author === 'student' ? undefined : 'agent'"
             >
               <p class="mb-0.5 flex items-baseline gap-1.5">
                 <span
@@ -471,6 +486,10 @@ watch(() => props.sending, (sending) => {
                   data-message-time
                 >{{ row.time }}</time>
               </p>
+              <blockquote
+                v-if="row.kind === 'bubble' && row.quote"
+                class="mb-1 border-l-2 border-current/30 pl-2 text-[12px] leading-4 opacity-80"
+              >{{ row.quote.text }}</blockquote>
               <p v-if="row.author === 'student'">
                 <span
                   v-if="row.addressedAgent"
@@ -524,6 +543,21 @@ watch(() => props.sending, (sending) => {
       </ul>
       <div class="flex items-center gap-2">
         <div class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[4px] border border-ink-200 bg-ink-50 pl-1.5 focus-within:border-brand-500">
+          <span
+            v-if="quote"
+            class="inline-flex max-w-[40%] shrink-0 items-center gap-0.5 rounded-full bg-ink-200 py-0.5 pr-0.5 pl-2 text-xs leading-4 text-ink-800"
+          >
+            <span class="truncate">{{ quote.text }}</span>
+            <button
+              type="button"
+              class="inline-flex size-6 items-center justify-center rounded-full hover:bg-ink-300"
+              aria-label="Remove quote"
+              :disabled="sending"
+              @click.prevent="quote = null"
+            >
+              <svg viewBox="0 0 24 24" width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+            </button>
+          </span>
           <span
             v-if="addressee"
             class="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-brand-100 py-0.5 pr-0.5 pl-2 text-xs leading-4 font-medium text-brand-900"

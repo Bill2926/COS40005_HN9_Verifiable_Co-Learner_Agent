@@ -6,19 +6,42 @@ export interface LecturerStore {
   setThreshold: (email: string, courseId: string, threshold: number) => Promise<boolean>
   exportSpec: (email: string, courseId: string) => Promise<CourseSpec | null>
   importSpec: (email: string, spec: CourseSpec) => Promise<boolean>
+  readDraft: (email: string, courseId: string) => Promise<CourseSpec | null>
+  saveDraft: (email: string, courseId: string, spec: CourseSpec) => Promise<boolean>
+  discardDraft: (email: string, courseId: string) => Promise<boolean>
 }
 
 export function createMemoryLecturerStore(
-  courses: readonly (LecturerCourse & { ownerEmail: string, spec?: CourseSpec })[],
+  courses: readonly (LecturerCourse & { ownerEmail: string, spec?: CourseSpec, draft?: CourseSpec | null })[],
 ): LecturerStore {
   const stored = courses.map(course => ({
     ...course,
     history: [...course.history],
     students: course.students.map(student => ({ ...student })),
+    draft: course.draft ? structuredClone(course.draft) : null,
   }))
+  function owned(email: string, courseId: string) {
+    return stored.find(item => item.ownerEmail === email && item.id === courseId)
+  }
   return {
+    async readDraft(email, courseId) {
+      const draft = owned(email, courseId)?.draft
+      return draft ? structuredClone(draft) : null
+    },
+    async saveDraft(email, courseId, spec) {
+      const course = owned(email, courseId)
+      if (!course || spec.courseId !== courseId) return false
+      course.draft = structuredClone(spec)
+      return true
+    },
+    async discardDraft(email, courseId) {
+      const course = owned(email, courseId)
+      if (!course) return false
+      course.draft = null
+      return true
+    },
     async exportSpec(email, courseId) {
-      const course = stored.find(item => item.ownerEmail === email && item.id === courseId)
+      const course = owned(email, courseId)
       return course?.spec ? structuredClone({ ...course.spec, masteryThreshold: course.masteryThreshold }) : null
     },
     async importSpec(email, spec) {

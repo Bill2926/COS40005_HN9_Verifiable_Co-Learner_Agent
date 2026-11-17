@@ -17,13 +17,14 @@ export type RoadmapModule =
   | (RoadmapModuleBase & { state: 'mastered' | 'open'; mastery: number; masteryReason?: string })
   | (RoadmapModuleBase & { state: 'closed'; closedReason: string })
 
-export interface ModuleMaterials {
-  heading: string
-  body: string
-  example: string
-  keyPoint: string
-  scopeNote: string
-}
+export type MaterialBlock =
+  | { type: 'text', markdown: string }
+  | { type: 'code', code: string }
+  | { type: 'diagram', mermaid: string }
+  | { type: 'image', url: string, alt: string }
+  | { type: 'video', url: string, title: string }
+
+export type ModuleMaterials = readonly MaterialBlock[]
 
 export interface ExerciseCheck {
   name: string
@@ -90,6 +91,12 @@ export interface RuleCheck {
   reasonCode: string
 }
 
+export interface Quote {
+  text: string
+  source: 'agent' | 'materials'
+  moduleId: string
+}
+
 export interface ConversationMessage {
   id: string
   author: 'student' | 'teacher' | 'deskmate' | 'event'
@@ -99,6 +106,8 @@ export interface ConversationMessage {
   exerciseId: string
   approvedMove: string | null
   openInLearn: boolean
+  // Text the student placed in the message from an agent reply or the materials.
+  quote?: Quote
   // ISO time the message was written; absent for messages stored before
   // times were recorded.
   createdAt?: string

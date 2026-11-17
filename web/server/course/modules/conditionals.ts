@@ -1,13 +1,14 @@
 import type { ModuleContent } from '../course-spec'
+import { legacyMaterials } from '../materials'
 
 export const conditionalsModule: ModuleContent = {
-  materials: {
+  materials: legacyMaterials({
     heading: 'Choosing a path',
     body: 'if, elif, and else choose which steps run. Python checks the conditions from top to bottom and runs only the first branch that is true. Conditions can be nested, and and, or, and not combine them.',
     example: 'if score >= 50:\n    print("pass")\nelse:\n    print("try again")',
     keyPoint: 'Only the first true branch runs. The others are skipped.',
     scopeNote: 'These materials belong to this module alone.',
-  },
+  }),
   exercises: [
     {
       id: 'sign_of',
