@@ -1,11 +1,11 @@
 # Schema push applies migrations to the shared project on main
 
-A push to `main` runs `supabase db push` against the Supabase project the app already uses, `VerifiableCoLearnerAgents`, and does not run the seed. There is no staging project. The database students use is the one that receives the migration. A failed push leaves `main` ahead of that database. The Check stays free of Supabase credentials. Only this job holds a Supabase access token, as a GitHub Actions secret. The CLI uses that token to open a temporary login role, so the database password is not stored in GitHub.
+A push to `main` runs `supabase db push` against the Supabase project the app already uses, `VerifiableCoLearnerAgents`, and does not run the seed. There is no staging project. The database students use is the one that receives the migration. A failed push leaves `main` ahead of that database. The Check dry-runs that same push on every pull request and does not write. Both jobs use one Supabase access token, stored as a GitHub Actions secret. The CLI uses that token to open a temporary login role, so the database password is not stored in GitHub.
 
 ## Considered Options
 
 - **Apply migrations by hand**: rejected. A SQL file can land on `main` and never reach the project the app uses.
-- **Push during the pull request**: rejected. An unmerged branch would change the live schema.
+- **Push during the pull request**: rejected. An unmerged branch would change the live schema. The pull request dry-runs instead.
 - **Include the seed on every push**: rejected. The seed recreates the demo accounts.
 
 ## Consequences
