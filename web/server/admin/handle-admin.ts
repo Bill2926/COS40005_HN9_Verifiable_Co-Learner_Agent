@@ -182,7 +182,7 @@ function decisionQuery(body: unknown): DecisionQuery {
   return query
 }
 
-function isProductOwner(email: string, adminEmails: string): boolean {
+export function isProductOwner(email: string, adminEmails: string): boolean {
   const allowed = adminEmails
     .split(',')
     .map(entry => entry.trim().toLowerCase())

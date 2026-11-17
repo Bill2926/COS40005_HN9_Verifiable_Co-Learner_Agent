@@ -2,14 +2,12 @@ import { expect, test, type Locator, type Page } from '@playwright/test'
 import { demoAccounts } from '../server/auth/demo-accounts'
 import { resetDemoAccounts, resetDemoMindmapNotes } from './reset-demo-accounts'
 
-// A student adds a note to the mindmap, gives it a colour, attaches an image,
+// A student adds a note to the mindmap, gives it a colour,
 // links it to another note and deletes it, on a desktop and on a phone. Notes
 // belong to the account, so a reload shows what was saved.
 
 const anAccount = demoAccounts[0]
 const firstModule = 'Getting Started with Programming and Python'
-// A 1x1 PNG, so the image the note shows is the one that was picked.
-const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64')
 
 test.beforeAll(async () => {
   await resetDemoAccounts()
@@ -20,7 +18,7 @@ test.afterAll(async () => {
   await resetDemoMindmapNotes()
 })
 
-test('adds, recolours, links, attaches an image and deletes a note', async ({ page }) => {
+test('adds, recolours, links and deletes a note', async ({ page }) => {
   await openNotes(page, { width: 1440, height: 900 })
   const notes = notesPanel(page)
   await expect(notes.getByRole('button', { name: 'New note', exact: true })).toBeVisible({ timeout: 60_000 })
@@ -36,6 +34,7 @@ test('adds, recolours, links, attaches an image and deletes a note', async ({ pa
 
   await swatch(page, 'Amber').click()
   await notes.getByRole('button', { name: 'Save', exact: true }).click()
+  await expect(notes.getByText('Note saved.', { exact: true })).toBeVisible()
   await page.reload()
   await openMindmap(page)
   await openNote(page, 'Loop note')
@@ -51,9 +50,7 @@ test('adds, recolours, links, attaches an image and deletes a note', async ({ pa
   const removeLink = linkedList(page).getByRole('button', { name: 'Remove link' })
   await expect(linkedList(page).getByRole('listitem').filter({ hasText: 'Sketch note' })).toBeVisible()
 
-  await notes.getByLabel('Image (optional)').setInputFiles({ name: 'sketch.png', mimeType: 'image/png', buffer: png })
-  const image = notes.locator('[data-note-image]')
-  await expect(image).toBeVisible()
+  await expect(notes.locator('input[type="file"]')).toHaveCount(0)
   await notes.getByRole('button', { name: 'Save', exact: true }).click()
 
   await removeLink.click()
@@ -62,7 +59,6 @@ test('adds, recolours, links, attaches an image and deletes a note', async ({ pa
   await page.reload()
   await openMindmap(page)
   await openNote(page, 'Loop note')
-  await expect.poll(async () => image.evaluate(element => element.naturalWidth), { timeout: 30_000 }).toBe(1)
   await expect(swatch(page, 'Amber')).toHaveAttribute('aria-pressed', 'true')
   expect(await sidewaysScroll(page)).toBe(false)
 
@@ -134,7 +130,7 @@ async function openMindmap(page: Page) {
 }
 
 async function showNotesOnPhone(page: Page) {
-  await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
+  await page.getByRole('tab', { name: 'Notes', exact: true }).click()
   await expect(notesPanel(page)).toBeVisible({ timeout: 60_000 })
 }
 
@@ -194,7 +190,7 @@ async function openNotes(page: Page, size: { width: number, height: number }) {
   await expect(page.getByRole('heading', { name: firstModule })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
   await openMindmap(page)
-  // On a phone the notes panel is in the sheet behind the Conversation tab, so
+  // On a phone the notes panel is in the sheet behind the Notes tab, so
   // it is not in the accessibility tree yet. The canvas is the shared proof that
   // the Mindmap layout is open.
   await expect(page.getByRole('button', { name: 'Reset arrangement', exact: true })).toBeVisible({ timeout: 60_000 })

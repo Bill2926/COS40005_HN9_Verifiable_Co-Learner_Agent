@@ -8,12 +8,17 @@ interface LecturerIdentity {
   lecturerEmails: string
 }
 
+export function isLecturer(email: string, lecturerEmails: string): boolean {
+  const wanted = email.trim().toLowerCase()
+  return lecturerEmails.split(',').some(allowed => allowed.trim().toLowerCase() === wanted)
+}
+
 function requireLecturer(request: LecturerIdentity): string {
   const email = request.email?.trim().toLowerCase()
   if (!email) {
     throw Object.assign(new Error('Sign in required'), { statusCode: 401 })
   }
-  if (!request.lecturerEmails.split(',').some(allowed => allowed.trim().toLowerCase() === email)) {
+  if (!isLecturer(email, request.lecturerEmails)) {
     throw Object.assign(new Error('Lecturer access required'), { statusCode: 403 })
   }
   return email

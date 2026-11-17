@@ -39,7 +39,6 @@ export interface StudentNoteView {
   colour: string
   x: number
   y: number
-  imageUrl: string | null
 }
 
 export interface StudentResponse {
@@ -153,14 +152,13 @@ async function present(request: StudentHandlerRequest, studentId: string): Promi
     request.mindmap.read(studentId, request.courseId),
   ])
   const pictureUrl = profile.picturePath ? await request.files.url(studentId, profile.picturePath) : null
-  const notes = await Promise.all(record.notes.map(async (note) => ({
+  const notes = record.notes.map(note => ({
     id: note.id,
     text: note.text,
     colour: note.colour,
     x: note.x,
     y: note.y,
-    imageUrl: note.imagePath ? await request.files.url(studentId, note.imagePath) : null,
-  })))
+  }))
   return {
     profile: {
       displayName: profile.displayName,
@@ -200,7 +198,7 @@ async function changeProfile(request: StudentHandlerRequest, studentId: string, 
     change.displayName = body.displayName.trim()
   }
   if (hasPicture) {
-    const image = readImage(body.picture, 'picture')
+    const image = readPicture(body.picture)
     await request.files.put(studentId, 'portrait', image)
     change.picturePath = 'portrait'
   }
@@ -255,11 +253,8 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   const text = noteText(body)
   const colour = noteColour(body)
   const point = coordinates(body)
-  const image = 'image' in body && body.image !== undefined ? readImage(body.image, 'image') : null
   const id = crypto.randomUUID()
-  const imagePath = image ? `notes/${id}` : null
-  if (image && imagePath) await request.files.put(studentId, imagePath, image)
-  await request.mindmap.insertNote(studentId, request.courseId, { id, text, colour, imagePath, ...point })
+  await request.mindmap.insertNote(studentId, request.courseId, { id, text, colour, ...point })
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 
@@ -275,12 +270,6 @@ async function changeNote(request: StudentHandlerRequest, studentId: string, bod
     const point = coordinates(body)
     note.x = point.x
     note.y = point.y
-  }
-  if ('image' in body && body.image !== undefined) {
-    const image = readImage(body.image, 'image')
-    const imagePath = `notes/${note.id}`
-    await request.files.put(studentId, imagePath, image)
-    note.imagePath = imagePath
   }
   await request.mindmap.updateNote(studentId, request.courseId, note)
   await recordActivity(request, studentId, 'note_changed', { noteId }, request.courseId)
@@ -379,9 +368,8 @@ function linkTarget(body: Record<string, unknown>, moduleIds: readonly string[],
   throw new StudentRequestError('The link is missing its target.')
 }
 
-function readImage(value: unknown, label: 'picture' | 'image'): { bytes: Uint8Array, contentType: string } {
-  const name = label === 'picture' ? 'picture' : 'image'
-  if (typeof value !== 'object' || value === null) throw new StudentRequestError(`The ${name} is missing.`)
+function readPicture(value: unknown): { bytes: Uint8Array, contentType: string } {
+  if (typeof value !== 'object' || value === null) throw new StudentRequestError('The picture is missing.')
   const contentType = 'contentType' in value && typeof value.contentType === 'string' ? value.contentType : ''
   const base64 = 'base64' in value && typeof value.base64 === 'string' ? value.base64 : ''
   if (!imageTypes.has(contentType)) throw new StudentRequestError('Use a JPEG, PNG or WebP picture.')

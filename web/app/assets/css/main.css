@@ -183,6 +183,20 @@ main[data-layout] > header { view-transition-name: app-header; }
   }
 }
 
+/* Mermaid measures its labels while it draws (the temporary `ddiagram-*`
+   container, then the `diagram-*` svg). The reduced-motion rule above gives
+   every element a 0.01ms transition, and with it Mermaid measures an empty
+   edge label as about 2000px wide, so a two-node diagram comes out 2200px
+   across and is shrunk to the column with unreadable text. A diagram has
+   nothing to animate, so it keeps no transitions. */
+[id^='ddiagram-'],
+[id^='ddiagram-'] *,
+svg[id^='diagram-'],
+svg[id^='diagram-'] * {
+  transition: none !important;
+  animation: none !important;
+}
+
 /* Sign-in intro (first visit per device): app/sign-in/intro.ts marks <html>
    before paint; the page takes over with the Web Animations API. If the
    script never runs, the hidden parts still appear after 3s. */

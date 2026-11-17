@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { StudentResponse } from '../../server/student'
+import BusySpinner from '~/components/BusySpinner.vue'
 
 definePageMeta({
   middleware: ['signed-in', 'staff-landing'],
@@ -12,6 +13,7 @@ const displayName = ref('')
 const errorMessage = ref('')
 const saved = ref('')
 const busy = ref(false)
+const uploading = ref(false)
 
 const requestFetch = useRequestFetch()
 const loaded = await requestFetch<StudentResponse>('/api/student', { method: 'POST', body: { event: 'open' } })
@@ -103,6 +105,7 @@ function onPicture() {
 
 async function sendPicture(file: File) {
   busy.value = true
+  uploading.value = true
   saved.value = ''
   try {
     const picture = await squarePicture(file)
@@ -118,6 +121,7 @@ async function sendPicture(file: File) {
   }
   finally {
     busy.value = false
+    uploading.value = false
   }
 }
 </script>
@@ -125,16 +129,31 @@ async function sendPicture(file: File) {
   <main class="phone-safe mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 bg-default px-4 py-8">
     <p class="text-sm"><NuxtLink to="/" class="text-brand-700 underline">Back to the workspace</NuxtLink></p>
     <h1 class="text-xl font-semibold text-highlighted">Profile</h1>
-    <p class="text-sm text-ink-600">Your activity in the app is recorded. It is not used to grade you, and no screen shows it.</p>
-    <img
-      :src="profile?.pictureUrl ?? '/portraits/student.png'"
-      alt=""
-      class="size-24 rounded-[4px] border border-ink-200 object-cover"
-      data-profile-picture
+    <div class="relative size-24">
+      <img
+        :src="profile?.pictureUrl ?? '/portraits/student.png'"
+        alt=""
+        class="size-24 rounded-[4px] border border-ink-200 object-cover"
+        :class="uploading ? 'opacity-50' : ''"
+        data-profile-picture
+      >
+      <div
+        v-if="uploading"
+        class="absolute inset-0 grid place-items-center rounded-[4px] text-ink-700"
+        data-picture-uploading
+      >
+        <BusySpinner class="size-6" />
+      </div>
+    </div>
+    <!-- The browser's own file button is drawn in the browser's language, so the
+         input is hidden and this label is the visible English button. -->
+    <label
+      class="inline-flex min-h-11 w-fit cursor-pointer items-center rounded-sm border border-ink-300 bg-paper px-4 text-sm font-medium text-ink-900 focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600"
+      :class="busy ? 'pointer-events-none opacity-60' : 'hover:bg-ink-50'"
     >
-    <label class="flex flex-col gap-1 text-sm">
-      Profile picture
-      <input ref="pictureInput" type="file" accept="image/jpeg,image/png,image/webp" class="text-sm" :disabled="busy" @change="onPicture">
+      <BusySpinner v-if="uploading" class="mr-2" />
+      {{ uploading ? 'Uploading…' : 'Upload picture' }}
+      <input ref="pictureInput" type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="busy" @change="onPicture">
     </label>
     <form class="flex flex-col gap-4" @submit.prevent="saveName">
       <label class="flex flex-col gap-1 text-sm">
@@ -145,6 +164,7 @@ async function sendPicture(file: File) {
       <p class="text-sm text-ink-600">Student number <span class="font-mono text-ink-900">{{ profile?.studentNumber }}</span></p>
       <button type="submit" class="min-h-11 rounded-sm bg-accent px-4 text-sm font-medium text-on-accent" :disabled="busy">Save name</button>
     </form>
+    <p v-if="uploading" role="status" class="sr-only">Uploading your picture</p>
     <p v-if="saved" role="status" class="text-sm text-emerald-700">{{ saved }}</p>
     <p v-if="errorMessage" role="alert" class="text-sm text-rose-700">{{ errorMessage }}</p>
   </main>

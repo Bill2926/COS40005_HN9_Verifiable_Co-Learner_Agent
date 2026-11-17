@@ -5,12 +5,6 @@ interface NoteItem {
   id: string
   text: string
   colour: string
-  imageUrl: string | null
-}
-
-interface NoteImage {
-  contentType: string
-  base64: string
 }
 
 interface ModuleLink {
@@ -25,12 +19,13 @@ const props = defineProps<{
   modules: { id: string, name: string }[]
   selectedId: string
   saving: boolean
+  saved: string
   error: string
 }>()
 
 const emit = defineEmits<{
   select: [id: string]
-  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string, image: NoteImage | null }]
+  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }]
   remove: [id: string]
   link: [noteId: string, targetNoteId: string]
   unlink: [linkId: string]
@@ -51,20 +46,11 @@ const title = ref('')
 const body = ref('')
 const colour = ref<NoteColour>('brand')
 const moduleId = ref('')
-const image = ref<NoteImage | null>(null)
-const imagePreview = ref('')
-const imageError = ref('')
 const linkTargetId = ref('')
-
-// The same checks the server runs, so a picture it would refuse never leaves
-// this panel.
-const imageTypes = ['image/jpeg', 'image/png', 'image/webp']
-const imageLimit = 2 * 1024 * 1024
 
 const selected = computed(() => props.notes.find(note => note.id === props.selectedId) ?? null)
 const formOpen = computed(() => drafting.value || selected.value !== null)
 const canSave = computed(() => title.value.trim().length > 0 && moduleId.value.length > 0 && !props.saving)
-const shownImage = computed(() => imagePreview.value || selected.value?.imageUrl || '')
 const otherNotes = computed(() => props.notes.filter(note => note.id !== props.selectedId))
 const noteToNoteLinks = computed(() => {
   const note = selected.value
@@ -82,7 +68,6 @@ watch(() => props.selectedId, (id) => {
   body.value = parts.body
   colour.value = isSwatch(note.colour) ? note.colour : 'brand'
   moduleId.value = linkedModule(note.id)
-  resetImage()
   linkTargetId.value = ''
 })
 
@@ -116,45 +101,14 @@ function startDraft() {
   body.value = ''
   colour.value = 'brand'
   moduleId.value = ''
-  resetImage()
   linkTargetId.value = ''
   emit('select', '')
-}
-
-function resetImage() {
-  image.value = null
-  imagePreview.value = ''
-  imageError.value = ''
 }
 
 function linkTitle(link: ModuleLink): string {
   const target = link.target
   if (target.kind !== 'note') return ''
   return preview(props.notes.find(note => note.id === target.noteId)?.text ?? '')
-}
-
-async function onImage(event: Event) {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  resetImage()
-  if (!imageTypes.includes(file.type)) {
-    input.value = ''
-    imageError.value = 'Use a JPEG, PNG or WebP picture.'
-    return
-  }
-  if (file.size > imageLimit) {
-    input.value = ''
-    imageError.value = 'The picture must be 2 MB or smaller.'
-    return
-  }
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  let binary = ''
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
-  }
-  image.value = { contentType: file.type, base64: btoa(binary) }
-  imagePreview.value = URL.createObjectURL(file)
 }
 
 function linkNote() {
@@ -175,13 +129,12 @@ function save() {
     body: body.value,
     colour: colour.value,
     moduleId: moduleId.value,
-    image: image.value,
   })
 }
 </script>
 
 <template>
-  <section class="flex min-h-0 flex-col overflow-y-auto bg-paper p-3" aria-label="Notes">
+  <section class="flex min-h-0 flex-col overflow-y-auto bg-paper" aria-label="Notes">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-medium text-ink-900">Notes</h2>
       <button
@@ -250,23 +203,6 @@ function save() {
           <option v-for="module in modules" :key="module.id" :value="module.id">{{ module.name }}</option>
         </select>
       </label>
-      <label class="text-xs font-medium text-ink-700">
-        Image (optional)
-        <input
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          class="mt-1 w-full text-xs font-normal text-ink-700 file:mr-2 file:min-h-9 file:rounded-sm file:border-0 file:bg-ink-100 file:px-2 file:text-ink-800"
-          @change="onImage"
-        >
-      </label>
-      <img
-        v-if="shownImage"
-        :src="shownImage"
-        alt="Note image"
-        class="max-h-40 w-full rounded-sm border border-ink-200 object-contain"
-        data-note-image
-      >
-      <p v-if="imageError" class="text-xs text-rose-700" role="alert">{{ imageError }}</p>
       <p class="text-xs leading-5 text-ink-500">A note has to be linked to one module. Save puts it on the map.</p>
       <div v-if="selected && !drafting" class="border-t border-ink-200 pt-3">
         <p class="text-xs font-medium text-ink-700">Links to other notes</p>
@@ -320,6 +256,7 @@ function save() {
         </button>
       </div>
     </form>
+    <p v-if="saved" class="mt-2 text-sm text-emerald-700" role="status" data-note-saved>{{ saved }}</p>
     <p v-if="error" class="mt-2 text-sm text-rose-700" role="alert">{{ error }}</p>
   </section>
 </template>
