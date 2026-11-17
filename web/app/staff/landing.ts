@@ -2,11 +2,6 @@
 // endpoint and product-owner status through the cheap admin role check.
 type Fetcher = (url: string, options?: { method: 'POST', body: Record<string, string> }) => Promise<unknown>
 
-export interface StaffRoles {
-  productOwner: boolean
-  lecturer: boolean
-}
-
 export async function isProductOwner(fetcher: Fetcher): Promise<boolean> {
   try {
     await fetcher('/api/admin', { method: 'POST', body: { event: 'role' } })
@@ -27,16 +22,10 @@ export async function isLecturer(fetcher: Fetcher): Promise<boolean> {
   }
 }
 
-// Both checks at once, for the switch between the staff pages.
-export async function staffRoles(fetcher: Fetcher): Promise<StaffRoles> {
-  const [productOwner, lecturer] = await Promise.all([isProductOwner(fetcher), isLecturer(fetcher)])
-  return { productOwner, lecturer }
-}
-
 // Where signing in sends a member of staff, or null for a student. The product
-// owner is checked first, so a person with both roles lands in the admin pages.
+// owner wins, so a person with both roles lands in the admin pages.
 export async function staffLanding(fetcher: Fetcher): Promise<'/admin' | '/lecturer' | null> {
-  if (await isProductOwner(fetcher)) return '/admin'
-  if (await isLecturer(fetcher)) return '/lecturer'
-  return null
+  const [productOwner, lecturer] = await Promise.all([isProductOwner(fetcher), isLecturer(fetcher)])
+  if (productOwner) return '/admin'
+  return lecturer ? '/lecturer' : null
 }

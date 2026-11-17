@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test'
-import { lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
+import { demoAccounts, lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
 
 // The staff pages are the seam: where each role lands, that neither role can
 // stay on the course, and that a person with both roles gets a switch.
@@ -30,6 +30,13 @@ for (const width of widths) {
     await page.goto('/')
     await expect(page).toHaveURL(/\/admin$/)
     await expect(page.getByRole('link', { name: 'Back to the course' })).toHaveCount(0)
+  })
+
+  test(`leaves a student in the course at ${width.name} width`, async ({ page }) => {
+    await page.setViewportSize(width.viewport)
+    await signIn(page, demoAccounts[0])
+    await expect(page).toHaveURL(url => url.pathname === '/')
+    await expect(page.getByRole('navigation', { name: 'Workspace layout' })).toBeVisible()
   })
 }
 

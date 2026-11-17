@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { isLecturer, isProductOwner, staffLanding, staffRoles } from '../app/staff/landing'
+import { isLecturer, isProductOwner, staffLanding } from '../app/staff/landing'
 
 function fetcherFor({ productOwner, lecturer }: { productOwner: boolean, lecturer: boolean }) {
   return vi.fn(async (url: string) => {
@@ -32,12 +32,5 @@ describe('staff landing', () => {
     const fetcher = fetcherFor({ productOwner: false, lecturer: true })
     await expect(isProductOwner(fetcher)).resolves.toBe(false)
     await expect(isLecturer(fetcher)).resolves.toBe(true)
-  })
-
-  it('reports both staff roles so a person with both gets the switch', async () => {
-    await expect(staffRoles(fetcherFor({ productOwner: true, lecturer: true })))
-      .resolves.toEqual({ productOwner: true, lecturer: true })
-    await expect(staffRoles(fetcherFor({ productOwner: true, lecturer: false })))
-      .resolves.toEqual({ productOwner: true, lecturer: false })
   })
 })

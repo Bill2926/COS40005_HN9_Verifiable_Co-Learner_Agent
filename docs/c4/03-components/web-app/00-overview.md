@@ -19,12 +19,12 @@ flowchart LR
 
   subgraph app["Web app"]
     direction LR
-    pages["<b>pages</b><br/>Sign-in, workspace,<br/>About, admin"]:::comp
+    pages["<b>pages</b><br/>Sign-in, workspace, About,<br/>admin, lecturer"]:::comp
     ws["<b>workspace components</b><br/>Chat, roadmap, practice,<br/>editor"]:::comp
     home["<b>about components</b><br/>Sample turn,<br/>shield diagram"]:::comp
-    helpers["<b>client helpers</b><br/>Drafts, arrangement, layout,<br/>markdown, intro"]:::comp
+    helpers["<b>client helpers</b><br/>Drafts, arrangement, layout,<br/>markdown, intro, staff roles"]:::comp
     py["<b>python runner</b><br/>Worker client and Pyodide<br/>session"]:::comp
-    mw["<b>middleware and plugins</b><br/>Auth guard, Supabase client,<br/>layout cookie"]:::comp
+    mw["<b>middleware and plugins</b><br/>Auth guard, staff redirect,<br/>Supabase client, layout cookie"]:::comp
     shared["<b>shared</b><br/>Session helper, turn types"]:::near
   end
 
@@ -33,13 +33,13 @@ flowchart LR
   cdn["<b>jsDelivr CDN</b>"]:::ext
 
   pages -->|"imports 4 panels"| ws
-  pages -->|"drafts/store, workspace/layout,<br/>sign-in/intro"| helpers
+  pages -->|"drafts/store, workspace/layout,<br/>sign-in/intro, staff/landing"| helpers
   pages -->|"studentIdFromAuth,<br/>sessionStudentId"| shared
   pages ==>|"auto-registered"| about
-  pages ==>|"/turn, /api/admin,<br/>/course-outline"| server
+  pages ==>|"/turn, /api/admin, /api/lecturer,<br/>/course-outline"| server
   ws -->|"drafts/store, roadmap/arrangement,<br/>workspace/chat-markdown"| helpers
   ws -->|"python/runner, dynamic<br/>python/browser-runner"| py
-  mw -->|"workspace/layout"| helpers
+  mw -->|"workspace/layout, staff/landing"| helpers
   mw -->|"studentIdFromAuth,<br/>sessionStudentId"| shared
   mw ==>|"injects $supabase into pages"| pages
   mw ==>|"createBrowserClient"| auth
@@ -58,7 +58,7 @@ counted with the python runner component in [web-app/05-python-runner.md](05-pyt
 | pages | `web/app/pages/`, `app.vue`, `app.config.ts` | [web-app/01-pages.md](01-pages.md) |
 | workspace components | `web/app/components/workspace/` | [web-app/02-workspace-components.md](02-workspace-components.md) |
 | about components | `web/app/components/home/` | [web-app/03-about-components.md](03-about-components.md) |
-| client helpers | `web/app/drafts/`, `roadmap/`, `workspace/`, `sign-in/` | [web-app/04-client-helpers.md](04-client-helpers.md) |
+| client helpers | `web/app/drafts/`, `roadmap/`, `workspace/`, `sign-in/`, `staff/` | [web-app/04-client-helpers.md](04-client-helpers.md) |
 | python runner | `web/app/python/` | [web-app/05-python-runner.md](05-python-runner.md) |
 | middleware and plugins | `web/app/middleware/`, `web/app/plugins/` | [web-app/06-middleware-and-plugins.md](06-middleware-and-plugins.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
@@ -73,5 +73,5 @@ counted with the python runner component in [web-app/05-python-runner.md](05-pyt
 
 ## Files with no importer (entry points)
 
-Nuxt loads these by convention, not by import: `app.vue`, `app.config.ts`, the four pages, both middleware
-files, both plugins, and `browser-worker.mjs` (started with `new Worker(new URL(...))`).
+Nuxt loads these by convention, not by import: `app.vue`, `app.config.ts`, the pages under `app/pages/`, the
+three middleware files, both plugins, and `browser-worker.mjs` (started with `new Worker(new URL(...))`).

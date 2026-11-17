@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { isLecturer } from '~/staff/landing'
+
 // The header both product owner pages share: the nav between Decisions and
 // Settings, and the switch to the lecturer page for a product owner who also
 // lectures.
@@ -9,15 +11,9 @@ const pages = [
   { to: '/admin/settings', label: 'Settings' },
 ] as const
 
-const isLecturer = ref(false)
+const alsoLectures = ref(false)
 onMounted(async () => {
-  try {
-    await $fetch('/api/lecturer')
-    isLecturer.value = true
-  }
-  catch {
-    isLecturer.value = false
-  }
+  alsoLectures.value = await isLecturer($fetch)
 })
 
 const linkClass = 'text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current'
@@ -60,7 +56,7 @@ async function signOut() {
       </div>
       <div class="flex items-center gap-4">
         <NuxtLink
-          v-if="isLecturer"
+          v-if="alsoLectures"
           to="/lecturer"
           :class="linkClass"
         >

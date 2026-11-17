@@ -15,7 +15,7 @@ flowchart LR
   classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
-  pages["<b>pages</b><br/>index, admin, about, sign-in"]:::near
+  pages["<b>pages</b><br/>index, admin, lecturer,<br/>about, sign-in"]:::near
   studentId["<b>shared/student-id.ts</b>"]:::near
   layout["<b>workspace/layout.ts</b>"]:::near
   auth["<b>Supabase Auth</b>"]:::ext
@@ -30,7 +30,7 @@ flowchart LR
     lt["<b>plugins/layout-transition.client.ts</b><br/>Crossfade on layout switch"]:::comp
   end
 
-  pages ==>|"index, admin: by name"| signed
+  pages ==>|"index, lecturer, admin: by name"| signed
   pages ==>|"index: by name"| wl
   pages ==>|"index: by name"| sl
   sb ==>|"$supabase"| pages
@@ -49,7 +49,7 @@ flowchart LR
 |---|---|
 | `middleware/signed-in.ts` | On the server: no session in the request cookies leads to `/sign-in`. In the browser: no signed-in user from `$supabase` leads to `/sign-in`. |
 | `middleware/workspace-layout.ts` | On `/` without `?layout=` in the browser, replaces the route with one that carries the remembered layout, so Back returns to the layout that was showing. The server renders `/` from the cookie without a redirect. |
-| `middleware/staff-landing.ts` | On `/`, asks the lecturer and product-owner role checks through `staff/landing` (`GET /api/lecturer` and `POST /api/admin` with `{event: 'role'}`) and redirects a lecturer to `/lecturer` and a product owner to `/admin`. A move within `/` (a layout switch) is left alone. |
+| `middleware/staff-landing.ts` | On `/`, asks the lecturer and product-owner role checks in parallel through `staff/landing` (`GET /api/lecturer` and `POST /api/admin` with `{event: 'role'}`) and redirects a product owner to `/admin` and a lecturer to `/lecturer`. A move within `/` (a layout switch) is left alone. |
 | `plugins/supabase.client.ts` | Creates the browser Supabase client with the URL and publishable key from the public runtime config, and provides it as `$supabase`. |
 | `plugins/layout-transition.client.ts` | Uses the View Transitions API to crossfade the switch between Study and Roadmap on the same page without remounting the panels. Skipped when reduced motion is requested or the API is missing. |
 
@@ -57,5 +57,5 @@ flowchart LR
 
 - Imports from this repo: `signed-in.ts` imports `shared/student-id`; `staff-landing.ts` imports `staff/landing`; `workspace-layout.ts` imports `workspace/layout`. The two plugins import nothing from this repo.
 - Who reads `$supabase` (search for `$supabase`): `pages/sign-in.vue`, `pages/index.vue`, `pages/home.vue`, `middleware/signed-in.ts`.
-- Middleware use (search for `definePageMeta`): `pages/index.vue`, `pages/admin/index.vue` and `pages/admin/settings.vue` only.
+- Middleware use (search for `definePageMeta`): `pages/index.vue`, `pages/lecturer.vue` and the two admin pages only.
 - No test imports these files.
