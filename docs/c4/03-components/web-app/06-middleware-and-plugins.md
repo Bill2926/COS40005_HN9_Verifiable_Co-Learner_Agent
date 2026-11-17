@@ -51,7 +51,7 @@ flowchart LR
 | `middleware/workspace-layout.ts` | On `/` without `?layout=` in the browser, replaces the route with one that carries the remembered layout, so Back returns to the layout that was showing. The server renders `/` from the cookie without a redirect. |
 | `middleware/staff-landing.ts` | On `/`, asks the lecturer and product-owner role checks in parallel through `staff/landing` (`GET /api/lecturer` and `POST /api/admin` with `{event: 'role'}`) and redirects a product owner to `/admin` and a lecturer to `/lecturer`. A move within `/` (a layout switch) is left alone. |
 | `plugins/supabase.client.ts` | Creates the browser Supabase client with the URL and publishable key from the public runtime config, and provides it as `$supabase`. |
-| `plugins/layout-transition.client.ts` | Uses the View Transitions API to crossfade the switch between Study and Roadmap on the same page without remounting the panels. Skipped when reduced motion is requested or the API is missing. |
+| `plugins/layout-transition.client.ts` | Uses the View Transitions API to crossfade the switch between Study and Mindmap on the same page without remounting the panels. Skipped when reduced motion is requested or the API is missing. |
 
 ## Verified
 

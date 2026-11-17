@@ -39,7 +39,7 @@ function toggleExpanded() {
 }
 
 const practiceOpened = ref(false)
-// The Roadmap canvas is for reading a module, so it only ever shows Learn.
+// The floating variant only displays Learn.
 const shownMode = computed(() => props.floating ? 'learn' : props.mode)
 
 function choose(next: 'learn' | 'practice') {

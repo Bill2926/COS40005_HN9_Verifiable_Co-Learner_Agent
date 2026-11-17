@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread } from '../app/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, defaultArrangement, fitView, mergeArrangement, placeCard, pointAt, readLegacyArrangement, sizeClassOf, spread } from '../app/mindmap/arrangement'
 import type { RoadmapModule } from '../shared/turn'
 
 const an = 'a11a11a1-1111-4111-8111-111111111111'
@@ -266,35 +266,18 @@ describe('mindmap arrangement', () => {
   })
 })
 
-describe('saved mindmap arrangement', () => {
-  it('reads back the arrangement it saved', () => {
-    const store = createArrangementStore(memoryStorage(), an, 'wide')
+describe('legacy mindmap arrangement', () => {
+  it('reads both historical keys for the signed-in student and prefers the current size', () => {
+    const values: Record<string, string> = {
+      [`co-learner-roadmap-arrangement:${an}:wide`]: '{"loops":{"x":0.2,"y":0.3}}',
+      [`co-learner-map-arrangement:${an}:compact`]: '{"loops":{"x":0.8,"y":0.1},"strings":{"x":0,"y":1}}',
+      [`co-learner-roadmap-arrangement:${binh}:wide`]: '{"variables":{"x":0.5,"y":0.5}}',
+    }
+    const storage = { getItem: (key: string) => values[key] ?? null }
 
-    expect(store.read()).toEqual({})
-    store.write({
-      for_loop: { x: 0.4, y: 0.6 },
-      variable: { x: 0, y: 1 },
-    })
-
-    expect(store.read()).toEqual({
-      for_loop: { x: 0.4, y: 0.6 },
-      variable: { x: 0, y: 1 },
-    })
-  })
-
-  it('keeps each Student and each size class apart', () => {
-    const storage = memoryStorage()
-    const anWide = createArrangementStore(storage, an, sizeClassOf({ width: 1024, height: 560 }))
-    const anCompact = createArrangementStore(storage, an, sizeClassOf({ width: 1023, height: 900 }))
-    const binhWide = createArrangementStore(storage, binh, 'wide')
-
-    anWide.write({ for_loop: { x: 0.2, y: 0.3 } })
-    anCompact.write({ for_loop: { x: 0.8, y: 0.1 } })
-    binhWide.write({ variable: { x: 0.5, y: 0.5 } })
-
-    expect(anWide.read()).toEqual({ for_loop: { x: 0.2, y: 0.3 } })
-    expect(anCompact.read()).toEqual({ for_loop: { x: 0.8, y: 0.1 } })
-    expect(binhWide.read()).toEqual({ variable: { x: 0.5, y: 0.5 } })
+    expect(readLegacyArrangement(storage, an, 'wide')).toEqual({ loops: { x: 0.2, y: 0.3 }, strings: { x: 0, y: 1 } })
+    expect(readLegacyArrangement(storage, an, 'compact')).toEqual({ loops: { x: 0.8, y: 0.1 }, strings: { x: 0, y: 1 } })
+    expect(readLegacyArrangement(storage, binh, 'wide')).toEqual({ variables: { x: 0.5, y: 0.5 } })
     expect(sizeClassOf({ width: 1440, height: 900 })).toBe('wide')
     expect(sizeClassOf({ width: 1024, height: 559 })).toBe('compact')
     expect(sizeClassOf({ width: 375, height: 700 })).toBe('compact')
@@ -302,12 +285,12 @@ describe('saved mindmap arrangement', () => {
 
   it('ignores corrupt JSON and stored data that is not an arrangement', () => {
     for (const raw of ['{', '', 'null', '[]', '42', '"for_loop"']) {
-      expect(createArrangementStore(storageHolding(raw), an, 'wide').read()).toEqual({})
+      expect(readLegacyArrangement(storageHolding(raw), an, 'wide')).toEqual({})
     }
   })
 
   it('ignores a malformed point and keeps a point that is on the canvas', () => {
-    const store = createArrangementStore(storageHolding(JSON.stringify({
+    const store = readLegacyArrangement(storageHolding(JSON.stringify({
       for_loop: { x: 0.4, y: 0.6 },
       variable: { x: 'left', y: 0.2 },
       if_else: null,
@@ -316,41 +299,25 @@ describe('saved mindmap arrangement', () => {
       open_module: { y: 0.5, x: true },
     })), an, 'wide')
 
-    expect(store.read()).toEqual({ for_loop: { x: 0.4, y: 0.6 } })
+    expect(store).toEqual({ for_loop: { x: 0.4, y: 0.6 } })
   })
 
   it('keeps a point past the starting canvas, and ignores a far-off or non-finite one', () => {
-    const store = createArrangementStore(storageHolding(JSON.stringify({
+    const store = readLegacyArrangement(storageHolding(JSON.stringify({
       for_loop: { x: -0.2, y: 0.4 },
       variable: { x: 0.2, y: 1.8 },
       if_else: { x: 0, y: 1 },
       loops: { x: 51, y: 0 },
       strings: { x: 0, y: -51 },
     })), an, 'wide')
-    const overflow = createArrangementStore(storageHolding('{"nested_loop":{"x":1e309,"y":0.2}}'), an, 'compact')
+    const overflow = readLegacyArrangement(storageHolding('{"nested_loop":{"x":1e309,"y":0.2}}'), an, 'compact')
 
-    expect(store.read()).toEqual({
+    expect(store).toEqual({
       for_loop: { x: -0.2, y: 0.4 },
       variable: { x: 0.2, y: 1.8 },
       if_else: { x: 0, y: 1 },
     })
-    expect(overflow.read()).toEqual({})
-  })
-
-  it('clears one Student and size class and leaves the others saved', () => {
-    const storage = memoryStorage()
-    const anWide = createArrangementStore(storage, an, 'wide')
-    const anCompact = createArrangementStore(storage, an, 'compact')
-    const binhWide = createArrangementStore(storage, binh, 'wide')
-
-    anWide.write({ for_loop: { x: 0.2, y: 0.3 } })
-    anCompact.write({ for_loop: { x: 0.8, y: 0.1 } })
-    binhWide.write({ variable: { x: 0.4, y: 0.5 } })
-    anWide.clear()
-
-    expect(anWide.read()).toEqual({})
-    expect(anCompact.read()).toEqual({ for_loop: { x: 0.8, y: 0.1 } })
-    expect(binhWide.read()).toEqual({ variable: { x: 0.4, y: 0.5 } })
+    expect(overflow).toEqual({})
   })
 
   it('uses the starting arrangement for a module with nothing saved', () => {
@@ -373,28 +340,11 @@ describe('saved mindmap arrangement', () => {
   })
 })
 
-function memoryStorage() {
-  const values = new Map<string, string>()
-  return {
-    getItem(key: string) {
-      return values.get(key) ?? null
-    },
-    setItem(key: string, value: string) {
-      values.set(key, value)
-    },
-    removeItem(key: string) {
-      values.delete(key)
-    },
-  }
-}
-
 function storageHolding(raw: string) {
   return {
     getItem() {
       return raw
     },
-    setItem() {},
-    removeItem() {},
   }
 }
 

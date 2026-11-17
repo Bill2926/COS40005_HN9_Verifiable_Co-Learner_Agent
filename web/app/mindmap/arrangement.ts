@@ -38,39 +38,25 @@ const prefix = 'co-learner-roadmap-arrangement:'
 const pointLimit = 50
 const earlierPrefix = 'co-learner-map-arrangement:'
 
-export interface ArrangementStore {
-  read: () => Arrangement
-  write: (arrangement: Arrangement) => void
-  clear: () => void
-}
-
-export function createArrangementStore(
-  storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>,
+// Only used for importing old device data. Prefer the arrangement that was
+// saved for this device size, plus any modules only moved at the other size.
+export function readLegacyArrangement(
+  storage: Pick<Storage, 'getItem'>,
   studentId: string,
   sizeClass: SizeClass,
-): ArrangementStore {
-  const key = `${prefix}${studentId}:${sizeClass}`
-  const earlierKey = `${earlierPrefix}${studentId}:${sizeClass}`
-
-  return {
-    read() {
-      const raw = storage.getItem(key) ?? storage.getItem(earlierKey)
-      if (!raw) return {}
-      try {
-        return validArrangement(JSON.parse(raw))
-      }
-      catch {
-        return {}
-      }
-    },
-    write(arrangement) {
-      storage.setItem(key, JSON.stringify(arrangement))
-    },
-    clear() {
-      storage.removeItem(key)
-      storage.removeItem(earlierKey)
-    },
+): Arrangement {
+  function read(size: SizeClass): Arrangement {
+    const key = `${studentId}:${size}`
+    const raw = storage.getItem(prefix + key) ?? storage.getItem(earlierPrefix + key)
+    if (!raw) return {}
+    try {
+      return validArrangement(JSON.parse(raw))
+    }
+    catch {
+      return {}
+    }
   }
+  return { ...read(sizeClass === 'wide' ? 'compact' : 'wide'), ...read(sizeClass) }
 }
 
 // A saved point that is not a finite number, or one absurdly far off the board, is dropped.
@@ -109,10 +95,8 @@ const compactCard: Size = { width: 248, height: 112 }
 const edge = 16
 const labelRoom = 64
 const footerRoom = 56
-// The Roadmap canvas floats the working area at the bottom left and the
-// conversation at the top right. Wide layouts keep module cards out of both.
+// The canvas reserves space for the Mindmap panel and the controls.
 const wideConversationReserve = 360 + edge
-const wideWorkingReserve = 448 + edge
 
 // Shrinks the compact card so every row fits between the label and the pill.
 // A sideways phone is a short canvas; full-size cards would stack.
@@ -138,7 +122,7 @@ export function fittedModuleWidth(canvas: Size, count: number): number {
 
 function wideScale(canvas: Size, count: number): number {
   const freeWidth = Math.max(typicalCard.width, canvas.width - edge * 2 - wideConversationReserve)
-  const freeHeight = Math.max(typicalCard.height, canvas.height - labelRoom - wideWorkingReserve)
+  const freeHeight = Math.max(typicalCard.height, canvas.height - labelRoom - footerRoom)
   const columns = Math.max(1, Math.min(count, Math.floor(freeWidth / (typicalCard.width + 16))))
   const rows = Math.ceil(count / columns)
   const heightScale = freeHeight / (rows * typicalCard.height)
@@ -170,7 +154,7 @@ function flow(count: number, canvas: Size): Point[] {
   const topRoom = compact && canvas.width < 480 ? 96 : labelRoom
   const bottomRoom = compact
     ? (canvas.width < 768 ? 80 : footerRoom)
-    : wideWorkingReserve
+    : footerRoom
   const columns = compact
     ? compactColumns(canvas, count)
     : Math.max(1, Math.min(count, Math.floor((canvas.width - edge * 2 - wideConversationReserve) / (card.width + 16))))

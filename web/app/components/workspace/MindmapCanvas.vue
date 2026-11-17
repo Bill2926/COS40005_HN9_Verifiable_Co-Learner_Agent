@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import BusySpinner from '../BusySpinner.vue'
 import type { RoadmapModule } from '#shared/turn'
-import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
+import { arrangementScale, avoid, connectors, readLegacyArrangement, defaultArrangement, fittedModuleWidth, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size } from '~/mindmap/arrangement'
 
 interface CanvasNote {
   id: string
@@ -21,6 +21,7 @@ const props = defineProps<{
   pendingModuleId?: string
   // The module a select turn is opening, shown with a spinner.
   selectingModuleId?: string
+  saveError?: string
   positions?: readonly { moduleId: string, x: number, y: number }[]
   notes?: readonly CanvasNote[]
   selectedNoteId?: string
@@ -28,9 +29,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   selectModule: [moduleId: string]
+  clearSelection: []
   prefetchModule: [moduleId: string]
   moved: [moduleId: string, point: Point]
   importLocal: [arrangement: Arrangement]
+  resetArrangement: []
   noteMoved: [noteId: string, point: Point]
   selectNote: [noteId: string]
 }>()
@@ -56,8 +59,7 @@ const obstacles = ref<Box[]>([])
 const savedArrangement = ref<Arrangement>({})
 
 watch(() => props.positions, (positions) => {
-  if (!positions?.length) return
-  savedArrangement.value = Object.fromEntries(positions.map(position => [position.moduleId, { x: position.x, y: position.y }]))
+  savedArrangement.value = Object.fromEntries((positions ?? []).map(position => [position.moduleId, { x: position.x, y: position.y }]))
 }, { immediate: true })
 const dragPoint = ref<{ id: string, point: Point } | null>(null)
 const selectedId = ref<string | null>(null)
@@ -65,10 +67,9 @@ const selectedId = ref<string | null>(null)
 const zoom = ref(1)
 const pan = ref<Point>({ x: 0, y: 0 })
 let panGesture: { pointerId: number, startX: number, startY: number, originX: number, originY: number } | null = null
+let pinch: { distance: number, midpoint: Point } | null = null
 const cardEls = new Map<string, HTMLElement>()
 let observer: ResizeObserver | undefined
-let loadedClass: SizeClass | null = null
-let loadedStudent = ''
 
 interface Gesture {
   id: string
@@ -242,10 +243,8 @@ function obstacleElements(): HTMLElement[] {
   const scope = canvasEl.value?.parentElement
   const panels: HTMLElement[] = []
   if (scope) {
-    for (const name of ['Working area', 'Conversation']) {
-      const element = scope.querySelector(`[aria-label="${name}"]`)
-      if (element instanceof HTMLElement) panels.push(element)
-    }
+    const panel = scope.querySelector('[aria-label="Mindmap panel"]')
+    if (panel instanceof HTMLElement && window.matchMedia('(width >= 64rem)').matches) panels.push(panel)
   }
   if (labelEl.value) panels.push(labelEl.value)
   if (footerEl.value) panels.push(footerEl.value)
@@ -276,7 +275,6 @@ function measure() {
     })
   }
   const nextCanvas = { width: rect.width, height: rect.height }
-  syncSaved(nextCanvas)
   canvasSize.value = nextCanvas
   cardSizes.value = sizes
   obstacles.value = blocks
@@ -362,7 +360,7 @@ function dragging(id: string): boolean {
 }
 
 function onPointerDown(event: PointerEvent, id: string) {
-  if (event.button !== 0 || gesture) return
+  if (event.button !== 0 || !event.isPrimary || pinch || gesture) return
   const element = canvasEl.value
   const box = boxes.value[id]
   const size = cardSizes.value[id]
@@ -443,6 +441,7 @@ function onClick(id: string) {
 function onKeyDown(event: KeyboardEvent, id: string) {
   if (event.key === 'Escape') {
     selectedId.value = null
+    emit('clearSelection')
     return
   }
   const step = event.shiftKey ? nudgeLeap : nudgeStep
@@ -499,44 +498,15 @@ function nudge(id: string, dx: number, dy: number) {
 }
 
 function saveModule(id: string, point: Point) {
-  const next = { ...savedArrangement.value, [id]: point }
-  savedArrangement.value = next
-  const canvas = canvasSize.value
-  if (!canvas || !import.meta.client || props.studentId.length === 0) return
-  const sizeClass = sizeClassOf(canvas)
-  createArrangementStore(localStorage, props.studentId, sizeClass).write(next)
-  loadedClass = sizeClass
-  loadedStudent = props.studentId
+  if (!props.positions) return
+  savedArrangement.value = { ...savedArrangement.value, [id]: point }
   emit('moved', id, point)
 }
 
 function resetArrangement() {
   cancelGesture()
-  const canvas = canvasSize.value
-  if (canvas && import.meta.client && props.studentId.length > 0) {
-    const sizeClass = sizeClassOf(canvas)
-    createArrangementStore(localStorage, props.studentId, sizeClass).clear()
-    loadedClass = sizeClass
-    loadedStudent = props.studentId
-  }
-  savedArrangement.value = {}
   resetView()
-}
-
-function syncSaved(canvas: Size) {
-  if (!import.meta.client) return
-  const sizeClass = sizeClassOf(canvas)
-  if (sizeClass === loadedClass && props.studentId === loadedStudent) return
-  if (loadedClass !== null) cancelGesture()
-  loadedClass = sizeClass
-  loadedStudent = props.studentId
-  if (props.positions?.length) {
-    savedArrangement.value = Object.fromEntries(props.positions.map(position => [position.moduleId, { x: position.x, y: position.y }]))
-    return
-  }
-  const local = props.studentId.length === 0 ? {} : createArrangementStore(localStorage, props.studentId, sizeClass).read()
-  savedArrangement.value = local
-  if (Object.keys(local).length > 0) emit('importLocal', local)
+  emit('resetArrangement')
 }
 
 function cancelGesture() {
@@ -615,8 +585,53 @@ function onCanvasKeyDown(event: KeyboardEvent) {
   event.preventDefault()
 }
 
+function touchPair(event: TouchEvent) {
+  const first = event.touches[0]
+  const second = event.touches[1]
+  const rect = canvasEl.value?.getBoundingClientRect()
+  if (!first || !second || !rect) return null
+  return {
+    distance: Math.max(1, Math.hypot(first.clientX - second.clientX, first.clientY - second.clientY)),
+    midpoint: {
+      x: (first.clientX + second.clientX) / 2 - rect.left,
+      y: (first.clientY + second.clientY) / 2 - rect.top,
+    },
+  }
+}
+
+function startPinch(event: TouchEvent) {
+  if (event.touches.length !== 2) return
+  const pair = touchPair(event)
+  if (!pair) return
+  event.preventDefault()
+  cancelGesture()
+  cancelNoteGesture()
+  stopPan()
+  pinch = pair
+}
+
+function updatePinch(event: TouchEvent) {
+  if (!pinch) return
+  event.preventDefault()
+  const next = touchPair(event)
+  if (!next || event.touches.length !== 2) return
+  zoomTo(zoom.value * next.distance / pinch.distance, pinch.midpoint.x, pinch.midpoint.y)
+  pan.value = {
+    x: pan.value.x + next.midpoint.x - pinch.midpoint.x,
+    y: pan.value.y + next.midpoint.y - pinch.midpoint.y,
+  }
+  pinch = next
+}
+
+function endPinch(event: TouchEvent) {
+  if (!pinch) return
+  if (event.cancelable) event.preventDefault()
+  if (event.touches.length === 0) pinch = null
+  else if (event.touches.length === 2) pinch = touchPair(event)
+}
+
 function onCanvasPointerDown(event: PointerEvent) {
-  if (event.button !== 0 || gesture || panGesture) return
+  if (event.button !== 0 || !event.isPrimary || pinch || gesture || panGesture) return
   const target = event.target
   if (!(target instanceof Element) || target.closest('button, h2, p')) return
   panGesture = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, originX: pan.value.x, originY: pan.value.y }
@@ -645,7 +660,7 @@ interface NoteGesture {
 let noteGesture: NoteGesture | null = null
 
 function onNotePointerDown(event: PointerEvent, id: string) {
-  if (event.button !== 0 || gesture || noteGesture) return
+  if (event.button !== 0 || !event.isPrimary || pinch || gesture || noteGesture) return
   const box = noteBoxes.value[id]
   const element = canvasEl.value
   const handle = event.currentTarget
@@ -691,23 +706,27 @@ function onNotePointerUp(event: PointerEvent) {
   const active = noteGesture
   if (!active || event.pointerId !== active.pointerId) return
   const point = noteDrag.value?.id === active.id ? noteDrag.value.point : null
+  cancelNoteGesture()
+  if (event.type === 'pointercancel') return
+  if (active.dragged && point) emit('noteMoved', active.id, point)
+  else if (!active.dragged) emit('selectNote', active.id)
+}
+
+function cancelNoteGesture() {
+  const active = noteGesture
   noteGesture = null
   noteDrag.value = null
   window.removeEventListener('pointermove', onNotePointerMove, true)
   window.removeEventListener('pointerup', onNotePointerUp, true)
   window.removeEventListener('pointercancel', onNotePointerUp, true)
-  try {
-    if (active.handle.hasPointerCapture(event.pointerId)) active.handle.releasePointerCapture(event.pointerId)
-  }
-  catch {
-    // Already released.
-  }
-  if (active.dragged && point) emit('noteMoved', active.id, point)
-  else if (!active.dragged) emit('selectNote', active.id)
+  if (active?.handle.hasPointerCapture(active.pointerId)) active.handle.releasePointerCapture(active.pointerId)
 }
 
 function endPan(event: PointerEvent) {
-  if (!panGesture || event.pointerId !== panGesture.pointerId) return
+  if (event.pointerId === panGesture?.pointerId) stopPan()
+}
+
+function stopPan() {
   panGesture = null
   window.removeEventListener('pointermove', onPanMove, true)
   window.removeEventListener('pointerup', endPan, true)
@@ -730,9 +749,18 @@ function stopTracking() {
   window.removeEventListener('pointercancel', onPointerCancel, true)
 }
 
-watch(() => props.studentId, () => {
+watch(() => {
   const canvas = canvasSize.value
-  if (canvas) syncSaved(canvas)
+  return canvas && props.positions && props.studentId ? sizeClassOf(canvas) : null
+}, (sizeClass) => {
+  if (!sizeClass || props.positions?.length) return
+  try {
+    const local = readLegacyArrangement(localStorage, props.studentId, sizeClass)
+    if (Object.keys(local).length) emit('importLocal', local)
+  }
+  catch {
+    // Storage can be blocked by the browser. The account arrangement still works.
+  }
 })
 
 onMounted(() => {
@@ -745,15 +773,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   observer?.disconnect()
-  stopTracking()
-  noteGesture = null
-  window.removeEventListener('pointermove', onNotePointerMove, true)
-  window.removeEventListener('pointerup', onNotePointerUp, true)
-  window.removeEventListener('pointercancel', onNotePointerUp, true)
-  panGesture = null
-  window.removeEventListener('pointermove', onPanMove, true)
-  window.removeEventListener('pointerup', endPan, true)
-  window.removeEventListener('pointercancel', endPan, true)
+  cancelGesture()
+  cancelNoteGesture()
+  stopPan()
 })
 </script>
 
@@ -761,10 +783,16 @@ onUnmounted(() => {
   <div
     ref="canvasEl"
     class="relative z-0 row-start-1 h-full min-h-0 w-full min-w-0 touch-none overflow-hidden bg-ink-50 md:col-span-2 lg:absolute lg:inset-0 lg:h-auto"
+    role="region"
+    aria-label="Mindmap canvas"
     tabindex="-1"
     @wheel.prevent="onWheel"
     @keydown="onCanvasKeyDown"
     @pointerdown="onCanvasPointerDown"
+    @touchstart="startPinch"
+    @touchmove="updatePinch"
+    @touchend="endPinch"
+    @touchcancel="endPinch"
   >
     <div
       class="pointer-events-none absolute inset-0"
@@ -781,7 +809,7 @@ onUnmounted(() => {
           class="size-2.5 shrink-0 rounded-full bg-brand-600"
           aria-hidden="true"
         />
-        Course roadmap
+        Mindmap
       </h2>
       <p class="text-xs leading-[18px] text-ink-500 max-lg:min-w-0 lg:whitespace-nowrap">
         {{ course }}
@@ -957,6 +985,9 @@ onUnmounted(() => {
     </ul>
     </div>
 
+    <p v-if="saveError" role="alert" class="absolute right-4 bottom-28 left-4 z-[2] rounded-lg bg-paper p-2 text-sm text-ink-700 lg:right-auto">
+      {{ saveError }}
+    </p>
     <div
       ref="footerEl"
       class="absolute bottom-5 left-4 z-[2] flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2 lg:left-auto lg:max-w-none lg:flex-nowrap lg:right-[400px]"
@@ -964,6 +995,7 @@ onUnmounted(() => {
       <button
         type="button"
         class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-ink-200/80 bg-paper/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-ink-600 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-paper hover:text-ink-900 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 md:min-h-0 md:py-[5px]"
+        :disabled="!positions"
         @click="resetArrangement"
       >
         Reset arrangement

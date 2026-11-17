@@ -23,7 +23,7 @@ export default defineNuxtConfig({
   css: ['~/assets/css/main.css'],
   // Route changes (sign-in, workspace, admin) crossfade through the View
   // Transitions API; app/plugins/layout-transition.client.ts covers the
-  // Study and Roadmap switch, which stays on the same page. Nuxt 4.6 only
+  // Study and Mindmap switch, which stays on the same page. Nuxt 4.6 only
   // registers its plugin from this experimental flag.
   experimental: {
     viewTransition: true,

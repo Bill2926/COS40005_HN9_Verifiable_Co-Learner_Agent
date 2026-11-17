@@ -193,6 +193,21 @@ describe('student handler', () => {
     }])
   })
 
+  it('does not restore a local arrangement after an account reset', async () => {
+    const { activity, call } = setup()
+    await call({ event: 'mindmap_moved', kind: 'module', id: 'getting_started', x: 12, y: 40 })
+    expect((await call({ event: 'reset_arrangement' })).mindmap.positions).toEqual([])
+    const state = await call({
+      event: 'import_arrangement',
+      positions: [{ moduleId: 'getting_started', x: 1, y: 2 }],
+    })
+    expect(state.mindmap.positions).toEqual([])
+    expect(activity.events.map(event => event.payload)).toEqual([
+      { kind: 'module', id: 'getting_started' },
+      { reset: true },
+    ])
+  })
+
   it('creates, recolours, links and deletes a note, one event each', async () => {
     const { activity, call } = setup()
     const created = await call({ event: 'note_created', text: 'A loop keeps going', colour: 'brand', x: 5, y: 6 })

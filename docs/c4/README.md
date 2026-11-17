@@ -43,7 +43,7 @@ Components are ordered the way a request travels through them (server) or the wa
 | [01-pages.md](03-components/web-app/01-pages.md) | pages | Workspace, sign-in, About and admin pages |
 | [02-workspace-components.md](03-components/web-app/02-workspace-components.md) | workspace components | Chat, roadmap, practice panel, editor |
 | [03-about-components.md](03-components/web-app/03-about-components.md) | about components | Sample turn and shield diagram |
-| [04-client-helpers.md](03-components/web-app/04-client-helpers.md) | client helpers | Drafts, roadmap arrangement, layout, markdown, intro |
+| [04-client-helpers.md](03-components/web-app/04-client-helpers.md) | client helpers | Drafts, mindmap arrangement, layout, markdown, intro |
 | [05-python-runner.md](03-components/web-app/05-python-runner.md) | python runner | Pyodide worker client and session |
 | [06-middleware-and-plugins.md](03-components/web-app/06-middleware-and-plugins.md) | middleware and plugins | Auth guard, Supabase client, layout cookie |
 

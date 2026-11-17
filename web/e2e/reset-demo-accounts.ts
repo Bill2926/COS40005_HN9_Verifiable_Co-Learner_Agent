@@ -80,6 +80,13 @@ export async function resetDemoAccounts() {
   }
 }
 
+export async function resetDemoMindmapPositions() {
+  const admin = adminClient()
+  const ids = (await demoStudents(admin)).map(student => student.id)
+  const positions = await admin.from('mindmap_positions').delete().in('student_id', ids)
+  if (positions.error) throw new Error(positions.error.message)
+}
+
 function clearableIds(students: readonly DemoStudent[]): string[] {
   return students.filter(student => !student.seededEvidence).map(student => student.id)
 }

@@ -88,3 +88,30 @@ it('lets neither anon nor authenticated read, update or delete an activity row',
     expect(rows).toEqual([{ event_type: 'module_opened' }])
   })
 })
+
+it('imports an arrangement once and keeps an account reset across devices', async () => {
+  await withActivityMigration(async (db) => {
+    const migration = '20261117161403_mindmap_arrangement_reset.sql'
+    await db.exec(await readFile(new URL(migration, migrations), 'utf8'))
+    const update = (positions: string | null) => db.query<{ changed: boolean }>(
+      'select public.update_mindmap_arrangement($1, $2, $3) as changed',
+      [an, 'intro_python', positions],
+    )
+
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`)
+      await expect(update(null)).rejects.toMatchObject({ code: '42501' })
+      await db.exec('reset role')
+    }
+
+    await db.exec('set role service_role')
+    const legacy = '[{"moduleId":"getting_started","x":0.4,"y":0.6}]'
+    expect((await update(legacy)).rows).toEqual([{ changed: true }])
+    expect((await update('[{"moduleId":"variables","x":1,"y":2}]')).rows).toEqual([{ changed: false }])
+    expect((await db.query('select module_id, x, y from public.mindmap_positions')).rows)
+      .toEqual([{ module_id: 'getting_started', x: 0.4, y: 0.6 }])
+    expect((await update(null)).rows).toEqual([{ changed: true }])
+    expect((await update(legacy)).rows).toEqual([{ changed: false }])
+    expect((await db.query('select module_id from public.mindmap_positions')).rows).toEqual([])
+  })
+})

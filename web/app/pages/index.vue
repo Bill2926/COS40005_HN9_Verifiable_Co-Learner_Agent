@@ -2,11 +2,12 @@
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import MindmapNotes from '~/components/workspace/MindmapNotes.vue'
-import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
+import MindmapCanvas from '~/components/workspace/MindmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
+import { type Arrangement, type Point } from '~/mindmap/arrangement'
 import { recordStudentActivity } from '~/activity/record'
 import { resolveWorkspaceLayout, workspaceLayoutCookie, workspaceLayoutCookieOptions, workspaceLayoutFrom, workspaceLayouts, type WorkspaceLayoutId } from '~/workspace/layout'
 
@@ -112,7 +113,8 @@ interface MindmapState {
 }
 const notes = ref<NoteItem[]>([])
 const noteLinks = ref<NoteLink[]>([])
-const modulePositions = ref<{ moduleId: string, x: number, y: number }[]>([])
+const modulePositions = ref<MindmapState['mindmap']['positions']>()
+const arrangementError = ref('')
 const selectedNoteId = ref('')
 const addingNote = ref(false)
 const noteError = ref('')
@@ -130,7 +132,6 @@ function applyMindmap(state: MindmapState) {
     y: note.y,
   }))
   noteLinks.value = state.mindmap.links
-  modulePositions.value = state.mindmap.positions
 }
 
 const canvasNotes = computed(() => notes.value.flatMap((note) => {
@@ -156,12 +157,11 @@ const streamingDeskmate = ref('')
 const liveDraft = ref<string | null>(null)
 const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
-const conversationClosed = ref(false)
-const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
+const mindmapPanelChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = computed(() => layout.value === 'mindmap'
   ? [
-      { id: 'roadmap' as const, name: 'Roadmap' },
-      { id: 'conversation' as const, name: 'Notes' },
+      { id: 'roadmap' as const, name: 'Mindmap' },
+      { id: 'conversation' as const, name: 'Conversation' },
     ]
   : [
       { id: 'roadmap' as const, name: 'Roadmap' },
@@ -172,6 +172,7 @@ const phonePanel = ref<(typeof phonePanels.value)[number]['id']>('working')
 
 watch(layout, (value) => {
   if (value === 'mindmap' && phonePanel.value === 'working') phonePanel.value = 'roadmap'
+  selectedMindmapModuleId.value = ''
 })
 const conversationUnread = ref(false)
 const isPhone = ref(false)
@@ -189,9 +190,28 @@ function choosePanel(panel: (typeof phonePanels.value)[number]['id']) {
   if (panel === 'conversation') conversationUnread.value = false
 }
 
-function openInLearn() {
+async function openInLearn() {
   chooseMode('learn')
   phonePanel.value = 'working'
+  if (layout.value === 'mindmap') await navigateTo(layoutTarget('study'))
+}
+
+const currentModuleName = computed(() => workspace.value?.workingArea.moduleName)
+const selectedMindmapModuleId = ref('')
+const selectedMindmapModule = computed(() => workspace.value?.courseRoadmap
+  .find(module => module.id === selectedMindmapModuleId.value))
+
+async function selectMindmapModule(moduleId: string) {
+  if (selecting.value || sending.value) return
+  selectError.value = ''
+  selectedMindmapModuleId.value = moduleId
+  choosePanel('conversation')
+  await selectModule(moduleId)
+}
+
+function selectMindmapNote(noteId: string) {
+  selectedNoteId.value = noteId
+  choosePanel('conversation')
 }
 
 function studyFrame(panel: 'working' | 'conversation') {
@@ -200,27 +220,6 @@ function studyFrame(panel: 'working' | 'conversation') {
     : 'md:col-start-2 md:row-start-2 lg:col-start-3 lg:row-start-1'
   const display = phonePanel.value === panel ? 'flex' : 'max-md:hidden md:flex'
   return ['h-full min-h-0 min-w-0 flex-col overflow-hidden', place, display]
-}
-
-function roadmapFrame(panel: 'working' | 'conversation') {
-  const shared = [
-    'h-full min-h-0 min-w-0 flex-col overflow-hidden',
-    floatingChrome,
-    phonePanel.value === panel ? 'flex' : 'max-md:hidden md:flex',
-  ]
-  if (panel === 'working') {
-    return [
-      ...shared,
-      'md:col-start-1 md:row-start-2',
-      'lg:absolute lg:bottom-4 lg:left-4 lg:z-10 lg:w-[520px]',
-      workingAreaExpanded.value ? 'lg:h-[28rem]' : 'lg:h-auto',
-    ]
-  }
-  return [
-    ...shared,
-    'md:col-start-2 md:row-start-2',
-    'lg:absolute lg:top-4 lg:right-4 lg:z-10 lg:h-[40rem] lg:max-h-[calc(100%-2rem)] lg:w-[360px]',
-  ]
 }
 
 watch([streamingTeacher, streamingDeskmate], ([teacher, deskmate]) => {
@@ -253,28 +252,49 @@ onBeforeUnmount(() => {
   document.removeEventListener('selectionchange', onSelectionChange)
 })
 
-function onMindmapMoved(moduleId: string, point: { x: number, y: number }) {
-  void $fetch('/api/student', {
-    method: 'POST',
-    body: { event: 'mindmap_moved', kind: 'module', id: moduleId, x: point.x, y: point.y },
-  }).then((state) => {
-    const next = state as { mindmap: { positions: { moduleId: string, x: number, y: number }[] } }
-    modulePositions.value = next.mindmap.positions
-  }).catch(() => {})
+type ArrangementChange =
+  | { event: 'mindmap_moved', kind: 'module', id: string, x: number, y: number }
+  | { event: 'import_arrangement', positions: MindmapState['mindmap']['positions'] }
+  | { event: 'reset_arrangement' }
+
+let arrangementQueue = Promise.resolve()
+let arrangementVersion = 0
+let savedPositions: MindmapState['mindmap']['positions'] = []
+
+function changeArrangement(body: ArrangementChange, errorMessage: string) {
+  const version = ++arrangementVersion
+  arrangementError.value = ''
+  arrangementQueue = arrangementQueue.then(async () => {
+    try {
+      const state = await $fetch<MindmapState>('/api/student', { method: 'POST', body })
+      savedPositions = state.mindmap.positions
+    }
+    catch {
+      arrangementError.value = errorMessage
+    }
+    if (version === arrangementVersion) modulePositions.value = [...savedPositions]
+  })
 }
 
-let arrangementImported = false
-function importLocalArrangement(arrangement: Record<string, { x: number, y: number }>) {
-  if (arrangementImported || modulePositions.value.length > 0) return
-  arrangementImported = true
+function onMindmapMoved(moduleId: string, point: Point) {
+  modulePositions.value = [
+    ...(modulePositions.value ?? []).filter(position => position.moduleId !== moduleId),
+    { moduleId, ...point },
+  ]
+  changeArrangement({ event: 'mindmap_moved', kind: 'module', id: moduleId, ...point }, 'Could not save the module position. Try moving it again.')
+}
+
+let arrangementChecked = false
+function importLocalArrangement(arrangement: Arrangement) {
+  if (arrangementChecked || !modulePositions.value || modulePositions.value.length > 0) return
   const positions = Object.entries(arrangement).map(([moduleId, point]) => ({ moduleId, ...point }))
-  void $fetch('/api/student', {
-    method: 'POST',
-    body: { event: 'import_arrangement', positions },
-  }).then((state) => {
-    const next = state as { mindmap: { positions: { moduleId: string, x: number, y: number }[] } }
-    modulePositions.value = next.mindmap.positions
-  }).catch(() => {})
+  if (positions.length === 0) return
+  arrangementChecked = true
+  changeArrangement({ event: 'import_arrangement', positions }, 'Could not import the old arrangement. Reload to try again.')
+}
+
+function resetMindmapArrangement() {
+  changeArrangement({ event: 'reset_arrangement' }, 'Could not reset the arrangement. Try again.')
 }
 
 async function saveNote(draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }) {
@@ -362,10 +382,13 @@ async function loadPortrait() {
       body: { event: 'open' },
     })
     portraitUrl.value = state.profile.pictureUrl
+    savedPositions = state.mindmap.positions
+    modulePositions.value = savedPositions
     applyMindmap(state)
   }
   catch {
     portraitUrl.value = null
+    arrangementError.value = 'Could not load the arrangement. Reload to try again.'
   }
 }
 
@@ -797,9 +820,8 @@ function initialsOf(name: string): string {
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
         : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
-      <RoadmapCanvas
+      <MindmapCanvas
         v-if="layout === 'mindmap'"
-        :class="phonePanel === 'roadmap' ? undefined : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
         :course="workspace.course"
         :student-id="studentId"
@@ -807,14 +829,17 @@ function initialsOf(name: string): string {
         :pending-module-id="pendingModuleId"
         :selecting-module-id="selectingModuleId"
         :positions="modulePositions"
+        :save-error="arrangementError"
         :notes="canvasNotes"
         :selected-note-id="selectedNoteId"
-        @select-module="selectModule"
+        @select-module="selectMindmapModule"
+        @clear-selection="selectedMindmapModuleId = ''"
         @prefetch-module="prefetchModule"
         @moved="onMindmapMoved"
         @import-local="importLocalArrangement"
+        @reset-arrangement="resetMindmapArrangement"
         @note-moved="onNoteMoved"
-        @select-note="selectedNoteId = $event"
+        @select-note="selectMindmapNote"
       />
       <CourseRoadmap
         v-else
@@ -827,7 +852,7 @@ function initialsOf(name: string): string {
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
-      <div v-if="layout === 'study'" :class="studyFrame('working')">
+      <div v-show="layout === 'study'" :class="studyFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
           :mode="workingMode"
@@ -849,8 +874,38 @@ function initialsOf(name: string): string {
           @quiz-answer="answerQuiz"
         />
       </div>
-      <div v-if="layout === 'mindmap'" :class="roadmapFrame('conversation')">
+      <div
+        :role="layout === 'mindmap' ? 'complementary' : undefined"
+        :aria-label="layout === 'mindmap' ? 'Mindmap panel' : undefined"
+        :class="layout === 'study' ? studyFrame('conversation') : [
+          mindmapPanelChrome,
+          'z-10 min-h-0 min-w-0 flex-col overflow-hidden bg-paper',
+          'max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:h-[min(75%,36rem)] max-md:rounded-t-2xl max-md:border max-md:border-ink-200',
+          'md:col-span-2 md:row-start-2 lg:absolute lg:top-4 lg:right-4 lg:h-[40rem] lg:max-h-[calc(100%-2rem)] lg:w-[360px]',
+          phonePanel === 'conversation' ? 'flex' : 'max-md:hidden md:flex',
+        ]"
+      >
+        <div v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 px-3 py-2">
+          <h2 class="text-sm font-medium text-ink-900">
+            {{ currentModuleName }}
+          </h2>
+          <p v-if="selectedMindmapModule?.state === 'closed'" class="text-sm text-ink-600">
+            {{ selectedMindmapModule.name }} · {{ selectedMindmapModule.closedReason }}
+          </p>
+          <p v-else-if="selecting" role="status" class="text-sm text-ink-600">Opening module…</p>
+          <p v-else-if="selectError && selectedMindmapModuleId" role="alert" class="text-sm text-ink-600">{{ selectError }}</p>
+          <NuxtLink
+            v-else
+            :to="layoutTarget('study')"
+            class="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline"
+            @click="phonePanel = 'working'"
+          >
+            Study this module
+          </NuxtLink>
+        </div>
         <MindmapNotes
+          v-if="layout === 'mindmap'"
+          class="max-h-[45%] shrink-0 border-b border-ink-200"
           :notes="notes"
           :links="noteLinks"
           :modules="noteModules"
@@ -861,8 +916,6 @@ function initialsOf(name: string): string {
           @save="saveNote"
           @remove="deleteNote"
         />
-      </div>
-      <div v-else :class="studyFrame('conversation')">
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
@@ -877,10 +930,9 @@ function initialsOf(name: string): string {
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
-          :loading="pendingModuleName.length > 0"
+          :loading="pendingModuleName.length > 0 || (layout === 'mindmap' && selecting)"
           :floating="false"
           @send="sendMessage"
-          @close="conversationClosed = true"
           @open-learn="openInLearn"
           @toggle-deskmate="saveDeskmate"
         />

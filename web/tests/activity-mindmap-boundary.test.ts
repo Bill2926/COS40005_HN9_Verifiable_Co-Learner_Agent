@@ -18,7 +18,7 @@ function envValue(name: string): string {
 }
 
 describe('activity log and mindmap boundary', () => {
-  it('lets a signed-in student neither read the activity log nor another student\'s notes or images', async () => {
+  it('lets a signed-in student neither read the activity log nor another student\'s positions, notes or images', async () => {
     const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
     const publishableKey = envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
     const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
@@ -68,7 +68,11 @@ describe('activity log and mindmap boundary', () => {
     expect(notes.error).toBeNull()
     expect(notes.data?.map(row => row.text)).not.toContain('ONLY_BINH_NOTE')
     const positions = await anClient.from('mindmap_positions').select('module_id').eq('student_id', binhId!)
-    expect(positions.data ?? []).toEqual([])
+    expect(positions.error).toBeNull()
+    expect(positions.data).toEqual([])
+    const ownPositions = await admin.from('mindmap_positions').select('module_id').eq('student_id', binhId!)
+    expect(ownPositions.error).toBeNull()
+    expect(ownPositions.data).toContainEqual({ module_id: 'getting_started' })
     const links = await anClient.from('mindmap_links').select('id').eq('student_id', binhId!)
     expect(links.data ?? []).toEqual([])
 

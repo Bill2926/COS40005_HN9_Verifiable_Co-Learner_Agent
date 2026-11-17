@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { MindmapRecord, MindmapStore } from './mindmap-store'
+import type { MindmapPosition, MindmapRecord, MindmapStore } from './mindmap-store'
 
 export function createSupabaseMindmapStore(options: { url: string, secretKey: string }): MindmapStore {
   const supabase = createClient(options.url, options.secretKey, {
@@ -105,20 +105,18 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       }, { onConflict: 'student_id,course_id,module_id' })
       if (saved.error) throw new Error(saved.error.message)
     },
-    async replacePositions(studentId, courseId, positions) {
-      const cleared = await supabase.from('mindmap_positions').delete()
-        .eq('student_id', studentId).eq('course_id', courseId)
-      if (cleared.error) throw new Error(cleared.error.message)
-      if (positions.length === 0) return
-      const inserted = await supabase.from('mindmap_positions').insert(positions.map(position => ({
-        student_id: studentId,
-        course_id: courseId,
-        module_id: position.moduleId,
-        x: position.x,
-        y: position.y,
-      })))
-      if (inserted.error) throw new Error(inserted.error.message)
-    },
+    importPositions: updateArrangement,
+    resetPositions: (studentId, courseId) => updateArrangement(studentId, courseId, null),
+  }
+
+  async function updateArrangement(studentId: string, courseId: string, positions: MindmapPosition[] | null): Promise<boolean> {
+    const updated = await supabase.rpc('update_mindmap_arrangement', {
+      p_student_id: studentId,
+      p_course_id: courseId,
+      p_positions: positions,
+    })
+    if (updated.error) throw new Error(updated.error.message)
+    return updated.data === true
   }
 
   async function write(studentId: string, courseId: string, record: MindmapRecord) {
