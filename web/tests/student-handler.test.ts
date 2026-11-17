@@ -77,6 +77,15 @@ describe('student handler', () => {
     }])
   })
 
+  it('records nothing when a report is only read or is rejected', async () => {
+    const { activity, call } = setup()
+    await call({ event: 'open' })
+    await expect(call({ event: 'module_opened', moduleId: 'not_a_module' })).rejects.toMatchObject({ statusCode: 400 })
+    await expect(call({ event: 'mode_switched', mode: 'exam' })).rejects.toMatchObject({ statusCode: 400 })
+    await expect(call({ event: 'code_run', code: 'print(1)' })).rejects.toMatchObject({ statusCode: 400 })
+    expect(activity.events).toEqual([])
+  })
+
   it('records nothing for a preview and writes nothing', async () => {
     const { activity, call } = setup()
     const state = await call({ event: 'note_created', text: 'A private note', colour: 'ink', x: 3, y: 4 }, { preview: true })

@@ -2,7 +2,7 @@
 
 > [C4 index](../../README.md) / Level 3: Components / Web app
 
-Small, framework-free files in `web/app/` that hold logic and per-device state. Part of
+Small files in `web/app/` that hold logic and per-device state. Most are framework-free. `activity/record.ts` posts with Nuxt's `$fetch` and imports nothing else. Part of
 [web-app/00-overview.md](00-overview.md).
 
 Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = users of it, brown = browser storage.
@@ -31,6 +31,7 @@ flowchart LR
     layout["<b>workspace/layout.ts</b><br/>Study and Roadmap layout ids"]:::comp
     md["<b>workspace/chat-markdown.ts</b><br/>parseChatMarkdown"]:::comp
     intro["<b>sign-in/intro.ts</b><br/>claimIntro, introStart"]:::comp
+    record["<b>activity/record.ts</b><br/>recordStudentActivity"]:::comp
   end
 
   index -->|"createDraftStore"| drafts
@@ -40,6 +41,8 @@ flowchart LR
   mwlayout -->|"resolveWorkspaceLayout, ..."| layout
   chatmd -->|"parseChatMarkdown"| md
   signin -->|"claimIntro, introStart, ..."| intro
+  index -->|"recordStudentActivity"| record
+  signin -->|"recordStudentActivity"| record
   arr -.->|"type: RoadmapModule"| turnTypes
   drafts -->|"key co-learner-draft:..."| ls
   arr -->|"key co-learner-roadmap-arrangement:..."| ls
@@ -58,12 +61,13 @@ flowchart LR
 | `workspace/layout.ts` | The two layouts (`study`, `roadmap`), the cookie name and options, and `resolveWorkspaceLayout` (query first, then cookie, then `study`). The old values `map` and `ide` still open the roadmap and Study. | Cookie `workspace-layout`, set by `pages/index.vue`. |
 | `workspace/chat-markdown.ts` | Parses the Markdown subset of agent replies into a node tree (paragraphs, inline code, bold, italic, lists, fenced code); never produces HTML; tolerant of half-streamed text. | None. |
 | `sign-in/intro.ts` | Decides whether the sign-in intro plays (once per device, never with reduced motion) and computes the starting transform; exports an inline head script. | `localStorage` key `colearner-sign-in-intro`. |
+| `activity/record.ts` | Posts one client report to `POST /api/student`: `signed_in`, `module_opened`, `mode_switched`, `layout_switched`, or `code_run`. A failure does not undo the action. The run report is the exercise id only. | None. The server keeps the activity log, and no page lists it. |
 
 ## Verified imports
 
-- Imports from this repo: only `roadmap/arrangement.ts` (type `RoadmapModule` from `shared/turn`). The other four files import nothing.
-- Importers: `drafts/store` by `pages/index.vue`, `PracticePanel.vue`, `draft-store.test.ts`; `roadmap/arrangement` by `RoadmapCanvas.vue`, `roadmap-arrangement.test.ts`; `workspace/layout` by `pages/index.vue`, `middleware/workspace-layout.ts`; `workspace/chat-markdown` by `ChatMarkdown.vue` and `ChatInline.vue` (type), `chat-markdown.test.ts`; `sign-in/intro` by `pages/sign-in.vue`, `sign-in-intro.test.ts`.
-- Each file here has a unit test under `web/tests/` except `workspace/layout.ts`, which no test imports.
+- Imports from this repo: only `roadmap/arrangement.ts` (type `RoadmapModule` from `shared/turn`). The other files import nothing from this repo. `activity/record.ts` calls `$fetch`, which Nuxt provides.
+- Importers: `drafts/store` by `pages/index.vue`, `PracticePanel.vue`, `draft-store.test.ts`; `roadmap/arrangement` by `RoadmapCanvas.vue`, `roadmap-arrangement.test.ts`; `workspace/layout` by `pages/index.vue`, `middleware/workspace-layout.ts`; `workspace/chat-markdown` by `ChatMarkdown.vue` and `ChatInline.vue` (type), `chat-markdown.test.ts`; `sign-in/intro` by `pages/sign-in.vue`, `sign-in-intro.test.ts`; `activity/record` by `pages/index.vue` and `pages/sign-in.vue`.
+- Each file here has a unit test under `web/tests/` except `workspace/layout.ts` and `activity/record.ts`. What the server stores for a report is covered by `student-handler.test.ts`.
 
 ## Notes
 

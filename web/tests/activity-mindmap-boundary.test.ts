@@ -54,13 +54,15 @@ describe('activity log and mindmap boundary', () => {
     })
     expect(image.error).toBeNull()
 
-    const log = await anClient.from('activity_log').select('*')
-    expect(log.error?.code).toBe(permissionDenied)
-
-    const updated = await anClient.from('activity_log').update({ payload: {} }).eq('student_id', binhId!)
-    expect(updated.error?.code).toBe(permissionDenied)
-    const deleted = await anClient.from('activity_log').delete().eq('student_id', binhId!)
-    expect(deleted.error?.code).toBe(permissionDenied)
+    const anonClient = createClient(url, publishableKey, noSession)
+    for (const client of [anonClient, anClient]) {
+      const log = await client.from('activity_log').select('*')
+      expect(log.error?.code).toBe(permissionDenied)
+      const updated = await client.from('activity_log').update({ payload: {} }).eq('student_id', binhId!)
+      expect(updated.error?.code).toBe(permissionDenied)
+      const deleted = await client.from('activity_log').delete().eq('student_id', binhId!)
+      expect(deleted.error?.code).toBe(permissionDenied)
+    }
 
     const notes = await anClient.from('mindmap_notes').select('text')
     expect(notes.error).toBeNull()

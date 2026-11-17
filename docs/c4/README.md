@@ -21,8 +21,8 @@ Components are ordered the way a request travels through them (server) or the wa
 
 | File | Component | One line |
 |---|---|---|
-| [00-overview.md](03-components/server/00-overview.md) | All server components | How the ten components call each other |
-| [01-routes.md](03-components/server/01-routes.md) | routes | HTTP endpoints: `/turn`, `/api/admin`, `/course-outline` |
+| [00-overview.md](03-components/server/00-overview.md) | All server components | How the server components call each other |
+| [01-routes.md](03-components/server/01-routes.md) | routes | HTTP endpoints: `/turn`, `/api/student`, `/api/admin`, `/course-outline` |
 | [02-turn.md](03-components/server/02-turn.md) | turn | Runs one turn from request to screen state |
 | [03-verify-shield.md](03-components/server/03-verify-shield.md) | verify-shield | VerifyShield: allow, block or downgrade each move, and the on/off switch |
 | [04-course.md](03-components/server/04-course.md) | course | Course modules, study content, roadmap |
@@ -31,6 +31,9 @@ Components are ordered the way a request travels through them (server) or the wa
 | [07-language-model.md](03-components/server/07-language-model.md) | language-model | The real language model and the choice of model settings |
 | [08-storage.md](03-components/server/08-storage.md) | storage | Store interfaces and their Supabase versions |
 | [09-admin.md](03-components/server/09-admin.md) | admin | Product-owner handler: model, shield, decisions |
+| [10-lecturer.md](03-components/server/10-lecturer.md) | lecturer | Lecturer handler: courses, enrollments, course history |
+| [11-student.md](03-components/server/11-student.md) | student | Profile, mindmap and the actions the browser reports |
+| [12-activity-recorder.md](03-components/server/12-activity-recorder.md) | activity recorder | Append-only activity log shared by the student handler and the turn |
 
 ### Web app (`web/app/`)
 

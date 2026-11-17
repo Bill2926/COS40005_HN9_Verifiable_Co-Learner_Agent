@@ -2610,4 +2610,107 @@ describe('turn endpoint', () => {
       payload: { moduleId: 'getting_started', questionId: 'print-text', correct: true },
     }])
   })
+
+  it('records a module open on the student handler, not on the turn', async () => {
+    const activity = createMemoryActivityLog()
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'open' },
+    }, memoryStore(), undefined, { activity })
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'select_module', moduleId: 'getting_started' },
+    }, memoryStore(), undefined, { activity })
+
+    expect(activity.events).toEqual([])
+  })
+
+  it('records one message and leaves mastery where that message left it', async () => {
+    const draft = 'def total(ds):\n    DRAFT_SHOULD_NOT_BE_LOGGED = 0\n'
+    const body = {
+      event: 'message',
+      text: 'What does print do?',
+      draft,
+      code: 'print("NO_CODE_IN_THE_LOG")',
+      addressedAgent: 'teacher',
+    }
+    const activity = createMemoryActivityLog()
+    const evidence = createMemoryEvidenceStore()
+    const logged = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), speakingTeacher(), { activity, evidence })
+    const plain = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), speakingTeacher())
+
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'message_sent',
+      payload: { moduleId: 'getting_started', hasQuote: false },
+    }])
+    expect(JSON.stringify(activity.events)).not.toContain('DRAFT_SHOULD_NOT_BE_LOGGED')
+    expect(JSON.stringify(activity.events)).not.toContain('NO_CODE_IN_THE_LOG')
+    expect(logged.courseRoadmap.map(module => [module.id, module.mastery])).toEqual(
+      plain.courseRoadmap.map(module => [module.id, module.mastery]),
+    )
+    expect(await evidence.forStudent(signedInStudent)).toEqual([])
+  })
+
+  it('records one submission and leaves mastery where that submission left it', async () => {
+    const body = {
+      event: 'submission',
+      code: 'SUBMISSION_CODE_SHOULD_NOT_MOVE_MASTERY',
+      results: [
+        { name: 'three numbers', passed: true, expected: '6', actual: '6' },
+        { name: 'one number', passed: true, expected: '10', actual: '10' },
+        { name: 'empty list', passed: false, expected: '0', actual: '1' },
+      ],
+    }
+    const activity = createMemoryActivityLog()
+    const logged = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), speakingTeacher(), { activity })
+    const plain = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), speakingTeacher())
+
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'submitted',
+      payload: { moduleId: 'getting_started', exerciseId: 'say_hello', testsPassed: 2, testsTotal: 3 },
+    }])
+    expect(JSON.stringify(activity.events)).not.toContain('SUBMISSION_CODE_SHOULD_NOT_MOVE_MASTERY')
+    expect(logged.courseRoadmap.map(module => [module.id, module.mastery])).toEqual(
+      plain.courseRoadmap.map(module => [module.id, module.mastery]),
+    )
+  })
+
+  it('records a quiz answer once, and a repeat leaves the log and mastery alone', async () => {
+    const activity = createMemoryActivityLog()
+    const quizAnswers = createMemoryQuizAnswerStore()
+    const body = { event: 'quiz_answer', moduleId: 'getting_started', questionId: 'print-text', choice: 1 }
+    const first = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), undefined, { quizAnswers, activity })
+    const second = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body,
+    }, memoryStore(), undefined, { quizAnswers, activity })
+
+    expect(first.courseRoadmap[0]?.mastery).toBe(0.39)
+    expect(second.courseRoadmap[0]?.mastery).toBe(0.39)
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'quiz_answered',
+      payload: { moduleId: 'getting_started', questionId: 'print-text', correct: true },
+    }])
+  })
 })

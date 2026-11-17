@@ -22,6 +22,7 @@ const emit = defineEmits<{
   selectExercise: [exerciseId: string]
   draft: [code: string]
   run: [result: RunResult | null]
+  runFinished: [exerciseId: string]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
 }>()
 
@@ -55,6 +56,7 @@ watch(outcome, result => emit('run', result))
 
 watch(() => props.exercise.id, (next, previous) => {
   if (!previous || previous === next) return
+  const reportRun = action.value === 'run' && (status.value === 'loading' || status.value === 'running')
   if (busy.value) {
     runGeneration += 1
     pythonReady.value = false
@@ -72,6 +74,7 @@ watch(() => props.exercise.id, (next, previous) => {
   restoring = true
   if (draft.value !== restored) draft.value = restored
   restoring = false
+  if (reportRun) emit('runFinished', previous)
 })
 
 onBeforeUnmount(() => {
@@ -106,12 +109,14 @@ async function onRun() {
     if (!alive || generation !== runGeneration) return
     outcome.value = result
     status.value = 'idle'
+    emit('runFinished', props.exercise.id)
   }
   catch (error) {
     if (!alive || generation !== runGeneration) return
     outcome.value = null
     pythonReady.value = false
     status.value = error instanceof RunStopped ? 'stopped' : 'failed'
+    emit('runFinished', props.exercise.id)
   }
 }
 
@@ -154,11 +159,13 @@ function chipClass(selected: boolean): string {
 }
 
 function onStop() {
+  const reportRun = action.value === 'run' && (status.value === 'loading' || status.value === 'running')
   runGeneration += 1
   pythonReady.value = false
   outcome.value = null
   status.value = 'stopped'
   runner?.stop()
+  if (reportRun) emit('runFinished', props.exercise.id)
 }
 </script>
 
