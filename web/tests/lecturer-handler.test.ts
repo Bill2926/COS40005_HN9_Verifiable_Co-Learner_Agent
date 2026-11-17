@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { handleCourseSpec, handleLecturer } from '../server/lecturer/handle-lecturer'
-import { pythonCourseSpec } from '../server/course'
+import { pythonCourseSpec, type CourseSpec } from '../server/course'
 import { createMemoryLecturerStore } from '../server/storage/lecturer-store'
 
 const lecturerEmails = 'other@example.com, LECTURER@example.com'
@@ -160,6 +160,34 @@ describe('lecturer course spec', () => {
     expect(JSON.stringify(preview)).not.toContain('referenceSolution')
     expect(await download()).toEqual(pythonCourseSpec)
     expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
+  })
+
+  it('reads only when previewing, so no student row and no agent answer is involved', async () => {
+    const store = {
+      exportSpec: vi.fn(async (): Promise<CourseSpec | null> => pythonCourseSpec),
+      readDraft: vi.fn(async (): Promise<CourseSpec | null> => null),
+      importSpec: vi.fn(),
+      saveDraft: vi.fn(),
+      discardDraft: vi.fn(),
+    }
+    const request = { email: 'lecturer@example.com', lecturerEmails, store }
+
+    const preview = await handleCourseSpec({ ...request, action: 'preview', courseId: python.id })
+
+    // The preview is the student's own view, so it holds what a student is
+    // shown: the statement, the starter code and the tests that check them.
+    expect(preview.draft).toBe(false)
+    expect(preview.modules[0]?.exercises[0]).toMatchObject({
+      id: 'say_hello',
+      statement: pythonCourseSpec.modules[0]!.content!.exercises[0]!.statement,
+      starterCode: pythonCourseSpec.modules[0]!.content!.exercises[0]!.starterCode,
+      tests: pythonCourseSpec.modules[0]!.content!.exercises[0]!.tests,
+    })
+    expect(store.readDraft).toHaveBeenCalledWith('lecturer@example.com', 'intro_python')
+    expect(store.exportSpec).toHaveBeenCalledWith('lecturer@example.com', 'intro_python')
+    expect(store.importSpec).not.toHaveBeenCalled()
+    expect(store.saveDraft).not.toHaveBeenCalled()
+    expect(store.discardDraft).not.toHaveBeenCalled()
   })
 
   it.each([
