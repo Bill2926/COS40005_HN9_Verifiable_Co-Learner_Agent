@@ -35,7 +35,7 @@ flowchart TB
   owner -->|"Reviews and configures on /admin"| spa
   lecturer -->|"Views owned courses on /lecturer"| spa
   spa -->|"Posts code and tests to"| pyodide
-  spa -->|"Loads pages from, calls<br/>/turn and /api/admin on"| server
+  spa -->|"Loads pages from, calls<br/>/turn, /api/student and /api/admin on"| server
   spa -->|"Signs in and out via"| auth
   pyodide -->|"Downloads the runtime from"| cdn
   server -->|"Verifies the session with"| auth
@@ -51,7 +51,7 @@ flowchart TB
 |---|---|---|
 | Web app | Nuxt 4, Vue 3, Nuxt UI, Tailwind 4, CodeMirror 6 | Renders the workspace (Study and Mindmap layouts), chat, practice panel, profile, lecturer editor and preview, About and admin pages. Keeps code drafts on the device and the mindmap with the account. Layout is a cookie. Code in `web/app/`. |
 | Python runner | Pyodide 314, Web Worker | Executes the student's code for Run and for the tests on Submit. Loads the runtime from jsDelivr (`browser-worker.mjs`). The browser then sends the test results to the server as counts (ADR 0002: the server trusts them). Code in `web/app/python/`. |
-| Turn and admin server | Nuxt Nitro (`web/server/`) | Also renders pages on the server (SSR) and checks the session before rendering `/sign-in` and `/`. API: `POST /turn` (streamed NDJSON), `POST /api/admin`, `GET /course-outline`. Runs the turn handler, the VerifyShield (`verify-shield/`), BKT mastery (`student-model/`), the course (built from the course spec it reads from the database) and the language-model layer. |
+| Turn and admin server | Nuxt Nitro (`web/server/`) | Also renders pages on the server (SSR) and checks the session before rendering `/sign-in` and `/`. API: `POST /turn` (streamed NDJSON), `POST /api/student`, `POST /api/admin`, `GET /course-outline`. Runs the turn handler, the student handler, the VerifyShield (`verify-shield/`), BKT mastery (`student-model/`), the course (built from the course spec it reads from the database) and the language-model layer. The activity log is written only through the activity recorder. |
 | Postgres database | Supabase Postgres | Tables `courses` (each course's whole course spec plus an unpublished draft, teacher-only content included, readable only with the secret key), `students`, `conversations`, `messages`, `resume_points`, `evidence`, `quiz_answers`, `decisions`, `model_settings`, `verify_shield_settings`, `activity_log`, `mindmap_positions`, `mindmap_notes`, `mindmap_links`. Written by the server with the secret key, which bypasses RLS. The ledgers (`evidence`, `quiz_answers`, `activity_log`) are append-only. Mindmap rows are readable by the owning student. Profile pictures and note images live in the private Storage bucket `student-files`. Student data carries a `course_id` where it belongs to a course. |
 | Supabase Auth | Supabase | Email sign-in. A trigger on `auth.users` creates the matching `students` row. |
 | LLM provider | OpenAI-compatible API | Both agents call it twice per turn: once to propose a move, once to render text for an approved move. |

@@ -71,9 +71,12 @@ async function saveDeskmate(on: boolean) {
   }
 }
 const workingMode = ref<'learn' | 'practice'>('learn')
-watch(workingMode, (value, previous) => {
-  if (value !== previous) void recordStudentActivity({ event: 'mode_switched', mode: value })
-})
+
+function chooseMode(mode: 'learn' | 'practice') {
+  if (mode === workingMode.value) return
+  workingMode.value = mode
+  void recordStudentActivity({ event: 'mode_switched', mode })
+}
 const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
@@ -187,7 +190,7 @@ function choosePanel(panel: (typeof phonePanels.value)[number]['id']) {
 }
 
 function openInLearn() {
-  workingMode.value = 'learn'
+  chooseMode('learn')
   phonePanel.value = 'working'
 }
 
@@ -421,7 +424,15 @@ function warmModules() {
   prefetchModule(next.id)?.then(() => warmModules()).catch(() => {})
 }
 
-if (data.value) showWorkspace(data.value)
+if (data.value) {
+  showWorkspace(data.value)
+  if (import.meta.client) {
+    void recordStudentActivity({
+      event: 'module_opened',
+      moduleId: data.value.workingArea.moduleId,
+    })
+  }
+}
 
 if (import.meta.server) {
   const event = useRequestEvent()
@@ -600,8 +611,10 @@ function nextPaint(): Promise<void> {
 
 function onRun(result: RunOutput | null) {
   latestRun.value = result
-  const exerciseId = workspace.value?.workingArea.exercise.id
-  if (result && exerciseId) void recordStudentActivity({ event: 'code_run', exerciseId })
+}
+
+function onRunFinished(exerciseId: string) {
+  if (exerciseId) void recordStudentActivity({ event: 'code_run', exerciseId })
 }
 
 function onSelectionChange() {
@@ -826,11 +839,12 @@ function initialsOf(name: string): string {
           :answering="answering"
           :selecting-exercise-id="selectingExerciseId"
           :expanded="workingAreaExpanded"
-          @update:mode="workingMode = $event"
+          @update:mode="chooseMode"
           @update:expanded="workingAreaExpanded = $event"
           @select-exercise="selectExercise"
           @draft="liveDraft = $event"
           @run="onRun"
+          @run-finished="onRunFinished"
           @submit="submitCode"
           @quiz-answer="answerQuiz"
         />

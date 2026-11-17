@@ -50,13 +50,13 @@ flowchart LR
   settings -->|"AdminHeader"| adminParts
   signin -->|"staffLanding"| adminParts
   settings ==>|"/api/admin"| server
-  index ==>|"/turn"| server
+  index ==>|"/turn, POST /api/student"| server
   admin ==>|"/api/admin"| server
   students ==>|"/api/admin"| server
   lecturer ==>|"middleware: signed-in"| mw
   lecturer ==>|"GET and POST /api/lecturer and /api/lecturer/spec"| server
   lecturer -->|"isProductOwner"| adminParts
-  signin ==>|"POST /api/admin, GET /api/lecturer"| server
+  signin ==>|"POST /api/admin, GET /api/lecturer, POST /api/student"| server
 
   style pages fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -65,9 +65,9 @@ flowchart LR
 
 | File | Responsibility (from the code) |
 |---|---|
-| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}`, reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Mindmap layouts (query `?layout=`, cookie). In the Mindmap layout the right-hand column is the notes editor and the conversation panel is not shown. A note has a title, text underneath, a colour and one required module. Save is what writes it; the saved note is a draggable card on the canvas with a line to that module. Reads the deskmate switch from the turn state and sets it with `{event: 'deskmate_switch'}`; it makes no `/api/admin` request. There is no staff opt-out: the `staff-landing` middleware sends staff away on every open. Signs out with `$supabase.auth.signOut()`. |
-| `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. After sign-in, and on the server for a user already signed in, `staffLanding` (`staff/landing`) sends the product owner to `/admin`, a lecturer to `/lecturer`, and anyone else to `/`. Plays a first-visit intro (`sign-in/intro`). |
-| `pages/home.vue` | Public Home page: a small course roadmap that plays one module unlock, the shield diagram, the sample turn and the team. |
+| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}` and reports that module as `module_opened`. Reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Mindmap layouts (query `?layout=`, cookie). In the Mindmap layout the right-hand column is the notes editor and the conversation panel is not shown. A note has a title, text underneath, a colour and one required module. Save is what writes it; the saved note is a draggable card on the canvas with a line to that module. Reads the deskmate switch from the turn state and sets it with `{event: 'deskmate_switch'}`; it makes no `/api/admin` request. There is no staff opt-out: the `staff-landing` middleware sends staff away on every open. Signs out with `$supabase.auth.signOut()`. Choosing Learn or Practice, switching layout, opening another module, and a finished, failed or stopped run are each one report to `POST /api/student`. A run report is the exercise id only. A mode the turn itself applies is not a report. The page does not list the activity log. |
+| `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. After sign-in, and on the server for a user already signed in, `staffLanding` (`staff/landing`) sends the product owner to `/admin`, a lecturer to `/lecturer`, and anyone else to `/`. A student sent to `/` reports `signed_in` to `POST /api/student`. Plays a first-visit intro (`sign-in/intro`). |
+| `pages/home.vue` | Public Home page: a small course roadmap that plays one module unlock, the shield diagram, the sample turn and the team. Tells a visitor that activity in the app is recorded and is not used to grade them. |
 | `pages/admin/index.vue` | Decisions page: the newest 100 decisions at full width with verdict and student filters, shown 10 per page. Each verdict is a button that opens `VerdictDrawer` from the decision already loaded (no extra request), showing the rule checks, the proposed and ruled moves and the addressed agent of the turn; closing returns focus to the verdict. Shows a refusal on 403. |
 | `pages/admin/students.vue` | Students page: every student's name, student number and email, with an inline form to change one student's number. The page checks `SWB` + at least four digits before sending; the server's 400 keeps the reason (wrong format, duplicate, a number used before) as an alert, and a successful change refreshes the list. Shows a refusal on 403. |
 | `pages/admin/settings.vue` | Settings page: the VerifyShield switch and the language model form. Shows a refusal on 403. |
@@ -79,8 +79,8 @@ flowchart LR
 
 ## Verified imports
 
-- `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`.
-- `sign-in.vue`: `shared/student-id`, `sign-in/intro`.
+- `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`, `activity/record`.
+- `sign-in.vue`: `shared/student-id`, `sign-in/intro`, `activity/record`.
 - `home.vue`: `shared/student-id`.
 - `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue` and `admin/students.vue`: `AdminHeader`, `admin/decisions` (type), `admin/message`. `admin/students.vue` also imports `shared/student-number`. `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
 - `AboutSampleTurn`, `AboutShieldDiagram` and `AboutLearningRoadmap` are used in templates without an import (Nuxt component auto-registration from `components/about/`).

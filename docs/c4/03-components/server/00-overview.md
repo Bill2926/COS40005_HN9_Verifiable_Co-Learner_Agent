@@ -32,6 +32,8 @@ flowchart LR
     storage["<b>storage</b><br/>Store interfaces and<br/>Supabase versions"]:::comp
     admin["<b>admin</b><br/>Product-owner handler"]:::comp
     lecturer["<b>lecturer</b><br/>Lecturer handler"]:::comp
+    student["<b>student</b><br/>Profile and reported actions"]:::comp
+    activity["<b>activity recorder</b><br/>Append-only activity log"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
 
@@ -39,10 +41,13 @@ flowchart LR
   db[("<b>Postgres</b>")]:::db
   llm["<b>LLM provider</b>"]:::ext
 
-  spa ==>|"POST /turn, POST /api/admin,<br/>GET /course-outline"| routes
+  spa ==>|"POST /turn, POST /api/student,<br/>POST /api/admin,<br/>GET /course-outline"| routes
   routes -->|"handleTurn, streamTurn"| turn
   routes -->|"handleAdmin"| admin
   routes -->|"GET /api/lecturer · handleLecturer"| lecturer
+  routes -->|"handleStudent"| student
+  student -->|"isNoteColour"| shared
+  storage -->|"activityPayload"| activity
   lecturer -.->|"LecturerStore"| storage
   routes -->|"agentsForTurn"| agents
   routes -->|"createSupabase...Store"| storage
@@ -82,14 +87,15 @@ flowchart LR
 | admin | `web/server/admin/` | [server/09-admin.md](09-admin.md) |
 | lecturer | `web/server/lecturer/` | [server/10-lecturer.md](10-lecturer.md) |
 | student | `web/server/student/` | [server/11-student.md](11-student.md) |
-| activity recorder | `web/server/activity-recorder/` | Passed into the student handler and the turn handler. The Supabase adapter is `storage/supabase-activity-log.ts`. |
+| activity recorder | `web/server/activity-recorder/` | [server/12-activity-recorder.md](12-activity-recorder.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)
 
 | From | To | What |
 |---|---|---|
-| turn | shared, agents, verify-shield, student-model, storage | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore` |
+| turn | shared, agents, verify-shield, student-model, storage, activity recorder | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`; `ActivityRecorder` |
+| student | activity recorder, storage, shared | `ActivityRecorder`, `ActivityEventType`; `MindmapStore`, `MindmapRecord`, `ProfileStore`, `StudentFileStore`; `NoteColour` |
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
