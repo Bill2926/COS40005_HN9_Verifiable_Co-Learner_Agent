@@ -572,7 +572,7 @@ async function showMindmap(page: Page) {
 }
 
 function expectSignedInAs(page: Page, displayName: string) {
-  return expect(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: new RegExp(`^${displayName}$`) })).toBeVisible()
+  return expect(page.getByRole('link', { name: displayName, exact: true })).toHaveAttribute('href', '/profile')
 }
 
 async function signInAs(page: Page, account: { email: string, password: string }) {
