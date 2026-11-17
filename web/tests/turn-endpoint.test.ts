@@ -481,6 +481,25 @@ describe('turn endpoint', () => {
     expect(sent.workingArea).toEqual(state.workingArea)
   })
 
+  it('returns the time each message was written', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] })
+    try {
+      vi.setSystemTime(new Date('2026-11-17T09:30:00.000Z'))
+      const sent = await handleTurn({
+        sessionStudentId: signedInStudent,
+        body: { event: 'message', text: 'Where does the total live?' },
+      }, memoryStore(), speakingTeacher())
+
+      expect(sent.conversation.map(message => message.createdAt)).toEqual([
+        '2026-11-17T09:30:00.000Z',
+        '2026-11-17T09:30:00.000Z',
+      ])
+    }
+    finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('keeps each student\'s conversation separate', async () => {
     const store = memoryStore()
 

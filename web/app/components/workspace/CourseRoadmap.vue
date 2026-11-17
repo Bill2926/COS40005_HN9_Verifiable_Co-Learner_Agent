@@ -1,10 +1,13 @@
 <script setup lang="ts">
+import BusySpinner from '../BusySpinner.vue'
 import type { RoadmapModule } from '#shared/turn'
 
 const props = defineProps<{
   modules: RoadmapModule[]
   masteryThreshold: number
   pendingModuleId?: string
+  // The module a select turn is opening, shown with a spinner.
+  selectingModuleId?: string
 }>()
 
 const emit = defineEmits<{
@@ -89,7 +92,7 @@ function cardClass(module: RoadmapModule): string {
               type="button"
               class="w-full rounded-[6px] px-3 py-2.5 text-left"
               :class="cardClass(module)"
-              :aria-busy="pendingModuleId === module.id ? true : undefined"
+              :aria-busy="pendingModuleId === module.id || selectingModuleId === module.id ? true : undefined"
               @pointerenter="onHover($event, module)"
               @click="emit('selectModule', module.id)"
             >
@@ -119,6 +122,10 @@ function cardClass(module: RoadmapModule): string {
                   :class="module.current ? 'font-semibold text-brand-950' : 'font-medium text-ink-800'"
                 >
                   {{ module.name }}
+                  <BusySpinner
+                    v-if="selectingModuleId === module.id"
+                    class="ml-1 inline text-brand-600"
+                  />
                 </p>
                 <p
                   v-if="module.state === 'mastered'"

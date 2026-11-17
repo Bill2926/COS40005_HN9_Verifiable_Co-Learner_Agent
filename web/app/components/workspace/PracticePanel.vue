@@ -2,6 +2,7 @@
 import type { CurrentExercise, ExerciseChoice, PracticeTestResult } from '#shared/turn'
 import { createDraftStore, draftAfterSwitch } from '~/drafts/store'
 import { RunStopped, type PythonRunner, type RunResult, type TestReport } from '~/python/runner'
+import BusySpinner from '../BusySpinner.vue'
 import InlineText from './InlineText.vue'
 import PythonEditor from './PythonEditor.vue'
 
@@ -11,6 +12,8 @@ const props = defineProps<{
   studentId: string
   active: boolean
   selecting: boolean
+  // The exercise being opened, shown with a spinner on its chip.
+  selectingExerciseId?: string
   selectError: string
   submitting: boolean
 }>()
@@ -28,6 +31,13 @@ const status = ref<'idle' | 'loading' | 'running' | 'checking' | 'stopped' | 'fa
 const outcome = ref<RunResult | null>(null)
 const submission = ref<TestReport | null>(null)
 const pythonReady = ref(false)
+// Which button started the current run, so only that one shows a spinner.
+const action = ref<'run' | 'submit'>('run')
+// The submission turn ends when the parent stops submitting; a later message
+// turn must not spin the Submit button.
+watch(() => props.submitting, (submitting) => {
+  if (!submitting && !busy.value) action.value = 'run'
+})
 const busy = computed(() => status.value === 'loading' || status.value === 'running' || status.value === 'checking')
 
 let runner: PythonRunner | null = null
@@ -76,7 +86,8 @@ function chooseExercise(exerciseId: string) {
 }
 
 async function onRun() {
-  if (busy.value) return
+  if (busy.value || props.submitting) return
+  action.value = 'run'
   const generation = ++runGeneration
   outcome.value = null
   status.value = pythonReady.value ? 'running' : 'loading'
@@ -105,7 +116,8 @@ async function onRun() {
 }
 
 async function onSubmit() {
-  if (busy.value) return
+  if (busy.value || props.submitting) return
+  action.value = 'submit'
   const generation = ++runGeneration
   submission.value = null
   status.value = pythonReady.value ? 'checking' : 'loading'
@@ -168,9 +180,13 @@ function onStop() {
           :class="chipClass(choice.id === exercise.id)"
           :aria-pressed="choice.id === exercise.id"
           :disabled="selecting"
+          :aria-busy="selectingExerciseId === choice.id ? true : undefined"
           @click="chooseExercise(choice.id)"
         >
-          {{ choice.title }}
+          <span class="inline-flex items-center gap-1.5">
+            {{ choice.title }}
+            <BusySpinner v-if="selectingExerciseId === choice.id" />
+          </span>
         </button>
       </div>
       <p
@@ -218,7 +234,9 @@ function onStop() {
         color="neutral"
         variant="outline"
         class="max-md:min-h-11 max-md:min-w-11"
-        :disabled="busy"
+        :disabled="busy || submitting"
+        :loading="busy && action === 'run'"
+        :aria-busy="busy && action === 'run'"
         @click="onRun"
       />
       <UButton
@@ -226,6 +244,8 @@ function onStop() {
         color="primary"
         class="max-md:min-h-11 max-md:min-w-11"
         :disabled="busy || submitting"
+        :loading="(busy || submitting) && action === 'submit'"
+        :aria-busy="(busy || submitting) && action === 'submit'"
         @click="onSubmit"
       />
       <UButton

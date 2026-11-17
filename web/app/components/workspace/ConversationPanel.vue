@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { ConversationMessage, TurnTrace } from '#shared/turn'
+import { dateMessages } from '~/workspace/conversation-dates'
+import BusySpinner from '../BusySpinner.vue'
 import ChatMarkdown from './ChatMarkdown.vue'
 
 const props = defineProps<{
@@ -33,6 +35,8 @@ interface BubbleRow {
   text: string
   openInLearn: boolean
   writing: boolean
+  day: string | null
+  time: string | null
 }
 
 interface TypingRow {
@@ -47,6 +51,8 @@ interface EventRow {
   kind: 'event'
   name: string
   text: string
+  day: string | null
+  time: string | null
 }
 
 const bubbleClass = {
@@ -83,6 +89,7 @@ const text = ref('')
 const pending = ref('')
 const scroller = ref<HTMLElement | null>(null)
 let revealObserver: IntersectionObserver | null = null
+const mounted = ref(false)
 
 function scrollToNewest() {
   const element = scroller.value
@@ -91,13 +98,21 @@ function scrollToNewest() {
 }
 
 const rows = computed(() => {
-  const shown: Array<BubbleRow | EventRow | TypingRow> = props.messages.map((message) => {
+  // Dated in the browser's time zone. On the server the times are hidden so
+  // the first render cannot disagree with the student's clock.
+  const dates = mounted.value
+    ? dateMessages(props.messages)
+    : props.messages.map(() => ({ day: null, time: null }))
+  const shown: Array<BubbleRow | EventRow | TypingRow> = props.messages.map((message, index) => {
+    const { day, time } = dates[index]!
     if (message.author === 'event') {
       return {
         key: message.id,
         kind: 'event' as const,
         name: message.name,
         text: message.text,
+        day,
+        time,
       }
     }
     return {
@@ -109,6 +124,8 @@ const rows = computed(() => {
       text: message.text,
       openInLearn: message.openInLearn,
       writing: false,
+      day,
+      time,
     }
   })
 
@@ -122,6 +139,8 @@ const rows = computed(() => {
       text: pending.value,
       openInLearn: false,
       writing: false,
+      day: null,
+      time: null,
     })
   }
   if (props.streamingTeacher) {
@@ -134,6 +153,8 @@ const rows = computed(() => {
       text: props.streamingTeacher,
       openInLearn: false,
       writing: true,
+      day: null,
+      time: null,
     })
   }
   else if (props.sending) {
@@ -154,6 +175,8 @@ const rows = computed(() => {
       text: props.streamingDeskmate,
       openInLearn: false,
       writing: true,
+      day: null,
+      time: null,
     })
   }
   else if (props.sending) {
@@ -172,6 +195,7 @@ watch(() => [rows.value.length, props.streamingTeacher, props.streamingDeskmate,
 })
 
 onMounted(() => {
+  mounted.value = true
   const element = scroller.value
   if (!element) return
   let wasHidden = element.clientHeight === 0
@@ -292,9 +316,20 @@ watch(() => props.sending, (sending) => {
         v-else
         class="flex flex-col gap-4"
       >
-        <li
+        <template
           v-for="row in rows"
           :key="row.key"
+        >
+        <li
+          v-if="row.kind !== 'typing' && row.day"
+          class="flex w-full items-center gap-3"
+          data-day-separator
+        >
+          <span class="h-px flex-1 bg-ink-200" aria-hidden="true" />
+          <span class="text-[11px] leading-4 font-medium text-ink-500">{{ row.day }}</span>
+          <span class="h-px flex-1 bg-ink-200" aria-hidden="true" />
+        </li>
+        <li
           class="flex w-full"
           :class="row.kind === 'event' ? 'justify-center' : row.author === 'student' ? 'justify-end' : 'justify-start'"
         >
@@ -302,7 +337,8 @@ watch(() => props.sending, (sending) => {
             v-if="row.kind === 'event'"
             class="rounded-full bg-ink-100 px-2.5 py-0.5 text-center font-mono text-[10px] leading-[15px] text-ink-500"
           >
-            {{ row.name }} · {{ row.text }}
+            {{ row.name }} · {{ row.text }}<template v-if="row.time">
+              · <time data-message-time>{{ row.time }}</time></template>
           </p>
           <div
             v-else-if="row.kind === 'typing'"
@@ -366,6 +402,11 @@ watch(() => props.sending, (sending) => {
                   class="text-[11px] leading-4"
                   :class="roleClass[row.author]"
                 >{{ row.role }}</span>
+                <time
+                  v-if="row.time"
+                  class="ml-auto pl-2 font-mono text-[10px] leading-4 opacity-60"
+                  data-message-time
+                >{{ row.time }}</time>
               </p>
               <p v-if="row.author === 'student'">
                 {{ row.text }}
@@ -386,6 +427,7 @@ watch(() => props.sending, (sending) => {
             </article>
           </div>
         </li>
+        </template>
       </ol>
     </div>
 
@@ -410,7 +452,10 @@ watch(() => props.sending, (sending) => {
           :disabled="sending || text.trim().length === 0"
           :aria-busy="sending"
         >
-          Send
+          <span class="inline-flex items-center gap-1.5">
+            <BusySpinner v-if="sending" />
+            Send
+          </span>
         </button>
       </div>
       <p

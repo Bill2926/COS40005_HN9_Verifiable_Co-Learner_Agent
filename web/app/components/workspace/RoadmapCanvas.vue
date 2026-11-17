@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BusySpinner from '../BusySpinner.vue'
 import type { RoadmapModule } from '#shared/turn'
 import { arrangementScale, avoid, connectors, createArrangementStore, defaultArrangement, fittedModuleWidth, fitView, mergeArrangement, placeCard, pointAt, sizeClassOf, spread, type Arrangement, type Box, type Connector, type Point, type Size, type SizeClass } from '~/roadmap/arrangement'
 
@@ -8,6 +9,8 @@ const props = defineProps<{
   studentId: string
   masteryThreshold: number
   pendingModuleId?: string
+  // The module a select turn is opening, shown with a spinner.
+  selectingModuleId?: string
 }>()
 
 const emit = defineEmits<{
@@ -644,7 +647,7 @@ onUnmounted(() => {
           class="block w-full rounded-[14px] px-4 pt-3.5 pb-4 text-left touch-none select-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900"
           :class="dragging(module.id) ? 'cursor-grabbing' : 'cursor-pointer'"
           :aria-pressed="selectedId === module.id"
-          :aria-busy="pendingModuleId === module.id ? true : undefined"
+          :aria-busy="pendingModuleId === module.id || selectingModuleId === module.id ? true : undefined"
           :aria-label="announcement(module)"
           @pointerenter="onHover($event, module)"
           @pointerdown="onPointerDown($event, module.id)"
@@ -690,6 +693,10 @@ onUnmounted(() => {
               v-if="module.current"
               class="rounded-full bg-brand-50 px-2 py-0.5 text-[10px] leading-[14px] font-semibold tracking-[0.3px] text-brand-700"
             >Current</span>
+            <BusySpinner
+              v-if="selectingModuleId === module.id"
+              class="text-brand-600"
+            />
           </span>
           <span
             class="mt-2.5 block text-pretty"

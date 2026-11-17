@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import BusySpinner from '~/components/BusySpinner.vue'
 definePageMeta({
   middleware: 'signed-in',
 })
@@ -93,15 +94,26 @@ const pageItems = computed(() => {
 watch([appliedVerdict, appliedStudentId], () => { page.value = 1 })
 watch(pageCount, (count) => { if (page.value > count) page.value = count })
 
+// The Filter button spins until the read it triggers settles.
+const filtering = ref(false)
 const refused = computed(() => error.value?.statusCode === 403)
 const unavailable = computed(() => Boolean(error.value) && !refused.value)
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
 
 useHead({ title: 'Decisions' })
 
-function applyFilters() {
-  appliedVerdict.value = verdict.value
-  appliedStudentId.value = studentId.value.trim()
+async function applyFilters() {
+  if (filtering.value) return
+  filtering.value = true
+  try {
+    appliedVerdict.value = verdict.value
+    appliedStudentId.value = studentId.value.trim()
+    await nextTick()
+    await refresh()
+  }
+  finally {
+    filtering.value = false
+  }
 }
 
 async function onVerifyShield(event: Event) {
@@ -230,9 +242,14 @@ function messageFrom(caught: unknown): string {
               name="verifyShield"
               :checked="verifyShieldOn"
               :disabled="switching"
+              :aria-busy="switching"
               @change="onVerifyShield"
             >
             VerifyShield is {{ verifyShieldOn ? 'on' : 'off' }}
+            <BusySpinner
+              v-if="switching"
+              class="text-brand-600"
+            />
           </label>
           <p class="text-xs leading-4 text-muted">
             {{ verifyShieldOn
@@ -358,6 +375,8 @@ function messageFrom(caught: unknown): string {
           block
           size="lg"
           :loading="saving"
+          :disabled="saving"
+          :aria-busy="saving"
           class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover active:bg-accent-hover disabled:bg-accent md:min-h-0"
         >
           Save
@@ -406,7 +425,10 @@ function messageFrom(caught: unknown): string {
             <UButton
               type="submit"
               size="lg"
-              class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover md:min-h-0"
+              :loading="filtering"
+              :disabled="filtering"
+              :aria-busy="filtering"
+              class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover disabled:bg-accent md:min-h-0"
             >
               Filter
             </UButton>
