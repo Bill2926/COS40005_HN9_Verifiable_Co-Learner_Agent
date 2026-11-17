@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { isLecturer } from '~/staff/landing'
+
 // The header both product owner pages share: the nav between Decisions and
-// Settings, a link to the lecturer page for a product owner who also lectures,
-// and the way back to the course workspace.
+// Settings, and the switch to the lecturer page for a product owner who also
+// lectures.
 const route = useRoute()
 
 const pages = [
@@ -9,18 +11,17 @@ const pages = [
   { to: '/admin/settings', label: 'Settings' },
 ] as const
 
-const isLecturer = ref(false)
+const alsoLectures = ref(false)
 onMounted(async () => {
-  try {
-    await $fetch('/api/lecturer')
-    isLecturer.value = true
-  }
-  catch {
-    isLecturer.value = false
-  }
+  alsoLectures.value = await isLecturer($fetch)
 })
 
 const linkClass = 'text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current'
+
+async function signOut() {
+  await useNuxtApp().$supabase.auth.signOut()
+  await navigateTo('/sign-in')
+}
 </script>
 
 <template>
@@ -55,18 +56,20 @@ const linkClass = 'text-sm text-muted underline decoration-transparent underline
       </div>
       <div class="flex items-center gap-4">
         <NuxtLink
-          v-if="isLecturer"
+          v-if="alsoLectures"
           to="/lecturer"
           :class="linkClass"
         >
           Lecturer page
         </NuxtLink>
-        <NuxtLink
-          :to="{ path: '/', query: { workspace: '1' } }"
+        <button
+          type="button"
           :class="linkClass"
+          class="min-h-11 md:min-h-0"
+          @click="signOut"
         >
-          Back to the course
-        </NuxtLink>
+          Sign out
+        </button>
       </div>
     </div>
   </header>
