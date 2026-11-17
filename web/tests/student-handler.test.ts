@@ -277,6 +277,24 @@ describe('student handler', () => {
     })).rejects.toMatchObject({ statusCode: 400, message: /2 MB/ })
   })
 
+  it('stores a note image under the student and shows it back on the note', async () => {
+    const { call } = setup()
+    const created = await call({
+      event: 'note_created',
+      text: 'Whiteboard sketch',
+      colour: 'sky',
+      x: 0,
+      y: 0,
+      image: { contentType: 'image/png', base64: tinyPng },
+    })
+    const note = created.mindmap.notes[0]!
+    expect(note.imageUrl).toBe(`memory:${studentId}/notes/${note.id}`)
+    const reopened = await call({ event: 'open' })
+    expect(reopened.mindmap.notes[0]!.imageUrl).toBe(note.imageUrl)
+    const other = await call({ event: 'open' }, { sessionStudentId: otherStudentId, email: 'binh@example.com' })
+    expect(other.mindmap.notes).toEqual([])
+  })
+
   it('keeps another student from seeing these notes through this handler', async () => {
     const { call } = setup()
     await call({ event: 'note_created', text: 'Only An', colour: 'rose', x: 1, y: 1 })
