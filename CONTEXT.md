@@ -7,8 +7,16 @@ A web-based co-learner for first-year students learning Python, where a teacher 
 ### People and agents
 
 **Student**:
-The first-year learner, with no programming background, who studies a course in the app. The primary user.
+The first-year learner, with no programming background, who studies a course in the app. The primary user. A lecturer or the product owner is never a student: they are never enrolled and never see a student's pages.
 _Avoid_: user, learner
+
+**Profile**:
+A student's own display name and profile picture, which they can change, shown with their student number, which they cannot. Only students have a profile for now.
+_Avoid_: account, settings
+
+**Student number**:
+A student's short identifier in the form SWB followed by at least four digits (SWB0001), like a university student ID, given to the student when their account is created and unique across the whole system; a number is never given out twice. Lecturers and the product owner can see it; only the product owner can change it, and each change is recorded. It is how staff tell students apart.
+_Avoid_: student id, user id
 
 **Teacher agent**:
 The co-learner agent that knows the full content of the current module; the only agent allowed to teach, correct, or suggest moving the student to another module. The student may also choose any unlocked module themselves.
@@ -22,11 +30,11 @@ _Avoid_: companion, buddy, second tutor
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
 **Product owner**:
-The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Sees decisions and settings, never a student's code. Does not manage courses: that is the lecturer.
+The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number. Never sees a student's code, conversation or mastery. Does not manage courses: that is the lecturer.
 _Avoid_: admin, assessor
 
 **Lecturer**:
-The person who owns a course: imports its course spec, sets its mastery threshold, and sees how many students are enrolled. Sees counts only, never a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and the product owner.
+The person who owns a course: edits or imports its course spec, sets its mastery threshold, and sees who is enrolled by name, student number and email. Never sees a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and the product owner.
 _Avoid_: teacher, instructor, admin, product owner
 
 ### Course
@@ -40,15 +48,27 @@ A student's membership of a course. A student studies only the courses they are 
 _Avoid_: registration, subscription
 
 **Course spec**:
-The single file that declares everything a course contains: its parts, modules in order, and each module's materials, quiz, exercises, hint ladder and misconception responses, plus what counts as out of course. A lecturer imports it whole; the course is whatever its spec says.
+The single file that declares everything a course contains: its parts, modules in order, and each module's materials, quiz, exercises, hint ladder and misconception responses, plus what counts as out of course. A lecturer edits it as a course draft or imports it whole, and it takes effect only when published whole; the course is whatever its published spec says.
 _Avoid_: syllabus, course file, curriculum
+
+**Course draft**:
+A lecturer's unpublished changes to a course spec, made in the editor or loaded from an imported or exported file. Students never see a draft; publishing it replaces the course spec as one change in the course history.
+_Avoid_: unsaved spec, working copy
+
+**Course preview**:
+The lecturer's view of a course draft as a student would see it, with exercises they can run and submit and the teacher-only content shown and marked. No agents take part and nothing is recorded.
+_Avoid_: test mode, student view
+
+**Materials**:
+What a module teaches in Learn mode, as an ordered list of blocks: text, code examples, diagrams, images and videos. Every kind of block is optional.
+_Avoid_: content, lesson, notes
 
 **Mastery threshold**:
 The mastery a module must reach, together with one passed exercise, to count as mastered. Set by the lecturer for the whole course, the same for every module in it. The only part of the mastery estimate a lecturer can change.
 _Avoid_: pass mark, cut-off, BKT threshold
 
 **Course history**:
-The record of every change a lecturer made to a course: each course spec imported and each change of mastery threshold, with who made it and when. It records the course, never a student or a verdict.
+The record of every change a lecturer made to a course: each course spec published and each change of mastery threshold, with who made it and when. It records the course, never a student or a verdict.
 _Avoid_: audit log, decision log, changelog
 
 **Module**:
@@ -95,23 +115,35 @@ _Avoid_: available, accessible
 Anything the student asks about that is not part of any module, such as classes or pandas, including small talk. Treated like a question about a closed module: the teacher agent redirects instead of answering.
 _Avoid_: off-topic, irrelevant
 
-**Roadmap arrangement**:
-Where the student has placed each module on the course roadmap in the Roadmap layout. Personal to the student and their device; it is neither evidence nor part of the resume point, and it never changes a module's state or the current module.
-_Avoid_: map arrangement, layout, positions
+**Mindmap**:
+The student's personal canvas of a course: every module of the course roadmap, which the student can move but never remove or change, together with the student's own notes and the links they draw. It is neither evidence nor part of the resume point, and it never changes a module's state or the current module.
+_Avoid_: roadmap, knowledge map, mind map
+
+**Note**:
+A student's own item on their mindmap: natural-language text, an optional image and a colour from a fixed set, which the student can create, change, link to modules or other notes, and delete. The agents never read notes.
+_Avoid_: node, card, sticky
+
+**Mindmap arrangement**:
+Where the student has placed each module and note on their mindmap. Personal to the student and kept with their account, so it follows them across devices.
+_Avoid_: roadmap arrangement, map arrangement, layout, positions
 
 ### Workspace
 
 **Workspace layout**:
-How the course roadmap, working area and conversation are arranged on screen. There are two, chosen by the student: the Study layout (the course roadmap as a list beside the working area and conversation) and the Roadmap layout (the course roadmap as a canvas with the working area and conversation over it). Switching layouts changes nothing but the arrangement on screen.
-_Avoid_: screen, view, variant, Map canvas
+How the student's screen is arranged. There are two, chosen by the student: the Study layout (the course roadmap as a list beside the working area and conversation) and the Mindmap layout (the mindmap as a canvas beside a panel that puts the chosen note first and the current module's conversation second, with no working area; choosing an unlocked module on the canvas makes it the current module). Switching layouts changes nothing but the arrangement on screen.
+_Avoid_: screen, view, variant, Map canvas, Roadmap layout
 
 **Conversation**:
 The exchange between the student and both agents about one module. Each module has its own conversation; moving to another exercise in the same module continues it.
 _Avoid_: chat, thread, session
 
 **Portrait**:
-The fixed picture that stands for the teacher agent, the deskmate agent, or the student beside their messages in a conversation. Every student sees the same three portraits; a student does not choose their own.
-_Avoid_: avatar, profile picture, icon
+The picture beside each message in a conversation. The teacher agent and the deskmate agent have fixed portraits, the same for every student; the student's portrait is the profile picture from their profile.
+_Avoid_: avatar, icon
+
+**Quote**:
+Text the student selects from an agent message or from the materials and places in their message to ask about it. It is part of the student's message, so the turn is ruled like any other.
+_Avoid_: selection, citation, reference
 
 **Working area**:
 The panel that shows either the current module's materials and quiz (Learn mode) or the current exercise, editor and test results (Practice mode).
@@ -129,6 +161,10 @@ One submission on an exercise.
 
 **Evidence**:
 A recorded fact about what the student did, produced from a submission (by the test runner) or from a quiz answer. Reading materials, running code and chatting produce none.
+
+**Activity log**:
+The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. No screen shows it; students are told it is kept.
+_Avoid_: audit log, tracking, telemetry, history
 
 **Draft**:
 The code currently in the student's editor that has not been submitted. Kept on the student's device only; it is neither evidence nor part of the resume point.
