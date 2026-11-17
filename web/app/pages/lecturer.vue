@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { LecturerCourse, LecturerResponse, LecturerStudent } from '#shared/lecturer'
 import { isProductOwner } from '~/staff/landing'
+import CourseEditor from '~/components/lecturer/CourseEditor.vue'
+import CoursePreviewPanel from '~/components/lecturer/CoursePreviewPanel.vue'
 
 definePageMeta({ middleware: 'signed-in' })
 useHead({ title: 'Lecturer' })
