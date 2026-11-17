@@ -3,9 +3,15 @@ import type { CourseSpec } from '../../../server/course'
 import type { MaterialBlock } from '#shared/turn'
 import MermaidDiagram from '../workspace/MermaidDiagram.vue'
 
+type Editable<T> = T extends readonly (infer Item)[]
+  ? Editable<Item>[]
+  : T extends object
+    ? { -readonly [Key in keyof T]: Editable<T[Key]> }
+    : T
+
 const props = defineProps<{ courseId: string }>()
 
-const spec = ref<CourseSpec | null>(null)
+const spec = ref<Editable<CourseSpec> | null>(null)
 const moduleId = ref('')
 const message = ref('')
 const errorMessage = ref('')
@@ -18,7 +24,8 @@ onMounted(load)
 async function load() {
   errorMessage.value = ''
   const draft = await $fetch<CourseSpec | null>(`/api/lecturer/spec?courseId=${props.courseId}&draft=1`)
-  spec.value = draft ?? await $fetch<CourseSpec>(`/api/lecturer/spec?courseId=${props.courseId}`)
+  const published = draft ?? await $fetch<CourseSpec>(`/api/lecturer/spec?courseId=${props.courseId}`)
+  spec.value = structuredClone(published) as Editable<CourseSpec>
   moduleId.value = spec.value?.modules[0]?.id ?? ''
 }
 

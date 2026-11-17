@@ -427,10 +427,9 @@ watch(() => props.sending, (sending) => {
               aria-hidden="true"
             >
               <img
-                :src="row.author === 'student' && portraitUrl ? portraitUrl : portraitSrc[row.author]"
+                :src="portraitSrc[row.author]"
                 alt=""
-                class="size-full object-cover"
-                :class="row.author === 'student' && portraitUrl ? '' : '[image-rendering:pixelated]'"
+                class="size-full object-cover [image-rendering:pixelated]"
               >
             </span>
             <article

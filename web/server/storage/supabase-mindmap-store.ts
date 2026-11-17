@@ -39,17 +39,11 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       }
     },
     async save(studentId, courseId, record) {
-      await replace(supabase, studentId, courseId, record)
+      await write(studentId, courseId, record)
     },
   }
-}
 
-async function replace(
-  supabase: ReturnType<typeof createClient>,
-  studentId: string,
-  courseId: string,
-  record: MindmapRecord,
-): Promise<void> {
+  async function write(studentId: string, courseId: string, record: MindmapRecord) {
   const cleared = await Promise.all([
     supabase.from('mindmap_links').delete().eq('student_id', studentId).eq('course_id', courseId),
     supabase.from('mindmap_positions').delete().eq('student_id', studentId).eq('course_id', courseId),
@@ -93,5 +87,6 @@ async function replace(
       target_id: link.target.kind === 'module' ? link.target.moduleId : link.target.noteId,
     })))
     if (inserted.error) throw new Error(inserted.error.message)
+  }
   }
 }

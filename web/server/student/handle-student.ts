@@ -68,7 +68,7 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
   const studentId = requireStudent(request)
   if (request.preview) return present(request, studentId)
 
-  const body = request.body
+  const body = objectBody(request.body)
   const event = eventName(body)
   if (event === 'open') return present(request, studentId)
   if (event === 'signed_in') {
@@ -176,7 +176,7 @@ async function recordActivity(
   await request.activity.record({ studentId, courseId, type, payload })
 }
 
-async function changeProfile(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function changeProfile(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const hasName = 'displayName' in body && body.displayName !== undefined
   const hasPicture = 'picture' in body && body.picture !== undefined
   if (!hasName && !hasPicture) {
@@ -205,7 +205,7 @@ async function changeProfile(request: StudentHandlerRequest, studentId: string, 
   }, request.courseId)
 }
 
-async function moveMindmap(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function moveMindmap(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const kind = field(body, 'kind')
   const id = field(body, 'id')
   const point = coordinates(body)
@@ -227,7 +227,7 @@ async function moveMindmap(request: StudentHandlerRequest, studentId: string, bo
   await recordActivity(request, studentId, 'mindmap_moved', { kind, id }, request.courseId)
 }
 
-async function importArrangement(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function importArrangement(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const record = await request.mindmap.read(studentId, request.courseId)
   if (record.positions.length > 0) return
   if (!('positions' in body) || !Array.isArray(body.positions)) {
@@ -246,7 +246,7 @@ async function importArrangement(request: StudentHandlerRequest, studentId: stri
   await recordActivity(request, studentId, 'mindmap_moved', { imported: true }, request.courseId)
 }
 
-async function createNote(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function createNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const text = noteText(body)
   const colour = noteColour(body)
   const point = coordinates(body)
@@ -260,7 +260,7 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 
-async function changeNote(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function changeNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const noteId = field(body, 'noteId')
   if (!noteId) throw new StudentRequestError('The note is missing.')
   const record = await request.mindmap.read(studentId, request.courseId)
@@ -283,7 +283,7 @@ async function changeNote(request: StudentHandlerRequest, studentId: string, bod
   await recordActivity(request, studentId, 'note_changed', { noteId }, request.courseId)
 }
 
-async function linkNote(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function linkNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const noteId = field(body, 'noteId')
   if (!noteId) throw new StudentRequestError('The note is missing.')
   const target = linkTarget(body, request.moduleIds, noteId)
@@ -298,7 +298,7 @@ async function linkNote(request: StudentHandlerRequest, studentId: string, body:
   await recordActivity(request, studentId, 'note_linked', { noteId, linkId: id }, request.courseId)
 }
 
-async function unlinkNote(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function unlinkNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const linkId = field(body, 'linkId')
   if (!linkId) throw new StudentRequestError('The link is missing.')
   const record = await request.mindmap.read(studentId, request.courseId)
@@ -309,7 +309,7 @@ async function unlinkNote(request: StudentHandlerRequest, studentId: string, bod
   await recordActivity(request, studentId, 'note_unlinked', { linkId }, request.courseId)
 }
 
-async function deleteNote(request: StudentHandlerRequest, studentId: string, body: object): Promise<void> {
+async function deleteNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const noteId = field(body, 'noteId')
   if (!noteId) throw new StudentRequestError('The note is missing.')
   const record = await request.mindmap.read(studentId, request.courseId)
@@ -321,26 +321,32 @@ async function deleteNote(request: StudentHandlerRequest, studentId: string, bod
   await recordActivity(request, studentId, 'note_deleted', { noteId }, request.courseId)
 }
 
-function eventName(body: unknown): string {
-  if (typeof body !== 'object' || body === null || !('event' in body) || typeof body.event !== 'string') {
+function objectBody(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'object' || value === null) {
+    throw new StudentRequestError('The student endpoint does not accept that event.')
+  }
+  return value as Record<string, unknown>
+}
+
+function eventName(body: Record<string, unknown>): string {
+  if (typeof body.event !== 'string') {
     throw new StudentRequestError('The student endpoint does not accept that event.')
   }
   return body.event
 }
 
-function field(body: object, key: string): string {
-  if (!(key in body)) return ''
-  const value = body[key as keyof typeof body]
+function field(body: Record<string, unknown>, key: string): string {
+  const value = body[key]
   return typeof value === 'string' ? value.trim() : ''
 }
 
-function requiredModule(body: object, moduleIds: readonly string[]): string {
+function requiredModule(body: Record<string, unknown>, moduleIds: readonly string[]): string {
   const moduleId = field(body, 'moduleId')
   if (!moduleId || !moduleIds.includes(moduleId)) throw new StudentRequestError('That module is not on this course.')
   return moduleId
 }
 
-function coordinates(body: object): { x: number, y: number } {
+function coordinates(body: Record<string, unknown>): { x: number, y: number } {
   const x = 'x' in body ? body.x : undefined
   const y = 'y' in body ? body.y : undefined
   if (typeof x !== 'number' || typeof y !== 'number' || !Number.isFinite(x) || !Number.isFinite(y)) {
@@ -349,19 +355,19 @@ function coordinates(body: object): { x: number, y: number } {
   return { x, y }
 }
 
-function noteText(body: object): string {
+function noteText(body: Record<string, unknown>): string {
   if (!('text' in body) || typeof body.text !== 'string') throw new StudentRequestError('The note text is missing.')
   return body.text
 }
 
-function noteColour(body: object): NoteColour {
+function noteColour(body: Record<string, unknown>): NoteColour {
   if (!('colour' in body) || !isNoteColour(body.colour)) {
     throw new StudentRequestError('Choose a note colour from the palette.')
   }
   return body.colour
 }
 
-function linkTarget(body: object, moduleIds: readonly string[], fromNoteId: string): MindmapRecord['links'][number]['target'] {
+function linkTarget(body: Record<string, unknown>, moduleIds: readonly string[], fromNoteId: string): MindmapRecord['links'][number]['target'] {
   if (!('target' in body) || typeof body.target !== 'object' || body.target === null) {
     throw new StudentRequestError('The link is missing its target.')
   }
