@@ -110,7 +110,7 @@ function save() {
 </script>
 
 <template>
-  <section class="flex h-full min-h-0 flex-col overflow-y-auto bg-paper p-3" aria-label="Notes">
+  <section class="flex min-h-0 flex-col overflow-y-auto bg-paper p-3" aria-label="Notes">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-medium text-ink-900">Notes</h2>
       <button

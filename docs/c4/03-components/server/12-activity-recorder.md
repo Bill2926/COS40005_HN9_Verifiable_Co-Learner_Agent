@@ -51,7 +51,7 @@ flowchart LR
 | `quiz_answered` | Turn, on the first stored answer to a question | Module, question and whether it was correct. A repeat appends nothing |
 | `message_sent` | Turn, on a student message | Module, and whether the message quoted something. Never the text, the draft or a run |
 | `note_created`, `note_changed`, `note_linked`, `note_unlinked`, `note_deleted` | Student handler | Ids only, never the note text |
-| `mindmap_moved` | Student handler | The kind and id, or `{ imported: true }` for a one-time import |
+| `mindmap_moved` | Student handler | The kind and id, `{ imported: true }` for a one-time import, or `{ reset: true }` when clearing saved positions |
 | `profile_changed` | Student handler | Whether the name or the picture changed, never the picture |
 
 A turn that opens or selects a module appends nothing. The workspace reports `module_opened` once that open has succeeded. A preview request on the student handler writes nothing. A rejected report writes nothing.

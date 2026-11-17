@@ -1,4 +1,4 @@
-// Switching the workspace between Study and Roadmap keeps the same page, so
+// Switching the workspace between Study and Mindmap keeps the same page, so
 // Nuxt's own view transition skips it. This one crossfades that switch without
 // remounting a panel, so drafts, the editor and the conversation survive.
 export default defineNuxtPlugin(() => {

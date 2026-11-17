@@ -58,9 +58,9 @@ flowchart LR
 - `supabase-server.ts` imports `@supabase/ssr` and `h3`.
 - Runtime importers of `student-id.ts`: `routes/turn.post.ts`, `api/admin.post.ts`, `app/middleware/signed-in.ts`, `app/pages/index.vue`, `home.vue`, `sign-in.vue`.
 - `agentNames` is imported at runtime by `app/workspace/addressed-agent` and `app/admin/decisions`; `AddressedAgent`/`RuleCheck` by `verify-shield/decide`, `storage/decision-log`, `storage/conversation-store`, `storage/supabase-decision-log`.
-- Type-only importers of `turn.ts`: `course/course`, `course/course-spec`, `course/materials`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, seven workspace components (`ConversationPanel`, `CourseRoadmap`, `MaterialBlocks`, `PracticePanel`, `QuizPanel`, `RoadmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/roadmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
+- Type-only importers of `turn.ts`: `course/course`, `course/course-spec`, `course/materials`, `agents/contexts`, `turn/handle-turn`, `app/pages/index.vue`, seven workspace components (`ConversationPanel`, `CourseRoadmap`, `MaterialBlocks`, `PracticePanel`, `QuizPanel`, `MindmapCanvas`, `WorkingArea`), `app/python/protocol`, `app/mindmap/arrangement`. The browser files reach it through the Nuxt alias `#shared/turn`, `app/python/protocol` by relative path.
 - Runtime importers of `materials.ts`: `agents/prompts.ts` (`materialsText`) and `MaterialVideo.vue` (`videoEmbed`). `materials.test.ts` tests `videoEmbed` and `diagramTheme`.
-- No test imports `student-id.ts` or `supabase-server.ts`. `roadmap-arrangement.test.ts` imports `turn.ts`.
+- No test imports `student-id.ts` or `supabase-server.ts`. `mindmap-arrangement.test.ts` imports `turn.ts`.
 
 ## Notes
 

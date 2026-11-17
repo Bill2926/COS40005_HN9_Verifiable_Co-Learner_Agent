@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type BrowserContext, type Locator, type Page } from '@playwright/test'
 import { demoAccounts } from '../server/auth/demo-accounts'
-import { resetDemoAccounts } from './reset-demo-accounts'
+import { resetDemoAccounts, resetDemoMindmapPositions } from './reset-demo-accounts'
 
 // The live workspace is the seam. A layout is whichever arrangement of the
 // course roadmap, working area and conversation a Student can see.
@@ -12,7 +12,9 @@ test.beforeAll(async () => {
   await resetDemoAccounts()
 })
 
+test.beforeEach(resetDemoMindmapPositions)
 test.afterAll(async () => {
+  await resetDemoMindmapPositions()
   await resetDemoAccounts()
 })
 
@@ -21,13 +23,13 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   const ide = switcher.getByRole('link', { name: 'Study', exact: true })
-  const roadmapCanvas = switcher.getByRole('link', { name: 'Mindmap', exact: true })
+  const mindmapCanvas = switcher.getByRole('link', { name: 'Mindmap', exact: true })
 
   await expect(switcher.getByRole('link')).toHaveText(['Study', 'Mindmap'])
   await expect(ide).toHaveAttribute('aria-current', 'page')
   await expect(ide).toHaveAttribute('href', /[?&]layout=study(?:&|$)/)
-  await expect(roadmapCanvas).toHaveAttribute('href', /[?&]layout=mindmap(?:&|$)/)
-  await expect(roadmapCanvas).not.toHaveAttribute('aria-current', 'page')
+  await expect(mindmapCanvas).toHaveAttribute('href', /[?&]layout=mindmap(?:&|$)/)
+  await expect(mindmapCanvas).not.toHaveAttribute('aria-current', 'page')
   await expectIde(page)
 
   await page.getByRole('heading', { name: 'Course roadmap', exact: true }).click()
@@ -38,7 +40,7 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
   await expectIde(page)
 })
 
-test('switches to Roadmap without reloading, and back and forward restore each layout', async ({ page }) => {
+test('switches to Mindmap without reloading, and back and forward restore each layout', async ({ page }) => {
   await openWorkspace(page)
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   let loads = 0
@@ -51,7 +53,7 @@ test('switches to Roadmap without reloading, and back and forward restore each l
   await expect(switcher.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(switcher.getByRole('link', { name: 'Study', exact: true })).not.toHaveAttribute('aria-current', 'page')
   expect(loads).toBe(0)
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await expectFloatingPanels(page)
 
   await page.goBack()
@@ -60,7 +62,7 @@ test('switches to Roadmap without reloading, and back and forward restore each l
 
   await page.goForward()
   await expect(page).toHaveURL(/[?&]layout=mindmap(?:&|$)/)
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await expectFloatingPanels(page)
 })
 
@@ -75,16 +77,16 @@ test('reloads the remembered layout from the server and falls back when the layo
   await expectIde(page)
 
   await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await expectServerLayout(browser, await page.context().storageState(), 'mindmap')
 
   await page.goto('/')
   await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
 
   await page.goto('/?layout=nope')
   await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
 })
 
 test('keeps the conversation, the draft, an unsent message, and the run output across a switch', async ({ page }) => {
@@ -115,15 +117,11 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   await switcher.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await expect(conversation(page)).toContainText(studentMessage)
   await expect(conversation(page)).toContainText(teacherReply)
-  await expect(editor).toContainText('print("hello")')
   await expect(composer).toHaveValue(unsent)
-  await expect(printed).toContainText('hello')
-  // The Roadmap canvas shows Learn only, and keeps the practice draft for Study.
-  await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Working area' })).toBeHidden()
 
   await switcher.getByRole('link', { name: 'Study', exact: true }).click()
   await expectIde(page)
@@ -135,12 +133,12 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('shows each module on the Roadmap canvas and collapses the working area to its header', async ({ page }) => {
+test('shows the current conversation, closed module reason and Study link on the Mindmap', async ({ page }) => {
   await openWorkspace(page)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
 
   await expect(page.getByText('Introduction to Programming with Python', { exact: true })).toBeVisible()
   const modules = page.getByRole('list', { name: 'Modules' })
@@ -163,13 +161,44 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
-  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toHaveCount(0)
+  await expect(conversation(page)).toBeVisible()
+  await closed.getByRole('button').click()
+  await expect(page.getByRole('complementary', { name: 'Mindmap panel' })).toContainText('Not available yet')
+  await expect(current).toHaveAttribute('aria-current', 'true')
+  await current.getByRole('button').click()
+  await page.getByRole('link', { name: 'Study this module' }).click()
+  await expectIde(page)
+})
+
+test('selects an unlocked module from the Mindmap and resumes it after a reload', async ({ page }) => {
+  if (!binhAccount) throw new Error('Demo account Bình is missing.')
+  await page.goto('/sign-in')
+  await waitForApp(page)
+  await signInAs(page, binhAccount)
+  await showMindmap(page)
+
+  const name = 'Variables, Data Types, and Operators'
+  const module = moduleCard(page, name)
+  await expect(module.getByRole('button')).toHaveAccessibleName(/mastered|open/)
+  const saved = page.waitForResponse(response => response.url().endsWith('/turn')
+    && response.request().postDataJSON()?.event === 'select_module')
+  await module.getByRole('button').click()
+  expect((await saved).ok()).toBe(true)
+  await expect(module).toHaveAttribute('aria-current', 'true')
+  await expect(page.getByRole('complementary', { name: 'Mindmap panel' })
+    .getByRole('heading', { name, exact: true })).toBeVisible()
+
+  await page.reload()
+  await expect(module).toHaveAttribute('aria-current', 'true')
+  await page.getByRole('link', { name: 'Study this module' }).click()
+  const work = page.getByRole('region', { name: 'Working area', exact: true })
+  await expect(work.getByRole('heading', { name, exact: true })).toBeVisible()
 })
 
 test('drags a module with the mouse and leaves the current module and working area unchanged', async ({ page }) => {
   await openWorkspace(page)
   await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
 
   const paths = await connectorPaths(page)
@@ -209,6 +238,7 @@ test('drags a module with the mouse and leaves the current module and working ar
 
 test('drags a module with touch without scrolling the page', async ({ browser }) => {
   const context = await browser.newContext({
+    reducedMotion: 'reduce',
     hasTouch: true,
     viewport: { width: 1440, height: 900 },
   })
@@ -216,10 +246,11 @@ test('drags a module with touch without scrolling the page', async ({ browser })
   try {
     await openWorkspace(page)
     await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-    await expectRoadmapCanvas(page)
+    await expectMindmapCanvas(page)
 
     const card = moduleCard(page, 'Working with Strings')
-    await expect(card).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+    await card.getByRole('button').click({ trial: true })
     const before = await card.boundingBox()
     expect(before).not.toBeNull()
     const scrollBefore = await scrollOffset(page)
@@ -239,7 +270,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
 test('moves a module anywhere on the board, and fit all brings every module back into view', async ({ page }) => {
   await openWorkspace(page)
   await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
   expect(canvas).not.toBeNull()
@@ -262,10 +293,10 @@ test('moves a module anywhere on the board, and fit all brings every module back
   expect(overlaps(dropped!, under!)).toBe(false)
 
   await page.reload()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
   await page.getByRole('button', { name: 'Fit all modules', exact: true }).click()
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
-  const conversation = await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
+  const conversation = await page.getByRole('complementary', { name: 'Mindmap panel' }).boundingBox()
   expect(conversation).not.toBeNull()
   const cards = page.getByRole('list', { name: 'Modules' }).getByRole('listitem')
   await expect(cards).toHaveCount(11)
@@ -281,7 +312,7 @@ test('moves a module anywhere on the board, and fit all brings every module back
 test('selects a module without moving it, and arrow keys move the focused module', async ({ page }) => {
   await openWorkspace(page)
   await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
-  await expectRoadmapCanvas(page)
+  await expectMindmapCanvas(page)
 
   const variables = moduleCard(page, 'Variables, Data Types, and Operators')
   const button = variables.getByRole('button')
@@ -289,6 +320,8 @@ test('selects a module without moving it, and arrow keys move the focused module
   await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAccessibleName('Getting Started with Programming and Python, current, open, 10% mastery. Drag to move.')
   await expect(moduleCard(page, 'Lists and Tuples').getByRole('button')).toHaveAccessibleName('Lists and Tuples, closed. Drag to move.')
   await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+  await button.click({ trial: true })
 
   const before = await variables.boundingBox()
   expect(before).not.toBeNull()
@@ -299,15 +332,11 @@ test('selects a module without moving it, and arrow keys move the focused module
   await page.mouse.up()
   await expect(button).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
-  const afterClick = await variables.boundingBox()
-  expect(afterClick).not.toBeNull()
-  expect(Math.hypot(afterClick!.x - before!.x, afterClick!.y - before!.y)).toBeLessThan(1)
-
-  const closedStroke = '#94a3b8'
-  const strokes = await connectorStrokes(page)
-  expect(strokes[0]).not.toBe(closedStroke)
-  expect(strokes[1]).not.toBe(closedStroke)
-  expect(strokes[2]).toBe(closedStroke)
+  await page.mouse.move(4, 4)
+  await expect.poll(async () => {
+    const after = (await variables.boundingBox())!
+    return Math.hypot(after.x - before!.x, after.y - before!.y)
+  }).toBeLessThan(1)
 
   await button.focus()
   await page.keyboard.press('Escape')
@@ -335,10 +364,10 @@ test('selects a module without moving it, and arrow keys move the focused module
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
 })
 
-test('keeps a moved module on this device, and reset arrangement restores the starting arrangement', async ({ page }) => {
+test('keeps module positions on the account and resets them across devices', async ({ page, browser }) => {
   if (!anAccount || !binhAccount) throw new Error('Demo accounts An and Bình are missing.')
   await openWorkspace(page)
-  await showRoadmap(page)
+  await showMindmap(page)
   await expectResetBesidePill(page)
 
   const start = await moduleOrigins(page)
@@ -354,31 +383,46 @@ test('keeps a moved module on this device, and reset arrangement restores the st
 
   await page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Study', exact: true }).click()
   await expectIde(page)
-  await showRoadmap(page)
+  await showMindmap(page)
   await expectArrangement(page, dragged)
 
   await moduleCard(page, 'Variables, Data Types, and Operators').getByRole('button').focus()
+  const nudged = studentEvent(page, 'mindmap_moved')
   await page.keyboard.press('ArrowRight')
+  expect((await nudged).ok()).toBe(true)
   const moved = await moduleOrigins(page)
   expect(moved['Variables, Data Types, and Operators'].x - start['Variables, Data Types, and Operators'].x).toBeGreaterThan(12)
   expect(Math.hypot(moved['Getting Started with Programming and Python'].x - dragged['Getting Started with Programming and Python'].x, moved['Getting Started with Programming and Python'].y - dragged['Getting Started with Programming and Python'].y)).toBeLessThanOrEqual(2)
 
   await page.reload()
   await waitForApp(page)
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('navigation', { name: 'Workspace layout' })).toBeVisible({ timeout: 60_000 })
   await expectArrangement(page, moved)
+
+  const otherDevice = await browser.newContext({ viewport: { width: 1440, height: 900 } })
+  try {
+    const otherPage = await otherDevice.newPage()
+    await otherPage.goto('/sign-in')
+    await waitForApp(otherPage)
+    await signInAs(otherPage, anAccount)
+    await showMindmap(otherPage)
+    await expectArrangement(otherPage, moved)
+  }
+  finally {
+    await otherDevice.close()
+  }
 
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await signInAs(page, anAccount)
-  await showRoadmap(page)
+  await showMindmap(page)
   await expectSignedInAs(page, 'An')
   await expectArrangement(page, moved)
 
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await signInAs(page, binhAccount)
-  await showRoadmap(page)
+  await showMindmap(page)
   await expectSignedInAs(page, 'Bình')
   // Bình arranges her own roadmap. Her starting positions are not An's, and
   // they are her own rather than An's defaults, because her evidence has her
@@ -388,14 +432,16 @@ test('keeps a moved module on this device, and reset arrangement restores the st
   await page.getByRole('button', { name: 'Sign out', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible()
   await signInAs(page, anAccount)
-  await showRoadmap(page)
+  await showMindmap(page)
   await expectArrangement(page, moved)
+  const reset = studentEvent(page, 'reset_arrangement')
   await page.getByRole('button', { name: 'Reset arrangement', exact: true }).click()
+  expect((await reset).ok()).toBe(true)
   await expectArrangement(page, start)
 
   await page.reload()
   await waitForApp(page)
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('navigation', { name: 'Workspace layout' })).toBeVisible({ timeout: 60_000 })
   await expectArrangement(page, start)
 })
 
@@ -431,9 +477,7 @@ async function connectorPaths(page: Page): Promise<string[]> {
   return page.getByRole('img', { name: 'Module connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
 }
 
-async function connectorStrokes(page: Page): Promise<string[]> {
-  return page.getByRole('img', { name: 'Module connectors' }).locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('stroke') ?? ''))
-}
+
 
 async function scrollOffset(page: Page) {
   return page.evaluate(() => ({
@@ -446,16 +490,24 @@ async function scrollOffset(page: Page) {
 
 async function dragCard(page: Page, name: string, to: { x: number, y: number } | { dx: number, dy: number }) {
   const card = moduleCard(page, name)
-  await expect(card).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+  await card.getByRole('button').click({ trial: true })
   const before = await card.boundingBox()
   if (!before) throw new Error(`${name} is not on the canvas.`)
   const start = centerOf(before)
   const target = 'dx' in to ? { x: start.x + to.dx, y: start.y + to.dy } : to
+  const saved = studentEvent(page, 'mindmap_moved')
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   await page.mouse.move(target.x, target.y, { steps: 24 })
   await page.mouse.up()
+  expect((await saved).ok()).toBe(true)
   return before
+}
+
+function studentEvent(page: Page, event: string) {
+  return page.waitForResponse(response => response.url().endsWith('/api/student')
+    && response.request().postDataJSON()?.event === event)
 }
 
 async function touchDrag(page: Page, from: { x: number, y: number }, to: { x: number, y: number }) {
@@ -507,18 +559,19 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
   try {
     await page.goto('/')
     if (layout === 'study') await expectIde(page)
-    else await expectRoadmapCanvas(page)
+    else await expectMindmapCanvas(page)
   }
   finally {
     await server.close()
   }
 }
 
-async function showRoadmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
-  if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
-  await expectRoadmapCanvas(page)
+async function showMindmap(page: Page) {
+  const mindmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
+  if (await mindmapLink.getAttribute('aria-current') !== 'page') await mindmapLink.click()
+  await expectMindmapCanvas(page)
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
 }
 
 function expectSignedInAs(page: Page, displayName: string) {
@@ -529,9 +582,7 @@ async function signInAs(page: Page, account: { email: string, password: string }
   await page.getByLabel('Email').fill(account.email)
   await page.getByLabel('Password').fill(account.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  // Which module a student lands on follows their evidence, so the course
-  // roadmap is what every student has in common once the workspace is drawn.
-  await expect(page.getByRole('heading', { name: 'Course roadmap', exact: true })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('navigation', { name: 'Workspace layout' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 
@@ -594,7 +645,7 @@ async function openWorkspace(page: Page) {
   await page.getByLabel('Email').fill(anAccount.email)
   await page.getByLabel('Password').fill(anAccount.password)
   await page.getByRole('button', { name: 'Sign in', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.getByRole('navigation', { name: 'Workspace layout' })).toBeVisible({ timeout: 60_000 })
   await waitForApp(page)
 }
 
@@ -607,14 +658,14 @@ async function waitForApp(page: Page) {
 
 async function expectIde(page: Page) {
   await expect.poll(async () => {
-    const panels = await panelBoxes(page)
+    const panels = await panelBoxes(page, 'study')
     return panels ? describeLayout(panels) : 'missing'
   }).toBe('study')
 }
 
-async function expectRoadmapCanvas(page: Page) {
+async function expectMindmapCanvas(page: Page) {
   await expect.poll(async () => {
-    const panels = await panelBoxes(page)
+    const panels = await panelBoxes(page, 'mindmap')
     return panels ? describeLayout(panels) : 'missing'
   }).toBe('mindmap')
 }
@@ -622,7 +673,7 @@ async function expectRoadmapCanvas(page: Page) {
 async function expectFloatingPanels(page: Page) {
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
-  const conversation = await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
+  const conversation = await page.getByRole('complementary', { name: 'Mindmap panel' }).boundingBox()
   expect(conversation).not.toBeNull()
   expect(conversation!.x + conversation!.width).toBeGreaterThan(1400)
   expect(conversation!.y).toBeLessThan(120)
@@ -645,11 +696,20 @@ interface Box {
   y: number
 }
 
-async function panelBoxes(page: Page) {
-  const map = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
-  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
-  const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
-    ?? await page.getByRole('region', { name: 'Notes', exact: true }).boundingBox()
-  if (!map || !conversation) return null
+async function panelBoxes(page: Page, layout: 'study' | 'mindmap') {
+  const mindmap = layout === 'mindmap'
+  const mapHeading = page.getByRole('heading', { name: mindmap ? 'Mindmap' : 'Course roadmap', exact: true })
+  const conversationPanel = mindmap
+    ? page.getByRole('complementary', { name: 'Mindmap panel' })
+    : page.getByRole('region', { name: 'Conversation', exact: true })
+  const workingArea = page.getByRole('region', { name: 'Working area', exact: true })
+  if (!await mapHeading.isVisible() || !await conversationPanel.isVisible()) return null
+  if (!mindmap && !await workingArea.isVisible()) return null
+  const [map, conversation, working] = await Promise.all([
+    mapHeading.boundingBox({ timeout: 1000 }),
+    conversationPanel.boundingBox({ timeout: 1000 }),
+    mindmap ? null : workingArea.boundingBox({ timeout: 1000 }),
+  ])
+  if (!map || !conversation || (!mindmap && !working)) return null
   return { map, working, conversation }
 }

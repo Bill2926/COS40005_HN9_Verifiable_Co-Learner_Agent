@@ -38,7 +38,8 @@ export interface MindmapStore {
   insertLink: (studentId: string, courseId: string, link: MindmapLink) => Promise<boolean>
   deleteLink: (studentId: string, courseId: string, linkId: string) => Promise<boolean>
   upsertPosition: (studentId: string, courseId: string, position: MindmapPosition) => Promise<void>
-  replacePositions: (studentId: string, courseId: string, positions: MindmapPosition[]) => Promise<void>
+  importPositions: (studentId: string, courseId: string, positions: MindmapPosition[]) => Promise<boolean>
+  resetPositions: (studentId: string, courseId: string) => Promise<boolean>
 }
 
 function sameTarget(left: MindmapLinkTarget, right: MindmapLinkTarget): boolean {
@@ -49,6 +50,7 @@ function sameTarget(left: MindmapLinkTarget, right: MindmapLinkTarget): boolean 
 
 export function createMemoryMindmapStore(): MindmapStore {
   const stored = new Map<string, MindmapRecord>()
+  const resetArrangements = new Set<string>()
   const key = (studentId: string, courseId: string) => `${studentId}\0${courseId}`
   function load(studentId: string, courseId: string): MindmapRecord {
     const id = key(studentId, courseId)
@@ -109,8 +111,18 @@ export function createMemoryMindmapStore(): MindmapStore {
         record.positions.push({ ...position })
       }
     },
-    async replacePositions(studentId, courseId, positions) {
-      load(studentId, courseId).positions = positions.map(position => ({ ...position }))
+    async importPositions(studentId, courseId, positions) {
+      const record = load(studentId, courseId)
+      if (resetArrangements.has(key(studentId, courseId)) || record.positions.length || !positions.length) return false
+      record.positions = positions.map(position => ({ ...position }))
+      return true
+    },
+    async resetPositions(studentId, courseId) {
+      const record = load(studentId, courseId)
+      resetArrangements.add(key(studentId, courseId))
+      const hadPositions = record.positions.length > 0
+      record.positions = []
+      return hadPositions
     },
   }
 }

@@ -1,3 +1,4 @@
+import { canonicalModuleId } from '../course'
 import type { ActivityEventType, ActivityRecorder } from '../activity-recorder'
 import type { MindmapRecord, MindmapStore } from '../storage/mindmap-store'
 import type { ProfileStore } from '../storage/profile-store'
@@ -108,6 +109,11 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
   }
   if (event === 'import_arrangement') {
     await importArrangement(request, studentId, body)
+    return present(request, studentId)
+  }
+  if (event === 'reset_arrangement') {
+    const changed = await request.mindmap.resetPositions(studentId, request.courseId)
+    if (changed) await recordActivity(request, studentId, 'mindmap_moved', { reset: true }, request.courseId)
     return present(request, studentId)
   }
   if (event === 'note_created') {
@@ -226,21 +232,23 @@ async function moveMindmap(request: StudentHandlerRequest, studentId: string, bo
 }
 
 async function importArrangement(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
-  const record = await request.mindmap.read(studentId, request.courseId)
-  if (record.positions.length > 0) return
   if (!('positions' in body) || !Array.isArray(body.positions)) {
     throw new StudentRequestError('The arrangement is missing.')
   }
-  const positions = body.positions.map((position) => {
+  const positions = new Map<string, ReturnType<typeof coordinates>>()
+  for (const position of body.positions) {
     if (typeof position !== 'object' || position === null) throw new StudentRequestError('The arrangement is missing a module.')
-    const moduleId = field(position, 'moduleId')
-    if (!moduleId || !request.moduleIds.includes(moduleId)) {
-      throw new StudentRequestError('That module is not on this course.')
+    const rawId = field(position, 'moduleId')
+    if (!rawId) throw new StudentRequestError('The arrangement is missing a module.')
+    const moduleId = canonicalModuleId(rawId)
+    if (request.moduleIds.includes(moduleId) && (rawId === moduleId || !positions.has(moduleId))) {
+      positions.set(moduleId, coordinates(position))
     }
-    return { moduleId, ...coordinates(position) }
-  })
-  await request.mindmap.replacePositions(studentId, request.courseId, positions)
-  await recordActivity(request, studentId, 'mindmap_moved', { imported: true }, request.courseId)
+  }
+  const imported = await request.mindmap.importPositions(studentId, request.courseId,
+    [...positions].map(([moduleId, point]) => ({ moduleId, ...point })),
+  )
+  if (imported) await recordActivity(request, studentId, 'mindmap_moved', { imported: true }, request.courseId)
 }
 
 async function createNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {

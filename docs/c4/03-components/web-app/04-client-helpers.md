@@ -17,7 +17,7 @@ flowchart LR
   index["<b>pages/index.vue</b>"]:::near
   signin["<b>pages/sign-in.vue</b>"]:::near
   practice["<b>PracticePanel.vue</b>"]:::near
-  canvas["<b>RoadmapCanvas.vue</b>"]:::near
+  canvas["<b>MindmapCanvas.vue</b>"]:::near
   chatmd["<b>ChatMarkdown.vue</b>"]:::near
   mwlayout["<b>middleware/workspace-layout.ts</b>"]:::near
   turnTypes["<b>shared/turn.ts</b>"]:::near
@@ -27,8 +27,8 @@ flowchart LR
   subgraph helpers["client helpers"]
     direction TB
     drafts["<b>drafts/store.ts</b><br/>createDraftStore, draftAfterSwitch"]:::comp
-    arr["<b>roadmap/arrangement.ts</b><br/>Arrangement store and canvas maths"]:::comp
-    layout["<b>workspace/layout.ts</b><br/>Study and Roadmap layout ids"]:::comp
+    arr["<b>mindmap/arrangement.ts</b><br/>Legacy import and canvas maths"]:::comp
+    layout["<b>workspace/layout.ts</b><br/>Study and Mindmap layout ids"]:::comp
     md["<b>workspace/chat-markdown.ts</b><br/>parseChatMarkdown"]:::comp
     intro["<b>sign-in/intro.ts</b><br/>claimIntro, introStart"]:::comp
     record["<b>activity/record.ts</b><br/>recordStudentActivity"]:::comp
@@ -57,18 +57,18 @@ flowchart LR
 | File | Responsibility | Where state lives |
 |---|---|---|
 | `drafts/store.ts` | Per-student, per-exercise draft code; `draftAfterSwitch` saves the draft being left and returns the one entered (or the starter code). | The storage object passed in; `PracticePanel` passes `localStorage`. |
-| `roadmap/arrangement.ts` | Where each module card sits on the canvas, zoom and pan maths, connectors, collision avoidance, and `createArrangementStore`. | The storage object passed in; `RoadmapCanvas` passes `localStorage`. Keyed by student and size class. |
-| `workspace/layout.ts` | The two layouts (`study`, `roadmap`), the cookie name and options, and `resolveWorkspaceLayout` (query first, then cookie, then `study`). The old values `map` and `ide` still open the roadmap and Study. | Cookie `workspace-layout`, set by `pages/index.vue`. |
+| `mindmap/arrangement.ts` | Where each module card sits on the canvas, zoom and pan maths, connectors, collision avoidance, and `readLegacyArrangement`. | Reads the legacy keys by student and size class from `localStorage` for one-time import. The account arrangement lives on the server. |
+| `workspace/layout.ts` | The two layouts (`study`, `mindmap`), the cookie name and options, and `resolveWorkspaceLayout` (query first, then cookie, then `study`). Old values `map` and `roadmap` open Mindmap. `ide` opens Study. | Cookie `workspace-layout`, set by `pages/index.vue`. |
 | `workspace/chat-markdown.ts` | Parses the Markdown subset into a node tree (paragraphs, inline code, bold, italic, lists, fenced code); never produces HTML; tolerant of half-streamed text. A heading in a reply stays bold text. Materials pass `{ headings: true }`, and that tree has a heading node. | None. |
 | `sign-in/intro.ts` | Decides whether the sign-in intro plays (once per device, never with reduced motion) and computes the starting transform; exports an inline head script. | `localStorage` key `colearner-sign-in-intro`. |
 | `activity/record.ts` | Posts one client report to `POST /api/student`: `signed_in`, `module_opened`, `mode_switched`, `layout_switched`, or `code_run`. A failure does not undo the action. The run report is the exercise id only. | None. The server keeps the activity log, and no page lists it. |
 
 ## Verified imports
 
-- Imports from this repo: only `roadmap/arrangement.ts` (type `RoadmapModule` from `shared/turn`). The other files import nothing from this repo. `activity/record.ts` calls `$fetch`, which Nuxt provides.
-- Importers: `drafts/store` by `pages/index.vue`, `PracticePanel.vue`, `draft-store.test.ts`; `roadmap/arrangement` by `RoadmapCanvas.vue`, `roadmap-arrangement.test.ts`; `workspace/layout` by `pages/index.vue`, `middleware/workspace-layout.ts`; `workspace/chat-markdown` by `ChatMarkdown.vue` and `ChatInline.vue` (type), `chat-markdown.test.ts`; `sign-in/intro` by `pages/sign-in.vue`, `sign-in-intro.test.ts`; `activity/record` by `pages/index.vue` and `pages/sign-in.vue`.
+- Imports from this repo: only `mindmap/arrangement.ts` (type `RoadmapModule` from `shared/turn`). The other files import nothing from this repo. `activity/record.ts` calls `$fetch`, which Nuxt provides.
+- Importers: `drafts/store` by `pages/index.vue`, `PracticePanel.vue`, `draft-store.test.ts`; `mindmap/arrangement` by `MindmapCanvas.vue`, `mindmap-arrangement.test.ts`; `workspace/layout` by `pages/index.vue`, `middleware/workspace-layout.ts`; `workspace/chat-markdown` by `ChatMarkdown.vue` and `ChatInline.vue` (type), `chat-markdown.test.ts`; `sign-in/intro` by `pages/sign-in.vue`, `sign-in-intro.test.ts`; `activity/record` by `pages/index.vue` and `pages/sign-in.vue`.
 - Each file here has a unit test under `web/tests/` except `workspace/layout.ts` and `activity/record.ts`. What the server stores for a report is covered by `student-handler.test.ts`.
 
 ## Notes
 
-- These match the glossary: the draft and the roadmap arrangement are kept on the student's device only and are neither evidence nor part of the resume point; the layout is a per-device cookie.
+- The draft stays on the student's device. The mindmap arrangement is saved per student and course. The layout is a per-device cookie.

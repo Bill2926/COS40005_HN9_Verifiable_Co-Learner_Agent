@@ -9,3 +9,5 @@ The handler receives one [activity recorder](12-activity-recorder.md), the same 
 Profile pictures and note images go in the private `student-files` bucket, one folder per student. The browser receives a signed URL. The student number is read with the profile and cannot be changed on this handler.
 
 Notes, links and module positions are stored per student and course. A note, a link or a module position is written on its own, so saving one does not rewrite the others. Linking a note to the same module again changes nothing. Row-level security lets a student read only their own rows. Agents are not given the notes.
+
+The workspace reads positions on open. A legacy device arrangement can be imported before the student has saved an account position or reset this course’s arrangement. Reset clears the saved positions and records the reset for the account in the same transaction. An import or reset that changes positions records `mindmap_moved`.
