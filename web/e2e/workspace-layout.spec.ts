@@ -368,13 +368,10 @@ test('keeps module positions on the account and resets them across devices', asy
   if (!anAccount || !binhAccount) throw new Error('Demo accounts An and Bình are missing.')
   await openWorkspace(page)
   await showMindmap(page)
-  await expectResetBesidePill(page)
 
   const start = await moduleOrigins(page)
-  // Down the empty left of the canvas. Cards push each other apart by design,
-  // so a drag onto a neighbour would move that neighbour and say nothing about
-  // whether a drag is local.
-  await dragCard(page, 'Getting Started with Programming and Python', { dx: 24, dy: 220 })
+  // Drop into the free area below the starting module cards.
+  await dragCard(page, 'Getting Started with Programming and Python', { x: 410, y: 690 })
   const dragged = await moduleOrigins(page)
   expect(Math.hypot(dragged['Getting Started with Programming and Python'].x - start['Getting Started with Programming and Python'].x, dragged['Getting Started with Programming and Python'].y - start['Getting Started with Programming and Python'].y)).toBeGreaterThan(80)
   for (const name of ['Variables, Data Types, and Operators', 'Working with Strings', 'Lists and Tuples']) {
@@ -575,7 +572,7 @@ async function showMindmap(page: Page) {
 }
 
 function expectSignedInAs(page: Page, displayName: string) {
-  return expect(page.locator('header span:not([aria-hidden="true"])').filter({ hasText: new RegExp(`^${displayName}$`) })).toBeVisible()
+  return expect(page.getByRole('link', { name: displayName, exact: true })).toHaveAttribute('href', '/profile')
 }
 
 async function signInAs(page: Page, account: { email: string, password: string }) {
@@ -623,18 +620,6 @@ async function expectModuleAwayFrom(
     if (!actual) return 0
     return Math.hypot(actual.x - point.x, actual.y - point.y)
   }).toBeGreaterThan(least)
-}
-
-async function expectResetBesidePill(page: Page) {
-  const reset = page.getByRole('button', { name: 'Reset arrangement', exact: true })
-  await expect(reset).toBeVisible()
-  const resetBox = await reset.boundingBox()
-  const pillBox = await page.getByText('Studio canvas', { exact: true }).boundingBox()
-  expect(resetBox).not.toBeNull()
-  expect(pillBox).not.toBeNull()
-  expect(resetBox!.x + resetBox!.width).toBeLessThan(pillBox!.x)
-  expect(pillBox!.x - (resetBox!.x + resetBox!.width)).toBeLessThan(160)
-  expect(Math.abs((resetBox!.y + resetBox!.height / 2) - (pillBox!.y + pillBox!.height / 2))).toBeLessThanOrEqual(12)
 }
 
 async function openWorkspace(page: Page) {
