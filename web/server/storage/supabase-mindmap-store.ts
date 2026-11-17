@@ -11,7 +11,7 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       const [positions, notes, links] = await Promise.all([
         supabase.from('mindmap_positions').select('module_id, x, y')
           .eq('student_id', studentId).eq('course_id', courseId),
-        supabase.from('mindmap_notes').select('id, text, colour, image_path, x, y')
+        supabase.from('mindmap_notes').select('id, text, colour, x, y')
           .eq('student_id', studentId).eq('course_id', courseId).order('id'),
         supabase.from('mindmap_links').select('id, from_note_id, target_kind, target_id')
           .eq('student_id', studentId).eq('course_id', courseId).order('id'),
@@ -25,7 +25,6 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
           id: row.id,
           text: row.text,
           colour: row.colour,
-          imagePath: row.image_path,
           x: row.x,
           y: row.y,
         })),
@@ -48,7 +47,6 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
         course_id: courseId,
         text: note.text,
         colour: note.colour,
-        image_path: note.imagePath,
         x: note.x,
         y: note.y,
       })
@@ -58,7 +56,6 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       const updated = await supabase.from('mindmap_notes').update({
         text: note.text,
         colour: note.colour,
-        image_path: note.imagePath,
         x: note.x,
         y: note.y,
       }).eq('id', note.id).eq('student_id', studentId).eq('course_id', courseId)
@@ -147,7 +144,6 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       course_id: courseId,
       text: note.text,
       colour: note.colour,
-      image_path: note.imagePath,
       x: note.x,
       y: note.y,
     })))

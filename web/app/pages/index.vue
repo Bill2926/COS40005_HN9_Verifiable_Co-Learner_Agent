@@ -96,7 +96,6 @@ interface NoteItem {
   id: string
   text: string
   colour: string
-  imageUrl: string | null
   x: number
   y: number
 }
@@ -119,6 +118,16 @@ const arrangementError = ref('')
 const selectedNoteId = ref('')
 const addingNote = ref(false)
 const noteError = ref('')
+const noteSaved = ref('')
+let noteSavedTimer: ReturnType<typeof setTimeout> | undefined
+
+function showNoteSaved(message: string) {
+  clearTimeout(noteSavedTimer)
+  noteSaved.value = message
+  noteSavedTimer = setTimeout(() => {
+    noteSaved.value = ''
+  }, 4000)
+}
 const noteModules = computed(() => (workspace.value?.courseRoadmap ?? []).map(module => ({
   id: module.id,
   name: module.name,
@@ -129,7 +138,6 @@ function applyMindmap(state: MindmapState) {
     id: note.id,
     text: note.text,
     colour: note.colour,
-    imageUrl: note.imageUrl,
     x: note.x,
     y: note.y,
   }))
@@ -167,7 +175,7 @@ const mindmapPanelChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:sha
 const phonePanels = computed(() => layout.value === 'mindmap'
   ? [
       { id: 'roadmap' as const, name: 'Mindmap' },
-      { id: 'conversation' as const, name: 'Conversation' },
+      { id: 'notes' as const, name: 'Notes' },
     ]
   : [
       { id: 'roadmap' as const, name: 'Roadmap' },
@@ -177,7 +185,8 @@ const phonePanels = computed(() => layout.value === 'mindmap'
 const phonePanel = ref<(typeof phonePanels.value)[number]['id']>('working')
 
 watch(layout, (value) => {
-  if (value === 'mindmap' && phonePanel.value === 'working') phonePanel.value = 'roadmap'
+  if (value === 'mindmap' && (phonePanel.value === 'working' || phonePanel.value === 'conversation')) phonePanel.value = 'roadmap'
+  if (value === 'study' && phonePanel.value === 'notes') phonePanel.value = 'working'
   selectedMindmapModuleId.value = ''
 })
 const conversationUnread = ref(false)
@@ -211,13 +220,13 @@ async function selectMindmapModule(moduleId: string) {
   if (selecting.value || sending.value) return
   selectError.value = ''
   selectedMindmapModuleId.value = moduleId
-  choosePanel('conversation')
+  choosePanel('notes')
   await selectModule(moduleId)
 }
 
 function selectMindmapNote(noteId: string) {
   selectedNoteId.value = noteId
-  choosePanel('conversation')
+  choosePanel('notes')
 }
 
 function studyFrame(panel: 'working' | 'conversation') {
@@ -254,6 +263,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  clearTimeout(noteSavedTimer)
   phoneMedia?.removeEventListener('change', syncPhone)
   document.removeEventListener('selectionchange', onSelectionChange)
 })
@@ -305,7 +315,6 @@ function resetMindmapArrangement() {
 
 async function saveNote(draft: {
   id: string | null, title: string, body: string, colour: string, moduleId: string,
-  image: { contentType: string, base64: string } | null,
 }) {
   if (addingNote.value) return
   if (!draft.title.trim() || !draft.moduleId) {
@@ -314,6 +323,7 @@ async function saveNote(draft: {
   }
   addingNote.value = true
   noteError.value = ''
+  noteSaved.value = ''
   const text = draft.body.trim() ? `${draft.title.trim()}\n${draft.body}` : draft.title.trim()
   try {
     let noteId = draft.id ?? ''
@@ -327,7 +337,6 @@ async function saveNote(draft: {
           colour: draft.colour,
           x: 48,
           y: 48,
-          ...(draft.image ? { image: draft.image } : {}),
         },
       })
       applyMindmap(created)
@@ -341,7 +350,6 @@ async function saveNote(draft: {
           noteId,
           text,
           colour: draft.colour,
-          ...(draft.image ? { image: draft.image } : {}),
         },
       }))
     }
@@ -363,6 +371,7 @@ async function saveNote(draft: {
       }))
     }
     selectedNoteId.value = noteId
+    showNoteSaved('Note saved.')
   }
   catch {
     noteError.value = 'The note could not be saved. Try again.'
@@ -928,13 +937,13 @@ function initialsOf(name: string): string {
         :aria-label="layout === 'mindmap' ? 'Mindmap panel' : undefined"
         :class="layout === 'study' ? studyFrame('conversation') : [
           mindmapPanelChrome,
-          'z-10 min-h-0 min-w-0 flex-col overflow-hidden bg-paper',
+          'z-10 min-h-0 min-w-0 flex-col gap-3 overflow-hidden bg-paper p-4',
           'max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:h-[min(75%,36rem)] max-md:rounded-t-2xl max-md:border max-md:border-ink-200',
           'md:col-span-2 md:row-start-2 lg:absolute lg:top-4 lg:right-4 lg:h-[40rem] lg:max-h-[calc(100%-2rem)] lg:w-[360px]',
-          phonePanel === 'conversation' ? 'flex' : 'max-md:hidden md:flex',
+          phonePanel === 'notes' ? 'flex' : 'max-md:hidden md:flex',
         ]"
       >
-        <div v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 px-3 py-2">
+        <div v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 pb-3">
           <h2 class="text-sm font-medium text-ink-900">
             {{ currentModuleName }}
           </h2>
@@ -954,12 +963,13 @@ function initialsOf(name: string): string {
         </div>
         <MindmapNotes
           v-if="layout === 'mindmap'"
-          class="max-h-[45%] shrink-0 border-b border-ink-200"
+          class="min-h-0 flex-1"
           :notes="notes"
           :links="noteLinks"
           :modules="noteModules"
           :selected-id="selectedNoteId"
           :saving="addingNote"
+          :saved="noteSaved"
           :error="noteError"
           @select="selectedNoteId = $event"
           @save="saveNote"
@@ -968,6 +978,7 @@ function initialsOf(name: string): string {
           @unlink="unlinkNotes"
         />
         <ConversationPanel
+          v-if="layout === 'study'"
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
           :portrait-url="portraitUrl"
@@ -981,7 +992,7 @@ function initialsOf(name: string): string {
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
-          :loading="pendingModuleName.length > 0 || (layout === 'mindmap' && selecting)"
+          :loading="pendingModuleName.length > 0"
           :floating="false"
           @send="sendMessage"
           @open-learn="openInLearn"

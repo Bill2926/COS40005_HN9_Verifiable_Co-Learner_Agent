@@ -133,7 +133,7 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveAttribute('aria-pressed', 'true')
 })
 
-test('shows the current conversation, closed module reason and Study link on the Mindmap', async ({ page }) => {
+test('shows the closed module reason and Study link on the Mindmap', async ({ page }) => {
   await openWorkspace(page)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
 
@@ -161,7 +161,7 @@ test('shows the current conversation, closed module reason and Study link on the
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
-  await expect(conversation(page)).toBeVisible()
+  await expect(conversation(page)).toHaveCount(0)
   await closed.getByRole('button').click()
   await expect(page.getByRole('complementary', { name: 'Mindmap panel' })).toContainText('Not available yet')
   await expect(current).toHaveAttribute('aria-current', 'true')

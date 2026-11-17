@@ -161,9 +161,9 @@ test('pans, pinch-zooms and opens a bottom sheet on a phone', async ({ browser }
     await expect(page.getByRole('button', { name: 'Fit all modules' })).toHaveText('189%')
     await expect(card.getByRole('button')).toHaveAttribute('aria-pressed', 'false')
 
-    await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
+    await page.getByRole('tab', { name: 'Notes', exact: true }).click()
     const panel = page.getByRole('complementary', { name: 'Mindmap panel' })
-    await expect(panel.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
+    await expect(panel.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Mindmap canvas' })).toBeVisible()
     const sheet = (await panel.boundingBox())!
     expect(sheet.y).toBeGreaterThan(canvas.y)
@@ -188,7 +188,7 @@ test('reaches the notes editor on a phone', async ({ page }) => {
     await expectNoDocumentScroll(page)
     await expectModulesFit(page)
 
-    await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
+    await page.getByRole('tab', { name: 'Notes', exact: true }).click()
     await page.getByRole('button', { name: 'New note', exact: true }).click()
     await expectReachable(page, page.getByRole('textbox', { name: 'Title' }))
     await expectReachable(page, page.getByRole('button', { name: 'Save', exact: true }))

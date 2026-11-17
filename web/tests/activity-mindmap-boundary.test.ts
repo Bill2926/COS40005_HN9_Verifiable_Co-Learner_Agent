@@ -18,7 +18,7 @@ function envValue(name: string): string {
 }
 
 describe('activity log and mindmap boundary', () => {
-  it('lets a signed-in student neither read the activity log nor another student\'s positions, notes or images', async () => {
+  it('lets a signed-in student neither read the activity log nor another student\'s positions, notes or files', async () => {
     const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
     const publishableKey = envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
     const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
@@ -42,13 +42,13 @@ describe('activity log and mindmap boundary', () => {
     const mindmap = createSupabaseMindmapStore({ url, secretKey })
     await mindmap.save(binhId!, 'intro_python', {
       positions: [{ moduleId: 'getting_started', x: 1, y: 2 }],
-      notes: [{ id: noteId, text: 'ONLY_BINH_NOTE', colour: 'ink', imagePath: 'notes/secret', x: 3, y: 4 }],
+      notes: [{ id: noteId, text: 'ONLY_BINH_NOTE', colour: 'ink', x: 3, y: 4 }],
       links: [],
     })
     const activity = createSupabaseActivityLog({ url, secretKey })
     await activity.record({ studentId: binhId!, courseId: 'intro_python', type: 'note_created', payload: { noteId } })
 
-    const image = await admin.storage.from('student-files').upload(`${binhId}/notes/secret`, new Uint8Array([1, 2, 3]), {
+    const image = await admin.storage.from('student-files').upload(`${binhId}/portrait-secret`, new Uint8Array([1, 2, 3]), {
       contentType: 'image/png',
       upsert: true,
     })
@@ -87,9 +87,9 @@ describe('activity log and mindmap boundary', () => {
     })
     expect(forged.error?.code).toBe(permissionDenied)
 
-    const download = await anClient.storage.from('student-files').download(`${binhId}/notes/secret`)
+    const download = await anClient.storage.from('student-files').download(`${binhId}/portrait-secret`)
     expect(download.error).not.toBeNull()
-    const uploaded = await anClient.storage.from('student-files').upload(`${binhId}/notes/forged`, new Uint8Array([1]), {
+    const uploaded = await anClient.storage.from('student-files').upload(`${binhId}/portrait-forged`, new Uint8Array([1]), {
       contentType: 'image/png',
       upsert: true,
     })

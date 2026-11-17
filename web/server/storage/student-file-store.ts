@@ -1,4 +1,4 @@
-// Profile pictures and note images. The path is relative to the student, so one
+// Profile pictures. The path is relative to the student, so one
 // student cannot address another's file by passing a different path.
 
 export interface StudentFile {

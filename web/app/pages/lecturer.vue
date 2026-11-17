@@ -309,13 +309,18 @@ function enrolledText(value: string): string {
             download="intro_python.json"
             class="text-sm font-medium text-brand-700 underline underline-offset-4"
           >Export course spec</a>
-          <label class="flex flex-wrap items-center gap-3 text-sm font-medium text-highlighted">
+          <!-- The browser's own file button is drawn in the browser's language, so the
+               input is hidden and this label is the visible English button. -->
+          <label
+            class="inline-flex min-h-11 cursor-pointer items-center rounded-sm bg-accent px-4 text-sm font-medium text-on-accent focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-brand-600"
+            :class="importing || saving !== null ? 'pointer-events-none opacity-60' : ''"
+          >
             {{ importing ? 'Importing…' : 'Import course spec' }}
             <input
               type="file"
               accept=".json,application/json"
               :disabled="importing || saving !== null"
-              class="max-w-full text-sm text-default file:mr-3 file:min-h-11 file:rounded-sm file:border-0 file:bg-accent file:px-4 file:text-on-accent"
+              class="sr-only"
               @change="importSpec"
             >
           </label>

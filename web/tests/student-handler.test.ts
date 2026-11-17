@@ -212,7 +212,7 @@ describe('student handler', () => {
     const { activity, call } = setup()
     const created = await call({ event: 'note_created', text: 'A loop keeps going', colour: 'brand', x: 5, y: 6 })
     const note = created.mindmap.notes[0]
-    expect(note).toMatchObject({ text: 'A loop keeps going', colour: 'brand', x: 5, y: 6, imageUrl: null })
+    expect(note).toMatchObject({ text: 'A loop keeps going', colour: 'brand', x: 5, y: 6 })
     const other = await call({ event: 'note_created', text: 'Indexes start at zero', colour: 'ink', x: 8, y: 1 })
     const second = other.mindmap.notes.find(item => item.text === 'Indexes start at zero')
     await call({ event: 'note_changed', noteId: note!.id, text: 'A loop keeps a running total', colour: 'emerald' })
@@ -258,41 +258,6 @@ describe('student handler', () => {
       statusCode: 400,
       message: /colour/,
     })
-  })
-
-  it('rejects a note image of the wrong type or size', async () => {
-    const { call } = setup()
-    const created = await call({ event: 'note_created', text: 'Sketch', colour: 'sky', x: 0, y: 0 })
-    const noteId = created.mindmap.notes[0]!.id
-    await expect(call({
-      event: 'note_changed',
-      noteId,
-      image: { contentType: 'image/gif', base64: tinyPng },
-    })).rejects.toMatchObject({ statusCode: 400, message: /JPEG, PNG or WebP/ })
-    const bytes = Buffer.alloc(2 * 1024 * 1024 + 1)
-    await expect(call({
-      event: 'note_changed',
-      noteId,
-      image: { contentType: 'image/webp', base64: bytes.toString('base64') },
-    })).rejects.toMatchObject({ statusCode: 400, message: /2 MB/ })
-  })
-
-  it('stores a note image under the student and shows it back on the note', async () => {
-    const { call } = setup()
-    const created = await call({
-      event: 'note_created',
-      text: 'Whiteboard sketch',
-      colour: 'sky',
-      x: 0,
-      y: 0,
-      image: { contentType: 'image/png', base64: tinyPng },
-    })
-    const note = created.mindmap.notes[0]!
-    expect(note.imageUrl).toBe(`memory:${studentId}/notes/${note.id}`)
-    const reopened = await call({ event: 'open' })
-    expect(reopened.mindmap.notes[0]!.imageUrl).toBe(note.imageUrl)
-    const other = await call({ event: 'open' }, { sessionStudentId: otherStudentId, email: 'binh@example.com' })
-    expect(other.mindmap.notes).toEqual([])
   })
 
   it('keeps another student from seeing these notes through this handler', async () => {

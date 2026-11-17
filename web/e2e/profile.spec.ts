@@ -28,12 +28,13 @@ test('opens the profile page by a full load', async ({ page }) => {
   await expect(page.getByLabel('Display name')).toHaveValue('An')
   await expect(page.getByText(/SWB\d{4,}/)).toBeVisible()
   await expect(page.getByText(anAccount.email)).toBeVisible()
-  await expect(page.getByText('Your activity in the app is recorded.')).toBeVisible()
+  await expect(page.getByText('Your activity in the app is recorded.')).toHaveCount(0)
+  await expect(page.getByText('Upload picture', { exact: true })).toBeVisible()
 })
 
 test('refuses a picture of the wrong type or size before uploading it', async ({ page }) => {
   await openProfile(page)
-  const picker = page.getByLabel('Profile picture')
+  const picker = page.getByLabel('Upload picture')
   const picture = page.locator('[data-profile-picture]')
 
   await picker.setInputFiles({ name: 'notes.txt', mimeType: 'text/plain', buffer: Buffer.from('not a picture') })
@@ -55,7 +56,7 @@ test('saves a new name and picture, and the conversation shows the picture', asy
   await page.getByRole('button', { name: 'Save name' }).click()
   await expect(page.getByRole('status')).toHaveText('Saved.')
 
-  await page.getByLabel('Profile picture').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: portraitPng })
+  await page.getByLabel('Upload picture').setInputFiles({ name: 'me.png', mimeType: 'image/png', buffer: portraitPng })
   await expect(page.getByRole('status')).toHaveText('Picture saved.')
   await expect(page.locator('[data-profile-picture]')).toHaveAttribute('src', signedPortrait)
 

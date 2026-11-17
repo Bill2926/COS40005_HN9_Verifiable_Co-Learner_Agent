@@ -101,7 +101,7 @@ async function changeNumber(studentId: string) {
           </p>
           <div v-else class="overflow-hidden rounded-lg border border-default bg-default shadow-xs">
             <table class="w-full border-collapse text-left text-sm text-default">
-              <caption class="px-4 py-3 text-left text-sm font-medium text-highlighted">
+              <caption class="sr-only">
                 Every student
               </caption>
               <thead class="border-y border-default bg-muted text-xs text-muted">

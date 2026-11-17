@@ -130,7 +130,7 @@ _Avoid_: roadmap arrangement, map arrangement, layout, positions
 ### Workspace
 
 **Workspace layout**:
-How the student's screen is arranged. There are two, chosen by the student: the Study layout (the course roadmap as a list beside the working area and conversation) and the Mindmap layout (the mindmap as a canvas beside a panel that puts the chosen note first and the current module's conversation second, with no working area; choosing an unlocked module on the canvas makes it the current module). Switching layouts changes nothing but the arrangement on screen.
+How the student's screen is arranged. There are two, chosen by the student: the Study layout (the course roadmap as a list beside the working area and conversation) and the Mindmap layout (the mindmap as a canvas beside a panel that holds the chosen note and a link to study the current module, with no working area and no conversation; choosing an unlocked module on the canvas makes it the current module). Switching layouts changes nothing but the arrangement on screen.
 _Avoid_: screen, view, variant, Map canvas, Roadmap layout
 
 **Conversation**:

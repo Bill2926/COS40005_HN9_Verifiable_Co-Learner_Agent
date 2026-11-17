@@ -52,12 +52,12 @@ test('gives each single staff role no switch to the other', async ({ page }) => 
 test('switches a person with both staff roles from the admin pages to the lecturer page', async ({ page }) => {
   await signIn(page, productOwnerAccount)
   await expect(page).toHaveURL(/\/admin$/)
-  // The demo owner is not a lecturer. Answer the header's role check as a
-  // lecturer, which is what the server does for a person who does both jobs.
-  await page.route('**/api/lecturer', route => route.fulfill({
+  // The demo owner is not a lecturer. Answer the header's role check as both
+  // roles, which is what the server does for a person who does both jobs.
+  await page.route('**/api/staff-role', route => route.fulfill({
     status: 200,
     contentType: 'application/json',
-    body: JSON.stringify({ courses: [] }),
+    body: JSON.stringify({ productOwner: true, lecturer: true }),
   }))
   await page.reload()
   const switchLink = page.getByRole('link', { name: 'Lecturer page' })
@@ -70,14 +70,12 @@ test('switches a person with both staff roles from the lecturer page to the admi
   await signIn(page, lecturerAccount)
   await expect(page).toHaveURL(/\/lecturer$/)
   // The demo lecturer is not the product owner. Answer the page's role check
-  // as one, which is what the server does for a person who does both jobs.
-  await page.route('**/api/admin', (route) => {
-    const body = route.request().postDataJSON() as { event?: string } | null
-    if (route.request().method() === 'POST' && body?.event === 'role') {
-      return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ productOwner: true }) })
-    }
-    return route.continue()
-  })
+  // as both roles, which is what the server does for a person who does both jobs.
+  await page.route('**/api/staff-role', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    body: JSON.stringify({ productOwner: true, lecturer: true }),
+  }))
   await page.reload()
   const switchLink = page.getByRole('link', { name: 'Admin page' })
   await expect(switchLink).toBeVisible()

@@ -11,11 +11,13 @@ let measureObserver: ResizeObserver | null = null
 let alive = true
 
 onMounted(async () => {
-  const [{ EditorView, basicSetup }, { python }, { EditorState }, { indentUnit }, { pythonHighlighting, pythonHighlightColours }] = await Promise.all([
+  const [{ EditorView, basicSetup }, { python }, { EditorState, Prec }, { indentUnit }, { keymap }, { acceptCompletion }, { pythonHighlighting, pythonHighlightColours }] = await Promise.all([
     import('codemirror'),
     import('@codemirror/lang-python'),
     import('@codemirror/state'),
     import('@codemirror/language'),
+    import('@codemirror/view'),
+    import('@codemirror/autocomplete'),
     import('~/python/highlight'),
   ])
   const parent = host.value
@@ -26,6 +28,9 @@ onMounted(async () => {
     state: EditorState.create({
       doc: code.value,
       extensions: [
+        // Tab takes the highlighted suggestion. With no suggestion open it does
+        // nothing here, so Tab still moves focus on and keyboard users are not trapped.
+        Prec.highest(keymap.of([{ key: 'Tab', run: acceptCompletion }])),
         basicSetup,
         python(),
         pythonHighlighting,

@@ -8,7 +8,6 @@ export interface MindmapNote {
   id: string
   text: string
   colour: string
-  imagePath: string | null
   x: number
   y: number
 }
