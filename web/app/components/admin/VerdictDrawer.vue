@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { drawerChecks, type DecisionView } from '~/admin/decisions'
+import { addressedText, drawerChecks, type DecisionView } from '~/admin/decisions'
 
 // How the VerifyShield reached one verdict. It reads only the decision already
 // loaded in the table, so opening it makes no request. A native modal dialog
@@ -137,7 +137,12 @@ function moveText(move: string | null, scope: string | null): string {
           <dd class="[overflow-wrap:anywhere]">
             {{ moveText(decision.ruledMove, decision.ruledScope) }}
           </dd>
-          <!-- The addressed agent of the turn goes here (ticket #173). -->
+          <dt class="text-muted">
+            Addressed
+          </dt>
+          <dd data-addressed-agent>
+            {{ addressedText(decision.addressedAgent) }}
+          </dd>
         </dl>
       </section>
 

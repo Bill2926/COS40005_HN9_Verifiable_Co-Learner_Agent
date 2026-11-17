@@ -86,6 +86,8 @@ export interface ConversationMessage {
   // ISO time the message was written; absent for messages stored before
   // times were recorded.
   createdAt?: string
+  // The agent a student message was addressed to; absent when none was.
+  addressedAgent?: 'teacher' | 'deskmate'
 }
 
 export interface RunOutput {
@@ -140,4 +142,8 @@ export interface RedrawState {
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
   trace?: TurnTrace
+  // Whether the student's deskmate switch is on: Mai takes part in their turns.
+  deskmateOn: boolean
+  // A short note about the turn, e.g. that a message to Mai went to the Teacher.
+  notice?: string
 }

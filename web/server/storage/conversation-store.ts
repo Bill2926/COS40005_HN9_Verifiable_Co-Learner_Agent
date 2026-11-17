@@ -1,5 +1,8 @@
 export type MessageAuthor = 'student' | 'teacher' | 'deskmate' | 'event'
 
+// The agent a student message was addressed to with an `@` tag.
+export type AddressedAgent = 'teacher' | 'deskmate'
+
 export interface StoredMessage {
   id: string
   sequence: number
@@ -10,6 +13,8 @@ export interface StoredMessage {
   // When the message was written, as an ISO time. Messages written before
   // times were recorded have none.
   createdAt: string | null
+  // Only a student message can be addressed; every other message holds null.
+  addressedAgent: AddressedAgent | null
 }
 
 export interface ResumePoint {
@@ -22,6 +27,7 @@ export interface NewMessage {
   approvedMove: string | null
   text: string
   exerciseId: string
+  addressedAgent?: AddressedAgent | null
 }
 
 export interface ConversationStore {
@@ -68,6 +74,7 @@ export function createMemoryConversationStore(
         text: message.text,
         exerciseId: message.exerciseId,
         createdAt: new Date().toISOString(),
+        addressedAgent: message.addressedAgent ?? null,
       }
       stored.push(appended)
       conversations.set(key(studentId, moduleId), stored)

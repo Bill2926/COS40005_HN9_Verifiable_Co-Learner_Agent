@@ -25,6 +25,8 @@ export interface DecisionView {
   masteryThreshold: number
   // Absent on a decision recorded before rule checks were kept.
   ruleChecks?: readonly RuleCheckView[]
+  // The agent the student addressed in the turn; null when none was.
+  addressedAgent?: 'teacher' | 'deskmate' | null
 }
 
 export interface ModelSettingsView {
@@ -104,4 +106,12 @@ export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode
       deciding: index === last,
     })),
   }
+}
+
+// The agent the student addressed with an `@` tag, as the drawer words it. A
+// record from before it was kept reads as not recorded.
+export function addressedText(agent: DecisionView['addressedAgent']): string {
+  if (agent === undefined) return 'not recorded'
+  if (agent === null) return 'no one'
+  return agent === 'teacher' ? '@Teacher' : '@Mai'
 }

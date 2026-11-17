@@ -401,6 +401,17 @@ describe('admin handler', () => {
     expect(viewed.decisions.find(decision => decision.turnId === 'off')?.ruleChecks).toEqual([])
   })
 
+  it('reads back the addressed agent of each decision', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'to-mai', agent: 'deskmate', addressedAgent: 'deskmate' }))
+    await decisions.append(loggedDecision({ turnId: 'to-nobody', time: '2026-01-02T00:00:00.000Z', addressedAgent: null }))
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions.find(decision => decision.turnId === 'to-mai')?.addressedAgent).toBe('deskmate')
+    expect(viewed.decisions.find(decision => decision.turnId === 'to-nobody')?.addressedAgent).toBeNull()
+  })
+
   it('filters decisions by verdict and by student', async () => {
     const decisions = createMemoryDecisionLogStore()
     const otherStudent = '6f1b0c1e-2222-4222-8222-222222222222'
@@ -599,6 +610,7 @@ describe('admin handler', () => {
 })
 
 const decisionFields = [
+  'addressedAgent',
   'agent',
   'masteries',
   'masteryThreshold',

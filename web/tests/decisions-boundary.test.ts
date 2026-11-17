@@ -66,6 +66,7 @@ describe('decision log boundary', () => {
         { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
         { ruleId: 'scope_requires_unlocked_module', passed: false, reasonCode: marker },
       ],
+      addressedAgent: 'teacher',
     }
     const olderTurnId = crypto.randomUUID()
     const secret = createClient(url, secretKey, {
@@ -92,6 +93,7 @@ describe('decision log boundary', () => {
         verifyShieldOn: true,
         masteryThreshold: 0.83,
         ruleChecks: record.ruleChecks,
+        addressedAgent: 'teacher',
       })
 
       const { ruleChecks: _omitted, ...older } = record

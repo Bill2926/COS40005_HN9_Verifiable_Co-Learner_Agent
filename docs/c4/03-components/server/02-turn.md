@@ -48,18 +48,19 @@ flowchart LR
 | `select_exercise` | Saves the resume point and appends an `event` message with the exercise title. |
 | `quiz_answer` | Marks the chosen option against the module's quiz on the server. The first answer to a question is written to the `quiz_answers` ledger and an `event` message (`Quiz N: chose B, wrong`) is appended; a later answer to the same question changes neither. The turn recomputes mastery from the merged ledger and returns the updated roadmap. A wrong first answer then starts an agent turn, as a failed submission does; a right answer, and a repeat of an answered question, calls no model. The working area carries each question's result (the correct choice and explanation) only once answered. |
 | `submission` | Appends one evidence row, recomputes mastery, appends an `event` message (`N/M tests passed`), then answers like a message. |
-| `message` | Appends the student message, then Teacher and Deskmate each propose a move in parallel; each proposal goes through `decide`; approved moves are rendered by the model and streamed; every proposal and verdict is written to the decision log. |
+| `message` | Appends the student message (with its optional `addressedAgent`, `teacher` or `deskmate`, stored apart from the text), then the agents taking part each propose a move in parallel; each proposal goes through `decide`, so redirects and the role table still apply; approved moves are rendered by the model and streamed; every proposal and verdict is written to the decision log with the turn's `addressedAgent` (null when none). Unaddressed: Teacher, then Mai. Addressed to `teacher` or `deskmate`: only that agent is called. |
+| `deskmate_switch` | `{on: boolean}`. Saves the session student's own deskmate switch (`options.deskmateSettings`; a student id in the body is ignored) and returns the state. While the switch is off Mai is never called, so no deskmate proposal or decision is recorded, on any turn; a message addressed to `deskmate` is handled as unaddressed (Teacher only), its decisions record a null addressed agent, and the state carries `notice: 'Mai is switched off.'`. Every returned state carries `deskmateOn` (on by default). |
 
 ## Verified imports
 
 - Runtime: `course` (`defaultCourseId`, `studyModule`, `canonicalModuleId`, roadmap helpers), `storage` (`createMemoryCourseStore`, the default when `options.courses` is not passed). The course is read once a turn from `options.courses` (`options.courseId`, else `defaultCourseId`), in parallel with the ledger and the resume point, and travels on the `Placement` (course, module, exercise), so every helper, the student model and `decide` read the same course; `agents` (`moveKey`, `roleTable`), `student-model` (`estimateCourse`, `standingFor`, `furthestUnlockedModuleId`, and `createMemoryEvidenceStore`, used when no store is passed), `verify-shield` (`decide`).
-- Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`, `storage/quiz-answer-store` (`QuizAnswerStore`, `QuizAnswerRow`; its in-memory version is used at runtime when no store is passed).
+- Type only: `shared/turn`, `agents` (`Agents`, `Move`, contexts), `verify-shield` (`Proposal`, `TurnSnapshot`, `Verdict`), `student-model` (`CourseEstimate`, `CourseStanding`, `EvidenceStore`), `storage/conversation-store`, `storage/decision-log`, `storage/deskmate-setting-store`, `storage/quiz-answer-store` (`QuizAnswerStore`, `QuizAnswerRow`; its in-memory version is used at runtime when no store is passed).
 - It imports no Supabase code. The model, the stores and the options are passed in as arguments (`handleTurn(request, store, agents, options)`), which is why `turn-endpoint.test.ts` can run it with in-memory stores.
 
 ## Importers and tests
 
 - Imported by `routes/turn.post.ts`.
-- Tests: `turn-endpoint.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts`, `admin-handler.test.ts` — all call `handleTurn` with in-memory stores.
+- Tests: `turn-endpoint.test.ts`, `deskmate-switch.test.ts` (the switch and the addressed agent), `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts`, `admin-handler.test.ts` — all call `handleTurn` with in-memory stores.
 
 ## Notes
 

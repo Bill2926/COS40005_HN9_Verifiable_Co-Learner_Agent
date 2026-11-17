@@ -3,6 +3,7 @@ import { agentsForTurn } from '../agents'
 import { defaultCourseId } from '../course'
 import { createSupabaseCourseStore } from '../storage/supabase-course-store'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
+import { createSupabaseDeskmateSettingStore } from '../storage/supabase-deskmate-setting-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
 import { createSupabaseQuizAnswerStore } from '../storage/supabase-quiz-answer-store'
@@ -50,6 +51,8 @@ export default defineEventHandler(async (event) => {
   const options = {
     verifyShieldOn,
     decisions: createSupabaseDecisionLogStore(studentData),
+    // The deskmate switch is the student's own, the same in every course.
+    deskmateSettings: createSupabaseDeskmateSettingStore(connection),
     evidence: createSupabaseEvidenceStore(studentData),
     quizAnswers: createSupabaseQuizAnswerStore(studentData),
     unlocks: createSupabaseUnlockStore(studentData),
@@ -101,5 +104,5 @@ function isNavigationTurn(input: unknown): boolean {
   return typeof input === 'object'
     && input !== null
     && 'event' in input
-    && (input.event === 'select_module' || input.event === 'select_exercise' || input.event === 'preview_module' || input.event === 'quiz_answer')
+    && (input.event === 'select_module' || input.event === 'select_exercise' || input.event === 'preview_module' || input.event === 'quiz_answer' || input.event === 'deskmate_switch')
 }

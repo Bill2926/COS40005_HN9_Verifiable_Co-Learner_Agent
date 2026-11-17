@@ -42,33 +42,26 @@ const { data, error } = await useFetch<RedrawState>('/turn', {
 
 const workspace = ref<RedrawState | null>(null)
 const latestTrace = ref<TurnTrace | null>(null)
-const verifyShieldOn = ref(true)
-const isProductOwner = ref(false)
-const verifyShieldBusy = ref(false)
-const verifyShieldError = ref('')
+const deskmateBusy = ref(false)
+const deskmateError = ref('')
 
-async function saveVerifyShield(enabled: boolean | null) {
-  verifyShieldBusy.value = true
-  verifyShieldError.value = ''
+// The student's own deskmate switch, saved through the turn endpoint.
+async function saveDeskmate(on: boolean) {
+  if (deskmateBusy.value) return
+  deskmateBusy.value = true
+  deskmateError.value = ''
   try {
-    const payload = await $fetch<{ verifyShieldOn: boolean }>('/api/admin', {
+    const state = await $fetch<RedrawState>('/turn', {
       method: 'POST',
-      body: enabled === null ? {} : { event: 'verifyShield', enabled },
+      body: { event: 'deskmate_switch', on },
     })
-    verifyShieldOn.value = payload.verifyShieldOn
-    isProductOwner.value = true
+    if (workspace.value) workspace.value = { ...workspace.value, deskmateOn: state.deskmateOn }
   }
-  catch (caught) {
-    const status = (caught as { statusCode?: number }).statusCode
-    // Only product owners may change or read the saved setting; others keep the turn-reported state.
-    if (enabled !== null) {
-      verifyShieldError.value = status === 403 || status === 401
-        ? 'Only the product owner can change VerifyShield.'
-        : 'Could not save the VerifyShield setting. Try again.'
-    }
+  catch {
+    deskmateError.value = 'Could not save the deskmate switch. Try again.'
   }
   finally {
-    verifyShieldBusy.value = false
+    deskmateBusy.value = false
   }
 }
 const workingMode = ref<'learn' | 'practice'>('learn')
@@ -166,7 +159,6 @@ function syncPhone() {
 }
 
 onMounted(() => {
-  void saveVerifyShield(null)
   phoneMedia = window.matchMedia('(width < 48rem)')
   syncPhone()
   phoneMedia.addEventListener('change', syncPhone)
@@ -194,10 +186,7 @@ function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
 
 function showWorkspace(state: RedrawState) {
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
-  if (state.trace) {
-    latestTrace.value = state.trace
-    verifyShieldOn.value = state.trace.verifyShieldOn
-  }
+  if (state.trace) latestTrace.value = state.trace
   workspace.value = state
   rememberModule(state)
 }
@@ -411,7 +400,7 @@ function nextPaint(): Promise<void> {
   })
 }
 
-async function sendMessage(text: string) {
+async function sendMessage(text: string, addressedAgent: 'teacher' | 'deskmate' | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
   const storedDraft = studentId.value
@@ -420,6 +409,7 @@ async function sendMessage(text: string) {
   await streamAgentTurn({
     event: 'message',
     text,
+    ...(addressedAgent ? { addressedAgent } : {}),
     draft: liveDraft.value ?? storedDraft,
     run: latestRun.value,
   }, 'That message could not be sent.')
@@ -509,13 +499,6 @@ function initialsOf(name: string): string {
             :aria-current="layout === option.id ? 'page' : undefined"
             @click="navigate"
           >{{ option.name }}</a>
-        </NuxtLink>
-        <NuxtLink
-          v-if="isProductOwner"
-          to="/admin"
-          class="inline-flex min-h-11 min-w-11 items-center justify-center rounded-[4px] px-2.5 py-1 text-xs leading-4 text-ink-500 hover:bg-paper/60 hover:text-ink-800 md:inline md:min-h-0 md:min-w-0"
-        >
-          Dashboard
         </NuxtLink>
       </nav>
       <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
@@ -627,9 +610,10 @@ function initialsOf(name: string): string {
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
           :trace="latestTrace"
-          :verify-shield-on="verifyShieldOn"
-          :verify-shield-busy="verifyShieldBusy"
-          :verify-shield-error="verifyShieldError"
+          :deskmate-on="workspace.deskmateOn"
+          :deskmate-busy="deskmateBusy"
+          :deskmate-error="deskmateError"
+          :notice="workspace.notice"
           :sending="sending"
           :send-error="sendError"
           :streaming-teacher="streamingTeacher"
@@ -639,7 +623,7 @@ function initialsOf(name: string): string {
           @send="sendMessage"
           @close="conversationClosed = true"
           @open-learn="openInLearn"
-          @toggle-verify-shield="saveVerifyShield"
+          @toggle-deskmate="saveDeskmate"
         />
       </div>
     </div>

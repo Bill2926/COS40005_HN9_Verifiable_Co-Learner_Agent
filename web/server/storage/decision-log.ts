@@ -28,6 +28,9 @@ export interface DecisionRecord {
   // The ordered rule checks behind the verdict, ending with the deciding one.
   // Empty when the VerifyShield was off; absent on a record from before they were recorded.
   ruleChecks?: readonly DecisionRuleCheck[]
+  // The agent the student addressed in this turn, null when none was (or Mai was
+  // addressed while switched off). Absent on a record from before it was recorded.
+  addressedAgent?: 'teacher' | 'deskmate' | null
 }
 
 export interface DecisionQuery {

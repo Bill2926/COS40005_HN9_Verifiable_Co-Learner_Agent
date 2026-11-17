@@ -52,7 +52,7 @@ test('keeps the desktop IDE unchanged at 1440 × 900', async ({ page }) => {
   await expect(composer).toHaveCSS('font-size', '12px')
   await expect(composer).toHaveCSS('height', '34px')
 
-  const traceSwitch = await page.getByRole('switch', { name: 'VerifyShield' }).boundingBox()
+  const traceSwitch = await page.getByRole('switch', { name: 'Deskmate' }).boundingBox()
   expect(traceSwitch).not.toBeNull()
   expect(traceSwitch!.height).toBeCloseTo(16, 0)
   expect(traceSwitch!.width).toBeCloseTo(28, 0)
@@ -135,7 +135,7 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     await expectReachable(page, send)
     expect(await fontSize(composer)).toBeGreaterThanOrEqual(16)
     await expectTapTarget(send)
-    await expectTapTarget(page.getByRole('switch', { name: 'VerifyShield' }))
+    await expectTapTarget(page.getByRole('switch', { name: 'Deskmate' }))
     await expectNoDocumentScroll(page)
 
     await composer.fill('still typing')

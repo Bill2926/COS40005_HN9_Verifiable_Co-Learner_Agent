@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { drawerChecks, reasonText } from '../app/admin/decisions'
+import { addressedText, drawerChecks, reasonText } from '../app/admin/decisions'
 
 const base = {
   ruleId: 'scope_requires_unlocked_module',
@@ -43,5 +43,14 @@ describe('verdict drawer checks', () => {
 
   it('falls back to the reason code for a code it does not know', () => {
     expect(reasonText('SOMETHING_NEW')).toBe('SOMETHING_NEW')
+  })
+})
+
+describe('verdict drawer addressed agent', () => {
+  it('names the addressed agent, no one, or a record from before it was kept', () => {
+    expect(addressedText('teacher')).toBe('@Teacher')
+    expect(addressedText('deskmate')).toBe('@Mai')
+    expect(addressedText(null)).toBe('no one')
+    expect(addressedText(undefined)).toBe('not recorded')
   })
 })
