@@ -162,7 +162,8 @@ function timeText(value: string): string {
               size="lg"
               :loading="filtering"
               :disabled="filtering"
-              class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover md:min-h-0"
+              :aria-busy="filtering"
+              class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover disabled:bg-accent md:min-h-0"
             >
               Filter
             </UButton>

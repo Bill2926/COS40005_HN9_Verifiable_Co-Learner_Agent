@@ -920,6 +920,7 @@ function presentMessage(message: StoredMessage, displayName: string): Conversati
     approvedMove: message.approvedMove,
     openInLearn: message.author === 'teacher'
       && (message.approvedMove === 'explain_concept' || message.approvedMove === 'answer_question'),
+    ...(message.createdAt ? { createdAt: message.createdAt } : {}),
   }
 }
 

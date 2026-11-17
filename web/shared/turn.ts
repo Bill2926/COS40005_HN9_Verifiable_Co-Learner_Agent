@@ -83,6 +83,9 @@ export interface ConversationMessage {
   exerciseId: string
   approvedMove: string | null
   openInLearn: boolean
+  // ISO time the message was written; absent for messages stored before
+  // times were recorded.
+  createdAt?: string
 }
 
 export interface RunOutput {

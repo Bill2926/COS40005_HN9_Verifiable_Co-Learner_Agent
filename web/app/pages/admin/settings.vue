@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
+import BusySpinner from '~/components/BusySpinner.vue'
 import type { AdminPayload } from '~/admin/decisions'
 
 definePageMeta({
@@ -126,9 +127,14 @@ function messageFrom(caught: unknown): string {
               name="verifyShield"
               :checked="verifyShieldOn"
               :disabled="switching"
+              :aria-busy="switching"
               @change="onVerifyShield"
             >
             VerifyShield is {{ verifyShieldOn ? 'on' : 'off' }}
+            <BusySpinner
+              v-if="switching"
+              class="text-brand-600"
+            />
           </label>
           <p class="text-xs leading-4 text-muted">
             {{ verifyShieldOn
@@ -254,6 +260,8 @@ function messageFrom(caught: unknown): string {
           block
           size="lg"
           :loading="saving"
+          :disabled="saving"
+          :aria-busy="saving"
           class="min-h-11 rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover active:bg-accent-hover disabled:bg-accent md:min-h-0"
         >
           Save

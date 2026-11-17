@@ -162,6 +162,9 @@ describe('supabase conversation store', () => {
           exerciseId: 'count_the_even_numbers',
         },
       ])
+      for (const message of await store.messages(studentId, 'for_loop')) {
+        expect(Number.isNaN(Date.parse(message.createdAt ?? ''))).toBe(false)
+      }
       expect(await store.messages(studentId, 'variable')).toEqual([])
     }
     finally {

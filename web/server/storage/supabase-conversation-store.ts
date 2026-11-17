@@ -90,7 +90,7 @@ export function createSupabaseConversationStore(options: {
 
       const result = await supabase
         .from('messages')
-        .select('id, sequence, author, approved_move, text, exercise_id')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at')
         .eq('conversation_id', conversation.data.id)
         .order('sequence', { ascending: true })
       if (result.error) throw new Error(result.error.message)
@@ -107,7 +107,7 @@ export function createSupabaseConversationStore(options: {
           text: message.text,
           exercise_id: message.exerciseId,
         })
-        .select('id, sequence, author, approved_move, text, exercise_id')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at')
         .single()
       if (result.error) throw new Error(result.error.message)
       return presentRow(result.data)
@@ -122,6 +122,7 @@ function presentRow(row: {
   approved_move: string | null
   text: string
   exercise_id: string
+  created_at: string | null
 }): StoredMessage {
   return {
     id: row.id,
@@ -130,6 +131,7 @@ function presentRow(row: {
     approvedMove: row.approved_move,
     text: row.text,
     exerciseId: row.exercise_id,
+    createdAt: row.created_at === null ? null : new Date(row.created_at).toISOString(),
   }
 }
 
