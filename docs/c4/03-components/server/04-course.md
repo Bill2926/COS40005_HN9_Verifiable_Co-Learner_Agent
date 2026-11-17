@@ -17,6 +17,7 @@ flowchart LR
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
   handleTurn["<b>turn/handle-turn.ts</b>"]:::near
+  lecturer["<b>lecturer/handle-lecturer.ts</b>"]:::near
   outline["<b>routes/course-outline.get.ts</b>"]:::near
   studentModel["<b>student-model/index.ts</b>"]:::near
   shield["<b>verify-shield/index.ts</b>"]:::near
@@ -25,6 +26,8 @@ flowchart LR
   subgraph course["course"]
     direction TB
     index["<b>index.ts</b><br/>the interface"]:::comp
+    parser["<b>parse-course-spec.ts</b><br/>parseCourseSpec"]:::comp
+    materialsFile["<b>materials.ts</b><br/>normaliseCourseSpec,<br/>legacy block conversion"]:::comp
     courseFile["<b>course.ts</b><br/>courseFromSpec, pythonCourse,<br/>roadmap, redirect text"]:::comp
     spec["<b>course-spec.ts</b><br/>CourseSpec and content types"]:::comp
     pythonSpec["<b>python-course.ts</b><br/>pythonCourseSpec (11 modules)"]:::comp
@@ -34,14 +37,23 @@ flowchart LR
 
   handleTurn -->|"defaultCourseId, presentedRoadmap,<br/>redirectText, roadmapForStanding,<br/>studyModule, canonicalModuleId"| index
   handleTurn -.->|"types: Exercise, StudyModule"| index
+  lecturer -->|"parseCourseSpec"| index
   outline -->|"defaultCourseId"| index
   index --> courseFile
+  index --> parser
   index --> pythonSpec
   index --> studyModule
+  parser -->|"normaliseCourseSpec"| materialsFile
+  parser -->|"courseFromSpec"| courseFile
+  parser -.->|"type: CourseSpec"| spec
+  courseFile -->|"normaliseCourseSpec"| materialsFile
   courseFile -->|"pythonCourseSpec"| pythonSpec
   pythonSpec -->|"5 module contents"| modules
   pythonSpec -.->|"type: CourseSpec"| spec
+  modules -->|"legacyMaterials"| materialsFile
   modules -.->|"type: ModuleContent"| spec
+  materialsFile -.->|"type: MaterialBlock"| turnTypes
+  materialsFile -.->|"types: CourseSpec, ModuleSpec"| spec
   courseFile -.->|"types: CourseSpec, StudyModule"| spec
   studyModule -.->|"type: ModuleContent"| spec
   courseFile -.->|"type: CourseStanding"| studentModel
@@ -56,12 +68,14 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `course-spec.ts` | The course spec shape: `CourseSpec` (`specVersion` 1, `courseId`, `title`, `masteryThreshold`, `parts`, `modules` in order, `outOfCourseKeywords`), `ModuleSpec` (`id`, `name`, `part`, `summary`, `keywords`, optional `content`), `ModuleContent`, `Exercise`, `QuizQuestion`, `MisconceptionResponse`. Tuple types enforce the counts: a quiz of exactly three questions of four choices, three tests per exercise, at least three exercises, a hint ladder of three rungs. `course-spec.test-d.ts` checks that a spec breaking one does not compile. |
+| `course-spec.ts` | The course spec shape: `CourseSpec` (`specVersion` 2, `courseId`, `title`, `masteryThreshold`, `parts`, `modules` in order, `outOfCourseKeywords`), `ModuleSpec` (`id`, `name`, `part`, `summary`, `keywords`, optional `content`), `ModuleContent`, `Exercise`, `QuizQuestion`, `MisconceptionResponse`. A module's materials are an ordered list of blocks: `text`, `code`, `diagram`, `image`, `video`. Tuple types enforce the counts: a quiz of exactly three questions of four choices, three tests per exercise, at least three exercises, a hint ladder of three rungs. `course-spec.test-d.ts` checks that a spec breaking one does not compile. |
 | `python-course.ts` | `pythonCourseSpec`: Introduction to Programming with Python as one course spec. 11 modules in 5 parts; modules 1 to 5 carry content from `modules/*.ts`, 6 to 11 are listed without content. Mastery threshold 0.9. |
-| `modules/*.ts` | The content of one module each: materials, exercises (3 tests each), three quiz questions drawn from the module materials, hint ladder, and misconception responses. Quiz distractors can reference those responses. Each imports only the `ModuleContent` type. |
+| `materials.ts` | `legacyMaterials` turns the old heading, body, example, key point and scope note into text and code blocks. `normaliseCourseSpec` accepts spec version 1 or 2, converts old materials, and leaves the spec at version 2. `assertMaterialBlocks` rejects a block that is missing a field or has an unknown type, and the message names the module and the block. |
+| `parse-course-spec.ts` | `parseCourseSpec(json)` normalises the spec, checks it with zod (version 2, one of the five block types, the same counts as `course-spec.ts`), then `courseFromSpec`. A stored course in the old materials shape still parses. |
+| `modules/*.ts` | The content of one module each: materials, exercises (3 tests each), three quiz questions drawn from the module materials, hint ladder, and misconception responses. Quiz distractors can reference those responses. Getting Started also has a diagram and a video. Each builds its older lessons with `legacyMaterials` and imports the `ModuleContent` type. |
 | `course.ts` | `Course` and `courseFromSpec(spec)`: numbers modules by their order, derives `available` from whether the spec gives a module content, collects `studyModules`, builds `scope` (the `CourseScope` the VerifyShield reads), and refuses a spec the server could not run: no modules, a first module without content, two modules with one id, a part the spec does not list or modules out of the parts' order, or a mastery threshold outside (0, 1]. `defaultCourseId` (`intro_python`, the course every student studies until enrollment exists). `pythonCourse`, the Python course built from the spec in code: the copy the in-memory course store holds for tests. `CourseModule` also lists each module's `exerciseIds` and `questionIds`, which the student model uses to ignore evidence for removed ones. `studyModule(course, id)`, and the roadmap and redirect functions, which all take the course: `roadmapForStanding`, `presentedRoadmap` (reads the course's mastery threshold), `redirectText`. |
 | `study-module.ts` | `StudyModule` (a module's content plus its id; a module has no name of its own, `CourseModule.name` is the only one) and `canonicalModuleId` (maps the old id `for_loop` to `loops`). |
-| `index.ts` | The interface: `courseFromSpec`, `defaultCourseId`, `pythonCourse`, `pythonCourseSpec`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `canonicalModuleId`, and the types `Course`, `CourseModule`, `CourseSpec`, `ModuleSpec`, `ModuleContent`, `Exercise`, `QuizQuestion`, `StudyModule`. |
+| `index.ts` | The interface: `courseFromSpec`, `parseCourseSpec`, `defaultCourseId`, `pythonCourse`, `pythonCourseSpec`, `presentedRoadmap`, `redirectText`, `roadmapForStanding`, `studyModule`, `canonicalModuleId`, and the types `Course`, `CourseModule`, `CourseSpec`, `ModuleSpec`, `ModuleContent`, `Exercise`, `QuizQuestion`, `StudyModule`. |
 
 The learning parameters of the mastery estimate are not here; they are in [`student-model`](05-student-model.md),
 which takes the mastery threshold from the course. The role table (which agent may propose which move) is in
@@ -69,10 +83,10 @@ which takes the mastery threshold from the course. The role table (which agent m
 
 ## Verified imports
 
-- Runtime: `course.ts` imports `python-course.ts`; `python-course.ts` imports the five `modules/*` files. Nothing outside the folder at runtime.
+- Runtime: `course.ts` imports `python-course.ts` and `materials.ts`; `python-course.ts` imports the five `modules/*` files; those import `materials.ts`; `parse-course-spec.ts` imports `course.ts`, `materials.ts` and `zod`. Nothing outside the folder reaches past `index.ts`.
 - Type only: `shared/turn`, `student-model` (`CourseStanding`), `verify-shield` (`CourseScope`), `course-spec` (from `course.ts`, `study-module.ts`, `python-course.ts` and the module files).
-- Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `routes/turn.post.ts`, `routes/course-outline.get.ts`, `api/admin.post.ts` (`defaultCourseId`), `storage/course-store.ts` and `storage/supabase-course-store.ts`.
-- Tests: `course-spec.test.ts` and `course-spec.test-d.ts` (the spec and the course built from it), `decide.test.ts` (`pythonCourse.scope`), `mastery.test.ts` and `course-roadmap.test.ts` (`pythonCourse`), `python-runner.test.ts` (`studyModule`, `pythonCourse.studyModules`), `study-module-quiz.test.ts` (the quiz content), `turn-endpoint.test.ts`, all through `server/course`.
+- Runtime importers, through `index.ts`: `turn/handle-turn.ts`, `routes/turn.post.ts`, `routes/course-outline.get.ts`, `api/admin.post.ts` (`defaultCourseId`), `lecturer/handle-lecturer.ts` (`parseCourseSpec`), `storage/course-store.ts` and `storage/supabase-course-store.ts` (`courseFromSpec`, which normalises a stored spec).
+- Tests: `course-spec.test.ts` and `course-spec.test-d.ts` (the spec and the course built from it), `decide.test.ts` (`pythonCourse.scope`), `mastery.test.ts` and `course-roadmap.test.ts` (`pythonCourse`), `python-runner.test.ts` (`studyModule`, `pythonCourse.studyModules`), `study-module-quiz.test.ts` (the quiz content), `turn-endpoint.test.ts`, `lecturer-handler.test.ts`, all through `server/course`.
 
 ## Notes
 

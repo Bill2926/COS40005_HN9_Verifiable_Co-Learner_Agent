@@ -38,6 +38,7 @@ flowchart LR
   pages ==>|"auto-registered"| home
   pages ==>|"/turn, /api/student, /api/admin,<br/>/api/lecturer, /course-outline"| server
   ws -->|"drafts/store, roadmap/arrangement,<br/>workspace/chat-markdown"| helpers
+  ws -->|"videoEmbed"| shared
   ws -->|"python/runner, dynamic<br/>python/browser-runner"| py
   mw -->|"workspace/layout, staff/landing"| helpers
   mw -->|"studentIdFromAuth,<br/>sessionStudentId"| shared
@@ -67,7 +68,7 @@ counted with the python runner component in [web-app/05-python-runner.md](05-pyt
 
 | From | To | What |
 |---|---|---|
-| pages (`index.vue`), ws (6 files), py (`protocol.ts`), helpers (`arrangement.ts`) | shared | `shared/turn.ts` types: `RedrawState`, `RoadmapModule`, `QuizQuestionView`, `ExerciseCheck`, ... |
+| pages (`index.vue`), ws (7 files, including `MaterialBlocks`), py (`protocol.ts`), helpers (`arrangement.ts`) | shared | `shared/turn.ts` types: `RedrawState`, `RoadmapModule`, `QuizQuestionView`, `MaterialBlock`, `ExerciseCheck`, ... |
 | ws (`ChatInline.vue`) | helpers | `InlineNode` from `workspace/chat-markdown.ts` |
 | py (`browser-runner.ts`) | py (`protocol.ts`) | `ToWorker`, `FromWorker` |
 

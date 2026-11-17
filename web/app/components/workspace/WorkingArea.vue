@@ -131,7 +131,7 @@ watch(() => props.mode, (mode) => {
     </header>
 
     <div
-      class="min-h-0 min-w-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+      class="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto [scrollbar-gutter:stable_both-edges]"
       :class="floating && expanded === false ? 'lg:hidden' : ''"
     >
       <div
@@ -156,7 +156,7 @@ watch(() => props.mode, (mode) => {
       </p>
       <article
         v-if="!pendingName && shownMode === 'learn'"
-        class="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
+        class="mx-auto flex w-full min-w-0 max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
         <MaterialBlocks :blocks="area.materials" />
 

@@ -108,7 +108,7 @@ test('uses one full-height panel on a phone and reaches every control', async ({
     const workingTab = page.getByRole('tab', { name: 'Working area', exact: true })
     await expect(workingTab).toHaveAttribute('aria-selected', 'true')
     await expectOnlyPanel(page, 'working')
-    await expect(page.getByText('These materials belong to this module alone.', { exact: true })).toBeHidden()
+    await expect(page.getByText('These materials belong to this module alone.', { exact: true })).toBeVisible()
     await expectTapTarget(page.getByRole('button', { name: 'Learn', exact: true }))
     await expectTapTarget(page.getByRole('button', { name: 'Practice', exact: true }))
     await expect(page.getByRole('tab')).toHaveCount(3)

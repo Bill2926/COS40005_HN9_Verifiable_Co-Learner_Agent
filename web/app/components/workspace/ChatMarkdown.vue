@@ -6,14 +6,24 @@ const props = defineProps<{
   text: string
   // A reply still arriving shows a caret where the next word will land.
   writing?: boolean
+  // Materials ask for a real heading. A reply keeps a heading line as bold text.
+  headings?: boolean
 }>()
 
-const blocks = computed(() => parseChatMarkdown(props.text))
+const blocks = computed(() => parseChatMarkdown(props.text, { headings: props.headings }))
+
+function headingTag(level: number): 'h2' | 'h3' | 'h4' | 'h5' | 'h6' {
+  if (level <= 2) return 'h2'
+  if (level === 3) return 'h3'
+  if (level === 4) return 'h4'
+  if (level === 5) return 'h5'
+  return 'h6'
+}
 const lastIndex = computed(() => blocks.value.length - 1)
 </script>
 
 <template>
-  <div class="flex flex-col gap-2">
+  <div class="flex min-w-0 max-w-full flex-col gap-2">
     <template
       v-for="(block, index) in blocks"
       :key="index"
@@ -25,9 +35,17 @@ const lastIndex = computed(() => blocks.value.length - 1)
           aria-hidden="true"
         />
       </p>
+      <component
+        :is="headingTag(block.level)"
+        v-else-if="block.type === 'heading'"
+        class="font-semibold text-balance text-ink-900"
+        :class="block.level <= 2 ? 'text-base' : 'text-sm'"
+      >
+        <ChatInline :nodes="block.children" />
+      </component>
       <pre
         v-else-if="block.type === 'codeblock'"
-        class="overflow-x-auto rounded-[6px] border border-ink-950/10 bg-paper/70 px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre"
+        class="max-w-full min-w-0 overflow-x-auto rounded-[6px] border border-ink-950/10 bg-paper/70 px-3 py-2 font-mono text-[12px] leading-5 whitespace-pre"
       ><code>{{ block.value }}</code></pre>
       <component
         :is="block.ordered ? 'ol' : 'ul'"
