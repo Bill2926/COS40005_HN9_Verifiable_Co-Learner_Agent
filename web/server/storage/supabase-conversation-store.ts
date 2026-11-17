@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Quote } from '../../shared/turn'
 import type { ConversationStore, MessageAuthor, ResumePoint, StoredMessage } from './conversation-store'
 
 // Scoped to one course: it reads and writes only that course's rows.
@@ -90,7 +91,7 @@ export function createSupabaseConversationStore(options: {
 
       const result = await supabase
         .from('messages')
-        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent, quote')
         .eq('conversation_id', conversation.data.id)
         .order('sequence', { ascending: true })
       if (result.error) throw new Error(result.error.message)
@@ -107,8 +108,9 @@ export function createSupabaseConversationStore(options: {
           text: message.text,
           exercise_id: message.exerciseId,
           addressed_agent: message.addressedAgent ?? null,
+          quote: message.quote ?? null,
         })
-        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent')
+        .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent, quote')
         .single()
       if (result.error) throw new Error(result.error.message)
       return presentRow(result.data)
@@ -125,6 +127,7 @@ function presentRow(row: {
   exercise_id: string
   created_at: string | null
   addressed_agent: string | null
+  quote: unknown
 }): StoredMessage {
   return {
     id: row.id,
@@ -135,7 +138,16 @@ function presentRow(row: {
     exerciseId: row.exercise_id,
     createdAt: row.created_at === null ? null : new Date(row.created_at).toISOString(),
     addressedAgent: row.addressed_agent === 'teacher' || row.addressed_agent === 'deskmate' ? row.addressed_agent : null,
+    quote: quoteOf(row.quote),
   }
+}
+
+function quoteOf(value: unknown): Quote | null {
+  if (typeof value !== 'object' || value === null) return null
+  if (!('text' in value) || typeof value.text !== 'string' || value.text.length === 0) return null
+  if (!('moduleId' in value) || typeof value.moduleId !== 'string' || value.moduleId.length === 0) return null
+  if (!('source' in value) || (value.source !== 'agent' && value.source !== 'materials')) return null
+  return { text: value.text, source: value.source, moduleId: value.moduleId }
 }
 
 function authorOf(author: string): MessageAuthor {

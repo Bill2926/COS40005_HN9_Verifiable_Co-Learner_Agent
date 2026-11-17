@@ -107,6 +107,7 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
             </h1>
             <p class="about-rise max-w-xl text-lg/7 text-muted" style="--i: 2">
               Learn any course step by step with AI agents whose every reply is checked before you see it.
+              Your activity in the app is recorded. It is not used to grade you, and no screen shows it.
             </p>
             <div class="about-rise flex flex-col gap-3 pt-2 sm:flex-row" style="--i: 3">
               <NuxtLink :to="start.to" :class="primaryButton">
@@ -226,19 +227,24 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
                 Our Team Members
               </h3>
               <ul class="flex flex-1 flex-col divide-y divide-default overflow-hidden rounded-lg border border-default bg-default shadow-xs">
-                <li v-for="member in team" :key="member.handle ?? member.name" class="flex flex-1">
-                  <component
-                    :is="member.handle ? 'a' : 'div'"
-                    :href="member.handle ? `https://github.com/${member.handle}` : undefined"
-                    class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3 transition"
-                    :class="member.handle && 'hover:bg-ink-50'"
+                <li v-for="person in team" :key="person.handle ?? person.name" class="flex flex-1">
+                  <a
+                    v-if="person.handle"
+                    :href="`https://github.com/${person.handle}`"
+                    class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3 transition hover:bg-ink-50"
                   >
                     <span class="min-w-0">
-                      <span class="block truncate text-base font-semibold text-highlighted">{{ member.name ?? member.handle }}</span>
-                      <span class="block text-xs text-muted">{{ member.major }}</span>
+                      <span class="block truncate text-base font-semibold text-highlighted">{{ person.name ?? person.handle }}</span>
+                      <span class="block text-xs text-muted">{{ person.major }}</span>
                     </span>
-                    <span v-if="member.handle" class="shrink-0 text-sm text-muted">@{{ member.handle }} on GitHub</span>
-                  </component>
+                    <span class="shrink-0 text-sm text-muted">@{{ person.handle }} on GitHub</span>
+                  </a>
+                  <div v-else class="flex min-h-14 w-full items-center justify-between gap-4 px-6 py-3">
+                    <span class="min-w-0">
+                      <span class="block truncate text-base font-semibold text-highlighted">{{ person.name }}</span>
+                      <span class="block text-xs text-muted">{{ person.major }}</span>
+                    </span>
+                  </div>
                 </li>
               </ul>
             </div>

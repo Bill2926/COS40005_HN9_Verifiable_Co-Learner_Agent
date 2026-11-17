@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { expect, it } from 'vitest'
 
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
-const migration = '20261117000000_decision_rule_checks.sql'
+const migration = '20261117045702_decision_rule_checks.sql'
 
 it('adds rule checks to decisions and leaves existing rows without them', async () => {
   const db = new PGlite()

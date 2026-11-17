@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import type { PracticeTestResult, RunOutput, WorkingAreaView } from '#shared/turn'
-import InlineText from './InlineText.vue'
+import MaterialBlocks from './MaterialBlocks.vue'
 import PracticePanel from './PracticePanel.vue'
-import PythonExample from './PythonExample.vue'
 import QuizPanel from './QuizPanel.vue'
 
 const props = defineProps<{
@@ -158,41 +157,7 @@ watch(() => props.mode, (mode) => {
         v-if="!pendingName && shownMode === 'learn'"
         class="mx-auto flex w-full max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
-        <div class="flex flex-col gap-2">
-          <p class="text-xs leading-4 text-ink-500 max-md:hidden">
-            <InlineText :text="area.materials.scopeNote" />
-          </p>
-          <h2 class="text-base leading-6 font-semibold tracking-[-0.4px] text-ink-900">
-            <InlineText :text="area.materials.heading" />
-          </h2>
-          <p class="text-sm leading-6 text-ink-600">
-            <InlineText :text="area.materials.body" />
-          </p>
-        </div>
-
-        <div class="overflow-hidden rounded-[8px] border border-ink-200 bg-ink-50/90 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)]">
-          <div class="flex h-9 items-center justify-between border-b border-ink-200 bg-ink-100/60 px-4">
-            <p class="font-mono text-[11px] leading-[16.5px] text-ink-500">
-              Example
-            </p>
-            <p class="font-mono text-[10px] leading-[15px] text-ink-400">
-              Python
-            </p>
-          </div>
-          <PythonExample :code="area.materials.example" />
-        </div>
-
-        <section
-          class="flex flex-col gap-1 rounded-[8px] border border-ink-200 border-l-brand-400 border-l-2 bg-ink-50 px-4 py-3.5"
-          aria-label="Key point"
-        >
-          <h3 class="text-xs leading-5 font-semibold text-ink-800">
-            Key point
-          </h3>
-          <p class="text-[13px] leading-5 text-ink-600">
-            <InlineText :text="area.materials.keyPoint" />
-          </p>
-        </section>
+        <MaterialBlocks :blocks="area.materials" />
 
         <QuizPanel
           v-if="!floating && area.quiz.length > 0"

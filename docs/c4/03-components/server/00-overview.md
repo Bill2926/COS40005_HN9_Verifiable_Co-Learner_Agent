@@ -81,6 +81,8 @@ flowchart LR
 | storage | `web/server/storage/` | [server/08-storage.md](08-storage.md) |
 | admin | `web/server/admin/` | [server/09-admin.md](09-admin.md) |
 | lecturer | `web/server/lecturer/` | [server/10-lecturer.md](10-lecturer.md) |
+| student | `web/server/student/` | [server/11-student.md](11-student.md) |
+| activity recorder | `web/server/activity-recorder/` | Passed into the student handler and the turn handler. The Supabase adapter is `storage/supabase-activity-log.ts`. |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)

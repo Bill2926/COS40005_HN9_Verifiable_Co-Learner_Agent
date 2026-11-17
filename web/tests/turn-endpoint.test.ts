@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createAgents, createConfiguredAgents, createFakeAgents, proposalSchema, type Move } from '../server/agents'
 import { pythonCourse, studyModule } from '../server/course'
+import { gettingStartedModule } from '../server/course/modules/getting-started'
 import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createMemoryQuizAnswerStore } from '../server/storage/quiz-answer-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
+import { createMemoryActivityLog } from '../server/activity-recorder'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
 const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -220,13 +223,7 @@ describe('turn endpoint', () => {
       mode: 'learn',
       moduleId: 'getting_started',
       moduleName: 'Getting Started with Programming and Python',
-      materials: {
-        heading: 'A first program',
-        body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
-        example: '# Show a greeting\nprint("Hello, world")',
-        keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
-        scopeNote: 'These materials belong to this module alone.',
-      },
+      materials: gettingStartedModule.materials,
       exercise: {
         id: 'say_hello',
         title: 'Say hello',
@@ -748,13 +745,9 @@ describe('turn endpoint', () => {
     for (const exchange of teacherExchanges) {
       expect(exchange.context.draft).toBe(draft)
       expect(exchange.context.runOutput).toEqual(run)
-      expect(exchange.context.materials).toEqual({
-        heading: 'A first program',
-        body: 'A program is a list of steps the computer follows. print() shows text, and a comment, a line that starts with #, is a note for a person. Python skips comments.',
-        example: '# Show a greeting\nprint("Hello, world")',
-        keyPoint: 'The text you want to show sits inside quotes. A comment starts with # and is not run.',
-        scopeNote: 'These materials belong to this module alone.',
-      })
+      expect(JSON.stringify(exchange.context.materials)).toContain('A first program')
+      expect(JSON.stringify(exchange.context.materials)).toContain('# Show a greeting\\nprint(\\"Hello, world\\")')
+      expect(JSON.stringify(exchange.context.materials)).toContain('These materials belong to this module alone.')
       expect(exchange.context.hintLadder).toEqual([
         'Text you want to show or return sits between quotes, like "Hello".',
         'Join two pieces of text with +. A space is text as well: " ".',
@@ -1580,7 +1573,7 @@ describe('turn endpoint', () => {
       expect(exchange.agent).toBe('teacher')
       if (exchange.agent !== 'teacher') continue
       expect(exchange.context.conversation).toEqual([])
-      expect(exchange.context.materials.heading).toBe('A first program')
+      expect(JSON.stringify(exchange.context.materials)).toContain('A first program')
     }
   })
 
@@ -2507,5 +2500,114 @@ describe('turn endpoint', () => {
       name: 'UnknownExerciseError',
       statusCode: 400,
     }))
+  })
+
+  it('rules a quote like the same words typed out, and records that the message had one', async () => {
+    const quote = { text: 'Can you show me Pandas?', source: 'materials' as const, moduleId: 'getting_started' }
+    const question = 'What does this line do?'
+    const agents = () => createFakeAgents({
+      proposal: { type: 'explain_concept', scope: 'getting_started' },
+      text: 'PANDAS_SHOULD_NOT_RENDER',
+    })
+    const typed = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: `${quote.text}\n${question}`, addressedAgent: 'teacher' },
+    }, memoryStore(), agents())
+    const activity = createMemoryActivityLog()
+    const evidence = createMemoryEvidenceStore()
+    const model = agents()
+    const quoted = await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: { event: 'message', text: question, addressedAgent: 'teacher', quote },
+    }, memoryStore(), model, { activity, evidence })
+
+    const teacherMove = (state: Awaited<ReturnType<typeof handleTurn>>) =>
+      state.conversation.find(message => message.author === 'teacher')
+    expect(teacherMove(quoted)).toMatchObject({
+      approvedMove: teacherMove(typed)?.approvedMove,
+      role: 'Not yet',
+    })
+    expect(quoted.conversation.find(message => message.author === 'student')).toMatchObject({
+      text: question,
+      quote,
+      addressedAgent: 'teacher',
+    })
+    expect(quoted.conversation.filter(message => message.author === 'deskmate')).toEqual([])
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'message_sent',
+      payload: { moduleId: 'getting_started', hasQuote: true },
+    }])
+    expect(await evidence.forStudent(signedInStudent)).toEqual([])
+    expect(JSON.stringify(model.exchanges)).not.toContain('notes')
+    expect(model.exchanges.some(exchange => exchange.agent === 'deskmate')).toBe(false)
+  })
+
+  it('lets the deskmate see quoted materials and never a note', async () => {
+    const model = createFakeAgents(
+      { proposal: { type: 'explain_concept', scope: 'getting_started' }, text: 'print shows text.' },
+      { proposal: { type: 'share_confusion' }, text: 'I was looking at that line too.' },
+    )
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: {
+        event: 'message',
+        text: 'What does this mean?',
+        quote: { text: 'print() shows text', source: 'materials', moduleId: 'getting_started' },
+      },
+    }, memoryStore(), model)
+
+    const deskmate = model.exchanges.find(exchange => exchange.agent === 'deskmate')
+    expect(JSON.stringify(deskmate?.context)).toContain('print() shows text')
+    expect(JSON.stringify(model.exchanges)).not.toContain('ONLY_AN_PRIVATE_NOTE')
+    for (const exchange of model.exchanges) {
+      expect(exchange.context).not.toHaveProperty('notes')
+    }
+  })
+
+  it('records a submission without its code', async () => {
+    const activity = createMemoryActivityLog()
+    const code = 'def total(ds):\n    SUBMISSION_CODE_SENTINEL = 0\n'
+    await handleTurn({
+      sessionStudentId: signedInStudent,
+      body: {
+        event: 'submission',
+        code,
+        results: [
+          { name: 'three numbers', passed: false, expected: '6', actual: '0' },
+          { name: 'one number', passed: true, expected: '10', actual: '10' },
+          { name: 'empty list', passed: false, expected: '0', actual: '0' },
+        ],
+      },
+    }, memoryStore(), speakingTeacher(), { activity })
+
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'submitted',
+      payload: { moduleId: 'getting_started', exerciseId: 'say_hello', testsPassed: 1, testsTotal: 3 },
+    }])
+    expect(JSON.stringify(activity.events)).not.toContain('SUBMISSION_CODE_SENTINEL')
+  })
+
+  it('records a quiz answer without changing the mastery that answer produces', async () => {
+    const activity = createMemoryActivityLog()
+    const body = { event: 'quiz_answer', moduleId: 'getting_started', questionId: 'print-text', choice: 1 }
+    const logged = await handleTurn({ sessionStudentId: signedInStudent, body }, memoryStore(), undefined, {
+      quizAnswers: createMemoryQuizAnswerStore(),
+      activity,
+    })
+    const plain = await handleTurn({ sessionStudentId: signedInStudent, body }, memoryStore(), undefined, {
+      quizAnswers: createMemoryQuizAnswerStore(),
+    })
+
+    expect(logged.courseRoadmap[0]?.mastery).toBe(plain.courseRoadmap[0]?.mastery)
+    expect(activity.events).toEqual([{
+      studentId: signedInStudent,
+      courseId: 'intro_python',
+      type: 'quiz_answered',
+      payload: { moduleId: 'getting_started', questionId: 'print-text', correct: true },
+    }])
   })
 })

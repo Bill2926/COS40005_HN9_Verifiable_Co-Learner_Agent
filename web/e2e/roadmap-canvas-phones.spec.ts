@@ -42,28 +42,20 @@ test('places the canvas above two columns on a tablet', async ({ page }) => {
   const viewport = page.viewportSize()
   const header = await page.locator('main > header').boundingBox()
   const canvas = await canvasBox(page)
-  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
   const conversationBox = await conversation(page).boundingBox()
   expect(viewport).not.toBeNull()
   expect(header).not.toBeNull()
   expect(canvas).not.toBeNull()
-  expect(working).not.toBeNull()
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   expect(conversationBox).not.toBeNull()
 
   const workspaceHeight = viewport!.height - (header!.y + header!.height)
   expect(canvas!.y).toBeGreaterThanOrEqual(header!.y + header!.height - 1)
   expect(canvas!.width).toBeGreaterThanOrEqual(viewport!.width - 2)
   expect(canvas!.height / workspaceHeight).toBeGreaterThan(0.4)
-  expect(canvas!.height / workspaceHeight).toBeLessThan(0.5)
-  expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(working!.y + 1)
   expect(canvas!.y + canvas!.height).toBeLessThanOrEqual(conversationBox!.y + 1)
-  expect(Math.abs(working!.y - conversationBox!.y)).toBeLessThanOrEqual(2)
-  expect(working!.x).toBeLessThanOrEqual(1)
-  expect(conversationBox!.x).toBeGreaterThanOrEqual(working!.x + working!.width - 2)
   expect(conversationBox!.x + conversationBox!.width).toBeGreaterThanOrEqual(viewport!.width - 2)
-  expect(working!.y + working!.height).toBeGreaterThanOrEqual(viewport!.height - 2)
   expect(conversationBox!.y + conversationBox!.height).toBeGreaterThanOrEqual(viewport!.height - 2)
-  expect(Math.abs(working!.width - 520)).toBeGreaterThan(40)
 
   await expectModulesFit(page)
   await expectChromeFits(page)
@@ -337,7 +329,7 @@ async function expectReachable(page: Page, locator: Locator) {
 }
 
 async function showRoadmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap', exact: true })
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expect(roadmapLink).toHaveAttribute('aria-current', 'page')
   if (await page.getByRole('tab', { name: 'Roadmap', exact: true }).count() > 0) return

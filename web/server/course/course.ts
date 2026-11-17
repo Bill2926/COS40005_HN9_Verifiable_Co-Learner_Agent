@@ -2,6 +2,7 @@ import type { RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
 import type { CourseStanding } from '../student-model'
 import type { CourseScope } from '../verify-shield'
 import type { CourseSpec } from './course-spec'
+import { normaliseCourseSpec } from './materials'
 import { pythonCourseSpec } from './python-course'
 import type { StudyModule } from './study-module'
 
@@ -57,7 +58,8 @@ function checkSpec(spec: CourseSpec): void {
   }
 }
 
-export function courseFromSpec(spec: CourseSpec): Course {
+export function courseFromSpec(input: CourseSpec): Course {
+  const spec = normaliseCourseSpec(input)
   checkSpec(spec)
   const modules = spec.modules.map((module, index) => ({
     id: module.id,

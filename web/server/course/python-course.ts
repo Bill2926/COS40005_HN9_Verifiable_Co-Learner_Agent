@@ -8,7 +8,7 @@ import { variablesModule } from './modules/variables'
 // Introduction to Programming with Python, as one course spec. Modules 1–5 have content and can be
 // studied; modules 6–11 are listed without content, so they stay closed as not available.
 export const pythonCourseSpec: CourseSpec = {
-  specVersion: 1,
+  specVersion: 2,
   courseId: 'intro_python',
   title: 'Introduction to Programming with Python',
   masteryThreshold: 0.9,

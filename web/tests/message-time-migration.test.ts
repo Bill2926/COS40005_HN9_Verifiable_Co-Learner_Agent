@@ -3,7 +3,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { expect, it } from 'vitest'
 
 const migrations = new URL('../../supabase/migrations/', import.meta.url)
-const migration = '20261117090000_add_message_created_at.sql'
+const migration = '20261117045705_add_message_created_at.sql'
 
 it('stamps new messages with a time and leaves existing messages without one', async () => {
   const db = new PGlite()

@@ -1,6 +1,7 @@
-import type { LecturerResponse } from '../../shared/lecturer'
+import type { CoursePreview, LecturerResponse } from '../../shared/lecturer'
 import { defaultCourseId, parseCourseSpec, type CourseSpec } from '../course'
 import type { LecturerStore } from '../storage/lecturer-store'
+import { coursePreview } from './preview-course'
 
 interface LecturerIdentity {
   email: string | null
@@ -39,33 +40,66 @@ export async function handleLecturer(request: LecturerIdentity & {
 }
 
 interface CourseSpecRequest extends LecturerIdentity {
-  store: Pick<LecturerStore, 'exportSpec' | 'importSpec'>
+  store: Pick<LecturerStore, 'exportSpec' | 'importSpec' | 'readDraft' | 'saveDraft' | 'discardDraft'>
 }
 
+type CourseSpecAction =
+  | { action: 'export' | 'draft' | 'preview' | 'publish' | 'discard', courseId: unknown }
+  | { action: 'import' | 'save', json: unknown }
+
 export function handleCourseSpec(request: CourseSpecRequest & { action: 'export', courseId: unknown }): Promise<CourseSpec>
-export function handleCourseSpec(request: CourseSpecRequest & { action: 'import', json: unknown }): Promise<void>
-export async function handleCourseSpec(request: CourseSpecRequest
-  & ({ action: 'export', courseId: unknown } | { action: 'import', json: unknown })): Promise<CourseSpec | void> {
+export function handleCourseSpec(request: CourseSpecRequest & { action: 'draft', courseId: unknown }): Promise<CourseSpec | null>
+export function handleCourseSpec(request: CourseSpecRequest & { action: 'preview', courseId: unknown }): Promise<CoursePreview>
+export function handleCourseSpec(request: CourseSpecRequest & { action: 'import' | 'save', json: unknown }): Promise<void>
+export function handleCourseSpec(request: CourseSpecRequest & { action: 'publish' | 'discard', courseId: unknown }): Promise<void>
+export async function handleCourseSpec(request: CourseSpecRequest & CourseSpecAction): Promise<CourseSpec | CoursePreview | null | void> {
   const email = requireLecturer(request)
-  if (request.action === 'export') {
-    if (request.courseId === defaultCourseId) {
+  if (request.action === 'export' || request.action === 'draft' || request.action === 'preview' || request.action === 'publish' || request.action === 'discard') {
+    if (request.courseId !== defaultCourseId) throw notFound()
+    if (request.action === 'export') {
       const spec = await request.store.exportSpec(email, defaultCourseId)
       if (spec) return spec
+      throw notFound()
     }
+    if (request.action === 'draft') return request.store.readDraft(email, defaultCourseId)
+    if (request.action === 'discard') {
+      if (await request.store.discardDraft(email, defaultCourseId)) return
+      throw notFound()
+    }
+    if (request.action === 'preview') {
+      const draft = await request.store.readDraft(email, defaultCourseId)
+      const spec = draft ?? await request.store.exportSpec(email, defaultCourseId)
+      if (!spec) throw notFound()
+      return coursePreview(spec, draft !== null)
+    }
+    const draft = await request.store.readDraft(email, defaultCourseId)
+    if (!draft) throw Object.assign(new Error('There is no draft to publish.'), { statusCode: 400 })
+    if (await request.store.importSpec(email, draft) && await request.store.discardDraft(email, defaultCourseId)) return
+    throw notFound()
   }
-  else {
-    let spec: CourseSpec
-    try {
-      if (typeof request.json !== 'string') throw new Error('Expected JSON')
-      spec = parseCourseSpec(request.json)
-    }
-    catch {
-      throw Object.assign(new Error('Invalid course spec JSON.'), { statusCode: 400 })
-    }
-    if (spec.courseId !== defaultCourseId) {
-      throw Object.assign(new Error('The course spec must be for the Python course.'), { statusCode: 400 })
-    }
-    if (await request.store.importSpec(email, spec)) return
+
+  if (request.action !== 'import' && request.action !== 'save') throw notFound()
+  const spec = readSpec(request.json)
+  if (spec.courseId !== defaultCourseId) {
+    throw Object.assign(new Error('The course spec must be for the Python course.'), { statusCode: 400 })
   }
-  throw Object.assign(new Error('Course not found.'), { statusCode: 404 })
+  if (await request.store.saveDraft(email, defaultCourseId, spec)) return
+  throw notFound()
+}
+
+function readSpec(json: unknown): CourseSpec {
+  try {
+    if (typeof json !== 'string') throw new SyntaxError('Expected JSON')
+    return parseCourseSpec(json)
+  }
+  catch (error) {
+    const message = error instanceof SyntaxError || !(error instanceof Error)
+      ? 'Invalid course spec JSON.'
+      : error.message
+    throw Object.assign(new Error(message), { statusCode: 400 })
+  }
+}
+
+function notFound(): Error {
+  return Object.assign(new Error('Course not found.'), { statusCode: 404 })
 }

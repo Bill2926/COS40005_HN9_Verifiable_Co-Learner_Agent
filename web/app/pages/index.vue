@@ -3,9 +3,10 @@ import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
-import type { AddressedAgent, PracticeTestResult, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
+import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
+import { recordStudentActivity } from '~/activity/record'
 import { resolveWorkspaceLayout, workspaceLayoutCookie, workspaceLayoutCookieOptions, workspaceLayoutFrom, workspaceLayouts, type WorkspaceLayoutId } from '~/workspace/layout'
 
 interface SubmissionPayload {
@@ -33,6 +34,10 @@ function layoutTarget(id: WorkspaceLayoutId) {
 watchEffect(() => {
   const requested = workspaceLayoutFrom(route.query.layout)
   if (requested) rememberedLayout.value = requested
+})
+
+watch(layout, (value, previous) => {
+  if (previous && value !== previous) void recordStudentActivity({ event: 'layout_switched', layout: value })
 })
 
 const { data, error } = await useFetch<RedrawState>('/turn', {
@@ -65,6 +70,9 @@ async function saveDeskmate(on: boolean) {
   }
 }
 const workingMode = ref<'learn' | 'practice'>('learn')
+watch(workingMode, (value, previous) => {
+  if (value !== previous) void recordStudentActivity({ event: 'mode_switched', mode: value })
+})
 const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
@@ -78,6 +86,12 @@ const moduleViews = new Map<string, RedrawState>()
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
+const portraitUrl = ref<string | null>(null)
+const notes = ref<{ id: string, text: string, colour: string }[]>([])
+const modulePositions = ref<{ moduleId: string, x: number, y: number }[]>([])
+const selectedNoteId = ref('')
+const incomingQuote = ref<Quote | null>(null)
+const askButton = ref<{ x: number, y: number, text: string, source: 'agent' | 'materials' } | null>(null)
 const sendError = ref('')
 const streamingTeacher = ref('')
 const streamingDeskmate = ref('')
@@ -162,12 +176,99 @@ onMounted(() => {
   phoneMedia = window.matchMedia('(width < 48rem)')
   syncPhone()
   phoneMedia.addEventListener('change', syncPhone)
+  document.addEventListener('selectionchange', onSelectionChange)
   warmModules()
+  void loadPortrait()
 })
 
 onBeforeUnmount(() => {
   phoneMedia?.removeEventListener('change', syncPhone)
+  document.removeEventListener('selectionchange', onSelectionChange)
 })
+
+const noteColours = ['ink', 'brand', 'sky', 'emerald', 'amber', 'rose', 'purple'] as const
+const selectedNote = computed(() => notes.value.find(note => note.id === selectedNoteId.value) ?? null)
+
+function onMindmapMoved(moduleId: string, point: { x: number, y: number }) {
+  void $fetch('/api/student', {
+    method: 'POST',
+    body: { event: 'mindmap_moved', kind: 'module', id: moduleId, x: point.x, y: point.y },
+  }).then((state) => {
+    const next = state as { mindmap: { positions: { moduleId: string, x: number, y: number }[] } }
+    modulePositions.value = next.mindmap.positions
+  }).catch(() => {})
+}
+
+let arrangementImported = false
+function importLocalArrangement(arrangement: Record<string, { x: number, y: number }>) {
+  if (arrangementImported || modulePositions.value.length > 0) return
+  arrangementImported = true
+  const positions = Object.entries(arrangement).map(([moduleId, point]) => ({ moduleId, ...point }))
+  void $fetch('/api/student', {
+    method: 'POST',
+    body: { event: 'import_arrangement', positions },
+  }).then((state) => {
+    const next = state as { mindmap: { positions: { moduleId: string, x: number, y: number }[] } }
+    modulePositions.value = next.mindmap.positions
+  }).catch(() => {})
+}
+
+async function addNote() {
+  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
+    method: 'POST',
+    body: { event: 'note_created', text: 'A new note', colour: 'brand', x: 48, y: 48 },
+  })
+  notes.value = state.mindmap.notes
+  selectedNoteId.value = state.mindmap.notes.at(-1)?.id ?? ''
+}
+
+async function saveNote() {
+  const note = selectedNote.value
+  if (!note) return
+  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
+    method: 'POST',
+    body: { event: 'note_changed', noteId: note.id, text: note.text, colour: note.colour },
+  })
+  notes.value = state.mindmap.notes
+}
+
+async function deleteNote() {
+  const note = selectedNote.value
+  if (!note) return
+  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
+    method: 'POST',
+    body: { event: 'note_deleted', noteId: note.id },
+  })
+  notes.value = state.mindmap.notes
+  selectedNoteId.value = ''
+}
+
+async function linkNote(moduleId: string) {
+  const note = selectedNote.value
+  if (!note) return
+  await $fetch('/api/student', {
+    method: 'POST',
+    body: { event: 'note_linked', noteId: note.id, target: { kind: 'module', moduleId } },
+  })
+}
+
+async function loadPortrait() {
+  try {
+    const state = await $fetch<{
+      profile: { pictureUrl: string | null }
+      mindmap: { notes: { id: string, text: string, colour: string }[], positions: { moduleId: string, x: number, y: number }[] }
+    }>('/api/student', {
+      method: 'POST',
+      body: { event: 'open' },
+    })
+    portraitUrl.value = state.profile.pictureUrl
+    notes.value = state.mindmap.notes
+    modulePositions.value = state.mindmap.positions
+  }
+  catch {
+    portraitUrl.value = null
+  }
+}
 
 function rememberModule(state: RedrawState) {
   moduleViews.set(state.workingArea.moduleId, state)
@@ -271,6 +372,7 @@ async function selectModule(moduleId: string) {
       method: 'POST',
       body: { event: 'select_module', moduleId },
     }))
+    void recordStudentActivity({ event: 'module_opened', moduleId })
   }
   catch {
     workingMode.value = modeBeforeSelect
@@ -400,7 +502,39 @@ function nextPaint(): Promise<void> {
   })
 }
 
-async function sendMessage(text: string, addressedAgent: AddressedAgent | null) {
+function onRun(result: RunOutput | null) {
+  latestRun.value = result
+  const exerciseId = workspace.value?.workingArea.exercise.id
+  if (result && exerciseId) void recordStudentActivity({ event: 'code_run', exerciseId })
+}
+
+function onSelectionChange() {
+  const selection = document.getSelection()
+  if (!selection || selection.isCollapsed || selection.toString().trim() === '') {
+    askButton.value = null
+    return
+  }
+  const node = selection.anchorNode
+  const element = node instanceof Element ? node : node?.parentElement
+  const source = element?.closest('[data-quote-source]')?.getAttribute('data-quote-source')
+  if (source !== 'agent' && source !== 'materials') {
+    askButton.value = null
+    return
+  }
+  const rect = selection.getRangeAt(0).getBoundingClientRect()
+  askButton.value = { x: rect.left, y: rect.bottom + 8, text: selection.toString().trim(), source }
+}
+
+function askQuote() {
+  const ask = askButton.value
+  const moduleId = workspace.value?.workingArea.moduleId
+  if (!ask || !moduleId) return
+  incomingQuote.value = { text: ask.text, source: ask.source, moduleId }
+  askButton.value = null
+  document.getSelection()?.removeAllRanges()
+}
+
+async function sendMessage(text: string, addressedAgent: AddressedAgent | null, quote: Quote | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
   const storedDraft = studentId.value
@@ -410,9 +544,11 @@ async function sendMessage(text: string, addressedAgent: AddressedAgent | null) 
     event: 'message',
     text,
     ...(addressedAgent ? { addressedAgent } : {}),
+    ...(quote ? { quote } : {}),
     draft: liveDraft.value ?? storedDraft,
     run: latestRun.value,
   }, 'That message could not be sent.')
+  incomingQuote.value = null
 }
 
 async function submitCode(submission: SubmissionPayload) {
@@ -507,7 +643,7 @@ function initialsOf(name: string): string {
             class="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-[11px] font-medium leading-4 text-ink-700"
             aria-hidden="true"
           >{{ initialsOf(workspace.displayName) }}</span>
-          <span class="text-xs font-medium leading-4 text-ink-700 max-md:sr-only">{{ workspace.displayName }}</span>
+          <NuxtLink to="/profile" class="text-xs font-medium leading-4 text-ink-700 underline-offset-2 hover:underline max-md:sr-only">{{ workspace.displayName }}</NuxtLink>
           <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-ink-400 uppercase max-md:hidden">Student</span>
         </div>
         <UButton
@@ -553,7 +689,7 @@ function initialsOf(name: string): string {
         : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
     >
       <RoadmapCanvas
-        v-if="layout === 'roadmap'"
+        v-if="layout === 'mindmap'"
         :class="phonePanel === 'roadmap' ? undefined : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
         :course="workspace.course"
@@ -561,8 +697,11 @@ function initialsOf(name: string): string {
         :mastery-threshold="workspace.masteryThreshold"
         :pending-module-id="pendingModuleId"
         :selecting-module-id="selectingModuleId"
+        :positions="modulePositions"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
+        @moved="onMindmapMoved"
+        @import-local="importLocalArrangement"
       />
       <CourseRoadmap
         v-else
@@ -575,7 +714,7 @@ function initialsOf(name: string): string {
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
       />
-      <div :class="layout === 'study' ? studyFrame('working') : roadmapFrame('working')">
+      <div v-if="layout === 'study'" :class="studyFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
           :mode="workingMode"
@@ -586,29 +725,49 @@ function initialsOf(name: string): string {
           :submitting="sending"
           :answering="answering"
           :selecting-exercise-id="selectingExerciseId"
-          :floating="layout === 'roadmap'"
           :expanded="workingAreaExpanded"
           @update:mode="workingMode = $event"
           @update:expanded="workingAreaExpanded = $event"
           @select-exercise="selectExercise"
           @draft="liveDraft = $event"
-          @run="latestRun = $event"
+          @run="onRun"
           @submit="submitCode"
           @quiz-answer="answerQuiz"
         />
       </div>
       <button
-        v-if="layout === 'roadmap' && conversationClosed"
+        v-if="layout === 'mindmap' && conversationClosed"
         type="button"
         class="fixed right-4 bottom-4 z-20 inline-flex min-h-11 items-center rounded-full border border-ink-200 bg-paper px-4 text-xs font-medium text-ink-800 shadow-md hover:bg-ink-50 md:absolute md:top-4 md:right-4 md:bottom-auto"
         @click="conversationClosed = false"
       >
         Open conversation
       </button>
-      <div v-show="layout !== 'roadmap' || !conversationClosed" :class="layout === 'study' ? studyFrame('conversation') : roadmapFrame('conversation')">
+      <div v-show="layout !== 'mindmap' || !conversationClosed" :class="layout === 'study' ? studyFrame('conversation') : roadmapFrame('conversation')">
+        <section v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 p-3" aria-label="Note">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent" @click="addNote">+ Note</button>
+            <button v-for="note in notes" :key="note.id" type="button" class="min-h-11 rounded-sm border border-ink-200 px-2 text-left text-xs" @click="selectedNoteId = note.id">{{ note.text || 'Note' }}</button>
+          </div>
+          <form v-if="selectedNote" class="mt-2 flex flex-col gap-2" @submit.prevent="saveNote">
+            <textarea v-model="selectedNote.text" rows="3" class="w-full rounded-sm border border-ink-300 p-2 text-sm" aria-label="Note text" />
+            <label class="text-xs">Colour
+              <select v-model="selectedNote.colour" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2" @change="saveNote">
+                <option v-for="colour in noteColours" :key="colour" :value="colour">{{ colour }}</option>
+              </select>
+            </label>
+            <div class="flex flex-wrap gap-2">
+              <button type="submit" class="min-h-11 rounded-sm border border-default px-3 text-sm">Save note</button>
+              <button type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="deleteNote">Delete note</button>
+              <button v-if="workspace.workingArea.moduleId" type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="linkNote(workspace.workingArea.moduleId)">Link to this module</button>
+            </div>
+          </form>
+        </section>
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
+          :portrait-url="portraitUrl"
+          :incoming-quote="incomingQuote"
           :trace="latestTrace"
           :deskmate-on="workspace.deskmateOn"
           :deskmate-busy="deskmateBusy"
@@ -619,7 +778,7 @@ function initialsOf(name: string): string {
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
           :loading="pendingModuleName.length > 0"
-          :floating="layout === 'roadmap'"
+          :floating="layout === 'mindmap'"
           @send="sendMessage"
           @close="conversationClosed = true"
           @open-learn="openInLearn"
@@ -627,5 +786,14 @@ function initialsOf(name: string): string {
         />
       </div>
     </div>
+    <button
+      v-if="askButton"
+      type="button"
+      class="fixed z-30 min-h-11 rounded-full bg-accent px-3 text-sm font-medium text-on-accent shadow-md"
+      :style="{ left: `${askButton.x}px`, top: `${askButton.y}px` }"
+      @mousedown.prevent="askQuote"
+    >
+      Ask
+    </button>
   </main>
 </template>

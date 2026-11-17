@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { courseFromSpec, pythonCourseSpec, type CourseSpec, type ModuleContent } from '../server/course'
+import { courseFromSpec, parseCourseSpec, pythonCourseSpec, type CourseSpec, type ModuleContent } from '../server/course'
 
 const someContent: ModuleContent = pythonCourseSpec.modules[0]!.content!
 
 function specWith(overrides: Partial<CourseSpec>): CourseSpec {
   return {
-    specVersion: 1,
+    specVersion: 2,
     courseId: 'tiny',
     title: 'A tiny course',
     masteryThreshold: 0.8,
@@ -84,6 +84,60 @@ describe('a course built from its course spec', () => {
 
   it.each([0, 1.1, 90])('refuses a mastery threshold of %s', (masteryThreshold) => {
     expect(() => courseFromSpec(specWith({ masteryThreshold }))).toThrow(/threshold/i)
+  })
+})
+
+describe('course spec parser', () => {
+  it('parses every block type', () => {
+    const spec = structuredClone(pythonCourseSpec)
+    const materials = [
+      { type: 'text' as const, markdown: 'Hello' },
+      { type: 'code' as const, code: 'print(1)' },
+      { type: 'diagram' as const, mermaid: 'flowchart LR\n  a --> b' },
+      { type: 'image' as const, url: 'https://example.com/a.png', alt: 'A sketch of a variable' },
+      { type: 'video' as const, url: 'https://vimeo.com/76979871', title: 'A short clip' },
+    ]
+    spec.modules[0]!.content!.materials = materials
+    expect(parseCourseSpec(JSON.stringify(spec)).modules[0]?.content?.materials).toEqual(materials)
+  })
+
+  it('converts the old materials shape into blocks', () => {
+    const legacy = {
+      ...pythonCourseSpec,
+      specVersion: 1,
+      modules: pythonCourseSpec.modules.map((module, index) => index === 0
+        ? {
+            ...module,
+            content: {
+              ...module.content!,
+              materials: {
+                heading: 'A first program',
+                body: 'A program is a list of steps.',
+                example: 'print(1)',
+                keyPoint: 'Quotes hold text.',
+                scopeNote: 'This module only.',
+              },
+            },
+          }
+        : module),
+    }
+    const parsed = parseCourseSpec(JSON.stringify(legacy))
+    expect(parsed.specVersion).toBe(2)
+    expect(parsed.modules[0]?.content?.materials).toEqual([
+      { type: 'text', markdown: '## A first program\n\nA program is a list of steps.' },
+      { type: 'code', code: 'print(1)' },
+      { type: 'text', markdown: '**Key point.** Quotes hold text.\n\nThis module only.' },
+    ])
+  })
+
+  it('rejects a block that is missing a field and names the module and block', () => {
+    const spec = structuredClone(pythonCourseSpec)
+    spec.modules[0]!.content!.materials = [{ type: 'diagram', mermaid: '' }]
+    expect(() => parseCourseSpec(JSON.stringify(spec))).toThrow('Module getting_started, block 1: mermaid is missing.')
+  })
+
+  it('parses the seeded Python spec', () => {
+    expect(parseCourseSpec(JSON.stringify(pythonCourseSpec))).toEqual(pythonCourseSpec)
   })
 })
 

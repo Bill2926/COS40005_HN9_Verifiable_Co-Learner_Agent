@@ -20,9 +20,11 @@ const { data, error, status } = await useFetch<LecturerResponse>('/api/lecturer'
   getCachedData: () => undefined,
 })
 
+const pane = ref<'overview' | 'editor' | 'preview'>('overview')
+
 const historyLabels: Record<string, string> = {
   seeded: 'Course seeded',
-  course_spec_imported: 'Course spec imported',
+  course_spec_imported: 'Course spec published',
 }
 const drafts = reactive<Record<string, number>>({})
 const saving = ref<string | null>(null)
@@ -161,7 +163,14 @@ function enrolledText(value: string): string {
     </header>
 
     <main class="phone-safe-bottom mx-auto flex w-full max-w-[90rem] flex-1 flex-col gap-6 p-4 md:p-8">
-      <h1 class="text-xl font-semibold tracking-tight text-highlighted">Lecturer</h1>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-xl font-semibold tracking-tight text-highlighted">Lecturer</h1>
+        <nav class="flex flex-wrap gap-2" aria-label="Lecturer sections">
+          <button v-for="item in [['overview', 'Overview'], ['editor', 'Editor'], ['preview', 'Preview']] as const" :key="item[0]" type="button" class="min-h-11 rounded-sm px-3 text-sm" :class="pane === item[0] ? 'bg-accent text-on-accent' : 'border border-default'" @click="pane = item[0]">{{ item[1] }}</button>
+        </nav>
+      </div>
+      <CourseEditor v-if="pane === 'editor'" course-id="intro_python" />
+      <CoursePreviewPanel v-if="pane === 'preview'" course-id="intro_python" />
       <p v-if="status === 'pending'" role="status" class="text-sm text-muted">Loading courses…</p>
       <p v-else-if="error" role="alert" class="text-sm text-default">
         {{ error.statusCode === 403 ? 'This page is for lecturers.' : 'Courses are unavailable right now.' }}
@@ -170,7 +179,7 @@ function enrolledText(value: string): string {
       <p v-if="notice" role="status" class="text-sm text-default">{{ notice }}</p>
       <p v-if="saveError" role="alert" class="text-sm text-rose-700">{{ saveError }}</p>
       <article
-        v-for="course in data?.courses"
+        v-for="course in pane === 'overview' ? data?.courses : []"
         :key="course.id"
         class="overflow-hidden rounded-lg border border-default bg-default shadow-xs"
       >

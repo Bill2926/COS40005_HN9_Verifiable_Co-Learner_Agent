@@ -1,13 +1,14 @@
 import type { ModuleContent } from '../course-spec'
+import { legacyMaterials } from '../materials'
 
 export const variablesModule: ModuleContent = {
-  materials: {
+  materials: legacyMaterials({
     heading: 'Names for values',
     body: 'A variable is a name for a value. A value has a type: a whole number (int), a decimal (float), text (str), or true or false (bool). Operators such as +, *, and >= combine values. input() reads text, and int() turns that text into a whole number.',
     example: 'years = int("2")\nprint(years + 1)',
     keyPoint: 'input() gives you text. Use int() before you do arithmetic with it.',
     scopeNote: 'These materials belong to this module alone.',
-  },
+  }),
   exercises: [
     {
       id: 'total_cost',

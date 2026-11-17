@@ -49,7 +49,7 @@ export interface ModuleSpec {
 }
 
 export interface CourseSpec {
-  specVersion: 1
+  specVersion: 2
   courseId: string
   title: string
   masteryThreshold: number

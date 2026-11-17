@@ -65,6 +65,17 @@ flowchart TB
 | LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the product owner can change it on `/admin` |
 | jsDelivr | `web/app/python/browser-worker.mjs` |
 
+## GitHub Actions
+
+Two workflows live in `.github/workflows/`. They run on GitHub after those files are on the default branch. Neither deploys the Nuxt server. The app still runs on a developer machine.
+
+| Workflow | When | What it runs | Credentials |
+|---|---|---|---|
+| `check.yml` | every pull request, and every push to `main` | In `web/`: `pnpm typecheck`, and `pnpm test` with `CHECK_SKIP_LIVE_SUPABASE=1`. Also `supabase db push --dry-run` against project ref `nopyjjyimtmvuucsirxb`, which does not write | `SUPABASE_ACCESS_TOKEN` for the dry-run only |
+| `schema-push.yml` | every push to `main`, queued, not cancelled mid-run | `supabase db push` for project ref `nopyjjyimtmvuucsirxb` (`VerifiableCoLearnerAgents`), without `--include-seed`. The CLI opens a temporary login role from the access token | `SUPABASE_ACCESS_TOKEN` |
+
+`check.yml` skips the Vitest files that sign in to the shared project (`*boundary*.test.ts` and `conversation-storage.test.ts`). Those still run from `pnpm test` on a machine that has `web/.env`. Playwright rehearsal is not in either workflow. A red Check does not block a merge until someone with admin marks the `typecheck`, `test`, and `migrations` jobs as required status checks. See ADR 0007. The Vitest migration files replay SQL in PGlite from an empty database. The dry-run is the check against the migration history of the shared project.
+
 ## Not part of the current setup
 
 - **Local Supabase stack.** `supabase/config.toml` exists (ports 54321 and so on), but no code or env file

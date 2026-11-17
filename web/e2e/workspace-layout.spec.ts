@@ -21,12 +21,12 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   const ide = switcher.getByRole('link', { name: 'Study', exact: true })
-  const roadmapCanvas = switcher.getByRole('link', { name: 'Roadmap', exact: true })
+  const roadmapCanvas = switcher.getByRole('link', { name: 'Mindmap', exact: true })
 
-  await expect(switcher.getByRole('link')).toHaveText(['Study', 'Roadmap'])
+  await expect(switcher.getByRole('link')).toHaveText(['Study', 'Mindmap'])
   await expect(ide).toHaveAttribute('aria-current', 'page')
   await expect(ide).toHaveAttribute('href', /[?&]layout=study(?:&|$)/)
-  await expect(roadmapCanvas).toHaveAttribute('href', /[?&]layout=roadmap(?:&|$)/)
+  await expect(roadmapCanvas).toHaveAttribute('href', /[?&]layout=mindmap(?:&|$)/)
   await expect(roadmapCanvas).not.toHaveAttribute('aria-current', 'page')
   await expectIde(page)
 
@@ -34,7 +34,7 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowLeft')
   await expect(ide).toHaveAttribute('aria-current', 'page')
-  await expect(page).not.toHaveURL(/[?&]layout=roadmap(?:&|$)/)
+  await expect(page).not.toHaveURL(/[?&]layout=mindmap(?:&|$)/)
   await expectIde(page)
 })
 
@@ -46,9 +46,9 @@ test('switches to Roadmap without reloading, and back and forward restore each l
     loads += 1
   })
 
-  await switcher.getByRole('link', { name: 'Roadmap', exact: true }).click()
-  await expect(page).toHaveURL(/[?&]layout=roadmap(?:&|$)/)
-  await expect(switcher.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await switcher.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await expect(page).toHaveURL(/[?&]layout=mindmap(?:&|$)/)
+  await expect(switcher.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(switcher.getByRole('link', { name: 'Study', exact: true })).not.toHaveAttribute('aria-current', 'page')
   expect(loads).toBe(0)
   await expectRoadmapCanvas(page)
@@ -59,7 +59,7 @@ test('switches to Roadmap without reloading, and back and forward restore each l
   await expectIde(page)
 
   await page.goForward()
-  await expect(page).toHaveURL(/[?&]layout=roadmap(?:&|$)/)
+  await expect(page).toHaveURL(/[?&]layout=mindmap(?:&|$)/)
   await expectRoadmapCanvas(page)
   await expectFloatingPanels(page)
 })
@@ -74,16 +74,16 @@ test('reloads the remembered layout from the server and falls back when the layo
   await page.goto('/')
   await expectIde(page)
 
-  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
-  await expectServerLayout(browser, await page.context().storageState(), 'roadmap-canvas')
+  await expectServerLayout(browser, await page.context().storageState(), 'mindmap')
 
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectRoadmapCanvas(page)
 
   await page.goto('/?layout=nope')
-  await expect(page.getByRole('link', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectRoadmapCanvas(page)
 })
 
@@ -114,7 +114,7 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await composer.fill(unsent)
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
-  await switcher.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
   await expect(conversation(page)).toContainText(studentMessage)
   await expect(conversation(page)).toContainText(teacherReply)
@@ -139,7 +139,7 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   await openWorkspace(page)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   await expect(page.getByText('Introduction to Programming with Python', { exact: true })).toBeVisible()
@@ -160,31 +160,14 @@ test('shows each module on the Roadmap canvas and collapses the working area to 
   const drawn = await connectors.locator('path').evaluateAll(nodes => nodes.map(node => node.getAttribute('d') ?? ''))
   expect(drawn.every(path => path.startsWith('M '))).toBe(true)
 
-  const working = page.getByRole('region', { name: 'Working area', exact: true })
-  const collapse = page.getByRole('button', { name: 'Collapse working area', exact: true })
-  await expect(collapse).toHaveAttribute('aria-expanded', 'true')
-  const expanded = await working.boundingBox()
-  expect(expanded).not.toBeNull()
-  await collapse.click()
-
-  const expand = page.getByRole('button', { name: 'Expand working area', exact: true })
-  await expect(expand).toHaveAttribute('aria-expanded', 'false')
-  await expect(page.getByRole('heading', { name: 'A first program' })).toBeHidden()
-  const collapsed = await working.boundingBox()
-  expect(collapsed).not.toBeNull()
-  expect(collapsed!.height).toBeLessThan(expanded!.height / 2)
-
-  await expand.click()
-  await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
-  const restored = await working.boundingBox()
-  expect(restored).not.toBeNull()
-  expect(Math.abs(restored!.height - expanded!.height)).toBeLessThanOrEqual(2)
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
+  await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
 })
 
 test('drags a module with the mouse and leaves the current module and working area unchanged', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
 
@@ -199,9 +182,8 @@ test('drags a module with the mouse and leaves the current module and working ar
   expect(moved[0]).toBe(paths[0])
   await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('region', { name: 'Conversation', exact: true })).toBeVisible()
 
   const tick = moduleCard(page, 'Variables, Data Types, and Operators').locator('img')
   const tickBox = await tick.boundingBox()
@@ -232,7 +214,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
   const page = await context.newPage()
   try {
     await openWorkspace(page)
-    await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+    await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
     await expectRoadmapCanvas(page)
 
     const card = moduleCard(page, 'Working with Strings')
@@ -255,7 +237,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
 
 test('moves a module anywhere on the board, and fit all brings every module back into view', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
@@ -281,9 +263,8 @@ test('moves a module anywhere on the board, and fit all brings every module back
   await page.reload()
   await expectRoadmapCanvas(page)
   await page.getByRole('button', { name: 'Fit all modules', exact: true }).click()
-  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
-  expect(working).not.toBeNull()
   expect(conversation).not.toBeNull()
   const cards = page.getByRole('list', { name: 'Modules' }).getByRole('listitem')
   await expect(cards).toHaveCount(11)
@@ -292,14 +273,13 @@ test('moves a module anywhere on the board, and fit all brings every module back
     return { x: rect.x, y: rect.y, width: rect.width, height: rect.height }
   }))) {
     expect(within(box, canvas!)).toBe(true)
-    expect(overlaps(box, working!)).toBe(false)
     expect(overlaps(box, conversation!)).toBe(false)
   }
 })
 
 test('selects a module without moving it, and arrow keys move the focused module', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Roadmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
   await expectRoadmapCanvas(page)
 
   const variables = moduleCard(page, 'Variables, Data Types, and Operators')
@@ -351,8 +331,7 @@ test('selects a module without moving it, and arrow keys move the focused module
   expect(leapt!.y - nudged!.y).toBeLessThan(56)
 
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
-  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python', level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'A first program' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
 })
 
 test('keeps a moved module on this device, and reset arrangement restores the starting arrangement', async ({ page }) => {
@@ -517,7 +496,7 @@ async function forgetLayout(page: Page) {
   if (keep.length > 0) await page.context().addCookies(keep)
 }
 
-async function expectServerLayout(browser: Browser, storageState: Awaited<ReturnType<BrowserContext['storageState']>>, layout: 'study' | 'roadmap-canvas') {
+async function expectServerLayout(browser: Browser, storageState: Awaited<ReturnType<BrowserContext['storageState']>>, layout: 'study' | 'mindmap') {
   const server = await browser.newContext({
     javaScriptEnabled: false,
     storageState,
@@ -535,7 +514,7 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
 }
 
 async function showRoadmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Roadmap', exact: true })
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expectRoadmapCanvas(page)
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()
@@ -636,34 +615,27 @@ async function expectRoadmapCanvas(page: Page) {
   await expect.poll(async () => {
     const panels = await panelBoxes(page)
     return panels ? describeLayout(panels) : 'missing'
-  }).toBe('roadmap-canvas')
+  }).toBe('mindmap')
 }
 
 async function expectFloatingPanels(page: Page) {
-  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
+  await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
+  await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
-  expect(working).not.toBeNull()
   expect(conversation).not.toBeNull()
-  expect(Math.abs(working!.width - 520)).toBeLessThanOrEqual(2)
-  expect(Math.abs(working!.height - 448)).toBeLessThanOrEqual(2)
-  expect(Math.abs(conversation!.width - 360)).toBeLessThanOrEqual(2)
-  expect(conversation!.height).toBeLessThanOrEqual(642)
-  expect(conversation!.height).toBeGreaterThan(400)
-  expect(working!.x).toBeLessThan(40)
-  expect(working!.y + working!.height).toBeGreaterThan(860)
   expect(conversation!.x + conversation!.width).toBeGreaterThan(1400)
   expect(conversation!.y).toBeLessThan(120)
 }
 
-function describeLayout(panels: { map: Box, working: Box, conversation: Box }) {
+function describeLayout(panels: { map: Box, working: Box | null, conversation: Box }) {
+  if (!panels.working) {
+    return panels.conversation.x > panels.map.x + 80 ? 'mindmap' : 'unrecognised'
+  }
   const columns = panels.working.x > panels.map.x + 80
     && panels.conversation.x > panels.working.x + 80
     && Math.abs(panels.working.y - panels.map.y) < 40
     && Math.abs(panels.conversation.y - panels.map.y) < 40
   if (columns) return 'study'
-  const canvas = panels.conversation.x > panels.working.x + 80
-    && panels.working.y > panels.conversation.y + 40
-  if (canvas) return 'roadmap-canvas'
   return `unrecognised working=(${Math.round(panels.working.x)},${Math.round(panels.working.y)}) conversation=(${Math.round(panels.conversation.x)},${Math.round(panels.conversation.y)}) map=(${Math.round(panels.map.x)},${Math.round(panels.map.y)})`
 }
 
@@ -676,6 +648,6 @@ async function panelBoxes(page: Page) {
   const map = await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
   const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
   const conversation = await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
-  if (!map || !working || !conversation) return null
+  if (!map || !conversation) return null
   return { map, working, conversation }
 }
