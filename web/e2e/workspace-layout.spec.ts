@@ -549,10 +549,11 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
 }
 
 async function showMindmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
-  if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
+  const mindmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
+  if (await mindmapLink.getAttribute('aria-current') !== 'page') await mindmapLink.click()
   await expectMindmapCanvas(page)
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
 }
 
 function expectSignedInAs(page: Page, displayName: string) {
@@ -678,11 +679,13 @@ interface Box {
 }
 
 async function panelBoxes(page: Page) {
-  const map = await page.getByRole('heading', { name: 'Mindmap', exact: true }).boundingBox()
-    ?? await page.getByRole('heading', { name: 'Course roadmap', exact: true }).boundingBox()
-  const working = await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
-  const conversation = await page.getByRole('complementary', { name: 'Mindmap panel' }).boundingBox()
-    ?? await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
+  const canvas = page.getByRole('region', { name: 'Mindmap canvas' })
+  const mindmap = await canvas.isVisible()
+  const map = await page.getByRole('heading', { name: mindmap ? 'Mindmap' : 'Course roadmap', exact: true }).boundingBox()
+  const working = mindmap ? null : await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
+  const conversation = mindmap
+    ? await page.getByRole('complementary', { name: 'Mindmap panel' }).boundingBox()
+    : await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
   if (!map || !conversation) return null
   return { map, working, conversation }
 }

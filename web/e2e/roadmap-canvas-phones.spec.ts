@@ -93,6 +93,7 @@ test('shows the full-height canvas on the Mindmap tab of a phone', async ({ page
 
 test('drags a module by touch on a tablet and a phone, and the connector follows', async ({ browser }) => {
   const context = await browser.newContext({
+    reducedMotion: 'reduce',
     hasTouch: true,
     viewport: { width: 768, height: 1024 },
   })
@@ -130,15 +131,16 @@ test('keeps the modules apart when the screen is turned sideways', async ({ page
 })
 
 test('pans, pinch-zooms and opens a bottom sheet on a phone', async ({ browser }) => {
-  const context = await browser.newContext({ hasTouch: true, viewport: { width: 390, height: 800 } })
+  const context = await browser.newContext({ hasTouch: true, reducedMotion: 'reduce', viewport: { width: 390, height: 800 } })
   const page = await context.newPage()
   try {
     await openWorkspace(page, { width: 390, height: 800 })
     await showMindmap(page)
-    const canvas = (await canvasBox(page))!
+    await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+    const canvas = (await page.getByRole('region', { name: 'Mindmap canvas' }).boundingBox())!
     const card = moduleCard(page, moduleNames[0])
     const before = (await card.boundingBox())!
-    await touchDrag(page, { x: 14, y: canvas.y + 90 }, { x: 54, y: canvas.y + 92 })
+    await touchDrag(page, { x: 195, y: canvas.y + 90 }, { x: 235, y: canvas.y + 92 })
     await expect.poll(async () => (await card.boundingBox())!.x - before.x).toBeGreaterThan(30)
 
     const client = await context.newCDPSession(page)
@@ -197,6 +199,7 @@ test('reaches the notes editor on a phone', async ({ page }) => {
 })
 
 async function dragModuleByTouch(page: Page, name: string) {
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
   const canvas = await canvasBox(page)
   const card = moduleCard(page, name)
   await expect(card).toBeVisible()
@@ -205,7 +208,13 @@ async function dragModuleByTouch(page: Page, name: string) {
   expect(before).not.toBeNull()
   const paths = await connectorPaths(page)
   const scrollBefore = await scrollOffset(page)
-  await touchDrag(page, centerOf(before!), { x: canvas!.x + 8, y: canvas!.y + 8 })
+  const saved = page.waitForResponse(response => response.url().endsWith('/api/student')
+    && response.request().postDataJSON()?.event === 'mindmap_moved')
+  await touchDrag(page, centerOf(before!), {
+    x: canvas!.x + before!.width / 2 + 12,
+    y: canvas!.y + before!.height / 2 + 12,
+  })
+  expect((await saved).ok()).toBe(true)
 
   await expect.poll(async () => {
     const after = await card.boundingBox()
