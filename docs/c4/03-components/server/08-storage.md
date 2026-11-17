@@ -43,6 +43,7 @@ flowchart LR
   courses -->|"courseFromSpec, pythonCourse"| course
   ev -.->|"type: EvidenceStore, EvidenceRow"| evIface
   act -->|"activityPayload"| recorder
+  act -.->|"type: ActivityRecorder"| recorder
   turn -.->|"type: ConversationStore,<br/>DecisionLogStore"| storage
   turn -->|"createMemoryCourseStore"| courses
   vs -.->|"type: VerifyShieldStore"| shieldIface
@@ -75,9 +76,9 @@ files are in the `verify-shield`, `student-model` and `activity-recorder` compon
 
 ## Verified imports
 
-- The Supabase stores use `@supabase/supabase-js` and import their store interfaces. The evidence adapter also calls the quiz-answer adapter and merges the observations using `student-model/index.ts`. The activity adapter imports `activityPayload` from `activity-recorder`.
+- The Supabase stores use `@supabase/supabase-js` and import their store interfaces. The evidence adapter also calls the quiz-answer adapter and merges the observations using `student-model/index.ts`. The activity adapter imports `activityPayload` from `activity-recorder` and type-imports `ActivityRecorder`.
 - The course store imports `course` (`courseFromSpec` in the Supabase version, `pythonCourse` in the in-memory one).
-- Runtime importers from outside: `routes/turn.post.ts` (the turn stores, including `supabase-activity-log` and `supabase-deskmate-setting-store`), `api/student.post.ts` (`supabase-activity-log`, plus the profile, mindmap and student-file stores), `routes/course-outline.get.ts` (`supabase-course-store`), `api/admin.post.ts` (four Supabase files, including `supabase-student-directory`). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` and `course-store.ts` at runtime for their in-memory defaults.
+- Runtime importers from outside: `routes/turn.post.ts` (the turn stores, including `supabase-activity-log` and `supabase-deskmate-setting-store`), `api/student.post.ts` (`supabase-activity-log`, `supabase-course-store`, plus the profile, mindmap and student-file stores), `routes/course-outline.get.ts` (`supabase-course-store`), `api/admin.post.ts` (four Supabase files, including `supabase-student-directory`). `turn/handle-turn.ts` also imports `quiz-answer-store.ts` and `course-store.ts` at runtime for their in-memory defaults.
 - Type-only importers: `turn/handle-turn.ts` (`conversation-store`, `decision-log`, and the `QuizAnswerStore`/`QuizAnswerRow` types), `admin/handle-admin.ts` (`decision-log`, `model-settings-store`, `student-directory`), `agents/configured-agents.ts` (`model-settings-store`).
 - Tests: `message-time-migration.test.ts` (the `messages.created_at` migration, on PGlite); `student-numbers-migration.test.ts` (the student number backfill and the change function, on PGlite); `activity-log-migration.test.ts` (the activity log is append-only, stamps its own time, and refuses `anon` and `authenticated`, on PGlite); `courses-boundary.test.ts`, `conversation-storage.test.ts`, `decisions-boundary.test.ts`, `model-settings-boundary.test.ts`, `quiz-answers-boundary.test.ts`, `student-numbers-boundary.test.ts`, `activity-mindmap-boundary.test.ts` (Supabase versions, against the live project); `turn-endpoint.test.ts`, `admin-handler.test.ts`, `quiz-answer.test.ts`, `wrong-quiz-brings-agents.test.ts`, `move-contract.test.ts`, `prompt-hardening.test.ts`, `real-language-model.test.ts`, `student-handler.test.ts` (the interfaces and their in-memory versions).
 

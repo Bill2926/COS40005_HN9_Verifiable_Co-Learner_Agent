@@ -50,6 +50,7 @@ flowchart LR
   adminRoute -->|"3 createSupabase...Store"| stores
   outlineRoute -->|"defaultCourseId"| course
   studentRoute -->|"defaultCourseId"| course
+  turnRoute -->|"defaultCourseId"| course
 
   style routes fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -59,7 +60,7 @@ flowchart LR
 | File | Responsibility (from the code) |
 |---|---|
 | `routes/turn.post.ts` | Returns 401 when there is no session. Navigation events (`select_module`, `select_exercise`, `preview_module`) skip the model and shield reads. `message` and `submission` events are answered as an NDJSON stream; the other events as JSON. Builds the Supabase stores on every request (the model-settings and shield stores only for events that call the model), including the activity log, and passes them to `handleTurn` or `streamTurn`. |
-| `api/student.post.ts` | Returns 401 when there is no session and 400 for a rejected report. Builds the activity log, profile, mindmap and student-file stores and passes them to `handleStudent`. A preview is not selected here. |
+| `api/student.post.ts` | Returns 401 when there is no session and 400 for a rejected report. Builds the activity log, course, profile, mindmap and student-file stores and passes them to `handleStudent`. A preview is not selected here. |
 | `api/admin.post.ts` | Passes the session email, `adminEmails`, the env model settings and three stores to `handleAdmin`. Maps `SignInRequiredError`, `ProductOwnerRequiredError`, `ModelSettingsError` and `AdminRequestError` to their `statusCode`. |
 | `routes/course-outline.get.ts` | Public course outline for the About page: number, name, part, summary, availability, of the course read through the Supabase course store. No student data and none of the teacher-only content. |
 

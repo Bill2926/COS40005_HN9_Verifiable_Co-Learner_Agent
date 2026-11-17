@@ -54,9 +54,13 @@ watch(draft, (code) => {
 watch(draft, code => emit('draft', code), { immediate: true })
 watch(outcome, result => emit('run', result))
 
+function practiceRunInProgress(): boolean {
+  return action.value === 'run' && (status.value === 'loading' || status.value === 'running')
+}
+
 watch(() => props.exercise.id, (next, previous) => {
   if (!previous || previous === next) return
-  const reportRun = action.value === 'run' && (status.value === 'loading' || status.value === 'running')
+  const reportRun = practiceRunInProgress()
   if (busy.value) {
     runGeneration += 1
     pythonReady.value = false
@@ -80,7 +84,9 @@ watch(() => props.exercise.id, (next, previous) => {
 onBeforeUnmount(() => {
   alive = false
   drafts.write(props.exercise.id, draft.value)
+  const reportRun = practiceRunInProgress()
   runner?.stop()
+  if (reportRun) emit('runFinished', props.exercise.id)
 })
 
 function chooseExercise(exerciseId: string) {
@@ -159,7 +165,7 @@ function chipClass(selected: boolean): string {
 }
 
 function onStop() {
-  const reportRun = action.value === 'run' && (status.value === 'loading' || status.value === 'running')
+  const reportRun = practiceRunInProgress()
   runGeneration += 1
   pythonReady.value = false
   outcome.value = null

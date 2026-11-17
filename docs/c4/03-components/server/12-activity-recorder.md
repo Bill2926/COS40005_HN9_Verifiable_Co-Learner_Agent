@@ -18,7 +18,8 @@ flowchart LR
   workspace["<b>pages/index.vue</b><br/>pages/sign-in.vue"]:::near
   studentRoute["<b>api/student.post.ts</b>"]:::near
   turnRoute["<b>routes/turn.post.ts</b>"]:::near
-  student["<b>student/handle-student.ts</b>"]:::near
+  student["<b>student/index.ts</b>"]:::near
+  studentHandler["<b>student/handle-student.ts</b>"]:::near
   turn["<b>turn/handle-turn.ts</b>"]:::near
   adapter["<b>storage/supabase-activity-log.ts</b><br/>createSupabaseActivityLog"]:::near
   recorder["<b>activity-recorder/index.ts</b><br/>activityPayload,<br/>createMemoryActivityLog"]:::comp
@@ -28,10 +29,12 @@ flowchart LR
   studentRoute -->|"createSupabaseActivityLog"| adapter
   turnRoute -->|"createSupabaseActivityLog"| adapter
   studentRoute -->|"handleStudent"| student
+  student -->|"re-exports"| studentHandler
   turnRoute -->|"handleTurn, streamTurn"| turn
-  student -.->|"type: ActivityRecorder"| recorder
+  studentHandler -.->|"type: ActivityRecorder,<br/>ActivityEventType"| recorder
   turn -.->|"type: ActivityRecorder"| recorder
   adapter -->|"activityPayload"| recorder
+  adapter -.->|"type: ActivityRecorder"| recorder
   adapter -->|"insert"| db
 ```
 
@@ -43,7 +46,7 @@ flowchart LR
 | `module_opened` | Student handler, reported by the workspace after a module opens | `{ moduleId }` |
 | `mode_switched` | Student handler, reported by the workspace | `{ mode }`: `learn` or `practice` |
 | `layout_switched` | Student handler, reported by the workspace | `{ layout }`: `study` or `mindmap` |
-| `code_run` | Student handler, reported by the workspace | `{ exerciseId }` only |
+| `code_run` | Student handler, reported by the workspace | `{ exerciseId }` only. A run still going when the practice panel goes away is included |
 | `submitted` | Turn, on a submission | Module, exercise, tests passed and tests total. Never the code |
 | `quiz_answered` | Turn, on the first stored answer to a question | Module, question and whether it was correct. A repeat appends nothing |
 | `message_sent` | Turn, on a student message | Module, and whether the message quoted something. Never the text, the draft or a run |
@@ -63,7 +66,7 @@ Home and the profile tell the student that activity is recorded and is not used 
 
 ## Verified imports
 
-- Runtime: `storage/supabase-activity-log.ts` imports `activityPayload` and the `ActivityRecorder` type from `activity-recorder`.
-- Type only: `student/handle-student.ts` imports `ActivityRecorder` and `ActivityEventType`. `turn/handle-turn.ts` imports `ActivityRecorder`. The routes do not import this folder; they construct `createSupabaseActivityLog` and pass it in.
-- Browser: `app/activity/record.ts` posts to `POST /api/student` and ignores a failure, so a missed report does not undo the action. `pages/index.vue` reports `module_opened` for the module the workspace opens onto and again when the student opens another, `mode_switched` only when the student chooses Learn or Practice, `layout_switched`, and `code_run` when a run ends (the exercise id only, including a failure or a stop). `pages/sign-in.vue` reports `signed_in`. Applying a turn's own mode does not record a mode switch.
+- Runtime: `storage/supabase-activity-log.ts` imports `activityPayload` from `activity-recorder`. `student/index.ts` re-exports `handle-student.ts`, which is what `api/student.post.ts` imports.
+- Type only: `storage/supabase-activity-log.ts` imports `ActivityRecorder`. `student/handle-student.ts` imports `ActivityRecorder` and `ActivityEventType`. `turn/handle-turn.ts` imports `ActivityRecorder`. The routes do not import this folder; they construct `createSupabaseActivityLog` and pass it in.
+- Browser: `app/activity/record.ts` posts to `POST /api/student` and ignores a failure, so a missed report does not undo the action. `pages/index.vue` reports `module_opened` for the module the workspace opens onto and again when the student opens another, `mode_switched` only when the student chooses Learn or Practice, `layout_switched`, and `code_run` when a run ends (the exercise id only, including a failure, a stop, or the practice panel going away while the run is still going). `pages/sign-in.vue` reports `signed_in`. Applying a turn's own mode does not record a mode switch.
 - Tests: `student-handler.test.ts` and `turn-endpoint.test.ts` use `createMemoryActivityLog`. `activity-log-migration.test.ts` runs the migration on PGlite. `activity-mindmap-boundary.test.ts` checks the live project.

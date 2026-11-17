@@ -99,7 +99,7 @@ flowchart LR
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
-| storage | verify-shield, student-model, language-model | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore` |
+| storage | verify-shield, student-model, language-model, activity recorder | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore`; `ActivityRecorder` |
 | admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`; `ModelSettings`; `VerifyShieldStore` |
 
 Neither graph has a cycle. language-model imports nothing from agents: agents passes it the proposal schema as an

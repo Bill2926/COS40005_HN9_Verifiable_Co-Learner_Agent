@@ -25,17 +25,17 @@ flowchart LR
     shell["<b>app.vue</b>, app.config.ts<br/>UApp, NuxtPage, colours"]:::comp
   end
 
-  panels["<b>workspace components</b><br/>ConversationPanel, CourseRoadmap,<br/>RoadmapCanvas, WorkingArea"]:::near
-  helpers["<b>client helpers</b><br/>drafts/store, workspace/layout,<br/>sign-in/intro"]:::near
+  panels["<b>workspace components</b><br/>ConversationPanel, CourseRoadmap,<br/>MindmapNotes, RoadmapCanvas, WorkingArea"]:::near
+  helpers["<b>client helpers</b><br/>drafts/store, workspace/layout,<br/>sign-in/intro, activity/record"]:::near
   studentId["<b>shared/student-id.ts</b>"]:::near
   aboutParts["<b>about components</b><br/>SampleTurn, ShieldDiagram,<br/>LearningRoadmap"]:::near
   mw["<b>middleware and plugins</b><br/>signed-in, staff-landing,<br/>workspace-layout, $supabase plugin"]:::near
   server["<b>Turn and admin server</b>"]:::near
   adminParts["<b>admin components and<br/>role helpers</b><br/>AdminHeader, VerdictDrawer,<br/>admin/decisions, staff/landing"]:::near
 
-  index -->|"imports 4 panels"| panels
-  index -->|"createDraftStore, layout helpers"| helpers
-  signin -->|"claimIntro, introStart, ..."| helpers
+  index -->|"imports 5 panels"| panels
+  index -->|"createDraftStore, layout helpers,<br/>recordStudentActivity"| helpers
+  signin -->|"claimIntro, introStart,<br/>recordStudentActivity"| helpers
   index -->|"sessionStudentId,<br/>studentIdFromAuth"| studentId
   signin -->|"sessionStudentId"| studentId
   home -->|"studentIdFromAuth"| studentId
@@ -65,7 +65,7 @@ flowchart LR
 
 | File | Responsibility (from the code) |
 |---|---|
-| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}` and reports that module as `module_opened`. Reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Mindmap layouts (query `?layout=`, cookie). In the Mindmap layout the right-hand column is the notes editor and the conversation panel is not shown. A note has a title, text underneath, a colour and one required module. Save is what writes it; the saved note is a draggable card on the canvas with a line to that module. Reads the deskmate switch from the turn state and sets it with `{event: 'deskmate_switch'}`; it makes no `/api/admin` request. There is no staff opt-out: the `staff-landing` middleware sends staff away on every open. Signs out with `$supabase.auth.signOut()`. Choosing Learn or Practice, switching layout, opening another module, and a finished, failed or stopped run are each one report to `POST /api/student`. A run report is the exercise id only. A mode the turn itself applies is not a report. The page does not list the activity log. |
+| `pages/index.vue` | The workspace. Opens the student's module with `{event: 'open'}` and reports that module as `module_opened`. Reads streamed turn events (NDJSON), sends messages, submissions and quiz answers (`{event: 'quiz_answer'}`, one question at a time, under the same lock as a submission), selects modules and exercises, prefetches module views on hover, and switches between the Study and Mindmap layouts (query `?layout=`, cookie). In the Mindmap layout the right-hand column is the notes editor and the conversation panel is not shown. A note has a title, text underneath, a colour and one required module. Save is what writes it; the saved note is a draggable card on the canvas with a line to that module. Reads the deskmate switch from the turn state and sets it with `{event: 'deskmate_switch'}`; it makes no `/api/admin` request. There is no staff opt-out: the `staff-landing` middleware sends staff away on every open. Signs out with `$supabase.auth.signOut()`. Choosing Learn or Practice, switching layout, opening another module, and a finished, failed or stopped run are each one report to `POST /api/student`. A run still going when the practice panel goes away is the same report. A run report is the exercise id only. A mode the turn itself applies is not a report. The page does not list the activity log. |
 | `pages/sign-in.vue` | Email and password form using `$supabase.auth.signInWithPassword`. After sign-in, and on the server for a user already signed in, `staffLanding` (`staff/landing`) sends the product owner to `/admin`, a lecturer to `/lecturer`, and anyone else to `/`. A student sent to `/` reports `signed_in` to `POST /api/student`. Plays a first-visit intro (`sign-in/intro`). |
 | `pages/home.vue` | Public Home page: a small course roadmap that plays one module unlock, the shield diagram, the sample turn and the team. Tells a visitor that activity in the app is recorded and is not used to grade them. |
 | `pages/admin/index.vue` | Decisions page: the newest 100 decisions at full width with verdict and student filters, shown 10 per page. Each verdict is a button that opens `VerdictDrawer` from the decision already loaded (no extra request), showing the rule checks, the proposed and ruled moves and the addressed agent of the turn; closing returns focus to the verdict. Shows a refusal on 403. |
@@ -79,7 +79,7 @@ flowchart LR
 
 ## Verified imports
 
-- `index.vue`: `ConversationPanel`, `CourseRoadmap`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`, `activity/record`.
+- `index.vue`: `ConversationPanel`, `CourseRoadmap`, `MindmapNotes`, `RoadmapCanvas`, `WorkingArea`, `shared/turn` (type), `shared/student-id`, `drafts/store`, `workspace/layout`, `activity/record`.
 - `sign-in.vue`: `shared/student-id`, `sign-in/intro`, `activity/record`.
 - `home.vue`: `shared/student-id`.
 - `admin/index.vue`: `AdminHeader`, `VerdictDrawer`, `admin/decisions` (types). `admin/settings.vue` and `admin/students.vue`: `AdminHeader`, `admin/decisions` (type), `admin/message`. `admin/students.vue` also imports `shared/student-number`. `sign-in.vue`, `lecturer.vue` and `AdminHeader.vue` also import `staff/landing`.
