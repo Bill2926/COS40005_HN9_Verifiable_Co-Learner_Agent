@@ -5,6 +5,12 @@ interface NoteItem {
   id: string
   text: string
   colour: string
+  imageUrl: string | null
+}
+
+interface NoteImage {
+  contentType: string
+  base64: string
 }
 
 interface ModuleLink {
@@ -24,8 +30,10 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [id: string]
-  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }]
+  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string, image: NoteImage | null }]
   remove: [id: string]
+  link: [noteId: string, targetNoteId: string]
+  unlink: [linkId: string]
 }>()
 
 const swatches: { id: NoteColour, label: string, dot: string, edge: string }[] = [
@@ -43,10 +51,26 @@ const title = ref('')
 const body = ref('')
 const colour = ref<NoteColour>('brand')
 const moduleId = ref('')
+const image = ref<NoteImage | null>(null)
+const imagePreview = ref('')
+const imageError = ref('')
+const linkTargetId = ref('')
+
+// The same checks the server runs, so a picture it would refuse never leaves
+// this panel.
+const imageTypes = ['image/jpeg', 'image/png', 'image/webp']
+const imageLimit = 2 * 1024 * 1024
 
 const selected = computed(() => props.notes.find(note => note.id === props.selectedId) ?? null)
 const formOpen = computed(() => drafting.value || selected.value !== null)
 const canSave = computed(() => title.value.trim().length > 0 && moduleId.value.length > 0 && !props.saving)
+const shownImage = computed(() => imagePreview.value || selected.value?.imageUrl || '')
+const otherNotes = computed(() => props.notes.filter(note => note.id !== props.selectedId))
+const noteToNoteLinks = computed(() => {
+  const note = selected.value
+  if (!note) return []
+  return props.links.filter(link => link.fromNoteId === note.id && link.target.kind === 'note')
+})
 
 watch(() => props.selectedId, (id) => {
   if (!id) return
@@ -58,6 +82,8 @@ watch(() => props.selectedId, (id) => {
   body.value = parts.body
   colour.value = isSwatch(note.colour) ? note.colour : 'brand'
   moduleId.value = linkedModule(note.id)
+  resetImage()
+  linkTargetId.value = ''
 })
 
 function isSwatch(value: string): value is NoteColour {
@@ -90,7 +116,51 @@ function startDraft() {
   body.value = ''
   colour.value = 'brand'
   moduleId.value = ''
+  resetImage()
+  linkTargetId.value = ''
   emit('select', '')
+}
+
+function resetImage() {
+  image.value = null
+  imagePreview.value = ''
+  imageError.value = ''
+}
+
+function linkTitle(link: ModuleLink): string {
+  const target = link.target
+  if (target.kind !== 'note') return ''
+  return preview(props.notes.find(note => note.id === target.noteId)?.text ?? '')
+}
+
+async function onImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  resetImage()
+  if (!imageTypes.includes(file.type)) {
+    input.value = ''
+    imageError.value = 'Use a JPEG, PNG or WebP picture.'
+    return
+  }
+  if (file.size > imageLimit) {
+    input.value = ''
+    imageError.value = 'The picture must be 2 MB or smaller.'
+    return
+  }
+  const bytes = new Uint8Array(await file.arrayBuffer())
+  let binary = ''
+  for (let offset = 0; offset < bytes.length; offset += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
+  }
+  image.value = { contentType: file.type, base64: btoa(binary) }
+  imagePreview.value = URL.createObjectURL(file)
+}
+
+function linkNote() {
+  if (!selected.value || !linkTargetId.value) return
+  emit('link', selected.value.id, linkTargetId.value)
+  linkTargetId.value = ''
 }
 
 function openNote(id: string) {
@@ -105,6 +175,7 @@ function save() {
     body: body.value,
     colour: colour.value,
     moduleId: moduleId.value,
+    image: image.value,
   })
 }
 </script>
@@ -179,7 +250,58 @@ function save() {
           <option v-for="module in modules" :key="module.id" :value="module.id">{{ module.name }}</option>
         </select>
       </label>
+      <label class="text-xs font-medium text-ink-700">
+        Image (optional)
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          class="mt-1 w-full text-xs font-normal text-ink-700 file:mr-2 file:min-h-9 file:rounded-sm file:border-0 file:bg-ink-100 file:px-2 file:text-ink-800"
+          @change="onImage"
+        >
+      </label>
+      <img
+        v-if="shownImage"
+        :src="shownImage"
+        alt="Note image"
+        class="max-h-40 w-full rounded-sm border border-ink-200 object-contain"
+        data-note-image
+      >
+      <p v-if="imageError" class="text-xs text-rose-700" role="alert">{{ imageError }}</p>
       <p class="text-xs leading-5 text-ink-500">A note has to be linked to one module. Save puts it on the map.</p>
+      <div v-if="selected && !drafting" class="border-t border-ink-200 pt-3">
+        <p class="text-xs font-medium text-ink-700">Links to other notes</p>
+        <ul v-if="noteToNoteLinks.length > 0" class="mt-1 flex flex-col gap-1" aria-label="Linked notes">
+          <li v-for="link in noteToNoteLinks" :key="link.id" class="flex items-center gap-2">
+            <span class="min-w-0 flex-1 truncate text-xs text-ink-700">{{ linkTitle(link) }}</span>
+            <button
+              type="button"
+              class="min-h-11 rounded-sm border border-rose-200 px-2 text-xs text-rose-700"
+              @click="emit('unlink', link.id)"
+            >
+              Remove link
+            </button>
+          </li>
+        </ul>
+        <p v-else class="mt-1 text-xs text-ink-500">No links to other notes yet.</p>
+        <div class="mt-1 flex items-center gap-2">
+          <select
+            v-model="linkTargetId"
+            aria-label="Link to another note"
+            class="min-h-11 min-w-0 flex-1 rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
+          >
+            <option value="">Choose a note</option>
+            <option v-for="note in otherNotes" :key="note.id" :value="note.id">{{ preview(note.text) }}</option>
+          </select>
+          <button
+            type="button"
+            class="min-h-11 rounded-sm border border-ink-300 px-3 text-sm text-ink-800 disabled:opacity-60"
+            :disabled="!linkTargetId || saving"
+            @click="linkNote"
+          >
+            Link
+          </button>
+        </div>
+      </div>
       <div class="flex flex-wrap gap-2">
         <button
           type="submit"

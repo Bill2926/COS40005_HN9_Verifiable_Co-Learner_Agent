@@ -24,6 +24,7 @@ flowchart LR
     ci["<b>ChatInline</b>"]:::comp
     cr["<b>CourseRoadmap</b><br/>Roadmap list"]:::comp
     rc["<b>MindmapCanvas</b><br/>Mindmap canvas"]:::comp
+    mn["<b>MindmapNotes</b><br/>Note editor and links"]:::comp
     wa["<b>WorkingArea</b><br/>Learn and Practice tabs"]:::comp
     mb["<b>MaterialBlocks</b><br/>Materials in order"]:::comp
     mv["<b>MaterialVideo</b><br/>Embed or link"]:::comp
@@ -48,6 +49,7 @@ flowchart LR
   index --> conv
   index --> cr
   index --> rc
+  index --> mn
   index --> wa
   conv --> cm
   cm --> ci
@@ -83,7 +85,8 @@ flowchart LR
 | `ConversationPanel.vue` | Bubbles for student, Teacher and Deskmate with portraits, typing rows, event rows (exercise and test summaries), the message box with the `@` menu (an `@` at the start offers Teacher and Mai, Mai only while the deskmate switch is on; the choice becomes a removable chip, Backspace on an empty box removes it; the sent bubble shows the tag), the deskmate switch with a busy spinner, and the turn's notice. Menu logic is in `workspace/addressed-agent.ts`. Emits `send(text, addressedAgent)`, `openLearn`, `toggleDeskmate`. |
 | `ChatMarkdown.vue`, `ChatInline.vue` | Render the small Markdown subset of a reply from the tree that `chat-markdown.ts` produces (never raw HTML). A reply keeps a heading line as bold text. Materials pass `headings`, so a lesson title is a heading (`h2` to `h6`; the module name stays the page's only `h1`). |
 | `CourseRoadmap.vue` | Roadmap as a list grouped by part, with mastery bars, the threshold mark and the reason a module is closed. Emits `selectModule` and `prefetchModule`. |
-| `MindmapCanvas.vue` | Mindmap canvas with draggable module cards, connectors, and a view that pans and zooms, including pinch zoom on phones. A saved note is a smaller card with a line to its module. The canvas emits position changes to the workspace page, which saves them with the student account. |
+| `MindmapCanvas.vue` | Mindmap canvas with draggable module cards, connectors, and a view that pans and zooms, including pinch zoom on phones. A saved note is a smaller card with a line to its module, and a line also joins two notes the student linked. The canvas emits position changes to the workspace page, which saves them with the student account. |
+| `MindmapNotes.vue` | The notes panel: the student's notes as a list, and one editor for the chosen note or a new one. Title and text, a colour from the palette tokens in `shared/mindmap.ts`, the module the note hangs on, an optional image (JPEG, PNG or WebP, 2 MB or smaller, checked here as the server checks it, and shown under a preview), and the links to the student's other notes with their `Remove link`. Emits `select`, `save(draft)`, `remove`, `link(noteId, targetNoteId)` and `unlink(linkId)`, which the page sends as the note events on `/api/student`. |
 | `WorkingArea.vue` | Learn mode (the module's materials, then the quiz) and Practice mode (the practice panel). Materials are an ordered list of blocks. In the floating canvas layout it shows Learn only. The learn column cannot scroll sideways. Passes the quiz's `answer` event up as `quizAnswer`, which the page binds as `@quiz-answer`. |
 | `QuizPanel.vue` | The module's three questions under the materials, four choices each. A choice on an unanswered question emits `answer`, which the page sends as a `quiz_answer` turn; the server marks it. Once a question is answered, its result (right or wrong, the correct choice, the explanation) comes back in the working area, and the student can click other choices to explore without another turn, because only the first answer counts. |
 | `PracticePanel.vue` | Exercise chips, editor, Run and Submit. Runs code and tests in the Pyodide worker, keeps the draft in `localStorage` per student and exercise, emits `draft`, `run`, `runFinished` and `submit`. `runFinished` is the exercise id when a run ends, including a failure, a stop, or the panel going away mid-run, and never the code. |
@@ -97,7 +100,7 @@ flowchart LR
 
 ## Verified imports
 
-- As drawn, plus `pages/index.vue` also imports `MindmapNotes.vue`. `CourseRoadmap.vue` and `ConversationPanel.vue` import only types from `shared/turn` (and `ChatMarkdown`).
+- As drawn. `MindmapNotes.vue` imports only the `NoteColour` type from `shared/mindmap`. `CourseRoadmap.vue` and `ConversationPanel.vue` import only types from `shared/turn` (and `ChatMarkdown`).
 - Type-only imports of `shared/turn` (through the `#shared/turn` alias): `ConversationPanel`, `CourseRoadmap`, `MaterialBlocks` (`MaterialBlock`), `PracticePanel`, `QuizPanel` (`QuizQuestionView`), `MindmapCanvas`, `WorkingArea`. `ChatInline` has a type-only import of `workspace/chat-markdown`.
 - `MaterialVideo` imports `videoEmbed` from `shared/materials` at runtime. `MermaidDiagram` imports `diagram-theme.ts` and loads `mermaid` with a dynamic `import()`.
 - `PracticePanel` also has a runtime import of `python/runner` (`RunStopped`) and a dynamic import of `python/browser-runner`.

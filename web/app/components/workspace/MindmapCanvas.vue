@@ -24,6 +24,7 @@ const props = defineProps<{
   saveError?: string
   positions?: readonly { moduleId: string, x: number, y: number }[]
   notes?: readonly CanvasNote[]
+  noteLinks?: readonly { id: string, fromNoteId: string, toNoteId: string }[]
   selectedNoteId?: string
 }>()
 
@@ -190,17 +191,24 @@ const noteBoxes = computed(() => {
 
 const noteLines = computed(() => {
   const links: { id: string, path: string, stroke: string }[] = []
+  const join = (from: Box, to: Box): string => {
+    const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
+    const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
+    return `M ${Math.round(start.x)} ${Math.round(start.y)} L ${Math.round(end.x)} ${Math.round(end.y)}`
+  }
+  const strokeOf = (colour: string): string => noteStroke[colour] ?? 'var(--color-brand-600)'
   for (const note of props.notes ?? []) {
     const from = noteBoxes.value[note.id]
     const to = boxes.value[note.moduleId]
     if (!from || !to) continue
-    const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 }
-    const end = { x: to.x + to.width / 2, y: to.y + to.height / 2 }
-    links.push({
-      id: note.id,
-      path: `M ${Math.round(start.x)} ${Math.round(start.y)} L ${Math.round(end.x)} ${Math.round(end.y)}`,
-      stroke: noteStroke[note.colour] ?? 'var(--color-brand-600)',
-    })
+    links.push({ id: note.id, path: join(from, to), stroke: strokeOf(note.colour) })
+  }
+  for (const link of props.noteLinks ?? []) {
+    const from = noteBoxes.value[link.fromNoteId]
+    const to = noteBoxes.value[link.toNoteId]
+    if (!from || !to) continue
+    const colour = props.notes?.find(note => note.id === link.fromNoteId)?.colour ?? 'brand'
+    links.push({ id: link.id, path: join(from, to), stroke: strokeOf(colour) })
   }
   return links
 })

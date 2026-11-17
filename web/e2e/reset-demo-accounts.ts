@@ -90,6 +90,23 @@ export async function resetDemoMindmapPositions() {
   if (resets.error && resets.error.code !== 'PGRST205') throw new Error(resets.error.message)
 }
 
+export async function resetDemoMindmapNotes() {
+  const admin = adminClient()
+  const ids = (await demoStudents(admin)).map(student => student.id)
+  const notes = await admin.from('mindmap_notes').delete().in('student_id', ids)
+  if (notes.error) throw new Error(notes.error.message)
+  const links = await admin.from('mindmap_links').delete().in('student_id', ids)
+  if (links.error) throw new Error(links.error.message)
+  // A note image is the student's, like the portrait, so the bucket is cleared
+  // with the rows that point at it.
+  for (const id of ids) {
+    const listed = await admin.storage.from('student-files').list(`${id}/notes`)
+    if (listed.error) continue
+    const paths = (listed.data ?? []).map(item => `${id}/notes/${item.name}`)
+    if (paths.length > 0) await admin.storage.from('student-files').remove(paths)
+  }
+}
+
 function clearableIds(students: readonly DemoStudent[]): string[] {
   return students.filter(student => !student.seededEvidence).map(student => student.id)
 }

@@ -96,6 +96,7 @@ interface NoteItem {
   id: string
   text: string
   colour: string
+  imageUrl: string | null
   x: number
   y: number
 }
@@ -128,6 +129,7 @@ function applyMindmap(state: MindmapState) {
     id: note.id,
     text: note.text,
     colour: note.colour,
+    imageUrl: note.imageUrl,
     x: note.x,
     y: note.y,
   }))
@@ -148,6 +150,10 @@ const canvasNotes = computed(() => notes.value.flatMap((note) => {
     moduleId: target.moduleId,
     moduleName: noteModules.value.find(module => module.id === target.moduleId)?.name ?? target.moduleId,
   }]
+}))
+const noteToNoteLinks = computed(() => noteLinks.value.flatMap((link) => {
+  const target = link.target
+  return target.kind === 'note' ? [{ id: link.id, fromNoteId: link.fromNoteId, toNoteId: target.noteId }] : []
 }))
 const incomingQuote = ref<Quote | null>(null)
 const askButton = ref<{ x: number, y: number, text: string, source: 'agent' | 'materials' } | null>(null)
@@ -297,7 +303,10 @@ function resetMindmapArrangement() {
   changeArrangement({ event: 'reset_arrangement' }, 'Could not reset the arrangement. Try again.')
 }
 
-async function saveNote(draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }) {
+async function saveNote(draft: {
+  id: string | null, title: string, body: string, colour: string, moduleId: string,
+  image: { contentType: string, base64: string } | null,
+}) {
   if (addingNote.value) return
   if (!draft.title.trim() || !draft.moduleId) {
     noteError.value = 'A note needs a title and one module.'
@@ -312,7 +321,14 @@ async function saveNote(draft: { id: string | null, title: string, body: string,
       const previous = new Set(notes.value.map(note => note.id))
       const created = await $fetch<MindmapState>('/api/student', {
         method: 'POST',
-        body: { event: 'note_created', text, colour: draft.colour, x: 48, y: 48 },
+        body: {
+          event: 'note_created',
+          text,
+          colour: draft.colour,
+          x: 48,
+          y: 48,
+          ...(draft.image ? { image: draft.image } : {}),
+        },
       })
       applyMindmap(created)
       noteId = created.mindmap.notes.find(note => !previous.has(note.id))?.id ?? ''
@@ -320,7 +336,13 @@ async function saveNote(draft: { id: string | null, title: string, body: string,
     else {
       applyMindmap(await $fetch<MindmapState>('/api/student', {
         method: 'POST',
-        body: { event: 'note_changed', noteId, text, colour: draft.colour },
+        body: {
+          event: 'note_changed',
+          noteId,
+          text,
+          colour: draft.colour,
+          ...(draft.image ? { image: draft.image } : {}),
+        },
       }))
     }
     if (!noteId) throw new Error('The note was not saved.')
@@ -372,6 +394,32 @@ async function deleteNote(noteId: string) {
   }
   catch {
     noteError.value = 'The note could not be deleted. Try again.'
+  }
+}
+
+async function linkNotes(noteId: string, targetNoteId: string) {
+  noteError.value = ''
+  try {
+    applyMindmap(await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_linked', noteId, target: { kind: 'note', noteId: targetNoteId } },
+    }))
+  }
+  catch {
+    noteError.value = 'The notes could not be linked. Try again.'
+  }
+}
+
+async function unlinkNotes(linkId: string) {
+  noteError.value = ''
+  try {
+    applyMindmap(await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_unlinked', linkId },
+    }))
+  }
+  catch {
+    noteError.value = 'The link could not be removed. Try again.'
   }
 }
 
@@ -831,6 +879,7 @@ function initialsOf(name: string): string {
         :positions="modulePositions"
         :save-error="arrangementError"
         :notes="canvasNotes"
+        :note-links="noteToNoteLinks"
         :selected-note-id="selectedNoteId"
         @select-module="selectMindmapModule"
         @clear-selection="selectedMindmapModuleId = ''"
@@ -915,6 +964,8 @@ function initialsOf(name: string): string {
           @select="selectedNoteId = $event"
           @save="saveNote"
           @remove="deleteNote"
+          @link="linkNotes"
+          @unlink="unlinkNotes"
         />
         <ConversationPanel
           :messages="workspace.conversation"
