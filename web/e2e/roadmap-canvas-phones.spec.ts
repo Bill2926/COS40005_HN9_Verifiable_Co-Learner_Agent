@@ -42,7 +42,7 @@ test('places the canvas above two columns on a tablet', async ({ page }) => {
   const viewport = page.viewportSize()
   const header = await page.locator('main > header').boundingBox()
   const canvas = await canvasBox(page)
-  const conversationBox = await conversation(page).boundingBox()
+  const conversationBox = await notesPanel(page).boundingBox()
   expect(viewport).not.toBeNull()
   expect(header).not.toBeNull()
   expect(canvas).not.toBeNull()
@@ -68,7 +68,7 @@ test('shows the full-height canvas on the Roadmap tab of a phone', async ({ page
 
   await expect(page.getByRole('tab', { name: 'Roadmap', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toBeHidden()
-  await expect(conversation(page)).toBeHidden()
+  await expect(notesPanel(page)).toBeHidden()
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toBeHidden()
   await expectNoDocumentScroll(page)
@@ -125,7 +125,7 @@ test('keeps the modules apart when the screen is turned sideways', async ({ page
   await expectNoDocumentScroll(page)
 })
 
-test('reaches the composer and Send, and shows Learn only, on a phone', async ({ page }) => {
+test('reaches the notes editor on a phone', async ({ page }) => {
   await openWorkspace(page, { width: 390, height: 800 })
   await showRoadmap(page)
 
@@ -138,16 +138,12 @@ test('reaches the composer and Send, and shows Learn only, on a phone', async ({
     await expectNoDocumentScroll(page)
     await expectModulesFit(page)
 
-    await page.getByRole('tab', { name: 'Conversation', exact: true }).click()
-    const composer = page.getByRole('textbox', { name: 'Message' })
-    const send = page.getByRole('button', { name: 'Send', exact: true })
-    await expectReachable(page, composer)
-    await expectReachable(page, send)
-    await expectNoDocumentScroll(page)
-
-    await page.getByRole('tab', { name: 'Working area', exact: true }).click()
-    await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveCount(0)
+    await page.getByRole('tab', { name: 'Notes', exact: true }).click()
+    await page.getByRole('button', { name: 'New note', exact: true }).click()
+    await expectReachable(page, page.getByRole('textbox', { name: 'Title' }))
+    await expectReachable(page, page.getByRole('button', { name: 'Save', exact: true }))
     await expect(page.getByRole('button', { name: 'Learn', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Practice', exact: true })).toHaveCount(0)
     await expectNoDocumentScroll(page)
   }
 })
@@ -223,8 +219,8 @@ function moduleCard(page: Page, name: string): Locator {
   })
 }
 
-function conversation(page: Page): Locator {
-  return page.getByRole('region', { name: 'Conversation', exact: true })
+function notesPanel(page: Page): Locator {
+  return page.getByRole('region', { name: 'Notes', exact: true })
 }
 
 interface Bounds {

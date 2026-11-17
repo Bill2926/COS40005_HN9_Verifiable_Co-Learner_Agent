@@ -210,20 +210,18 @@ async function moveMindmap(request: StudentHandlerRequest, studentId: string, bo
   const id = field(body, 'id')
   const point = coordinates(body)
   if ((kind !== 'module' && kind !== 'note') || !id) throw new StudentRequestError('The mindmap move is missing its item.')
-  const record = await request.mindmap.read(studentId, request.courseId)
   if (kind === 'module') {
     if (!request.moduleIds.includes(id)) throw new StudentRequestError('That module is not on this course.')
-    const positions = record.positions.filter(position => position.moduleId !== id)
-    positions.push({ moduleId: id, ...point })
-    record.positions = positions
+    await request.mindmap.upsertPosition(studentId, request.courseId, { moduleId: id, ...point })
   }
   else {
+    const record = await request.mindmap.read(studentId, request.courseId)
     const note = record.notes.find(item => item.id === id)
     if (!note) throw new StudentRequestError('That note was not found.')
     note.x = point.x
     note.y = point.y
+    await request.mindmap.updateNote(studentId, request.courseId, note)
   }
-  await request.mindmap.save(studentId, request.courseId, record)
   await recordActivity(request, studentId, 'mindmap_moved', { kind, id }, request.courseId)
 }
 
@@ -241,8 +239,7 @@ async function importArrangement(request: StudentHandlerRequest, studentId: stri
     }
     return { moduleId, ...coordinates(position) }
   })
-  record.positions = positions
-  await request.mindmap.save(studentId, request.courseId, record)
+  await request.mindmap.replacePositions(studentId, request.courseId, positions)
   await recordActivity(request, studentId, 'mindmap_moved', { imported: true }, request.courseId)
 }
 
@@ -251,12 +248,10 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   const colour = noteColour(body)
   const point = coordinates(body)
   const image = 'image' in body && body.image !== undefined ? readImage(body.image, 'image') : null
-  const record = await request.mindmap.read(studentId, request.courseId)
   const id = crypto.randomUUID()
   const imagePath = image ? `notes/${id}` : null
   if (image && imagePath) await request.files.put(studentId, imagePath, image)
-  record.notes.push({ id, text, colour, imagePath, ...point })
-  await request.mindmap.save(studentId, request.courseId, record)
+  await request.mindmap.insertNote(studentId, request.courseId, { id, text, colour, imagePath, ...point })
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 
@@ -279,7 +274,7 @@ async function changeNote(request: StudentHandlerRequest, studentId: string, bod
     await request.files.put(studentId, imagePath, image)
     note.imagePath = imagePath
   }
-  await request.mindmap.save(studentId, request.courseId, record)
+  await request.mindmap.updateNote(studentId, request.courseId, note)
   await recordActivity(request, studentId, 'note_changed', { noteId }, request.courseId)
 }
 
@@ -293,31 +288,24 @@ async function linkNote(request: StudentHandlerRequest, studentId: string, body:
     throw new StudentRequestError('That note was not found.')
   }
   const id = crypto.randomUUID()
-  record.links.push({ id, fromNoteId: noteId, target })
-  await request.mindmap.save(studentId, request.courseId, record)
+  const created = await request.mindmap.insertLink(studentId, request.courseId, { id, fromNoteId: noteId, target })
+  if (!created) return
   await recordActivity(request, studentId, 'note_linked', { noteId, linkId: id }, request.courseId)
 }
 
 async function unlinkNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const linkId = field(body, 'linkId')
   if (!linkId) throw new StudentRequestError('The link is missing.')
-  const record = await request.mindmap.read(studentId, request.courseId)
-  const remaining = record.links.filter(link => link.id !== linkId)
-  if (remaining.length === record.links.length) throw new StudentRequestError('That link was not found.')
-  record.links = remaining
-  await request.mindmap.save(studentId, request.courseId, record)
+  const removed = await request.mindmap.deleteLink(studentId, request.courseId, linkId)
+  if (!removed) throw new StudentRequestError('That link was not found.')
   await recordActivity(request, studentId, 'note_unlinked', { linkId }, request.courseId)
 }
 
 async function deleteNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const noteId = field(body, 'noteId')
   if (!noteId) throw new StudentRequestError('The note is missing.')
-  const record = await request.mindmap.read(studentId, request.courseId)
-  if (!record.notes.some(note => note.id === noteId)) throw new StudentRequestError('That note was not found.')
-  record.notes = record.notes.filter(note => note.id !== noteId)
-  record.links = record.links.filter(link =>
-    link.fromNoteId !== noteId && !(link.target.kind === 'note' && link.target.noteId === noteId))
-  await request.mindmap.save(studentId, request.courseId, record)
+  const removed = await request.mindmap.deleteNote(studentId, request.courseId, noteId)
+  if (!removed) throw new StudentRequestError('That note was not found.')
   await recordActivity(request, studentId, 'note_deleted', { noteId }, request.courseId)
 }
 

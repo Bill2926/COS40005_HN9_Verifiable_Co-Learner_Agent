@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
+import MindmapNotes from '~/components/workspace/MindmapNotes.vue'
 import RoadmapCanvas from '~/components/workspace/RoadmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
@@ -87,9 +88,63 @@ const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
 const portraitUrl = ref<string | null>(null)
-const notes = ref<{ id: string, text: string, colour: string }[]>([])
+interface NoteItem {
+  id: string
+  text: string
+  colour: string
+  x: number
+  y: number
+}
+interface NoteLink {
+  id: string
+  fromNoteId: string
+  target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string }
+}
+interface MindmapState {
+  mindmap: {
+    notes: NoteItem[]
+    links: NoteLink[]
+    positions: { moduleId: string, x: number, y: number }[]
+  }
+}
+const notes = ref<NoteItem[]>([])
+const noteLinks = ref<NoteLink[]>([])
 const modulePositions = ref<{ moduleId: string, x: number, y: number }[]>([])
 const selectedNoteId = ref('')
+const addingNote = ref(false)
+const noteError = ref('')
+const noteModules = computed(() => (workspace.value?.courseRoadmap ?? []).map(module => ({
+  id: module.id,
+  name: module.name,
+})))
+
+function applyMindmap(state: MindmapState) {
+  notes.value = state.mindmap.notes.map(note => ({
+    id: note.id,
+    text: note.text,
+    colour: note.colour,
+    x: note.x,
+    y: note.y,
+  }))
+  noteLinks.value = state.mindmap.links
+  modulePositions.value = state.mindmap.positions
+}
+
+const canvasNotes = computed(() => notes.value.flatMap((note) => {
+  const link = noteLinks.value.find(item => item.fromNoteId === note.id && item.target.kind === 'module')
+  const target = link?.target
+  if (!target || target.kind !== 'module') return []
+  const title = note.text.split('\n')[0]?.trim() || 'Note'
+  return [{
+    id: note.id,
+    title,
+    colour: note.colour,
+    x: note.x,
+    y: note.y,
+    moduleId: target.moduleId,
+    moduleName: noteModules.value.find(module => module.id === target.moduleId)?.name ?? target.moduleId,
+  }]
+}))
 const incomingQuote = ref<Quote | null>(null)
 const askButton = ref<{ x: number, y: number, text: string, source: 'agent' | 'materials' } | null>(null)
 const sendError = ref('')
@@ -100,12 +155,21 @@ const latestRun = ref<RunOutput | null>(null)
 const workingAreaExpanded = ref(true)
 const conversationClosed = ref(false)
 const floatingChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
-const phonePanels = [
-  { id: 'roadmap', name: 'Roadmap' },
-  { id: 'working', name: 'Working area' },
-  { id: 'conversation', name: 'Conversation' },
-] as const
-const phonePanel = ref<(typeof phonePanels)[number]['id']>('working')
+const phonePanels = computed(() => layout.value === 'mindmap'
+  ? [
+      { id: 'roadmap' as const, name: 'Roadmap' },
+      { id: 'conversation' as const, name: 'Notes' },
+    ]
+  : [
+      { id: 'roadmap' as const, name: 'Roadmap' },
+      { id: 'working' as const, name: 'Working area' },
+      { id: 'conversation' as const, name: 'Conversation' },
+    ])
+const phonePanel = ref<(typeof phonePanels.value)[number]['id']>('working')
+
+watch(layout, (value) => {
+  if (value === 'mindmap' && phonePanel.value === 'working') phonePanel.value = 'roadmap'
+})
 const conversationUnread = ref(false)
 const isPhone = ref(false)
 
@@ -117,7 +181,7 @@ function noteReply() {
   if (!conversationIsOpen()) conversationUnread.value = true
 }
 
-function choosePanel(panel: (typeof phonePanels)[number]['id']) {
+function choosePanel(panel: (typeof phonePanels.value)[number]['id']) {
   phonePanel.value = panel
   if (panel === 'conversation') conversationUnread.value = false
 }
@@ -186,9 +250,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('selectionchange', onSelectionChange)
 })
 
-const noteColours = ['ink', 'brand', 'sky', 'emerald', 'amber', 'rose', 'purple'] as const
-const selectedNote = computed(() => notes.value.find(note => note.id === selectedNoteId.value) ?? null)
-
 function onMindmapMoved(moduleId: string, point: { x: number, y: number }) {
   void $fetch('/api/student', {
     method: 'POST',
@@ -213,57 +274,92 @@ function importLocalArrangement(arrangement: Record<string, { x: number, y: numb
   }).catch(() => {})
 }
 
-async function addNote() {
-  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
-    method: 'POST',
-    body: { event: 'note_created', text: 'A new note', colour: 'brand', x: 48, y: 48 },
-  })
-  notes.value = state.mindmap.notes
-  selectedNoteId.value = state.mindmap.notes.at(-1)?.id ?? ''
+async function saveNote(draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }) {
+  if (addingNote.value) return
+  if (!draft.title.trim() || !draft.moduleId) {
+    noteError.value = 'A note needs a title and one module.'
+    return
+  }
+  addingNote.value = true
+  noteError.value = ''
+  const text = draft.body.trim() ? `${draft.title.trim()}\n${draft.body}` : draft.title.trim()
+  try {
+    let noteId = draft.id ?? ''
+    if (!noteId) {
+      const previous = new Set(notes.value.map(note => note.id))
+      const created = await $fetch<MindmapState>('/api/student', {
+        method: 'POST',
+        body: { event: 'note_created', text, colour: draft.colour, x: 48, y: 48 },
+      })
+      applyMindmap(created)
+      noteId = created.mindmap.notes.find(note => !previous.has(note.id))?.id ?? ''
+    }
+    else {
+      applyMindmap(await $fetch<MindmapState>('/api/student', {
+        method: 'POST',
+        body: { event: 'note_changed', noteId, text, colour: draft.colour },
+      }))
+    }
+    if (!noteId) throw new Error('The note was not saved.')
+    for (const link of noteLinks.value.filter(item => item.fromNoteId === noteId && item.target.kind === 'module')) {
+      if (link.target.kind === 'module' && link.target.moduleId !== draft.moduleId) {
+        applyMindmap(await $fetch<MindmapState>('/api/student', {
+          method: 'POST',
+          body: { event: 'note_unlinked', linkId: link.id },
+        }))
+      }
+    }
+    const linked = noteLinks.value.some(item =>
+      item.fromNoteId === noteId && item.target.kind === 'module' && item.target.moduleId === draft.moduleId)
+    if (!linked) {
+      applyMindmap(await $fetch<MindmapState>('/api/student', {
+        method: 'POST',
+        body: { event: 'note_linked', noteId, target: { kind: 'module', moduleId: draft.moduleId } },
+      }))
+    }
+    selectedNoteId.value = noteId
+  }
+  catch {
+    noteError.value = 'The note could not be saved. Try again.'
+  }
+  finally {
+    addingNote.value = false
+  }
 }
 
-async function saveNote() {
-  const note = selectedNote.value
-  if (!note) return
-  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
+function onNoteMoved(noteId: string, point: { x: number, y: number }) {
+  notes.value = notes.value.map(note => note.id === noteId ? { ...note, x: point.x, y: point.y } : note)
+  void $fetch('/api/student', {
     method: 'POST',
-    body: { event: 'note_changed', noteId: note.id, text: note.text, colour: note.colour },
+    body: { event: 'mindmap_moved', kind: 'note', id: noteId, x: point.x, y: point.y },
+  }).catch(() => {
+    noteError.value = 'The note could not be moved. Try again.'
   })
-  notes.value = state.mindmap.notes
 }
 
-async function deleteNote() {
-  const note = selectedNote.value
-  if (!note) return
-  const state = await $fetch<{ mindmap: { notes: { id: string, text: string, colour: string }[] } }>('/api/student', {
-    method: 'POST',
-    body: { event: 'note_deleted', noteId: note.id },
-  })
-  notes.value = state.mindmap.notes
-  selectedNoteId.value = ''
-}
-
-async function linkNote(moduleId: string) {
-  const note = selectedNote.value
-  if (!note) return
-  await $fetch('/api/student', {
-    method: 'POST',
-    body: { event: 'note_linked', noteId: note.id, target: { kind: 'module', moduleId } },
-  })
+async function deleteNote(noteId: string) {
+  noteError.value = ''
+  try {
+    const state = await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_deleted', noteId },
+    })
+    applyMindmap(state)
+    if (selectedNoteId.value === noteId) selectedNoteId.value = ''
+  }
+  catch {
+    noteError.value = 'The note could not be deleted. Try again.'
+  }
 }
 
 async function loadPortrait() {
   try {
-    const state = await $fetch<{
-      profile: { pictureUrl: string | null }
-      mindmap: { notes: { id: string, text: string, colour: string }[], positions: { moduleId: string, x: number, y: number }[] }
-    }>('/api/student', {
+    const state = await $fetch<MindmapState & { profile: { pictureUrl: string | null } }>('/api/student', {
       method: 'POST',
       body: { event: 'open' },
     })
     portraitUrl.value = state.profile.pictureUrl
-    notes.value = state.mindmap.notes
-    modulePositions.value = state.mindmap.positions
+    applyMindmap(state)
   }
   catch {
     portraitUrl.value = null
@@ -698,10 +794,14 @@ function initialsOf(name: string): string {
         :pending-module-id="pendingModuleId"
         :selecting-module-id="selectingModuleId"
         :positions="modulePositions"
+        :notes="canvasNotes"
+        :selected-note-id="selectedNoteId"
         @select-module="selectModule"
         @prefetch-module="prefetchModule"
         @moved="onMindmapMoved"
         @import-local="importLocalArrangement"
+        @note-moved="onNoteMoved"
+        @select-note="selectedNoteId = $event"
       />
       <CourseRoadmap
         v-else
@@ -735,34 +835,20 @@ function initialsOf(name: string): string {
           @quiz-answer="answerQuiz"
         />
       </div>
-      <button
-        v-if="layout === 'mindmap' && conversationClosed"
-        type="button"
-        class="fixed right-4 bottom-4 z-20 inline-flex min-h-11 items-center rounded-full border border-ink-200 bg-paper px-4 text-xs font-medium text-ink-800 shadow-md hover:bg-ink-50 md:absolute md:top-4 md:right-4 md:bottom-auto"
-        @click="conversationClosed = false"
-      >
-        Open conversation
-      </button>
-      <div v-show="layout !== 'mindmap' || !conversationClosed" :class="layout === 'study' ? studyFrame('conversation') : roadmapFrame('conversation')">
-        <section v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 p-3" aria-label="Note">
-          <div class="flex flex-wrap items-center gap-2">
-            <button type="button" class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent" @click="addNote">+ Note</button>
-            <button v-for="note in notes" :key="note.id" type="button" class="min-h-11 rounded-sm border border-ink-200 px-2 text-left text-xs" @click="selectedNoteId = note.id">{{ note.text || 'Note' }}</button>
-          </div>
-          <form v-if="selectedNote" class="mt-2 flex flex-col gap-2" @submit.prevent="saveNote">
-            <textarea v-model="selectedNote.text" rows="3" class="w-full rounded-sm border border-ink-300 p-2 text-sm" aria-label="Note text" />
-            <label class="text-xs">Colour
-              <select v-model="selectedNote.colour" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2" @change="saveNote">
-                <option v-for="colour in noteColours" :key="colour" :value="colour">{{ colour }}</option>
-              </select>
-            </label>
-            <div class="flex flex-wrap gap-2">
-              <button type="submit" class="min-h-11 rounded-sm border border-default px-3 text-sm">Save note</button>
-              <button type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="deleteNote">Delete note</button>
-              <button v-if="workspace.workingArea.moduleId" type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="linkNote(workspace.workingArea.moduleId)">Link to this module</button>
-            </div>
-          </form>
-        </section>
+      <div v-if="layout === 'mindmap'" :class="roadmapFrame('conversation')">
+        <MindmapNotes
+          :notes="notes"
+          :links="noteLinks"
+          :modules="noteModules"
+          :selected-id="selectedNoteId"
+          :saving="addingNote"
+          :error="noteError"
+          @select="selectedNoteId = $event"
+          @save="saveNote"
+          @remove="deleteNote"
+        />
+      </div>
+      <div v-else :class="studyFrame('conversation')">
         <ConversationPanel
           :messages="workspace.conversation"
           :display-name="workspace.displayName"
@@ -778,7 +864,7 @@ function initialsOf(name: string): string {
           :streaming-teacher="streamingTeacher"
           :streaming-deskmate="streamingDeskmate"
           :loading="pendingModuleName.length > 0"
-          :floating="layout === 'mindmap'"
+          :floating="false"
           @send="sendMessage"
           @close="conversationClosed = true"
           @open-learn="openInLearn"
