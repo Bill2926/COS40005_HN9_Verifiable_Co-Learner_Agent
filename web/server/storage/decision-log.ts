@@ -3,6 +3,12 @@ export interface DecisionMastery {
   mastery: number
 }
 
+export interface DecisionRuleCheck {
+  ruleId: string
+  passed: boolean
+  reasonCode: string
+}
+
 export interface DecisionRecord {
   time: string
   studentId: string
@@ -19,6 +25,9 @@ export interface DecisionRecord {
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
   masteryThreshold: number
+  // The ordered rule checks behind the verdict, ending with the deciding one.
+  // Empty when the VerifyShield was off; absent on a record from before they were recorded.
+  ruleChecks?: readonly DecisionRuleCheck[]
 }
 
 export interface DecisionQuery {
@@ -57,9 +66,11 @@ export function createMemoryDecisionLogStore(): DecisionLogStore {
 }
 
 function copyDecision(record: DecisionRecord): DecisionRecord {
+  const { ruleChecks, ...rest } = record
   return {
-    ...record,
+    ...rest,
     masteries: record.masteries.map(item => ({ ...item })),
     unlockedModuleIds: [...record.unlockedModuleIds],
+    ...(ruleChecks ? { ruleChecks: ruleChecks.map(check => ({ ...check })) } : {}),
   }
 }

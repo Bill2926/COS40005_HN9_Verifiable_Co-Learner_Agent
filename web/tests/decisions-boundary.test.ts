@@ -62,7 +62,12 @@ describe('decision log boundary', () => {
       unlockedModuleIds: ['loops'],
       verifyShieldOn: true,
       masteryThreshold: 0.83,
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_requires_unlocked_module', passed: false, reasonCode: marker },
+      ],
     }
+    const olderTurnId = crypto.randomUUID()
     const secret = createClient(url, secretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     })
@@ -86,7 +91,14 @@ describe('decision log boundary', () => {
         unlockedModuleIds: ['loops'],
         verifyShieldOn: true,
         masteryThreshold: 0.83,
+        ruleChecks: record.ruleChecks,
       })
+
+      const { ruleChecks: _omitted, ...older } = record
+      await store.append({ ...older, turnId: olderTurnId })
+      const olderStored = (await store.list({ studentId })).find(decision => decision.turnId === olderTurnId)
+      expect(olderStored).toBeDefined()
+      expect(olderStored).not.toHaveProperty('ruleChecks')
       expect(await store.list({ studentId: 'not-an-id' })).toEqual([])
       expect(JSON.stringify(listed)).not.toContain(code)
       expect(JSON.stringify(listed)).not.toContain('An')
@@ -130,6 +142,7 @@ describe('decision log boundary', () => {
     }
     finally {
       await secret.from('decisions').delete().eq('turn_id', turnId)
+      await secret.from('decisions').delete().eq('turn_id', olderTurnId)
     }
   }, 20_000)
 })

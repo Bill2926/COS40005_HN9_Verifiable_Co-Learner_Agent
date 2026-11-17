@@ -619,6 +619,7 @@ async function recordDecisions(
       unlockedModuleIds: [...snapshot.unlockedModuleIds],
       verifyShieldOn: snapshot.verifyShieldOn,
       masteryThreshold,
+      ruleChecks: verdict.ruleChecks.map(check => ({ ...check })),
     })
   }
 }

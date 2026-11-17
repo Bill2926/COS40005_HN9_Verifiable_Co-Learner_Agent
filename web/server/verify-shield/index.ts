@@ -6,6 +6,7 @@ export type {
   CourseScope,
   ModuleMastery,
   Proposal,
+  RuleCheck,
   TurnSnapshot,
   Verdict,
 } from './decide'

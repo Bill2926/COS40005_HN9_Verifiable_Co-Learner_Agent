@@ -92,6 +92,28 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 12 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
 | 13 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
+## Rule checks
+
+Each verdict carries `ruleChecks`: the ordered rule checks `decide` made for that proposal, each `{ ruleId, passed, reasonCode }`.
+The list ends with the deciding check, whose rule id and reason code are the verdict's `ruleId` and `reasonCode`. Rules
+after the deciding one are not evaluated and do not appear. A rule that passed is recorded with its own reason code:
+
+| Rule id | Passed reason code |
+|---|---|
+| `role_table` | `ROLE_PERMITTED` |
+| `scope_keyword` | `NO_CLOSED_KEYWORD` |
+| `scope_in_course` | `IN_COURSE` |
+| `scope_requires_unlocked_module` | `MODULE_UNLOCKED` |
+| `advance_known_module` | `MODULE_KNOWN` |
+| `advance_not_current_module` | `NOT_CURRENT_MODULE` |
+| `misconception_known` | `MISCONCEPTION_KNOWN` |
+| `hint_ladder` | `HINT_IN_ORDER` |
+
+A block or downgrade lists `role_table` first and the failed rule last. An allow lists the rules that passed, then
+`role_table` / `ROLE_PERMITTED` as the deciding check. A shield-off verdict has an empty list; a `NO_PLACEMENT` block has
+only the failed `turn_placement` check. `decide` stays pure: the same input gives the same checks. The plain-English
+wording of each reason code lives in the web app (`app/admin/decisions.ts`), not here.
+
 The shield-off reason code is `VERIFYSHIELD_OFF`. Set `NUXT_VERIFYSHELD` to configure the shield through the environment.
 
 ## Verified imports

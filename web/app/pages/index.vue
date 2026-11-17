@@ -14,7 +14,7 @@ interface SubmissionPayload {
 }
 
 definePageMeta({
-  middleware: ['signed-in', 'workspace-layout'],
+  middleware: ['signed-in', 'product-owner-landing', 'workspace-layout'],
 })
 
 async function signOut() {

@@ -61,7 +61,7 @@ files are in the `verify-shield` and `student-model` components, so only the `su
 | conversation | `displayName`, `resumePoint`, `saveResumePoint`, `messages`, `appendMessage`. One resume point per student per course. | `students`, `resume_points`, `conversations`, `messages` |
 | evidence | `append`, `forStudent` (attempt number is assigned by a database trigger). Reads merge submissions with quiz answers by timestamp. Only the Supabase version is here; the interface and the in-memory version live in [`student-model`](05-student-model.md). | `evidence` |
 | quiz answers | `record` (keeps the first answer per student, module and question; a second returns the first unchanged), `forStudentModule`, and `observationsForStudent` for the evidence store. Interface and in-memory version in `quiz-answer-store.ts`. | `quiz_answers` |
-| decision log | `append`, `list` (newest 100, filter by verdict and student) | `decisions` |
+| decision log | `append`, `list` (newest 100, filter by verdict and student). Each record carries the verdict's ordered `ruleChecks` (`rule_checks` jsonb column). A row recorded before that column existed holds null and reads back with `ruleChecks` absent, which is different from the empty list of a shield-off decision. | `decisions` |
 | lecturer | Reads owned course titles, enrollment counts, thresholds and history. Saves threshold and history together. | `courses`, `enrollments`, `course_history` |
 | module unlocks | Reads and records unlocked module IDs for one student and course. | `module_unlocks` |
 | model settings | `read`, `save` (single row, id 1) | `model_settings` |

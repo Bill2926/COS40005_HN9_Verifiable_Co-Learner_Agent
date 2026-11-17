@@ -41,4 +41,5 @@ flowchart LR
 - Runtime: `language-model` (`resolveModelChoice`; type `ModelSettings`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`).
 - Type only: `storage/decision-log`, `storage/model-settings-store`.
 - It never imports Supabase code; the route passes the stores in.
+- Each decision it returns includes `ruleChecks` when the decision log recorded them.
 - Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`.

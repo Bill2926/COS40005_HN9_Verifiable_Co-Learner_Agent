@@ -27,7 +27,7 @@ function requiredEnv(name: string): string {
   return value
 }
 
-function adminClient(): SupabaseClient {
+export function adminClient(): SupabaseClient {
   return createClient(requiredEnv('NUXT_PUBLIC_SUPABASE_URL'), requiredEnv('NUXT_SUPABASE_SECRET_KEY'), {
     auth: {
       persistSession: false,

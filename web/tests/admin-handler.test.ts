@@ -349,6 +349,11 @@ describe('admin handler', () => {
       masteries: priorMasteries,
       unlockedModuleIds: ['getting_started'],
       verifyShieldOn: true,
+      ruleChecks: [
+        { ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' },
+        { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
+        { ruleId: 'scope_requires_unlocked_module', passed: false, reasonCode: 'MODULE_CLOSED' },
+      ],
     })
     expect(deskmate).toMatchObject({
       studentId: signedInStudent,
@@ -361,6 +366,7 @@ describe('admin handler', () => {
       ruleId: 'role_table',
       reasonCode: 'ROLE_PERMITTED',
       verifyShieldOn: true,
+      ruleChecks: [{ ruleId: 'role_table', passed: true, reasonCode: 'ROLE_PERMITTED' }],
     })
     expect(JSON.stringify(viewed.decisions)).not.toContain(lesson)
     expect(JSON.stringify(viewed.decisions)).not.toContain('An Nguyen')
@@ -382,6 +388,17 @@ describe('admin handler', () => {
     expect(viewed.decisions[0]?.turnId).toBe('turn-100')
     expect(viewed.decisions[99]?.turnId).toBe('turn-1')
     expect(viewed.decisions.map(decision => decision.turnId)).not.toContain('turn-0')
+  })
+
+  it('reads a decision recorded before rule checks with its rule checks absent', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision({ turnId: 'older' }))
+    await decisions.append(loggedDecision({ turnId: 'off', time: '2026-01-02T00:00:00.000Z', verifyShieldOn: false, ruleChecks: [] }))
+
+    const viewed = await handleAdmin(ownerRequest({ decisions }))
+
+    expect(viewed.decisions.find(decision => decision.turnId === 'older')).not.toHaveProperty('ruleChecks')
+    expect(viewed.decisions.find(decision => decision.turnId === 'off')?.ruleChecks).toEqual([])
   })
 
   it('filters decisions by verdict and by student', async () => {
@@ -588,6 +605,7 @@ const decisionFields = [
   'proposedMove',
   'proposedScope',
   'reasonCode',
+  'ruleChecks',
   'ruleId',
   'ruledMove',
   'ruledScope',
