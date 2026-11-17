@@ -320,6 +320,8 @@ test('selects a module without moving it, and arrow keys move the focused module
   await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAccessibleName('Getting Started with Programming and Python, current, open, 10% mastery. Drag to move.')
   await expect(moduleCard(page, 'Lists and Tuples').getByRole('button')).toHaveAccessibleName('Lists and Tuples, closed. Drag to move.')
   await expect(button).toHaveAttribute('aria-pressed', 'false')
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+  await button.click({ trial: true })
 
   const before = await variables.boundingBox()
   expect(before).not.toBeNull()
@@ -330,9 +332,11 @@ test('selects a module without moving it, and arrow keys move the focused module
   await page.mouse.up()
   await expect(button).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
-  const afterClick = await variables.boundingBox()
-  expect(afterClick).not.toBeNull()
-  expect(Math.hypot(afterClick!.x - before!.x, afterClick!.y - before!.y)).toBeLessThan(1)
+  await page.mouse.move(4, 4)
+  await expect.poll(async () => {
+    const after = (await variables.boundingBox())!
+    return Math.hypot(after.x - before!.x, after.y - before!.y)
+  }).toBeLessThan(1)
 
   await button.focus()
   await page.keyboard.press('Escape')
