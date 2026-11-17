@@ -238,6 +238,7 @@ test('drags a module with the mouse and leaves the current module and working ar
 
 test('drags a module with touch without scrolling the page', async ({ browser }) => {
   const context = await browser.newContext({
+    reducedMotion: 'reduce',
     hasTouch: true,
     viewport: { width: 1440, height: 900 },
   })
@@ -248,7 +249,8 @@ test('drags a module with touch without scrolling the page', async ({ browser })
     await expectMindmapCanvas(page)
 
     const card = moduleCard(page, 'Working with Strings')
-    await expect(card).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+    await card.getByRole('button').click({ trial: true })
     const before = await card.boundingBox()
     expect(before).not.toBeNull()
     const scrollBefore = await scrollOffset(page)
@@ -381,7 +383,9 @@ test('keeps module positions on the account and resets them across devices', asy
   await expectArrangement(page, dragged)
 
   await moduleCard(page, 'Variables, Data Types, and Operators').getByRole('button').focus()
+  const nudged = studentEvent(page, 'mindmap_moved')
   await page.keyboard.press('ArrowRight')
+  expect((await nudged).ok()).toBe(true)
   const moved = await moduleOrigins(page)
   expect(moved['Variables, Data Types, and Operators'].x - start['Variables, Data Types, and Operators'].x).toBeGreaterThan(12)
   expect(Math.hypot(moved['Getting Started with Programming and Python'].x - dragged['Getting Started with Programming and Python'].x, moved['Getting Started with Programming and Python'].y - dragged['Getting Started with Programming and Python'].y)).toBeLessThanOrEqual(2)
@@ -426,7 +430,9 @@ test('keeps module positions on the account and resets them across devices', asy
   await signInAs(page, anAccount)
   await showMindmap(page)
   await expectArrangement(page, moved)
+  const reset = studentEvent(page, 'reset_arrangement')
   await page.getByRole('button', { name: 'Reset arrangement', exact: true }).click()
+  expect((await reset).ok()).toBe(true)
   await expectArrangement(page, start)
 
   await page.reload()
@@ -480,16 +486,24 @@ async function scrollOffset(page: Page) {
 
 async function dragCard(page: Page, name: string, to: { x: number, y: number } | { dx: number, dy: number }) {
   const card = moduleCard(page, name)
-  await expect(card).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Reset arrangement' })).toBeEnabled()
+  await card.getByRole('button').click({ trial: true })
   const before = await card.boundingBox()
   if (!before) throw new Error(`${name} is not on the canvas.`)
   const start = centerOf(before)
   const target = 'dx' in to ? { x: start.x + to.dx, y: start.y + to.dy } : to
+  const saved = studentEvent(page, 'mindmap_moved')
   await page.mouse.move(start.x, start.y)
   await page.mouse.down()
   await page.mouse.move(target.x, target.y, { steps: 24 })
   await page.mouse.up()
+  expect((await saved).ok()).toBe(true)
   return before
+}
+
+function studentEvent(page: Page, event: string) {
+  return page.waitForResponse(response => response.url().endsWith('/api/student')
+    && response.request().postDataJSON()?.event === event)
 }
 
 async function touchDrag(page: Page, from: { x: number, y: number }, to: { x: number, y: number }) {
@@ -640,14 +654,14 @@ async function waitForApp(page: Page) {
 
 async function expectIde(page: Page) {
   await expect.poll(async () => {
-    const panels = await panelBoxes(page)
+    const panels = await panelBoxes(page, 'study')
     return panels ? describeLayout(panels) : 'missing'
   }).toBe('study')
 }
 
 async function expectMindmapCanvas(page: Page) {
   await expect.poll(async () => {
-    const panels = await panelBoxes(page)
+    const panels = await panelBoxes(page, 'mindmap')
     return panels ? describeLayout(panels) : 'missing'
   }).toBe('mindmap')
 }
@@ -678,14 +692,20 @@ interface Box {
   y: number
 }
 
-async function panelBoxes(page: Page) {
-  const canvas = page.getByRole('region', { name: 'Mindmap canvas' })
-  const mindmap = await canvas.isVisible()
-  const map = await page.getByRole('heading', { name: mindmap ? 'Mindmap' : 'Course roadmap', exact: true }).boundingBox()
-  const working = mindmap ? null : await page.getByRole('region', { name: 'Working area', exact: true }).boundingBox()
-  const conversation = mindmap
-    ? await page.getByRole('complementary', { name: 'Mindmap panel' }).boundingBox()
-    : await page.getByRole('region', { name: 'Conversation', exact: true }).boundingBox()
-  if (!map || !conversation) return null
+async function panelBoxes(page: Page, layout: 'study' | 'mindmap') {
+  const mindmap = layout === 'mindmap'
+  const mapHeading = page.getByRole('heading', { name: mindmap ? 'Mindmap' : 'Course roadmap', exact: true })
+  const conversationPanel = mindmap
+    ? page.getByRole('complementary', { name: 'Mindmap panel' })
+    : page.getByRole('region', { name: 'Conversation', exact: true })
+  const workingArea = page.getByRole('region', { name: 'Working area', exact: true })
+  if (!await mapHeading.isVisible() || !await conversationPanel.isVisible()) return null
+  if (!mindmap && !await workingArea.isVisible()) return null
+  const [map, conversation, working] = await Promise.all([
+    mapHeading.boundingBox({ timeout: 1000 }),
+    conversationPanel.boundingBox({ timeout: 1000 }),
+    mindmap ? null : workingArea.boundingBox({ timeout: 1000 }),
+  ])
+  if (!map || !conversation || (!mindmap && !working)) return null
   return { map, working, conversation }
 }
