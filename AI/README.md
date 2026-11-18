@@ -2,6 +2,8 @@
 
 This research experiment scores English prompts for the historical OpenAI moderation label `SH`. It reads one prompt at a time and uses a CPU model. The [research note](RESEARCH.md) explains the label, data source and limits.
 
+The companion [editor activity experiment](KEYSTROKE-RESEARCH.md) includes its own executed notebook and model export.
+
 ## Results
 
 The benchmark has 1,444 unique prompts with a known label. The fixed split holds out 289 prompts, including 10 positives. Five-fold development predictions selected the threshold of 0.413605 before the holdout was scored.
