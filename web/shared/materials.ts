@@ -1,12 +1,15 @@
 import type { MaterialBlock, ModuleMaterials } from './turn'
 
+// One entry per block type, so a type added to MaterialBlock does not compile until it is given one.
+const blockText: { [Type in MaterialBlock['type']]: (block: Extract<MaterialBlock, { type: Type }>) => string } = {
+  text: block => block.markdown,
+  code: block => block.code,
+  image: block => `${block.alt} (${block.url})`,
+  video: block => `${block.title} (${block.url})`,
+}
+
 export function materialsText(materials: ModuleMaterials): string {
-  return materials.map((block) => {
-    if (block.type === 'text') return block.markdown
-    if (block.type === 'code') return block.code
-    if (block.type === 'image') return `${block.alt} (${block.url})`
-    return `${block.title} (${block.url})`
-  }).join('\n\n')
+  return materials.map(block => (blockText[block.type] as (block: MaterialBlock) => string)(block)).join('\n\n')
 }
 
 // YouTube and Vimeo play inside the materials. Any other address stays a link.

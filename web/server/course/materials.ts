@@ -1,5 +1,33 @@
+import { z } from 'zod'
 import type { MaterialBlock } from '../../shared/turn'
 import type { CourseSpec, ModuleSpec } from './course-spec'
+
+// A field a block cannot do without: text that is more than whitespace.
+const filled = z.string().refine(value => value.trim() !== '')
+
+// The one place the materials blocks are defined. Adding or retiring a type here changes what
+// a spec may hold on import and what a stored spec may hold when the course loads; the type
+// MaterialBlock in shared/turn.ts is checked against it (tests/material-block.test-d.ts).
+const blockFields = {
+  text: { markdown: filled },
+  code: { code: filled },
+  image: { url: filled, alt: filled },
+  video: { url: filled, title: filled },
+} satisfies Record<MaterialBlock['type'], z.ZodRawShape>
+
+type BlockType = keyof typeof blockFields
+
+function isBlockType(type: string): type is BlockType {
+  return Object.hasOwn(blockFields, type)
+}
+
+// What a lecturer may import: every block exactly as defined, with no field beyond its own.
+export const materialBlockSchema = z.discriminatedUnion('type', [
+  z.strictObject({ type: z.literal('text'), ...blockFields.text }),
+  z.strictObject({ type: z.literal('code'), ...blockFields.code }),
+  z.strictObject({ type: z.literal('image'), ...blockFields.image }),
+  z.strictObject({ type: z.literal('video'), ...blockFields.video }),
+])
 
 export interface LegacyMaterials {
   heading: string
@@ -7,13 +35,6 @@ export interface LegacyMaterials {
   example: string
   keyPoint: string
   scopeNote: string
-}
-
-const blockFields: Record<MaterialBlock['type'], readonly string[]> = {
-  text: ['markdown'],
-  code: ['code'],
-  image: ['url', 'alt'],
-  video: ['url', 'title'],
 }
 
 export function legacyMaterials(legacy: LegacyMaterials): MaterialBlock[] {
@@ -66,13 +87,9 @@ function assertModuleBlocks(module: ModuleSpec): void {
     if (typeof block !== 'object' || block === null || !('type' in block) || typeof block.type !== 'string') {
       throw new Error(`${where}: type is missing.`)
     }
-    const fields = blockFields[block.type as MaterialBlock['type']]
-    if (!fields) throw new Error(`${where}: type is not a materials block.`)
-    for (const field of fields) {
-      const value = (block as unknown as Record<string, unknown>)[field]
-      if (typeof value !== 'string' || value.trim() === '') {
-        throw new Error(`${where}: ${field} is missing.`)
-      }
-    }
+    if (!isBlockType(block.type)) throw new Error(`${where}: type is not a materials block.`)
+    // A stored block is read leniently: a field beyond its own does not stop the course loading.
+    const checked = z.object(blockFields[block.type]).safeParse(block)
+    if (!checked.success) throw new Error(`${where}: ${String(checked.error.issues[0]!.path[0])} is missing.`)
   })
 }
