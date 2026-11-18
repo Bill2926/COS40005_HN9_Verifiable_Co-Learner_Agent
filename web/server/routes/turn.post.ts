@@ -6,6 +6,7 @@ import { createSupabaseConversationStore } from '../storage/supabase-conversatio
 import { createSupabaseDeskmateSettingStore } from '../storage/supabase-deskmate-setting-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
+import { createSupabaseMasteryStore } from '../storage/supabase-mastery-store'
 import { createSupabaseQuizAnswerStore } from '../storage/supabase-quiz-answer-store'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
@@ -57,6 +58,7 @@ export default defineEventHandler(async (event) => {
     evidence: createSupabaseEvidenceStore(studentData),
     quizAnswers: createSupabaseQuizAnswerStore(studentData),
     unlocks: createSupabaseUnlockStore(studentData),
+    mastery: createSupabaseMasteryStore(studentData),
     courses: createSupabaseCourseStore(connection),
     courseId,
     activity: createSupabaseActivityLog(connection),

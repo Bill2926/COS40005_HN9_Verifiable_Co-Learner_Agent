@@ -12,3 +12,12 @@ export { createMemoryEvidenceStore, mergeObservations } from './evidence-store'
 export type { EvidenceRow, EvidenceStore, NewEvidence, TimedObservation } from './evidence-store'
 export { createMemoryUnlockStore } from './unlock-store'
 export type { UnlockStore } from './unlock-store'
+export {
+  createMemoryMasteryStore,
+  readStoredMastery,
+  saveMasteryFromEvidence,
+  storedCourseEstimate,
+} from './mastery-store'
+export type { MasteryStore, StoredMastery } from './mastery-store'
+export { createMasteryRecalculator } from './mastery-recalculation'
+export type { MasteryRecalculator, MasteryRecalculationSources } from './mastery-recalculation'

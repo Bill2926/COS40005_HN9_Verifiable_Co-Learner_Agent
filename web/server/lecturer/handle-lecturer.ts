@@ -1,5 +1,6 @@
 import type { CoursePreview, LecturerResponse } from '../../shared/lecturer'
 import { defaultCourseId, parseCourseSpec, type CourseSpec } from '../course'
+import type { MasteryRecalculator } from '../student-model'
 import type { LecturerStore } from '../storage/lecturer-store'
 import { coursePreview } from './preview-course'
 
@@ -27,6 +28,9 @@ function requireLecturer(request: LecturerIdentity): string {
 export async function handleLecturer(request: LecturerIdentity & {
   store: Pick<LecturerStore, 'forLecturer' | 'setThreshold'>
   change?: unknown
+  // Stored mastery is recomputed for every enrolled student, because whether a module is
+  // mastered is judged against the current threshold (ADR 0008). Absent in tests of the answer alone.
+  recalculate?: MasteryRecalculator
 }): Promise<LecturerResponse> {
   const email = requireLecturer(request)
   if (request.change !== undefined) {
@@ -40,12 +44,16 @@ export async function handleLecturer(request: LecturerIdentity & {
     if (!(await request.store.setThreshold(email, change.courseId, change.threshold))) {
       throw Object.assign(new Error('Course not found'), { statusCode: 404 })
     }
+    await request.recalculate?.forCourse(change.courseId)
   }
   return { courses: await request.store.forLecturer(email) }
 }
 
 interface CourseSpecRequest extends LecturerIdentity {
   store: Pick<LecturerStore, 'exportSpec' | 'importSpec' | 'readDraft' | 'saveDraft' | 'discardDraft'>
+  // A published spec may add, drop or move modules and questions, so every enrolled student's
+  // stored mastery is recomputed from the evidence the new course still has (ADR 0008).
+  recalculate?: MasteryRecalculator
 }
 
 type CourseSpecAction =
@@ -79,7 +87,10 @@ export async function handleCourseSpec(request: CourseSpecRequest & CourseSpecAc
     }
     const draft = await request.store.readDraft(email, defaultCourseId)
     if (!draft) throw Object.assign(new Error('There is no draft to publish.'), { statusCode: 400 })
-    if (await request.store.importSpec(email, draft) && await request.store.discardDraft(email, defaultCourseId)) return
+    if (await request.store.importSpec(email, draft) && await request.store.discardDraft(email, defaultCourseId)) {
+      await request.recalculate?.forCourse(defaultCourseId)
+      return
+    }
     throw notFound()
   }
 

@@ -6,7 +6,21 @@ import { createMemoryCourseStore, type CourseStore } from '../storage/course-sto
 import type { AddressedAgent, ConversationStore, ResumePoint, StoredMessage } from '../storage/conversation-store'
 import type { DeskmateSettingStore } from '../storage/deskmate-setting-store'
 import { createMemoryQuizAnswerStore, type QuizAnswerRow, type QuizAnswerStore } from '../storage/quiz-answer-store'
-import { createMemoryEvidenceStore, estimateCourse, furthestUnlockedModuleId, standingFor, type CourseEstimate, type CourseStanding, type EvidenceStore, type UnlockStore } from '../student-model'
+import {
+  createMemoryEvidenceStore,
+  estimateCourse,
+  furthestUnlockedModuleId,
+  readStoredMastery,
+  saveMasteryFromEvidence,
+  standingFor,
+  storedCourseEstimate,
+  type CourseEstimate,
+  type CourseStanding,
+  type EvidenceStore,
+  type MasteryStore,
+  type StoredMastery,
+  type UnlockStore,
+} from '../student-model'
 import type { DecisionLogStore } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
@@ -71,6 +85,9 @@ export interface TurnOptions {
   evidence?: EvidenceStore
   quizAnswers?: QuizAnswerStore
   unlocks?: UnlockStore
+  // The stored copy of mastery (ADR 0008). Without it the turn estimates from the ledger
+  // on every request, as before the table existed.
+  mastery?: MasteryStore
   // Where the course is read from, once a turn, and which course. Without them the turn is about
   // the Python course held in memory.
   courses?: CourseStore
@@ -176,12 +193,25 @@ async function* turnBody(
     const legacy = estimateCourse({ ...course, masteryThreshold: threshold }, legacyEvidence)
     legacyUnlocks = legacy.unlockedModuleIds
   }
-  async function refreshEstimate(evidence: typeof rows): Promise<CourseEstimate> {
-    const estimate = estimateCourse(course, evidence, [...recordedUnlocks, ...legacyUnlocks])
+  const masteries = options?.mastery
+  // The estimate this turn reads. New evidence is stored before it is read again, so the
+  // roadmap the student gets back already counts what they just did; otherwise the stored
+  // copy is taken as it stands, and a module with no row yet is computed and saved first.
+  async function refreshEstimate(evidence: typeof rows, newEvidence = false): Promise<CourseEstimate> {
+    const stored: StoredMastery[] | null = masteries
+      ? newEvidence
+        ? await saveMasteryFromEvidence(course, evidence, studentId, masteries)
+        : await readStoredMastery(course, evidence, studentId, masteries)
+      : null
+    const read = (unlockedSoFar: readonly string[]) => stored
+      ? storedCourseEstimate(course, stored, unlockedSoFar)
+      : estimateCourse(course, evidence, unlockedSoFar)
+
+    const estimate = read([...recordedUnlocks, ...legacyUnlocks])
     const newlyUnlocked = estimate.unlockedModuleIds.filter(id => !recordedUnlocks.includes(id))
     if (unlocks && newlyUnlocked.length) {
       recordedUnlocks = await unlocks.record(studentId, newlyUnlocked)
-      return estimateCourse(course, evidence, recordedUnlocks)
+      return read(recordedUnlocks)
     }
     return estimate
   }
@@ -256,7 +286,7 @@ async function* turnBody(
     // Only a stored answer feeds the ledger (through the quiz store), so mastery
     // is taken again only then; an invalid or repeat answer leaves it untouched.
     if (marked.stored) {
-      standing = standingFor(await refreshEstimate(await ledger.forStudent(studentId)), placement.module.id)
+      standing = standingFor(await refreshEstimate(await ledger.forStudent(studentId), true), placement.module.id)
       await options?.activity?.record({
         studentId,
         courseId: options.courseId ?? defaultCourseId,
@@ -301,7 +331,7 @@ async function* turnBody(
         testsTotal: body.results.length,
       },
     })
-    estimate = await refreshEstimate(await ledger.forStudent(studentId))
+    estimate = await refreshEstimate(await ledger.forStudent(studentId), true)
     standing = standingFor(estimate, placement.module.id)
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',

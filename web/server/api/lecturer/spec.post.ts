@@ -2,13 +2,18 @@ import { sessionEmail } from '../../../shared/student-id'
 import { defaultCourseId } from '../../course'
 import { handleCourseSpec } from '../../lecturer/handle-lecturer'
 import { createSupabaseLecturerStore } from '../../storage/supabase-lecturer-store'
+import { createSupabaseMasteryRecalculator } from '../../storage/supabase-mastery-recalculation'
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'Cache-Control', 'private, no-store')
   const config = useRuntimeConfig(event)
   const raw = await readRawBody(event)
-  const store = createSupabaseLecturerStore({ url: config.public.supabaseUrl, secretKey: config.supabaseSecretKey })
-  const identity = { email: await sessionEmail(event), lecturerEmails: config.lecturerEmails, store }
+  const connection = { url: config.public.supabaseUrl, secretKey: config.supabaseSecretKey }
+  const store = createSupabaseLecturerStore(connection)
+  // A published spec may change the modules, exercises and questions the evidence is about, so
+  // every enrolled student's stored mastery is recomputed from it (ADR 0008).
+  const recalculate = createSupabaseMasteryRecalculator(connection, defaultCourseId)
+  const identity = { email: await sessionEmail(event), lecturerEmails: config.lecturerEmails, store, recalculate }
   const command = commandFrom(raw)
   if (command.action === 'publish' || command.action === 'discard') {
     await handleCourseSpec({ ...identity, action: command.action, courseId: defaultCourseId })

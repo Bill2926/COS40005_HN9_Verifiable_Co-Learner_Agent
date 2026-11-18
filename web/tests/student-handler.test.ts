@@ -4,6 +4,7 @@ import { handleStudent } from '../server/student'
 import { createMemoryMindmapStore } from '../server/storage/mindmap-store'
 import { createMemoryProfileStore } from '../server/storage/profile-store'
 import { createMemoryStudentFileStore } from '../server/storage/student-file-store'
+import { createMemoryMasteryStore } from '../server/student-model'
 
 const studentId = '6f1b0c1e-1111-4111-8111-111111111111'
 const otherStudentId = '6f1b0c1e-2222-4222-8222-222222222222'
@@ -266,5 +267,24 @@ describe('student handler', () => {
     const other = await call({ event: 'open' }, { sessionStudentId: otherStudentId, email: 'binh@example.com' })
     expect(other.mindmap.notes).toEqual([])
     expect(other.profile).toMatchObject({ displayName: 'Bình', studentNumber: 'SWB0001', email: 'binh@example.com' })
+  })
+
+  // Stored mastery is derived from evidence alone (ADRs 0002 and 0008). Everything a student does
+  // here is activity or their own map and profile, so a run of it leaves the stored number as it was.
+  it('leaves the stored mastery untouched', async () => {
+    const { call } = setup()
+    const mastery = createMemoryMasteryStore()
+    const planted = moduleIds.map(moduleId => ({ moduleId, mastery: 0.42, passedExercise: false, everMastered: false }))
+    await mastery.save(studentId, planted)
+
+    await call({ event: 'signed_in' })
+    await call({ event: 'module_opened', moduleId: 'getting_started' })
+    await call({ event: 'code_run', exerciseId: 'say_hello' })
+    await call({ event: 'mode_switched', mode: 'practice' })
+    await call({ event: 'layout_switched', layout: 'mindmap' })
+    await call({ event: 'profile_changed', displayName: 'Anne' })
+    await call({ event: 'note_created', text: 'Loops repeat', colour: 'rose', x: 1, y: 2 })
+
+    expect(await mastery.forStudent(studentId)).toEqual(planted)
   })
 })
