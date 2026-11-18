@@ -10,6 +10,8 @@ export interface MindmapNote {
   colour: string
   x: number
   y: number
+  // The note's one optional image, as a path in the student's own file folder.
+  imagePath?: string | null
 }
 
 export type MindmapLinkTarget =

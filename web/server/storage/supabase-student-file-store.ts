@@ -22,5 +22,9 @@ export function createSupabaseStudentFileStore(options: { url: string, secretKey
       if (result.error) return null
       return result.data.signedUrl
     },
+    async remove(studentId, path) {
+      const result = await supabase.storage.from(bucket).remove([`${studentId}/${path}`])
+      if (result.error) throw new Error(result.error.message)
+    },
   }
 }
