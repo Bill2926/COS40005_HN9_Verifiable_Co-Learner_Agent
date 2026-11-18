@@ -2,7 +2,7 @@
 import AdminHeader from '~/components/admin/AdminHeader.vue'
 import BusySpinner from '~/components/BusySpinner.vue'
 import { messageFrom } from '~/admin/message'
-import type { AdminPayload } from '~/admin/decisions'
+import type { AdminPayload, ConnectionCheckView, ConnectionReportView } from '~/admin/decisions'
 
 definePageMeta({
   middleware: 'signed-in',
@@ -15,6 +15,9 @@ const modelName = ref('')
 const saving = ref(false)
 const saveError = ref('')
 const savedNotice = ref('')
+const testing = ref(false)
+const testError = ref('')
+const report = ref<ConnectionReportView | null>(null)
 const verifyShieldOn = ref(true)
 const switching = ref(false)
 const switchError = ref('')
@@ -36,6 +39,14 @@ watch(data, (payload) => {
 const refused = computed(() => error.value?.statusCode === 403)
 const unavailable = computed(() => Boolean(error.value) && !refused.value)
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
+
+// The provider as the form holds it, sent as it is for a save and for a connection test alike.
+const modelFields = computed(() => ({
+  provider: provider.value,
+  apiKey: apiKey.value,
+  baseUrl: baseUrl.value,
+  modelName: modelName.value,
+}))
 
 useHead({ title: 'Settings' })
 
@@ -62,16 +73,7 @@ async function save() {
   savedNotice.value = ''
   saving.value = true
   try {
-    await $fetch('/api/admin', {
-      method: 'POST',
-      body: {
-        event: 'save',
-        provider: provider.value,
-        apiKey: apiKey.value,
-        baseUrl: baseUrl.value,
-        modelName: modelName.value,
-      },
-    })
+    await $fetch('/api/admin', { method: 'POST', body: { event: 'save', ...modelFields.value } })
     apiKey.value = ''
     await refresh()
     savedNotice.value = 'Saved. The next turn uses these settings.'
@@ -82,6 +84,33 @@ async function save() {
   finally {
     saving.value = false
   }
+}
+
+// An answer is only worth showing for as long as the settings it was given for are on the form.
+watch(modelFields, () => {
+  report.value = null
+  testError.value = ''
+})
+
+async function testConnection() {
+  testError.value = ''
+  report.value = null
+  testing.value = true
+  try {
+    report.value = await $fetch<ConnectionReportView>('/api/admin', { method: 'POST', body: { event: 'testConnection', ...modelFields.value } })
+  }
+  catch (caught) {
+    testError.value = messageFrom(caught, 'The connection could not be tested.')
+  }
+  finally {
+    testing.value = false
+  }
+}
+
+function checkText(label: string, check: ConnectionCheckView): string {
+  return check.ok
+    ? `${label} answered in ${check.ms} ms.`
+    : `${label} failed after ${check.ms} ms: ${check.error ?? 'the provider did not answer.'}`
 }
 </script>
 
@@ -229,6 +258,43 @@ async function save() {
               :ui="{ base: inputClass }"
             />
           </label>
+          <div class="flex flex-col gap-2">
+            <UButton
+              type="button"
+              size="lg"
+              :loading="testing"
+              :disabled="testing"
+              :aria-busy="testing"
+              class="min-h-11 self-start rounded-sm bg-accent text-on-accent px-4 py-2.5 text-sm font-medium shadow-xs hover:bg-accent-hover disabled:bg-accent md:min-h-0"
+              @click="testConnection"
+            >
+              Test connection
+            </UButton>
+            <p
+              v-if="testError"
+              role="alert"
+              class="text-xs leading-4 text-rose-700"
+            >
+              {{ testError }}
+            </p>
+            <div
+              v-else-if="report"
+              role="status"
+            >
+              <ul class="flex flex-col gap-1 text-xs leading-4">
+                <li :class="report.reply.ok ? 'text-emerald-700' : 'text-rose-700'">
+                  {{ checkText('Plain reply', report.reply) }}
+                </li>
+                <li :class="report.toolCall.ok ? 'text-emerald-700' : 'text-rose-700'">
+                  {{ checkText('Tool call', report.toolCall) }}
+                </li>
+              </ul>
+            </div>
+            <p class="text-xs leading-4 text-muted">
+              Two calls with the settings above, saving nothing: one answer in words, and one proposal
+              asked for as a tool call. A key left blank is the key in effect.
+            </p>
+          </div>
         </div>
         <p
           v-if="saveError"

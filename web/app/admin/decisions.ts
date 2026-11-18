@@ -36,6 +36,19 @@ export interface ModelSettingsView {
   saved: boolean
 }
 
+// One answer of the connection test: whether the provider replied, how long it took, and what it said
+// when it did not. The API key is never in it.
+export interface ConnectionCheckView {
+  ok: boolean
+  ms: number
+  error?: string
+}
+
+export interface ConnectionReportView {
+  reply: ConnectionCheckView
+  toolCall: ConnectionCheckView
+}
+
 export interface AdminStudentView {
   id: string
   displayName: string

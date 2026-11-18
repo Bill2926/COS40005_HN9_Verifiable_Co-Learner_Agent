@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createAgents } from '../server/agents'
-import type { LanguageModel } from '../server/language-model'
+import type { LanguageModel, ProposalSchema } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { handleTurn } from '../server/turn/handle-turn'
 
@@ -17,19 +17,27 @@ interface Call {
 function recordingModel() {
   const calls: Call[] = []
   const agentOf = (instructions: string) => instructions.includes('You are the Teacher') ? 'teacher' : 'deskmate'
+  // These tests are turned on the prompt text, not on how the proposal is asked for, so a proposal
+  // given as a tool call is answered and recorded exactly like one given as JSON.
+  const propose = async <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) => {
+    const agent = agentOf(instructions)
+    calls.push({ agent, phase: 'propose', instructions, prompt })
+    return schema.parse({
+      proposal: agent === 'teacher'
+        ? { type: 'explain_concept', scope: 'getting_started' }
+        : { type: 'peer_question' },
+    }).proposal
+  }
   const languageModel: LanguageModel = {
-    async proposeMove(instructions, prompt, schema) {
-      const agent = agentOf(instructions)
-      calls.push({ agent, phase: 'propose', instructions, prompt })
-      return schema.parse({
-        proposal: agent === 'teacher'
-          ? { type: 'explain_concept', scope: 'getting_started' }
-          : { type: 'peer_question' },
-      }).proposal
-    },
+    proposeMove: propose,
+    proposeWithTools: propose,
     async* streamReply(instructions, prompt) {
       calls.push({ agent: agentOf(instructions), phase: 'render', instructions, prompt })
       yield 'A reply.'
+    },
+    async reply(instructions, prompt) {
+      calls.push({ agent: agentOf(instructions), phase: 'render', instructions, prompt })
+      return 'A reply.'
     },
   }
   return { agents: createAgents(languageModel), calls }

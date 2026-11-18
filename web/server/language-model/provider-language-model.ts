@@ -1,6 +1,10 @@
-import { generateText, NoObjectGeneratedError, NoOutputGeneratedError, Output, streamText, type LanguageModel as ProviderModel } from 'ai'
+import { generateText, hasToolCall, NoObjectGeneratedError, NoOutputGeneratedError, Output, stepCountIs, streamText, tool, type LanguageModel as ProviderModel } from 'ai'
 import { z } from 'zod'
 import type { LanguageModel, ProposalSchema } from './language-model'
+
+// The name of the tool a proposal is asked for as. It says nothing about moves: the tool only ever
+// holds the caller's schema, so this component still does not know which proposals exist.
+const proposalTool = 'propose'
 
 // response_format: { type: 'json_object' } is all a provider like DeepSeek
 // accepts, and it carries no schema. Output.object validates the reply but
@@ -42,6 +46,34 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
       }
     },
 
+    // The same proposal asked for as a tool call. The provider puts the schema in the tool and the
+    // answer in `tool_calls`, which is how a model that can also call its own tools is given a move.
+    async proposeWithTools<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number): Promise<Proposal | null> {
+      const { toolCalls } = await generateText({
+        model,
+        instructions,
+        prompt,
+        tools: {
+          [proposalTool]: tool({
+            description: 'Record the move you propose, or null when you propose none.',
+            inputSchema: schema,
+          }),
+        },
+        // A model that answers with words instead of calling the tool is reported, not talked to
+        // again: that is the answer the product owner needs to see.
+        toolChoice: 'required',
+        // The loop ends at the tool call, so a proposal costs one call. The cap bounds a model that
+        // keeps calling other tools before it answers with this one; no move comes back when it is hit.
+        stopWhen: [hasToolCall(proposalTool), stepCountIs(maxSteps)],
+        maxRetries: 0,
+      })
+      // The provider parses the tool input against the schema it was given, but the answer it hands
+      // back is only typed as unknown text, so it is read through the schema here. A tool call that
+      // breaks the schema is reported rather than passed on as a move.
+      const call = toolCalls.find(toolCall => toolCall.toolName === proposalTool)
+      return call ? schema.parse(call.input).proposal : null
+    },
+
     async* streamReply(instructions, prompt) {
       const result = streamText({
         model,
@@ -54,6 +86,13 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
         }
         if (part.type === 'text-delta' && part.text.length > 0) yield part.text
       }
+    },
+
+    // No retry and no message of its own, so a refused key or an unknown model comes back as the
+    // provider said it. `generateText` throws its error before any text is yielded.
+    async reply(instructions, prompt) {
+      const { text } = await generateText({ model, instructions, prompt, maxRetries: 0 })
+      return text
     },
   }
 }

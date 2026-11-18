@@ -3,7 +3,7 @@
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
 `web/server/admin/handle-admin.ts`, one file. The product owner's handler: it checks who is asking, then saves
-the model choice, switches the VerifyShield, lists decisions and lists or renumbers students. Part of
+the model choice, tests the connection, switches the VerifyShield, lists decisions and lists or renumbers students. Part of
 [server/00-overview.md](00-overview.md).
 
 Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = other components.
@@ -15,17 +15,17 @@ flowchart LR
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
   route["<b>api/admin.post.ts</b>"]:::near
-  handle["<b>admin/handle-admin.ts</b><br/>handleAdmin"]:::comp
+  handle["<b>admin/handle-admin.ts</b><br/>handleAdmin, handleConnectionTest"]:::comp
   choice["<b>language-model/index.ts</b>"]:::near
   shield["<b>verify-shield/index.ts</b>"]:::near
   decisionLog["<b>storage/decision-log.ts</b>"]:::near
   settings["<b>storage/model-settings-store.ts</b>"]:::near
   directory["<b>storage/student-directory.ts</b>"]:::near
 
-  route -->|"handleAdmin and error classes"| handle
-  handle -->|"resolveModelChoice"| choice
+  route -->|"handleAdmin, handleConnectionTest,<br/>isRoleCheck, isConnectionTest and error classes"| handle
+  handle -->|"resolveModelChoice,<br/>testConnection, UnusableSettingsError"| choice
   handle -->|"verifyShieldEnabled"| shield
-  handle -.->|"type: DecisionLogStore"| decisionLog
+  handle -.->|"type: ConnectionReport, DecisionLogStore"| decisionLog
   handle -.->|"type: ModelSettingsStore"| settings
   handle -.->|"type: StudentDirectoryStore"| directory
 ```
@@ -36,6 +36,7 @@ flowchart LR
 |---|---|
 | Who may call | No email: `SignInRequiredError` (401). Email not in the comma-separated `adminEmails`: `ProductOwnerRequiredError` (403). |
 | `role` event | `checkAdminRole`: the same 401/403 checks, then `{ productOwner: true }`. Reads no settings and no decisions; `api/admin.post.ts` routes it there before `handleAdmin`. |
+| `testConnection` event | `handleConnectionTest`: the same 401/403 checks, then the two provider calls of [`language-model`](07-language-model.md) with the settings on the form — the same merge a save makes, so a blank field is the value in effect and not an empty one. It answers `{ reply, toolCall }`, each with success, the time it took and the provider's message with the API key taken out. Nothing is saved and no store is written; a blank or `fake` form is refused (400) before a call is made. `api/admin.post.ts` routes it here, so the answer carries no decisions and no directory. |
 | `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. |
 | `verifyShield` event | Saves the on or off switch. |
 | `studentNumber` event | Checks the number against `isStudentNumber` in `shared/student-number.ts` (`SWB` + at least four digits, 400 with `studentNumberRule` otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting product owner's email. |
@@ -43,8 +44,8 @@ flowchart LR
 
 ## Verified imports
 
-- Runtime: `language-model` (`resolveModelChoice`; type `ModelSettings`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`), `shared/student-number` (`isStudentNumber`, `studentNumberRule`).
+- Runtime: `language-model` (`resolveModelChoice`, `testConnection`, `UnusableSettingsError`; types `ModelSettings`, `ConnectionReport`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`), `shared/student-number` (`isStudentNumber`, `studentNumberRule`).
 - Type only: `storage/decision-log`, `storage/model-settings-store`, `storage/student-directory` (`StudentDirectoryStore`, `AdminStudent`).
 - It never imports Supabase code; the route passes the stores in, including the student directory.
 - Each decision it returns includes `ruleChecks` when the decision log recorded them.
-- Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`.
+- Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`, which stubs `fetch` for the connection test so the reported messages are the ones a provider really sends.

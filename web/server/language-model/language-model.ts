@@ -12,6 +12,13 @@ export interface LanguageModel {
   // A reply that does not parse is asked for once more; rejects when the second does not parse
   // either, or at once when the call itself fails.
   proposeMove: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) => Promise<Proposal | null>
+  // The same proposal asked for as a tool call the model must make, rather than as JSON in the text.
+  // `maxSteps` caps how long the model may keep calling other tools first; no move comes back when
+  // the cap is reached. Rejects when the call fails or the model answers with words instead.
+  proposeWithTools: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number) => Promise<Proposal | null>
   // The words of one reply, as they arrive.
   streamReply: (instructions: string, prompt: string) => AsyncIterable<string>
+  // One reply in full, asked for without streaming. A request the provider refuses reaches the
+  // caller with the provider's own message, which the streaming call cannot do.
+  reply: (instructions: string, prompt: string) => Promise<string>
 }
