@@ -8,6 +8,7 @@ export default defineEventHandler(async (event) => {
   return handleLecturer({
     email: await sessionEmail(event),
     lecturerEmails: config.lecturerEmails,
+    campus: String(getQuery(event).campus ?? ''),
     store: {
       forLecturer(email) {
         return createSupabaseLecturerStore({

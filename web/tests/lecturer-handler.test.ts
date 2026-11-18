@@ -7,8 +7,8 @@ const lecturerEmails = 'other@example.com, LECTURER@example.com'
 const title = 'Introduction to Programming with Python'
 const seeded = { action: 'seeded' as const, actorEmail: 'lecturer@example.com', time: '2026-11-14T08:00:00Z' }
 const students = [
-  { displayName: 'An', studentNumber: 'SWB0001', email: 'an@example.com', enrolledAt: '2026-11-14T08:00:00Z' },
-  { displayName: 'Bình', studentNumber: 'SWB0002', email: 'binh@example.com', enrolledAt: '2026-11-14T08:05:00Z' },
+  { displayName: 'An', studentNumber: 'SWB0001', campus: 'Hanoi' as const, email: 'an@example.com', enrolledAt: '2026-11-14T08:00:00Z' },
+  { displayName: 'Bình', studentNumber: 'SWB0002', campus: 'Can Tho' as const, email: 'binh@example.com', enrolledAt: '2026-11-14T08:05:00Z' },
 ]
 const python = {
   ownerEmail: 'lecturer@example.com',
@@ -41,13 +41,32 @@ describe('lecturer handler', () => {
         enrolledCount: 1,
         masteryThreshold: 0.9,
         history: [],
-        students: [{ displayName: 'Elsewhere', studentNumber: 'SWB0009', email: 'else@example.com', enrolledAt: '2026-11-14T09:00:00Z' }],
+        students: [{ displayName: 'Elsewhere', studentNumber: 'SWB0009', campus: null, email: 'else@example.com', enrolledAt: '2026-11-14T09:00:00Z' }],
       },
     ])
 
     await expect(handleLecturer({ email: 'Lecturer@example.com', lecturerEmails, store })).resolves.toEqual({
       courses: [{ id: 'intro_python', title, enrolledCount: 2, masteryThreshold: 0.9, history: [seeded], students }],
     })
+  })
+
+  it('shows the campus beside each student number and filters the enrolled students by it', async () => {
+    const store = createMemoryLecturerStore([python])
+    const request = { email: 'lecturer@example.com', lecturerEmails, store }
+
+    const all = await handleLecturer(request)
+    expect(all.courses[0]!.students.map(student => [student.studentNumber, student.campus])).toEqual([['SWB0001', 'Hanoi'], ['SWB0002', 'Can Tho']])
+
+    const canTho = await handleLecturer({ ...request, campus: 'Can Tho' })
+    expect(canTho.courses[0]!.students.map(student => student.studentNumber)).toEqual(['SWB0002'])
+    // The count is of the whole class, not of the filtered view.
+    expect(canTho.courses[0]!.enrolledCount).toBe(2)
+
+    const danang = await handleLecturer({ ...request, campus: 'Da Nang' })
+    expect(danang.courses[0]!.students).toEqual([])
+
+    expect((await handleLecturer({ ...request, campus: '' })).courses[0]!.students).toHaveLength(2)
+    await expect(handleLecturer({ ...request, campus: 'Mars' })).rejects.toMatchObject({ statusCode: 400 })
   })
 
   it.each([0.49, 1, NaN, '0.8'])('rejects invalid threshold %s before writing', async (threshold) => {

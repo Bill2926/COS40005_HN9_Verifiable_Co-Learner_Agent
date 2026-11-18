@@ -16,8 +16,8 @@ const tinyPng = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8B
 function setup() {
   const activity = createMemoryActivityLog()
   const profile = createMemoryProfileStore({
-    [studentId]: { displayName: 'An', studentNumber: 'SWB0002', picturePath: null },
-    [otherStudentId]: { displayName: 'Bình', studentNumber: 'SWB0001', picturePath: null },
+    [studentId]: { displayName: 'An', studentNumber: 'SWB0002', campus: 'Hanoi', picturePath: null },
+    [otherStudentId]: { displayName: 'Bình', studentNumber: 'SWB0001', campus: null, picturePath: null },
   })
   const mindmap = createMemoryMindmapStore()
   const files = createMemoryStudentFileStore()
@@ -326,5 +326,55 @@ describe('student handler', () => {
     const other = await call({ event: 'open' }, { sessionStudentId: otherStudentId, email: 'binh@example.com' })
     expect(other.mindmap.notes).toEqual([])
     expect(other.profile).toMatchObject({ displayName: 'Bình', studentNumber: 'SWB0001', email: 'binh@example.com' })
+  })
+  describe('campus', () => {
+    it('shows the campus on the profile, and null when none is chosen', async () => {
+      const { call } = setup()
+      expect((await call({ event: 'open' })).profile.campus).toBe('Hanoi')
+      expect((await call({ event: 'open' }, { sessionStudentId: otherStudentId, email: 'binh@example.com' })).profile.campus).toBeNull()
+    })
+
+    it('lets a student with no campus choose one, once', async () => {
+      const { profile, call } = setup()
+      const asBinh = { sessionStudentId: otherStudentId, email: 'binh@example.com' }
+      const chosen = await call({ event: 'campus_chosen', campus: 'Can Tho' }, asBinh)
+      expect(chosen.profile.campus).toBe('Can Tho')
+      expect((await profile.read(otherStudentId)).campus).toBe('Can Tho')
+      await expect(call({ event: 'campus_chosen', campus: 'Hanoi' }, asBinh)).rejects.toMatchObject({
+        name: 'StudentRequestError',
+        statusCode: 400,
+        message: 'Your campus is already chosen. Ask the product owner to change it.',
+      })
+      expect((await profile.read(otherStudentId)).campus).toBe('Can Tho')
+    })
+
+    it('refuses a campus that is not one of the four', async () => {
+      const { call } = setup()
+      await expect(call({ event: 'campus_chosen', campus: 'Mars' }, { sessionStudentId: otherStudentId }))
+        .rejects.toMatchObject({ statusCode: 400, message: 'Choose Hanoi, Da Nang, Ho Chi Minh City or Can Tho.' })
+    })
+
+    it('refuses a student changing a campus through the profile', async () => {
+      const { profile, call } = setup()
+      await expect(call({ event: 'profile_changed', campus: 'Can Tho' })).rejects.toMatchObject({
+        statusCode: 400,
+        message: 'The campus cannot be changed here. Ask the product owner.',
+      })
+      await expect(call({ event: 'profile_changed', displayName: 'An', campus: 'Can Tho' })).rejects.toMatchObject({ statusCode: 400 })
+      expect((await profile.read(studentId)).campus).toBe('Hanoi')
+    })
+
+    it('holds a student with no campus out of the workspace events until they choose', async () => {
+      const { activity, call } = setup()
+      const asBinh = { sessionStudentId: otherStudentId, email: 'binh@example.com' }
+      await expect(call({ event: 'module_opened', moduleId: 'loops' }, asBinh)).rejects.toMatchObject({
+        statusCode: 403,
+        message: 'Choose your campus before studying.',
+      })
+      expect(activity.events).toEqual([])
+      // Opening, signing in and the profile stay reachable so the step can show.
+      await call({ event: 'open' }, asBinh)
+      await call({ event: 'signed_in' }, asBinh)
+    })
   })
 })

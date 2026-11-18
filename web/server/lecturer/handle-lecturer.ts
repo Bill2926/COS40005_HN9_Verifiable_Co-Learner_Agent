@@ -1,4 +1,5 @@
 import type { CoursePreview, LecturerResponse } from '../../shared/lecturer'
+import { campusRule, isCampus } from '../../shared/campus'
 import { defaultCourseId, parseCourseSpec, type CourseSpec } from '../course'
 import type { LecturerStore } from '../storage/lecturer-store'
 import { coursePreview } from './preview-course'
@@ -27,8 +28,14 @@ function requireLecturer(request: LecturerIdentity): string {
 export async function handleLecturer(request: LecturerIdentity & {
   store: Pick<LecturerStore, 'forLecturer' | 'setThreshold'>
   change?: unknown
+  // Narrows each course's enrolled students to one campus; empty means all.
+  campus?: string
 }): Promise<LecturerResponse> {
   const email = requireLecturer(request)
+  const campus = request.campus ?? ''
+  if (campus !== '' && !isCampus(campus)) {
+    throw Object.assign(new Error(campusRule), { statusCode: 400 })
+  }
   if (request.change !== undefined) {
     const change = request.change
     if (typeof change !== 'object' || change === null
@@ -41,7 +48,9 @@ export async function handleLecturer(request: LecturerIdentity & {
       throw Object.assign(new Error('Course not found'), { statusCode: 404 })
     }
   }
-  return { courses: await request.store.forLecturer(email) }
+  const courses = await request.store.forLecturer(email)
+  if (campus === '') return { courses }
+  return { courses: courses.map(course => ({ ...course, students: course.students.filter(student => student.campus === campus) })) }
 }
 
 interface CourseSpecRequest extends LecturerIdentity {

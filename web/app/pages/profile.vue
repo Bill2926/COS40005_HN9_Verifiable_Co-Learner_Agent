@@ -162,6 +162,7 @@ async function sendPicture(file: File) {
       </label>
       <p class="text-sm text-ink-600">Email <span class="text-ink-900">{{ profile?.email }}</span></p>
       <p class="text-sm text-ink-600">Student number <span class="font-mono text-ink-900">{{ profile?.studentNumber }}</span></p>
+      <p class="text-sm text-ink-600">Campus <span class="text-ink-900" data-profile-campus>{{ profile?.campus ?? 'Not chosen yet' }}</span></p>
       <button type="submit" class="min-h-11 rounded-sm bg-accent px-4 text-sm font-medium text-on-accent" :disabled="busy">Save name</button>
     </form>
     <p v-if="uploading" role="status" class="sr-only">Uploading your picture</p>

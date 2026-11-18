@@ -4,6 +4,8 @@ import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import MindmapNotes from '~/components/workspace/MindmapNotes.vue'
 import MindmapCanvas from '~/components/workspace/MindmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
+import CampusStep from '~/components/workspace/CampusStep.vue'
+import type { Campus } from '#shared/campus'
 import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
@@ -92,6 +94,8 @@ const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
 const portraitUrl = ref<string | null>(null)
+// Unknown until the profile opens; null means the student has not chosen one yet.
+const campus = ref<Campus | null | undefined>(undefined)
 interface NoteItem {
   id: string
   text: string
@@ -448,11 +452,12 @@ async function unlinkNotes(linkId: string) {
 
 async function loadPortrait() {
   try {
-    const state = await $fetch<MindmapState & { profile: { pictureUrl: string | null } }>('/api/student', {
+    const state = await $fetch<MindmapState & { profile: { pictureUrl: string | null, campus: Campus | null } }>('/api/student', {
       method: 'POST',
       body: { event: 'open' },
     })
     portraitUrl.value = state.profile.pictureUrl
+    campus.value = state.profile.campus
     savedPositions = state.mindmap.positions
     modulePositions.value = savedPositions
     applyMindmap(state)
@@ -807,8 +812,13 @@ function initialsOf(name: string): string {
   <main
     v-else
     :data-layout="layout"
+    :inert="campus === null"
     class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-elevated"
   >
+    <!-- Until a campus is chosen the workspace behind it cannot be reached. -->
+    <Teleport v-if="campus === null" to="body">
+      <CampusStep @chosen="campus = $event" />
+    </Teleport>
     <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:grid md:h-12 md:grid-cols-[1fr_auto_1fr] md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <img

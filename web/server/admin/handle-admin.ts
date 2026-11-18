@@ -3,6 +3,7 @@ import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
 import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
+import { campusRule, isCampus, type Campus } from '../../shared/campus'
 import { isStudentNumber, studentNumberRule } from '../../shared/student-number'
 
 export class SignInRequiredError extends Error {
@@ -121,6 +122,13 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
     if (result === 'used') throw new AdminRequestError('That student number has been used before and cannot be given out again.')
   }
 
+  const campusChange = campusBody(request.body)
+  if (campusChange) {
+    if (!request.students) throw new AdminRequestError('The student directory is unavailable.')
+    const result = await request.students.changeCampus({ ...campusChange, actorEmail: email })
+    if (result === 'not-found') throw new AdminNotFoundError()
+  }
+
   return {
     model: await present(request.store, request.env),
     verifyShieldOn: verifyShieldEnabled(
@@ -135,7 +143,7 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
 // Only the page that shows the directory asks for it; every other call pays no query.
 function wantsDirectory(body: unknown): boolean {
   if (typeof body !== 'object' || body === null) return false
-  return 'event' in body && (body.event === 'students' || body.event === 'studentNumber')
+  return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus')
 }
 
 // The product owner may correct a number to SWB followed by at least four
@@ -154,6 +162,18 @@ function studentNumberBody(body: unknown): { studentId: string, studentNumber: s
     throw new AdminRequestError(studentNumberRule)
   }
   return { studentId: body.studentId.trim(), studentNumber }
+}
+
+function campusBody(body: unknown): { studentId: string, campus: Campus } | null {
+  if (typeof body !== 'object' || body === null) return null
+  if (!('event' in body) || body.event !== 'campus') return null
+  if (!('studentId' in body) || typeof body.studentId !== 'string' || body.studentId.trim() === '') {
+    throw new AdminRequestError('The student is missing.')
+  }
+  if (!('campus' in body) || !isCampus(body.campus)) {
+    throw new AdminRequestError(campusRule)
+  }
+  return { studentId: body.studentId.trim(), campus: body.campus }
 }
 
 function verifyShieldBody(body: unknown): { enabled: boolean } | null {

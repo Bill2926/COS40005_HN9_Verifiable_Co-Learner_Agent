@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
 import { messageFrom } from '~/admin/message'
+import { campuses, isCampus } from '#shared/campus'
 import { isStudentNumber, studentNumberRule } from '#shared/student-number'
 import type { AdminPayload } from '~/admin/decisions'
 
@@ -27,6 +28,24 @@ const unavailable = computed(() => Boolean(error.value) && !refused.value)
 
 function validNumber(value: string): boolean {
   return isStudentNumber(value.trim())
+}
+
+async function changeCampus(studentId: string, campus: string) {
+  if (saving.value || !isCampus(campus)) return
+  changeError.value = ''
+  notice.value = ''
+  saving.value = studentId
+  try {
+    await $fetch('/api/admin', { method: 'POST', body: { event: 'campus', studentId, campus } })
+    await refresh()
+    notice.value = 'Campus changed.'
+  }
+  catch (caught) {
+    changeError.value = messageFrom(caught, 'The campus could not be changed.')
+  }
+  finally {
+    saving.value = null
+  }
 }
 
 async function changeNumber(studentId: string) {
@@ -112,6 +131,9 @@ async function changeNumber(studentId: string) {
                   <th scope="col" class="px-3 py-2 font-medium">
                     Student number
                   </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Campus
+                  </th>
                   <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">
                     Email
                   </th>
@@ -136,6 +158,22 @@ async function changeNumber(studentId: string) {
                   </td>
                   <td class="px-3 py-3 font-mono whitespace-nowrap">
                     {{ student.studentNumber }}
+                  </td>
+                  <td class="px-3 py-3">
+                    <select
+                      :value="student.campus ?? ''"
+                      :aria-label="`Campus for ${student.displayName}`"
+                      :disabled="saving !== null"
+                      class="min-h-11 rounded-sm border border-default bg-default px-2 text-base/6 text-default md:min-h-0 md:py-[9px] md:text-sm/5"
+                      @change="changeCampus(student.id, ($event.target as HTMLSelectElement).value)"
+                    >
+                      <option v-if="student.campus === null" value="" disabled>
+                        No campus yet
+                      </option>
+                      <option v-for="campus in campuses" :key="campus" :value="campus">
+                        {{ campus }}
+                      </option>
+                    </select>
                   </td>
                   <td class="hidden px-3 py-3 [overflow-wrap:anywhere] md:table-cell">
                     {{ student.email }}
