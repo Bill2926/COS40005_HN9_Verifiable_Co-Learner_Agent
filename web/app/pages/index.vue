@@ -24,6 +24,7 @@ definePageMeta({
 
 async function signOut() {
   await useNuxtApp().$supabase.auth.signOut()
+  portraitUrl.value = null
   await navigateTo('/sign-in')
 }
 
@@ -93,7 +94,8 @@ const moduleViews = new Map<string, RedrawState>()
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
-const portraitUrl = ref<string | null>(null)
+// Shared with the profile page, so a new picture shows here at once.
+const portraitUrl = useState<string | null>('student-picture-url', () => null)
 // Unknown until the profile opens; null means the student has not chosen one yet.
 const campus = ref<Campus | null | undefined>(undefined)
 interface NoteItem {
@@ -852,9 +854,18 @@ function initialsOf(name: string): string {
       </nav>
       <div class="flex shrink-0 items-center gap-2 md:gap-4 md:justify-self-end">
         <div class="flex items-center gap-2 border-r border-ink-200 pr-2 md:pr-[13px]">
+          <img
+            v-if="portraitUrl"
+            :src="portraitUrl"
+            alt=""
+            class="size-6 shrink-0 rounded-full object-cover"
+            data-navbar-picture
+          >
           <span
+            v-else
             class="flex size-6 shrink-0 items-center justify-center rounded-full bg-ink-200 text-[11px] font-medium leading-4 text-ink-700"
             aria-hidden="true"
+            data-navbar-initials
           >{{ initialsOf(workspace.displayName) }}</span>
           <NuxtLink to="/profile" class="text-xs font-medium leading-4 text-ink-700 underline-offset-2 hover:underline max-md:sr-only">{{ workspace.displayName }}</NuxtLink>
           <span class="font-mono text-[10px] leading-4 tracking-[0.5px] text-ink-400 uppercase max-md:hidden">Student</span>

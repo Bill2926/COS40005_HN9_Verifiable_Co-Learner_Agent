@@ -382,6 +382,9 @@ test('locks an answered quiz question and shows Submit busy at phone width', asy
 
   const quiz = page.getByRole('region', { name: 'Module quiz' })
   const questions = quiz.locator('ol > li')
+  await expect(questions).toHaveCount(0)
+  await quiz.getByRole('button', { name: 'Show quiz' }).click()
+  await expect(questions.first()).toContainText(/^1\. \S/)
   const first = questions.nth(0).getByRole('button')
   const second = questions.nth(1).getByRole('button')
   await expect(first.first()).toBeEnabled()
