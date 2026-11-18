@@ -4,6 +4,8 @@ import {
   AdminRequestError,
   checkAdminRole,
   handleAdmin,
+  handleConnectionTest,
+  isConnectionTest,
   isRoleCheck,
   ModelSettingsError,
   ProductOwnerRequiredError,
@@ -25,7 +27,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const email = await sessionEmail(event)
     if (isRoleCheck(body)) return checkAdminRole({ email, adminEmails: config.adminEmails })
-    return await handleAdmin({
+    const request = {
       email,
       adminEmails: config.adminEmails,
       env: {
@@ -41,7 +43,9 @@ export default defineEventHandler(async (event) => {
       verifyShieldEnv: config.verifyShield,
       students: createSupabaseStudentDirectoryStore(connection),
       body,
-    })
+    }
+    if (isConnectionTest(body)) return await handleConnectionTest(request)
+    return await handleAdmin(request)
   }
   catch (error) {
     if (

@@ -1,4 +1,4 @@
-import { resolveModelChoice, type ModelSettings } from '../language-model'
+import { resolveModelChoice, testConnection, UnusableSettingsError, type ConnectionReport, type ModelSettings } from '../language-model'
 import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
@@ -94,6 +94,28 @@ export function isRoleCheck(body: unknown): boolean {
   return typeof body === 'object' && body !== null && 'event' in body && body.event === 'role'
 }
 
+// The `testConnection` event asks the provider two questions and writes nothing, so the page gets its
+// answer without a settings read, a decision read or a directory read.
+export function isConnectionTest(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'event' in body && body.event === 'testConnection'
+}
+
+// The two checks the product owner asked for, of the settings on the form and of nothing else: what is
+// saved stays as it was until the owner saves it. A provider that refuses or cannot be reached is
+// answered inside the report; only settings that describe no call at all are a fault.
+export async function handleConnectionTest(request: AdminRequest): Promise<ConnectionReport> {
+  requireProductOwner(request)
+  const form = modelForm(request.body, 'testConnection')
+  if (!form) throw new ModelSettingsError('The settings to test are missing.')
+  try {
+    return await testConnection(await settingsFromForm(form, request))
+  }
+  catch (error) {
+    if (error instanceof UnusableSettingsError) throw new ModelSettingsError(error.message)
+    throw error
+  }
+}
+
 function requireProductOwner(request: Pick<AdminRequest, 'email' | 'adminEmails'>): string {
   const email = request.email?.trim() ?? ''
   if (email === '') throw new SignInRequiredError()
@@ -104,7 +126,7 @@ function requireProductOwner(request: Pick<AdminRequest, 'email' | 'adminEmails'
 export async function handleAdmin(request: AdminRequest): Promise<AdminResponse> {
   const email = requireProductOwner(request)
 
-  const save = saveBody(request.body)
+  const save = modelForm(request.body, 'save')
   if (save) await request.store.save(await settingsToStore(save, request))
 
   const verifyShieldSwitch = verifyShieldBody(request.body)
@@ -210,16 +232,18 @@ export function isProductOwner(email: string, adminEmails: string): boolean {
   return allowed.includes(email.trim().toLowerCase())
 }
 
-interface SaveBody {
+interface ModelForm {
   provider: string
   apiKey?: string
   baseUrl?: string
   modelName?: string
 }
 
-function saveBody(body: unknown): SaveBody | null {
+// The model settings as the page's form sends them, for the event named. A save and a connection test
+// carry the same fields, and neither may be answered from a half-filled form.
+function modelForm(body: unknown, event: string): ModelForm | null {
   if (typeof body !== 'object' || body === null) return null
-  if (!('event' in body) || body.event !== 'save') return null
+  if (!('event' in body) || body.event !== event) return null
   if (!('provider' in body) || typeof body.provider !== 'string') {
     throw new ModelSettingsError('The model provider is missing.')
   }
@@ -240,17 +264,21 @@ function optionalText(body: object, key: string): string | undefined {
 
 // A blank API key keeps the key already in effect. The page only ever receives
 // a mask, so a save that did not type a new key must not wipe the real one.
-async function settingsToStore(save: SaveBody, request: AdminRequest): Promise<ModelSettings> {
+async function settingsFromForm(save: ModelForm, request: AdminRequest): Promise<ModelSettings> {
   const current = await request.store.read() ?? request.env
   const apiKey = save.apiKey !== undefined && save.apiKey.trim() !== ''
     ? save.apiKey
     : current.apiKey
-  const next: ModelSettings = {
+  return {
     provider: save.provider,
     apiKey,
     baseUrl: save.baseUrl ?? current.baseUrl,
     modelName: save.modelName ?? current.modelName,
   }
+}
+
+async function settingsToStore(save: ModelForm, request: AdminRequest): Promise<ModelSettings> {
+  const next = await settingsFromForm(save, request)
 
   let choice
   try {

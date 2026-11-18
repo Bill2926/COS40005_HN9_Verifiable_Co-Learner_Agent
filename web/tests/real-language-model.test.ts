@@ -150,6 +150,97 @@ it('does not retry a server error either', async () => {
   expect(provider.calls()).toBe(1)
 })
 
+// A connection check and, later, the Teacher's own tools need the proposal to come back as a tool
+// call rather than as JSON written in the text. The provider answers with tool_calls and carries no
+// response_format at all: the schema travels in the tool definition.
+interface ToolRequest {
+  toolChoice: unknown
+  responseFormat: unknown
+  tools: { function: { name: string, parameters?: unknown } }[]
+}
+
+// A provider that answers each call with the next scripted assistant message and keeps every request.
+function scriptedToolProvider(messages: unknown[]): { requests: () => ToolRequest[] } {
+  const requests: ToolRequest[] = []
+  let calls = 0
+  vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+    const request = input instanceof Request ? input : new Request(input, init)
+    const body = await request.json() as { tool_choice?: unknown, response_format?: unknown, tools?: ToolRequest['tools'] }
+    requests.push({ toolChoice: body.tool_choice, responseFormat: body.response_format, tools: body.tools ?? [] })
+    const message = messages[calls++]
+    if (message === undefined) throw new Error('No scripted reply left.')
+    const isToolCall = typeof message === 'object' && message !== null && 'tool_calls' in message
+    return Response.json({
+      id: 'chatcmpl-test',
+      choices: [{ message, finish_reason: isToolCall ? 'tool_calls' : 'stop' }],
+    })
+  })
+  return { requests: () => requests }
+}
+
+// The arguments of the tool call the provider would answer with.
+const callProposing = (proposal: string) => ({
+  role: 'assistant',
+  content: null,
+  tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'propose', arguments: proposal } }],
+})
+
+describe('a plain reply, asked for without streaming', () => {
+  it('answers with the words the model wrote', async () => {
+    const provider = scriptedProvider(['Start with the quotes.'])
+
+    await expect(model().reply('Say one sentence.', 'The student is stuck.'))
+      .resolves.toBe('Start with the quotes.')
+    expect(provider.calls()).toBe(1)
+  })
+
+  // The streaming call hides a failed request behind one generic message, which is fine for a student
+  // and useless for the product owner. This one reaches the caller with what the provider said.
+  it('carries the provider message when the key is refused', async () => {
+    scriptedProvider([Response.json({ error: { message: 'Invalid API key' } }, { status: 401 })])
+
+    await expect(model().reply('Say one sentence.', 'The student is stuck.'))
+      .rejects.toThrow('Invalid API key')
+  })
+})
+
+describe('a proposal asked for as a tool call', () => {
+  it('sends the proposal schema as a tool the model must call', async () => {
+    const provider = scriptedToolProvider([callProposing(validProposal)])
+
+    const proposal = await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, 3)
+
+    expect(proposal).toEqual({ type: 'explain_concept', scope: 'getting_started' })
+    const sent = provider.requests()[0]!
+    expect(sent.toolChoice).toBe('required')
+    expect(sent.tools.map(tool => tool.function.name)).toEqual(['propose'])
+    expect(JSON.stringify(sent.tools[0]!.function.parameters)).toContain('"explain_concept"')
+    expect(sent.responseFormat).toBeUndefined()
+  })
+
+  it('stops as soon as the tool has answered, so one call is enough', async () => {
+    const provider = scriptedToolProvider([callProposing(validProposal)])
+
+    await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, 3)
+
+    expect(provider.requests()).toHaveLength(1)
+  })
+
+  it('answers no move when the tool call carries none', async () => {
+    const provider = scriptedToolProvider([callProposing('{"proposal": null}')])
+
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3)).resolves.toBeNull()
+    expect(provider.requests()).toHaveLength(1)
+  })
+
+  it('gives up when the model answers with words instead of calling the tool', async () => {
+    scriptedToolProvider([{ role: 'assistant', content: 'I would explain the loop.' }])
+
+
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3)).rejects.toThrow()
+  })
+})
+
 describe('what the student sees', () => {
   const student = '6f1b0c1e-1111-4111-8111-111111111111'
 

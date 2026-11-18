@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { checkAdminRole, handleAdmin } from '../server/admin/handle-admin'
+import { checkAdminRole, handleAdmin, handleConnectionTest, isConnectionTest } from '../server/admin/handle-admin'
 import { lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
 import { agentsForTurn, createFakeAgents } from '../server/agents'
 import type { ModelSettings } from '../server/language-model'
@@ -746,6 +746,129 @@ describe('admin student numbers', () => {
     }))).rejects.toMatchObject({ statusCode: 403 })
 
     expect(students.changes).toEqual([])
+  })
+})
+
+describe('admin connection test', () => {
+  const form = {
+    event: 'testConnection',
+    provider: 'real',
+    apiKey: savedKey,
+    baseUrl: 'https://api.deepseek.com',
+    modelName: 'deepseek-chat',
+  }
+
+  // A provider that answers the two questions in order and keeps the headers the calls were sent
+  // with. A string is the words the model wrote; `{ toolCall }` is a call of the proposal tool.
+  function scriptedConnection(replies: (string | { toolCall: string } | Response)[]): { authorities: string[] } {
+    const authorities: string[] = []
+    let calls = 0
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      authorities.push(request.headers.get('authorization') ?? '')
+      const reply = replies[calls++]
+      if (reply === undefined) throw new Error('No scripted reply left.')
+      if (reply instanceof Response) return reply
+      if (typeof reply === 'string') {
+        return Response.json({ choices: [{ message: { role: 'assistant', content: reply }, finish_reason: 'stop' }] })
+      }
+      return Response.json({
+        choices: [{
+          message: { role: 'assistant', content: null, tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'propose', arguments: reply.toolCall } }] },
+          finish_reason: 'tool_calls',
+        }],
+      })
+    })
+    return { authorities }
+  }
+
+  it('answers the product owner both checks, and saves nothing', async () => {
+    const store = createMemoryModelSettingsStore()
+    scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
+
+    const report = await handleConnectionTest(ownerRequest({ store, body: form }))
+
+    expect(report.reply.ok).toBe(true)
+    expect(report.toolCall.ok).toBe(true)
+    expect(await store.read()).toBeNull()
+  })
+
+  it('tests the settings on the form, not the ones already saved', async () => {
+    const store = createMemoryModelSettingsStore()
+    await store.save({ provider: 'real', apiKey: 'sk-already-saved-0000', baseUrl: 'https://saved.example', modelName: 'saved-model' })
+    const provider = scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
+
+    await handleConnectionTest(ownerRequest({ store, body: form }))
+
+    expect(provider.authorities).toEqual([`Bearer ${savedKey}`, `Bearer ${savedKey}`])
+    expect(await store.read()).toMatchObject({ apiKey: 'sk-already-saved-0000' })
+  })
+
+  it('keeps the key in effect when the form leaves the field blank', async () => {
+    const store = createMemoryModelSettingsStore()
+    await store.save({ provider: 'real', apiKey: savedKey, baseUrl: 'https://api.deepseek.com', modelName: 'deepseek-chat' })
+    const provider = scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
+
+    await handleConnectionTest(ownerRequest({ store, body: { ...form, apiKey: '  ' } }))
+
+    expect(provider.authorities).toEqual([`Bearer ${savedKey}`, `Bearer ${savedKey}`])
+  })
+
+  it('reports a failing key on both answers, and never the key itself', async () => {
+    const store = createMemoryModelSettingsStore()
+    const refused = () => Response.json({ error: { message: `Invalid API key ${savedKey}` } }, { status: 401 })
+    scriptedConnection([refused(), refused()])
+
+    const report = await handleConnectionTest(ownerRequest({ store, body: form }))
+
+    expect(report.reply).toEqual({ ok: false, ms: report.reply.ms, error: 'Invalid API key …' })
+    expect(report.toolCall.ok).toBe(false)
+    expect(JSON.stringify(report)).not.toContain(savedKey)
+    expect(await store.read()).toBeNull()
+  })
+
+  it('reports a model that answers in words instead of calling the tool', async () => {
+    const store = createMemoryModelSettingsStore()
+    scriptedConnection(['Counted in a loop.', 'I would explain the loop.'])
+
+    const report = await handleConnectionTest(ownerRequest({ store, body: form }))
+
+    expect(report.reply.ok).toBe(true)
+    expect(report.toolCall.ok).toBe(false)
+    expect(report.toolCall.error).toContain('tool call')
+  })
+
+  it('refuses anyone but the product owner before calling the provider', async () => {
+    const store = createMemoryModelSettingsStore()
+    const provider = scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
+
+    await expect(handleConnectionTest(ownerRequest({ email: 'an@example.com', store, body: form })))
+      .rejects.toMatchObject({ statusCode: 403 })
+    await expect(handleConnectionTest(ownerRequest({ email: null, store, body: form })))
+      .rejects.toMatchObject({ statusCode: 401 })
+    expect(provider.authorities).toEqual([])
+  })
+
+  it.each([
+    { body: { event: 'testConnection', provider: 'fake' }, message: 'nothing to test' },
+    { body: { event: 'testConnection', provider: 'real', apiKey: savedKey, baseUrl: '', modelName: 'deepseek-chat' }, message: 'base URL is blank' },
+    { body: { event: 'testConnection', provider: 'real', apiKey: savedKey, baseUrl: 'https://api.deepseek.com', modelName: ' ' }, message: 'model name is blank' },
+    { body: { event: 'testConnection' }, message: 'The model provider is missing.' },
+  ])('refuses $message before calling the provider', async ({ body, message }) => {
+    const store = createMemoryModelSettingsStore()
+    const provider = scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
+
+    await expect(handleConnectionTest(ownerRequest({ store, body })))
+      .rejects.toMatchObject({ statusCode: 400, message: new RegExp(message) })
+    expect(provider.authorities).toEqual([])
+    expect(await store.read()).toBeNull()
+  })
+
+  it('routes the event by itself, so the page does not pay for a decision read', () => {
+    expect(isConnectionTest({ event: 'testConnection' })).toBe(true)
+    expect(isConnectionTest({ event: 'save', provider: 'real' })).toBe(false)
+    expect(isConnectionTest({ event: 'read' })).toBe(false)
+    expect(isConnectionTest(null)).toBe(false)
   })
 })
 
