@@ -23,7 +23,9 @@ def build_model() -> Pipeline:
     ])
 
 
-def export_model(model: Pipeline, path: Path = MODEL_PATH) -> None:
+def export_model(
+    model: Pipeline, path: Path = MODEL_PATH, *, threshold: float = PREDICTION_THRESHOLD
+) -> None:
     scaler = model.named_steps["scaler"]
     classifier = model.named_steps["classifier"]
     if not np.array_equal(classifier.classes_, [0, 1]):
@@ -35,7 +37,7 @@ def export_model(model: Pipeline, path: Path = MODEL_PATH) -> None:
         scale=scaler.scale_,
         coefficients=classifier.coef_[0],
         intercept=classifier.intercept_[0],
-        threshold=PREDICTION_THRESHOLD,
+        threshold=threshold,
     )
 
 
