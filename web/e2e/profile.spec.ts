@@ -32,6 +32,13 @@ test('opens the profile page by a full load', async ({ page }) => {
   await expect(page.getByText('Upload picture', { exact: true })).toBeVisible()
 })
 
+test('shows initials in the navbar while there is no picture', async ({ page }) => {
+  await signIn(page, anAccount)
+  await expect(page.getByRole('heading', { name: 'Getting Started with Programming and Python' })).toBeVisible({ timeout: 60_000 })
+  await expect(page.locator('[data-navbar-initials]')).toHaveText('An')
+  await expect(page.locator('[data-navbar-picture]')).toHaveCount(0)
+})
+
 test('refuses a picture of the wrong type or size before uploading it', async ({ page }) => {
   await openProfile(page)
   const picker = page.getByLabel('Upload picture')
@@ -61,6 +68,8 @@ test('saves a new name and picture, and the conversation shows the picture', asy
   await expect(page.locator('[data-profile-picture]')).toHaveAttribute('src', signedPortrait)
 
   await page.getByRole('link', { name: 'Back to the workspace' }).click()
+  await expect(page.locator('[data-navbar-picture]')).toHaveAttribute('src', signedPortrait)
+  await expect(page.locator('[data-navbar-initials]')).toHaveCount(0)
   const message = page.getByRole('textbox', { name: 'Message' })
   await message.fill('Hello')
   await page.getByRole('button', { name: 'Send' }).click()

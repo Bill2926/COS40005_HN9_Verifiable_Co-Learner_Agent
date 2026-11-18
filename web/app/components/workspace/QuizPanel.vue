@@ -18,6 +18,10 @@ const emit = defineEmits<{
 
 const letters = ['A', 'B', 'C', 'D']
 
+// The quiz starts collapsed and is not remembered: every visit to the module
+// starts closed again.
+const open = ref(false)
+
 // A question locks once answered: only the first answer counts, so its choices
 // stay disabled while the answer, the correct choice and the explanation show.
 function locked(question: QuizQuestionView): boolean {
@@ -55,24 +59,33 @@ function choiceClass(state: 'idle' | 'correct' | 'wrong', answered: boolean, wai
     class="flex flex-col gap-4 rounded-[8px] border border-ink-200 bg-ink-50/70 px-4 py-4 md:px-5"
     aria-label="Module quiz"
   >
-    <div class="flex flex-col gap-1">
-      <h3 class="text-sm leading-5 font-semibold text-ink-900">
-        Test your knowledge
-      </h3>
-      <p class="text-xs leading-5 text-ink-500">
-        Three questions on this module. Only your first answer to each counts.
-      </p>
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex flex-col gap-1">
+        <h3 class="text-sm leading-5 font-semibold text-ink-900">
+          Test your knowledge
+        </h3>
+        <p class="text-xs leading-5 text-ink-500">
+          Three questions on this module. Only your first answer to each counts.
+        </p>
+      </div>
+      <button
+        type="button"
+        class="min-h-11 shrink-0 rounded-[6px] border border-ink-300 bg-paper px-3 text-xs font-medium text-ink-900 hover:bg-ink-50 md:min-h-8"
+        :aria-expanded="open"
+        @click="open = !open"
+      >
+        {{ open ? 'Hide quiz' : 'Show quiz' }}
+      </button>
     </div>
 
-    <ol class="flex flex-col gap-5">
+    <ol v-if="open" class="flex flex-col gap-5">
       <li
         v-for="(question, index) in props.questions"
         :key="question.id"
         class="flex flex-col gap-2.5"
       >
         <p class="text-[13px] leading-5 font-medium text-ink-800">
-          <span class="text-ink-400">{{ index + 1 }}.</span>
-          <InlineText :text="question.prompt" />
+          <span class="text-ink-400">{{ index + 1 }}.</span>{{ ' ' }}<InlineText :text="question.prompt" />
         </p>
         <div class="flex flex-col gap-1.5">
           <button

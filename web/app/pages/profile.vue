@@ -15,6 +15,8 @@ const saved = ref('')
 const busy = ref(false)
 const uploading = ref(false)
 
+const navbarPicture = useState<string | null>('student-picture-url', () => null)
+
 const requestFetch = useRequestFetch()
 const loaded = await requestFetch<StudentResponse>('/api/student', { method: 'POST', body: { event: 'open' } })
 profile.value = loaded.profile
@@ -114,6 +116,7 @@ async function sendPicture(file: File) {
       body: { event: 'profile_changed', picture },
     })
     profile.value = next.profile
+    navbarPicture.value = next.profile.pictureUrl ?? null
     saved.value = 'Picture saved.'
   }
   catch (error) {
