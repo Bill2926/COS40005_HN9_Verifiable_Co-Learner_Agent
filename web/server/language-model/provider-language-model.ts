@@ -1,10 +1,16 @@
-import { generateText, hasToolCall, NoObjectGeneratedError, NoOutputGeneratedError, Output, stepCountIs, streamText, tool, type LanguageModel as ProviderModel } from 'ai'
+import { APICallError, generateText, hasToolCall, NoObjectGeneratedError, NoOutputGeneratedError, Output, stepCountIs, streamText, tool, type LanguageModel as ProviderModel } from 'ai'
 import { z } from 'zod'
 import type { LanguageModel, ProposalSchema, ToolLoop, ToolLoopResult } from './language-model'
 
 // The name of the tool a proposal is asked for as. It says nothing about moves: the tool only ever
 // holds the caller's schema, so this component still does not know which proposals exist.
 const proposalTool = 'propose'
+const answerThroughTool = `Answer only by calling the ${proposalTool} tool, never with words.`
+
+// A request refused because of its tool_choice, rather than its key, model or anything else.
+function refusesToolChoice(error: unknown): boolean {
+  return APICallError.isInstance(error) && error.statusCode === 400 && /tool_choice/i.test(error.message)
+}
 
 // response_format: { type: 'json_object' } is all a provider like DeepSeek
 // accepts, and it carries no schema. Output.object validates the reply but
@@ -21,6 +27,10 @@ function proposalShape(schema: z.ZodType): string {
 // built the model. What to say, and which proposals exist, is not decided here: the caller passes the
 // instructions, the prompt and the schema.
 export function createProviderLanguageModel(model: ProviderModel): LanguageModel {
+  // A provider may refuse to be made to call a tool: DeepSeek in thinking mode answers 'required'
+  // with 400 "Thinking mode does not support this tool_choice", though it calls tools when left to
+  // choose. Once refused, this model lets its provider choose.
+  let toolChoice: 'required' | 'auto' = 'required'
   return {
     async proposeMove<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>): Promise<Proposal | null> {
       const ask = async () => {
@@ -55,9 +65,10 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
         inputSchema: item.inputSchema,
         execute: input => item.run(input),
       })]))
-      const { toolCalls, steps } = await generateText({
+      const ask = (choice: 'required' | 'auto') => generateText({
         model,
-        instructions,
+        // A model free to choose is told which tool holds its answer.
+        instructions: choice === 'auto' ? `${instructions} ${answerThroughTool}` : instructions,
         prompt,
         tools: {
           ...ownTools,
@@ -68,12 +79,23 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
         },
         // A model that answers with words instead of calling the tool is reported, not talked to
         // again: that is the answer the product owner needs to see.
-        toolChoice: 'required',
+        toolChoice: choice,
         // The loop ends at the tool call, so a proposal costs one call. The cap bounds a model that
         // keeps calling other tools before it answers with this one; no move comes back when it is hit.
         stopWhen: [hasToolCall(proposalTool), stepCountIs(maxSteps)],
         maxRetries: 0,
       })
+      let answer
+      try {
+        answer = await ask(toolChoice)
+      }
+      catch (error) {
+        if (toolChoice !== 'required' || !refusesToolChoice(error)) throw error
+        // Remembered, so later proposals from this model are not refused first.
+        toolChoice = 'auto'
+        answer = await ask(toolChoice)
+      }
+      const { toolCalls, steps } = answer
       // The provider parses the tool input against the schema it was given, but the answer it hands
       // back is only typed as unknown text, so it is read through the schema here. A tool call that
       // breaks the schema is reported rather than passed on as a move.
