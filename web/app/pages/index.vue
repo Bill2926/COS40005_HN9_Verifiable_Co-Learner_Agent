@@ -4,6 +4,8 @@ import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
 import MindmapNotes from '~/components/workspace/MindmapNotes.vue'
 import MindmapCanvas from '~/components/workspace/MindmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
+import CampusStep from '~/components/workspace/CampusStep.vue'
+import type { Campus } from '#shared/campus'
 import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
@@ -92,6 +94,8 @@ const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
 const portraitUrl = ref<string | null>(null)
+// Unknown until the profile opens; null means the student has not chosen one yet.
+const campus = ref<Campus | null | undefined>(undefined)
 interface NoteItem {
   id: string
   text: string
@@ -315,10 +319,11 @@ function resetMindmapArrangement() {
 
 async function saveNote(draft: {
   id: string | null, title: string, body: string, colour: string, moduleId: string,
+  target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string } | null,
 }) {
   if (addingNote.value) return
-  if (!draft.title.trim() || !draft.moduleId) {
-    noteError.value = 'A note needs a title and one module.'
+  if (!draft.title.trim() || (!draft.id && !draft.target)) {
+    noteError.value = 'A note needs a title and a link to a module or another note.'
     return
   }
   addingNote.value = true
@@ -337,6 +342,7 @@ async function saveNote(draft: {
           colour: draft.colour,
           x: 48,
           y: 48,
+          target: draft.target,
         },
       })
       applyMindmap(created)
@@ -352,24 +358,10 @@ async function saveNote(draft: {
           colour: draft.colour,
         },
       }))
+      // A note linked only to other notes may stay that way.
+      if (draft.moduleId) await moveModuleLink(noteId, draft.moduleId)
     }
     if (!noteId) throw new Error('The note was not saved.')
-    for (const link of noteLinks.value.filter(item => item.fromNoteId === noteId && item.target.kind === 'module')) {
-      if (link.target.kind === 'module' && link.target.moduleId !== draft.moduleId) {
-        applyMindmap(await $fetch<MindmapState>('/api/student', {
-          method: 'POST',
-          body: { event: 'note_unlinked', linkId: link.id },
-        }))
-      }
-    }
-    const linked = noteLinks.value.some(item =>
-      item.fromNoteId === noteId && item.target.kind === 'module' && item.target.moduleId === draft.moduleId)
-    if (!linked) {
-      applyMindmap(await $fetch<MindmapState>('/api/student', {
-        method: 'POST',
-        body: { event: 'note_linked', noteId, target: { kind: 'module', moduleId: draft.moduleId } },
-      }))
-    }
     selectedNoteId.value = noteId
     showNoteSaved('Note saved.')
   }
@@ -378,6 +370,27 @@ async function saveNote(draft: {
   }
   finally {
     addingNote.value = false
+  }
+}
+
+// Link the new module first, then drop the old one, so the note is never
+// left without a link.
+async function moveModuleLink(noteId: string, moduleId: string) {
+  const linked = noteLinks.value.some(item =>
+    item.fromNoteId === noteId && item.target.kind === 'module' && item.target.moduleId === moduleId)
+  if (!linked) {
+    applyMindmap(await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_linked', noteId, target: { kind: 'module', moduleId } },
+    }))
+  }
+  for (const link of noteLinks.value.filter(item => item.fromNoteId === noteId && item.target.kind === 'module')) {
+    if (link.target.kind === 'module' && link.target.moduleId !== moduleId) {
+      applyMindmap(await $fetch<MindmapState>('/api/student', {
+        method: 'POST',
+        body: { event: 'note_unlinked', linkId: link.id },
+      }))
+    }
   }
 }
 
@@ -421,6 +434,11 @@ async function linkNotes(noteId: string, targetNoteId: string) {
 
 async function unlinkNotes(linkId: string) {
   noteError.value = ''
+  const link = noteLinks.value.find(item => item.id === linkId)
+  if (link && noteLinks.value.filter(item => item.fromNoteId === link.fromNoteId).length <= 1) {
+    noteError.value = 'A note keeps at least one link. Link it elsewhere first, or delete the note.'
+    return
+  }
   try {
     applyMindmap(await $fetch<MindmapState>('/api/student', {
       method: 'POST',
@@ -434,11 +452,12 @@ async function unlinkNotes(linkId: string) {
 
 async function loadPortrait() {
   try {
-    const state = await $fetch<MindmapState & { profile: { pictureUrl: string | null } }>('/api/student', {
+    const state = await $fetch<MindmapState & { profile: { pictureUrl: string | null, campus: Campus | null } }>('/api/student', {
       method: 'POST',
       body: { event: 'open' },
     })
     portraitUrl.value = state.profile.pictureUrl
+    campus.value = state.profile.campus
     savedPositions = state.mindmap.positions
     modulePositions.value = savedPositions
     applyMindmap(state)
@@ -793,8 +812,13 @@ function initialsOf(name: string): string {
   <main
     v-else
     :data-layout="layout"
+    :inert="campus === null"
     class="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-elevated"
   >
+    <!-- Until a campus is chosen the workspace behind it cannot be reached. -->
+    <Teleport v-if="campus === null" to="body">
+      <CampusStep @chosen="campus = $event" />
+    </Teleport>
     <header class="phone-safe-top flex min-h-12 shrink-0 flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-default bg-default px-6 md:grid md:h-12 md:grid-cols-[1fr_auto_1fr] md:gap-4">
       <p class="flex shrink-0 items-center gap-3 text-sm font-semibold tracking-tight text-highlighted">
         <img
@@ -968,6 +992,7 @@ function initialsOf(name: string): string {
           :links="noteLinks"
           :modules="noteModules"
           :selected-id="selectedNoteId"
+          :default-module-id="selectedMindmapModuleId"
           :saving="addingNote"
           :saved="noteSaved"
           :error="noteError"

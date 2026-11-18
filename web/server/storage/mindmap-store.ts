@@ -31,7 +31,9 @@ export interface MindmapRecord {
 export interface MindmapStore {
   read: (studentId: string, courseId: string) => Promise<MindmapRecord>
   save: (studentId: string, courseId: string, record: MindmapRecord) => Promise<void>
-  insertNote: (studentId: string, courseId: string, note: MindmapNote) => Promise<void>
+  // A note is written together with its first link, or not at all. False means
+  // the link points at a note that does not exist, and nothing was written.
+  insertNote: (studentId: string, courseId: string, note: MindmapNote, link: MindmapLink) => Promise<boolean>
   updateNote: (studentId: string, courseId: string, note: MindmapNote) => Promise<void>
   deleteNote: (studentId: string, courseId: string, noteId: string) => Promise<boolean>
   insertLink: (studentId: string, courseId: string, link: MindmapLink) => Promise<boolean>
@@ -69,8 +71,15 @@ export function createMemoryMindmapStore(): MindmapStore {
     async save(studentId, courseId, record) {
       stored.set(key(studentId, courseId), structuredClone(record))
     },
-    async insertNote(studentId, courseId, note) {
-      load(studentId, courseId).notes.push(structuredClone(note))
+    async insertNote(studentId, courseId, note, link) {
+      const record = load(studentId, courseId)
+      if (link.target.kind === 'note') {
+        const targetId = link.target.noteId
+        if (!record.notes.some(item => item.id === targetId)) return false
+      }
+      record.notes.push(structuredClone(note))
+      record.links.push(structuredClone(link))
+      return true
     },
     async updateNote(studentId, courseId, note) {
       const record = load(studentId, courseId)

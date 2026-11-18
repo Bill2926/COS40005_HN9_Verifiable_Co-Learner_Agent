@@ -627,12 +627,14 @@ describe('admin student numbers', () => {
     displayName: 'An',
     studentNumber: 'SWB0001',
     email: 'an@example.com',
+    campus: 'Hanoi' as const,
   }
   const binh = {
     id: '6f1b0c1e-2222-4222-8222-222222222222',
     displayName: 'Bình',
     studentNumber: 'SWB0002',
     email: 'binh@example.com',
+    campus: null,
   }
 
   it('lists every student for the product owner', async () => {
@@ -651,6 +653,9 @@ describe('admin student numbers', () => {
         throw new Error('The directory should not be read')
       },
       changeNumber: async (): Promise<never> => {
+        throw new Error('The directory should not be written')
+      },
+      changeCampus: async (): Promise<never> => {
         throw new Error('The directory should not be written')
       },
     }
@@ -811,3 +816,71 @@ function sse(text: string): Response {
     headers: { 'content-type': 'text/event-stream' },
   })
 }
+
+describe('admin campus', () => {
+  const an = {
+    id: signedInStudent,
+    displayName: 'An',
+    studentNumber: 'SWB0001',
+    email: 'an@example.com',
+    campus: 'Hanoi' as const,
+  }
+  const binh = {
+    id: '6f1b0c1e-2222-4222-8222-222222222222',
+    displayName: 'Bình',
+    studentNumber: 'SWB0002',
+    email: 'binh@example.com',
+    campus: null,
+  }
+
+  it('lists every student with their campus', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    const viewed = await handleAdmin(ownerRequest({ students, body: { event: 'students' } }))
+    expect(viewed.students.map(student => student.campus)).toEqual(['Hanoi', null])
+  })
+
+  it('changes a campus and records who, from what and to what', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+
+    const changed = await handleAdmin(ownerRequest({
+      students,
+      body: { event: 'campus', studentId: an.id, campus: 'Da Nang' },
+    }))
+
+    expect(changed.students).toContainEqual({ ...an, campus: 'Da Nang' })
+    expect(students.campusChanges).toEqual([{ studentId: an.id, oldCampus: 'Hanoi', newCampus: 'Da Nang', actorEmail: owner }])
+  })
+
+  it('lets the owner give a campus to a student who has none', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await handleAdmin(ownerRequest({ students, body: { event: 'campus', studentId: binh.id, campus: 'Can Tho' } }))
+    expect(students.campusChanges).toEqual([{ studentId: binh.id, oldCampus: null, newCampus: 'Can Tho', actorEmail: owner }])
+  })
+
+  it('records nothing when the campus is already that one', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await handleAdmin(ownerRequest({ students, body: { event: 'campus', studentId: an.id, campus: 'Hanoi' } }))
+    expect(students.campusChanges).toEqual([])
+  })
+
+  it('refuses a campus that is not one of the four, and an unknown student', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await expect(handleAdmin(ownerRequest({ students, body: { event: 'campus', studentId: an.id, campus: 'Mars' } })))
+      .rejects.toMatchObject({ statusCode: 400, message: 'Choose Hanoi, Da Nang, Ho Chi Minh City or Can Tho.' })
+    await expect(handleAdmin(ownerRequest({
+      students,
+      body: { event: 'campus', studentId: '6f1b0c1e-3333-4333-8333-333333333333', campus: 'Hanoi' },
+    }))).rejects.toMatchObject({ statusCode: 404 })
+    expect(students.campusChanges).toEqual([])
+  })
+
+  it('refuses anyone but the product owner', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await expect(handleAdmin(ownerRequest({
+      email: 'an@example.com',
+      students,
+      body: { event: 'campus', studentId: an.id, campus: 'Da Nang' },
+    }))).rejects.toMatchObject({ statusCode: 403 })
+    expect(students.campusChanges).toEqual([])
+  })
+})

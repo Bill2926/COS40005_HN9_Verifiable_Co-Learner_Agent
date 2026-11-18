@@ -40,17 +40,21 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
     async save(studentId, courseId, record) {
       await write(studentId, courseId, record)
     },
-    async insertNote(studentId, courseId, note) {
-      const inserted = await supabase.from('mindmap_notes').insert({
-        id: note.id,
-        student_id: studentId,
-        course_id: courseId,
-        text: note.text,
-        colour: note.colour,
-        x: note.x,
-        y: note.y,
+    async insertNote(studentId, courseId, note, link) {
+      const inserted = await supabase.rpc('insert_mindmap_note', {
+        p_student_id: studentId,
+        p_course_id: courseId,
+        p_note_id: note.id,
+        p_text: note.text,
+        p_colour: note.colour,
+        p_x: note.x,
+        p_y: note.y,
+        p_link_id: link.id,
+        p_target_kind: link.target.kind,
+        p_target_id: link.target.kind === 'module' ? link.target.moduleId : link.target.noteId,
       })
       if (inserted.error) throw new Error(inserted.error.message)
+      return inserted.data === true
     },
     async updateNote(studentId, courseId, note) {
       const updated = await supabase.from('mindmap_notes').update({

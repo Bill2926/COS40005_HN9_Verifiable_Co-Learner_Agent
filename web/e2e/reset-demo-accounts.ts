@@ -69,14 +69,41 @@ export async function resetDemoAccounts() {
   if (deskmate.error) throw new Error(deskmate.error.message)
   // A picture and a new name are the student's, so the next run starts without
   // them: the portrait file is removed and the name returns to the seeded one.
+  // The demo students start with a campus so the campus step stays out of the
+  // way; the campus specs clear it themselves.
   const portraits = await admin.storage.from('student-files').remove(ids.map(id => `${id}/portrait`))
   if (portraits.error) throw new Error(portraits.error.message)
   for (const [index, account] of demoAccounts.entries()) {
     const restored = await admin
       .from('students')
-      .update({ display_name: account.displayName, picture_path: null })
+      .update({ display_name: account.displayName, picture_path: null, campus: 'Hanoi' })
       .eq('id', students[index].id)
     if (restored.error) throw new Error(restored.error.message)
+  }
+}
+
+export async function clearDemoCampus(email: string) {
+  const admin = adminClient()
+  const cleared = await admin.from('students').update({ campus: null }).eq('id', (await demoStudentIdByEmail(admin, email)))
+  if (cleared.error) throw new Error(cleared.error.message)
+}
+
+async function demoStudentIdByEmail(admin: SupabaseClient, email: string): Promise<string> {
+  const listed = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
+  if (listed.error) throw new Error(listed.error.message)
+  const user = listed.data.users.find(candidate => candidate.email === email)
+  if (!user) throw new Error(`Demo account ${email} is not seeded.`)
+  return user.id
+}
+
+export async function deleteAccountByEmail(email: string) {
+  const admin = adminClient()
+  const listed = await admin.auth.admin.listUsers({ page: 1, perPage: 200 })
+  if (listed.error) throw new Error(listed.error.message)
+  const user = listed.data.users.find(candidate => candidate.email === email)
+  if (user) {
+    const removed = await admin.auth.admin.deleteUser(user.id)
+    if (removed.error) throw new Error(removed.error.message)
   }
 }
 

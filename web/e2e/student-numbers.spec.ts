@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import { demoAccounts, lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
+import { resetDemoAccounts } from './reset-demo-accounts'
 
 // The student number is the seam: the lecturer's enrolled list and the product
 // owner's directory, at desktop and phone width.
@@ -22,6 +23,7 @@ for (const width of widths) {
     const anRow = rows.filter({ hasText: 'an@example.com' })
     await expect(anRow).toHaveCount(1)
     await expect(anRow).toContainText(/SWB\d{4,}/)
+    await expect(anRow.getByTestId('student-campus')).toBeVisible()
     await expect(rows.filter({ hasText: 'binh@example.com' })).toHaveCount(1)
 
     const numbers = async () => (await rows.locator('td:nth-child(2) p:first-child').allInnerTexts()).map(text => text.trim())
@@ -89,6 +91,34 @@ for (const width of widths) {
     await expect(anRow.locator('td').nth(1)).toContainText(original)
 
     await expectNoSidewaysScroll(page)
+  })
+}
+
+for (const width of widths) {
+  test(`lets the product owner change a campus and the lecturer filter by it at ${width.name} width`, async ({ page }) => {
+    await resetDemoAccounts()
+    await page.setViewportSize(width.viewport)
+    await signIn(page, productOwnerAccount)
+    await page.goto('/admin/students')
+    const anCampus = page.getByLabel('Campus for An')
+    await expect(anCampus).toHaveValue('Hanoi')
+    await anCampus.selectOption('Can Tho')
+    await expect(page.getByText('Campus changed.')).toBeVisible()
+    await expect(anCampus).toHaveValue('Can Tho')
+    await expectNoSidewaysScroll(page)
+
+    await page.context().clearCookies()
+    await page.evaluate(() => localStorage.clear())
+    await signIn(page, lecturerAccount)
+    const list = page.getByTestId('course-students')
+    const rows = list.locator('tbody tr')
+    await expect(rows).toHaveCount(2)
+    await list.getByLabel('Campus', { exact: true }).selectOption('Can Tho')
+    await expect(rows).toHaveCount(1)
+    await expect(rows.first()).toContainText('An')
+    await expect(rows.first().getByTestId('student-campus')).toHaveText('Can Tho')
+    await expectNoSidewaysScroll(page)
+    await resetDemoAccounts()
   })
 }
 

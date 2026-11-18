@@ -8,7 +8,7 @@ export function createSupabaseProfileStore(options: { url: string, secretKey: st
 
   async function readRow(studentId: string): Promise<StoredProfile> {
     const result = await supabase.from('students')
-      .select('display_name, student_number, picture_path')
+      .select('display_name, student_number, campus, picture_path')
       .eq('id', studentId)
       .maybeSingle()
     if (result.error) throw new Error(result.error.message)
@@ -16,12 +16,18 @@ export function createSupabaseProfileStore(options: { url: string, secretKey: st
     return {
       displayName: result.data.display_name,
       studentNumber: result.data.student_number,
+      campus: result.data.campus,
       picturePath: result.data.picture_path,
     }
   }
 
   return {
     read: readRow,
+    async chooseCampus(studentId, campus) {
+      const result = await supabase.rpc('choose_student_campus', { target: studentId, new_campus: campus })
+      if (result.error) throw new Error(result.error.message)
+      return result.data === 'chosen' ? 'chosen' : 'already-chosen'
+    },
     async save(studentId, change) {
       const patch: { display_name?: string, picture_path?: string | null } = {}
       if (change.displayName !== undefined) patch.display_name = change.displayName

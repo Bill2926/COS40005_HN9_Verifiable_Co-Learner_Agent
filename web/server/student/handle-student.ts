@@ -4,6 +4,7 @@ import type { MindmapRecord, MindmapStore } from '../storage/mindmap-store'
 import type { ProfileStore } from '../storage/profile-store'
 import type { StudentFileStore } from '../storage/student-file-store'
 import { isNoteColour, type NoteColour } from '../../shared/mindmap'
+import { campusRule, isCampus, type Campus } from '../../shared/campus'
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const maxImageBytes = 2 * 1024 * 1024
@@ -14,6 +15,15 @@ export class SignInRequiredError extends Error {
   constructor() {
     super('Sign in required')
     this.name = 'SignInRequiredError'
+  }
+}
+
+export class CampusRequiredError extends Error {
+  readonly statusCode = 403
+
+  constructor() {
+    super('Choose your campus before studying.')
+    this.name = 'CampusRequiredError'
   }
 }
 
@@ -30,7 +40,10 @@ export interface StudentProfileView {
   displayName: string
   email: string
   studentNumber: string
-  pictureUrl: string | null
+  // Empty until the student chooses it; only the product owner changes it after.
+  campus: Campus | null
+  // Only the events that can change the picture, and a fresh open, sign it.
+  pictureUrl?: string | null
 }
 
 export interface StudentNoteView {
@@ -75,6 +88,11 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
     await recordActivity(request, studentId, 'signed_in', {}, null)
     return present(request, studentId)
   }
+  if (studyEvents.has(event)) await requireCampus(request, studentId)
+  if (event === 'campus_chosen') {
+    await chooseCampus(request, studentId, body)
+    return present(request, studentId)
+  }
   if (event === 'module_opened') {
     const moduleId = requiredModule(body, request.moduleIds)
     await recordActivity(request, studentId, 'module_opened', { moduleId }, request.courseId)
@@ -104,39 +122,53 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
   }
   if (event === 'mindmap_moved') {
     await moveMindmap(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'import_arrangement') {
     await importArrangement(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'reset_arrangement') {
     const changed = await request.mindmap.resetPositions(studentId, request.courseId)
     if (changed) await recordActivity(request, studentId, 'mindmap_moved', { reset: true }, request.courseId)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'note_created') {
     await createNote(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'note_changed') {
     await changeNote(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'note_linked') {
     await linkNote(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'note_unlinked') {
     await unlinkNote(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
   if (event === 'note_deleted') {
     await deleteNote(request, studentId, body)
-    return present(request, studentId)
+    return present(request, studentId, false)
   }
 
   throw new StudentRequestError('The student endpoint does not accept that event.')
+}
+
+// The events that open or use the course. The campus step comes before them.
+const studyEvents = new Set(['module_opened', 'mode_switched', 'layout_switched', 'code_run'])
+
+async function requireCampus(request: StudentHandlerRequest, studentId: string): Promise<void> {
+  if ((await request.profile.read(studentId)).campus === null) throw new CampusRequiredError()
+}
+
+async function chooseCampus(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
+  if (!isCampus(body.campus)) throw new StudentRequestError(campusRule)
+  if (await request.profile.chooseCampus(studentId, body.campus) === 'already-chosen') {
+    throw new StudentRequestError('Your campus is already chosen. Ask the product owner to change it.')
+  }
 }
 
 function requireStudent(request: StudentHandlerRequest): string {
@@ -146,12 +178,12 @@ function requireStudent(request: StudentHandlerRequest): string {
   return request.sessionStudentId
 }
 
-async function present(request: StudentHandlerRequest, studentId: string): Promise<StudentResponse> {
+async function present(request: StudentHandlerRequest, studentId: string, signPicture = true): Promise<StudentResponse> {
   const [profile, record] = await Promise.all([
     request.profile.read(studentId),
     request.mindmap.read(studentId, request.courseId),
   ])
-  const pictureUrl = profile.picturePath ? await request.files.url(studentId, profile.picturePath) : null
+  const pictureUrl = !signPicture ? undefined : profile.picturePath ? await request.files.url(studentId, profile.picturePath) : null
   const notes = record.notes.map(note => ({
     id: note.id,
     text: note.text,
@@ -164,7 +196,8 @@ async function present(request: StudentHandlerRequest, studentId: string): Promi
       displayName: profile.displayName,
       email: request.email ?? '',
       studentNumber: profile.studentNumber,
-      pictureUrl,
+      campus: profile.campus,
+      ...(pictureUrl === undefined ? {} : { pictureUrl }),
     },
     mindmap: { positions: record.positions, notes, links: record.links },
   }
@@ -183,6 +216,7 @@ async function recordActivity(
 async function changeProfile(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const hasName = 'displayName' in body && body.displayName !== undefined
   const hasPicture = 'picture' in body && body.picture !== undefined
+  if ('campus' in body) throw new StudentRequestError('The campus cannot be changed here. Ask the product owner.')
   if (!hasName && !hasPicture) {
     throw new StudentRequestError(
       'studentNumber' in body
@@ -254,7 +288,14 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   const colour = noteColour(body)
   const point = coordinates(body)
   const id = crypto.randomUUID()
-  await request.mindmap.insertNote(studentId, request.courseId, { id, text, colour, ...point })
+  const target = linkTarget(body, request.moduleIds, id)
+  const written = await request.mindmap.insertNote(
+    studentId,
+    request.courseId,
+    { id, text, colour, ...point },
+    { id: crypto.randomUUID(), fromNoteId: id, target },
+  )
+  if (!written) throw new StudentRequestError('That note was not found.')
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 
@@ -293,6 +334,12 @@ async function linkNote(request: StudentHandlerRequest, studentId: string, body:
 async function unlinkNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const linkId = field(body, 'linkId')
   if (!linkId) throw new StudentRequestError('The link is missing.')
+  const record = await request.mindmap.read(studentId, request.courseId)
+  const link = record.links.find(item => item.id === linkId)
+  if (!link) throw new StudentRequestError('That link was not found.')
+  if (record.links.filter(item => item.fromNoteId === link.fromNoteId).length <= 1) {
+    throw new StudentRequestError('A note keeps at least one link. Link it elsewhere first, or delete the note.')
+  }
   const removed = await request.mindmap.deleteLink(studentId, request.courseId, linkId)
   if (!removed) throw new StudentRequestError('That link was not found.')
   await recordActivity(request, studentId, 'note_unlinked', { linkId }, request.courseId)

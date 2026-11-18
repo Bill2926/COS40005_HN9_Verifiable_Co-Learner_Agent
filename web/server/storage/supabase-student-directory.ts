@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { StudentDirectoryStore, StudentNumberChangeResult } from './student-directory'
+import type { CampusChangeResult, StudentDirectoryStore, StudentNumberChangeResult } from './student-directory'
 
 export function createSupabaseStudentDirectoryStore({ url, secretKey }: {
   url: string
@@ -12,7 +12,7 @@ export function createSupabaseStudentDirectoryStore({ url, secretKey }: {
   return {
     async list() {
       const result = await supabase.from('student_directory')
-        .select('id, display_name, student_number, email')
+        .select('id, display_name, student_number, email, campus')
         .order('student_number')
       if (result.error) throw new Error(result.error.message)
       return result.data.map(row => ({
@@ -20,7 +20,17 @@ export function createSupabaseStudentDirectoryStore({ url, secretKey }: {
         displayName: row.display_name,
         studentNumber: row.student_number,
         email: row.email,
+        campus: row.campus,
       }))
+    },
+    async changeCampus({ studentId, campus, actorEmail }) {
+      const result = await supabase.rpc('set_student_campus', {
+        actor_email: actorEmail,
+        target: studentId,
+        new_campus: campus,
+      })
+      if (result.error) throw new Error(result.error.message)
+      return result.data as CampusChangeResult
     },
     async changeNumber({ studentId, studentNumber, actorEmail }) {
       const result = await supabase.rpc('set_student_number', {

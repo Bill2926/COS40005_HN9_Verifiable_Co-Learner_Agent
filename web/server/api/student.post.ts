@@ -5,7 +5,7 @@ import { createSupabaseMindmapStore } from '../storage/supabase-mindmap-store'
 import { createSupabaseProfileStore } from '../storage/supabase-profile-store'
 import { createSupabaseStudentFileStore } from '../storage/supabase-student-file-store'
 import { defaultCourseId } from '../course'
-import { handleStudent, SignInRequiredError, StudentRequestError } from '../student'
+import { CampusRequiredError, handleStudent, SignInRequiredError, StudentRequestError } from '../student'
 
 export default defineEventHandler(async (event) => {
   setResponseHeader(event, 'Cache-Control', 'private, no-store')
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     })
   }
   catch (error) {
-    if (error instanceof SignInRequiredError || error instanceof StudentRequestError) {
+    if (error instanceof SignInRequiredError || error instanceof CampusRequiredError || error instanceof StudentRequestError) {
       throw createError({ statusCode: error.statusCode, statusMessage: error.message })
     }
     throw error

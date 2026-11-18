@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { campuses } from '#shared/campus'
 import type { LecturerCourse, LecturerResponse, LecturerStudent } from '#shared/lecturer'
 import { isProductOwner } from '~/staff/landing'
 import CourseEditor from '~/components/lecturer/CourseEditor.vue'
@@ -100,6 +101,7 @@ const enrolledDate = new Intl.DateTimeFormat('en', {
 
 type StudentSortKey = 'displayName' | 'studentNumber' | 'enrolledAt'
 const studentSearch = reactive<Record<string, string>>({})
+const campusFilter = reactive<Record<string, string>>({})
 const studentSort = reactive<Record<string, { key: StudentSortKey, asc: boolean }>>({})
 
 function sortOf(courseId: string) {
@@ -120,7 +122,9 @@ function ariaSort(courseId: string, key: StudentSortKey): 'none' | 'ascending' |
 function studentsOf(course: LecturerCourse): LecturerStudent[] {
   const term = (studentSearch[course.id] ?? '').trim().toLowerCase()
   const sort = sortOf(course.id)
+  const campus = campusFilter[course.id] ?? ''
   return course.students
+    .filter(student => campus === '' || student.campus === campus)
     .filter(student => !term
       || student.displayName.toLowerCase().includes(term)
       || student.studentNumber.toLowerCase().includes(term))
@@ -236,6 +240,16 @@ function enrolledText(value: string): string {
                 :ui="{ base: 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5' }"
               />
             </label>
+            <label class="flex w-full flex-col gap-1.5 text-xs font-medium leading-4 text-default md:w-48">
+              <span>Campus</span>
+              <select
+                v-model="campusFilter[course.id]"
+                class="min-h-11 rounded-sm border border-default bg-default px-3 text-base/6 text-default md:min-h-0 md:py-[9px] md:text-sm/5"
+              >
+                <option value="">All campuses</option>
+                <option v-for="campus in campuses" :key="campus" :value="campus">{{ campus }}</option>
+              </select>
+            </label>
           </div>
           <p v-if="!course.students.length" class="mt-3 text-sm text-muted">
             No students enrolled yet.
@@ -287,6 +301,9 @@ function enrolledText(value: string): string {
                   <td class="px-3 py-3">
                     <p class="font-mono whitespace-nowrap">
                       {{ student.studentNumber }}
+                    </p>
+                    <p class="text-xs text-muted whitespace-nowrap" data-testid="student-campus">
+                      {{ student.campus ?? 'No campus yet' }}
                     </p>
                     <p class="text-xs text-muted whitespace-nowrap md:hidden">
                       Enrolled {{ enrolledText(student.enrolledAt) }}
