@@ -1,3 +1,4 @@
+import { deflateSync } from 'node:zlib'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 import { demoAccounts } from '../server/auth/demo-accounts'
 import { resetDemoAccounts, resetDemoMindmapNotes } from './reset-demo-accounts'
@@ -50,8 +51,8 @@ test('adds, recolours, links and deletes a note', async ({ page }) => {
   const removeLink = linkedList(page).getByRole('button', { name: 'Remove link' })
   await expect(linkedList(page).getByRole('listitem').filter({ hasText: 'Sketch note' })).toBeVisible()
 
-  await expect(notes.locator('input[type="file"]')).toHaveCount(0)
   await notes.getByRole('button', { name: 'Save', exact: true }).click()
+  await openNote(page, 'Loop note')
 
   await removeLink.click()
   await expect(linkLines).toHaveCount(2)
@@ -66,6 +67,107 @@ test('adds, recolours, links and deletes a note', async ({ page }) => {
   await deleteNote(page, 'Sketch note')
   await expect(notes.getByRole('list', { name: 'Your notes' })).toHaveCount(0)
 })
+
+for (const size of [{ name: 'desktop', width: 1440, height: 900 }, { name: 'phone', width: 390, height: 844 }]) {
+  test(`reads, edits, collapses and adds an image to a note on a ${size.name}`, async ({ page }) => {
+    await openNotes(page, size)
+    if (size.width < 768) await showNotesOnPhone(page)
+    const notes = notesPanel(page)
+
+    // Creating a note opens the editor straight away.
+    await notes.getByRole('button', { name: 'New note', exact: true }).click()
+    await expect(notes.getByRole('form', { name: 'Note editor' })).toBeVisible()
+    await addNote(page, 'Read note', 'A **bold** idea.', 'Sky', firstModule)
+
+    // The save shows the note read-only, rendered as Markdown, in the editor's place and size.
+    await expect(readView(page)).toBeVisible()
+    await expect(readView(page).locator('strong', { hasText: 'bold' })).toBeVisible()
+    const readBox = await readView(page).boundingBox()
+    await readView(page).getByRole('button', { name: 'Edit', exact: true }).click()
+    const editor = notes.getByRole('form', { name: 'Note editor' })
+    await expect(editor).toBeVisible()
+    const editBox = await editor.boundingBox()
+    expect(Math.abs(readBox!.x - editBox!.x)).toBeLessThan(2)
+    expect(Math.abs(readBox!.y - editBox!.y)).toBeLessThan(2)
+    expect(Math.abs(readBox!.width - editBox!.width)).toBeLessThan(2)
+
+    // One image, shrunk before upload, then replaced and removed.
+    await editor.getByLabel('Image file').setInputFiles(bigPng())
+    await editor.getByRole('button', { name: 'Save', exact: true }).click()
+    const shown = readView(page).getByRole('img')
+    await expect(shown).toBeVisible({ timeout: 20_000 })
+    expect(await shown.evaluate(image => Math.max((image as HTMLImageElement).naturalWidth, (image as HTMLImageElement).naturalHeight))).toBeLessThanOrEqual(1024)
+    const firstSrc = await shown.getAttribute('src')
+    await readView(page).getByRole('button', { name: 'Edit', exact: true }).click()
+    await editor.getByLabel('Image file').setInputFiles(bigPng())
+    await editor.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(shown).not.toHaveAttribute('src', firstSrc!)
+    await page.reload()
+    await openMindmap(page)
+    if (size.width < 768) await showNotesOnPhone(page)
+    await readNote(page, 'Read note')
+    await expect(readView(page).getByRole('img')).toBeVisible()
+    await readView(page).getByRole('button', { name: 'Edit', exact: true }).click()
+    await editor.getByRole('button', { name: 'Remove image', exact: true }).click()
+    await editor.getByRole('button', { name: 'Save', exact: true }).click()
+    await expect(readView(page)).toBeVisible()
+    await expect(readView(page).getByRole('img')).toHaveCount(0)
+
+    // The X collapses the panel to a reopen button, by keyboard too.
+    const close = page.getByRole('button', { name: 'Close the mindmap panel' })
+    await close.focus()
+    await page.keyboard.press('Enter')
+    await expect(notes).toBeHidden()
+    const reopen = page.getByRole('button', { name: 'Open the mindmap panel' })
+    await expect(reopen).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(notes).toBeVisible()
+    await expect(close).toBeFocused()
+    expect(await sidewaysScroll(page)).toBe(false)
+
+    await deleteNote(page, 'Read note')
+  })
+}
+
+// A 2000×1500 PNG, larger than the 1024 px the browser shrinks it to.
+function bigPng(): { name: string, mimeType: string, buffer: Buffer } {
+  const width = 2000
+  const height = 1500
+  const line = Buffer.alloc(1 + width * 3)
+  const raw = Buffer.concat(Array.from({ length: height }, () => line))
+  const chunk = (type: string, data: Buffer) => {
+    const length = Buffer.alloc(4)
+    length.writeUInt32BE(data.length)
+    const body = Buffer.concat([Buffer.from(type), data])
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(crc32(body))
+    return Buffer.concat([length, body, crc])
+  }
+  const header = Buffer.alloc(13)
+  header.writeUInt32BE(width, 0)
+  header.writeUInt32BE(height, 4)
+  header.writeUInt8(8, 8)
+  header.writeUInt8(2, 9)
+  return {
+    name: 'sketch.png',
+    mimeType: 'image/png',
+    buffer: Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]),
+      chunk('IHDR', header),
+      chunk('IDAT', deflateSync(raw)),
+      chunk('IEND', Buffer.alloc(0)),
+    ]),
+  }
+}
+
+function crc32(data: Buffer): number {
+  let crc = 0xFFFFFFFF
+  for (const byte of data) {
+    crc ^= byte
+    for (let bit = 0; bit < 8; bit += 1) crc = (crc >>> 1) ^ (0xEDB88320 & -(crc & 1))
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0
+}
 
 test.describe('on a phone', () => {
   test.use({ hasTouch: true })
@@ -156,10 +258,21 @@ async function addNote(
 }
 
 // The editor keeps focus in a field, which pulls the panel back down when a
-// row is clicked, so a note is opened with the keyboard.
+// row is clicked, so a note is opened with the keyboard. It opens read-only;
+// Edit switches the same slot to the editor.
 async function openNote(page: Page, title: string) {
-  await row(page, title).press('Enter')
+  await readNote(page, title)
+  await notesPanel(page).getByRole('button', { name: 'Edit', exact: true }).press('Enter')
   await expect(notesPanel(page).getByLabel('Title')).toHaveValue(title)
+}
+
+async function readNote(page: Page, title: string) {
+  await row(page, title).press('Enter')
+  await expect(readView(page).getByRole('heading', { name: title, exact: true })).toBeVisible()
+}
+
+function readView(page: Page): Locator {
+  return notesPanel(page).getByRole('article', { name: 'Note', exact: true })
 }
 
 async function deleteNote(page: Page, title: string) {

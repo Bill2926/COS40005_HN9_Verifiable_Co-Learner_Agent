@@ -258,16 +258,21 @@ async function expectChromeFits(page: Page) {
   const canvas = await canvasBox(page)
   const course = await page.getByText('Introduction to Programming with Python', { exact: true }).boundingBox()
   const reset = await page.getByRole('button', { name: 'Reset arrangement', exact: true }).boundingBox()
-  const pill = await page.getByText('Studio canvas', { exact: true }).boundingBox()
+  const controls = await page.getByRole('toolbar', { name: 'Canvas controls' }).boundingBox()
+  const zoomIn = await page.getByRole('button', { name: 'Zoom in', exact: true }).boundingBox()
   expect(canvas).not.toBeNull()
   expect(course).not.toBeNull()
   expect(reset).not.toBeNull()
-  expect(pill).not.toBeNull()
+  expect(controls).not.toBeNull()
+  expect(zoomIn).not.toBeNull()
   expect(within(course!, canvas!)).toBe(true)
-  expect(within(reset!, canvas!)).toBe(true)
-  expect(within(pill!, canvas!)).toBe(true)
-  expect(reset!.y).toBeGreaterThan(canvas!.y + canvas!.height * 0.55)
-  expect(pill!.y).toBeGreaterThan(canvas!.y + canvas!.height * 0.55)
+  expect(within(controls!, canvas!)).toBe(true)
+  // Bottom centre, with hit areas of at least 44 px.
+  expect(controls!.y).toBeGreaterThan(canvas!.y + canvas!.height * 0.55)
+  expect(Math.abs(controls!.x + controls!.width / 2 - (canvas!.x + canvas!.width / 2))).toBeLessThan(4)
+  expect(reset!.height).toBeGreaterThanOrEqual(44)
+  expect(zoomIn!.width).toBeGreaterThanOrEqual(44)
+  await expect(page.getByText('Studio canvas', { exact: true })).toHaveCount(0)
 }
 
 function moduleCard(page: Page, name: string): Locator {

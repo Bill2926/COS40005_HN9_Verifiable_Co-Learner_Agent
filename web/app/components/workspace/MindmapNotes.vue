@@ -1,16 +1,31 @@
 <script setup lang="ts">
 import type { NoteColour } from '#shared/mindmap'
+import ChatMarkdown from './ChatMarkdown.vue'
 
 interface NoteItem {
   id: string
   text: string
   colour: string
+  imageUrl: string | null
 }
 
 interface ModuleLink {
   id: string
   fromNoteId: string
   target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string }
+}
+
+type LinkChoice = { kind: 'module', moduleId: string } | { kind: 'note', noteId: string }
+
+// The image the save carries: a picked file, null to remove it, undefined to leave it.
+export interface NoteDraft {
+  id: string | null
+  title: string
+  body: string
+  colour: string
+  moduleId: string
+  target: LinkChoice | null
+  image: File | null | undefined
 }
 
 const props = defineProps<{
@@ -27,13 +42,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [id: string]
-  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string, target: LinkChoice | null }]
+  save: [draft: NoteDraft]
   remove: [id: string]
   link: [noteId: string, targetNoteId: string]
   unlink: [linkId: string]
 }>()
-
-type LinkChoice = { kind: 'module', moduleId: string } | { kind: 'note', noteId: string }
 
 const swatches: { id: NoteColour, label: string, dot: string, edge: string }[] = [
   { id: 'ink', label: 'Ink', dot: 'bg-ink-800', edge: 'border-l-ink-800' },
@@ -45,6 +58,8 @@ const swatches: { id: NoteColour, label: string, dot: string, edge: string }[] =
   { id: 'purple', label: 'Purple', dot: 'bg-purple-500', edge: 'border-l-purple-500' },
 ]
 
+// A note opens read-only; Edit or New note switch the same slot to the editor.
+const editing = ref(false)
 const drafting = ref(false)
 const title = ref('')
 const body = ref('')
@@ -53,9 +68,12 @@ const moduleId = ref('')
 // A new note's first link, written as `module:<id>` or `note:<id>`.
 const firstLink = ref('')
 const linkTargetId = ref('')
+const image = ref<File | null | undefined>(undefined)
+const imagePreview = ref('')
+const imageInput = ref<HTMLInputElement | null>(null)
 
 const selected = computed(() => props.notes.find(note => note.id === props.selectedId) ?? null)
-const formOpen = computed(() => drafting.value || selected.value !== null)
+const reading = computed(() => !editing.value && selected.value !== null)
 const canSave = computed(() => title.value.trim().length > 0
   && (!drafting.value || firstLink.value.length > 0)
   && !props.saving)
@@ -65,19 +83,34 @@ const noteToNoteLinks = computed(() => {
   if (!note) return []
   return props.links.filter(link => link.fromNoteId === note.id && link.target.kind === 'note')
 })
+const readParts = computed(() => splitNote(selected.value?.text ?? ''))
+const shownImage = computed(() => {
+  if (image.value === null) return ''
+  if (image.value) return imagePreview.value
+  return drafting.value ? '' : selected.value?.imageUrl ?? ''
+})
 
 watch(() => props.selectedId, (id) => {
   if (!id) return
-  const note = props.notes.find(item => item.id === id)
-  if (!note) return
   drafting.value = false
-  const parts = splitNote(note.text)
-  title.value = parts.title
-  body.value = parts.body
-  colour.value = isSwatch(note.colour) ? note.colour : 'brand'
-  moduleId.value = linkedModule(note.id)
-  linkTargetId.value = ''
+  editing.value = false
 })
+
+// A finished save shows the note it wrote, read-only.
+watch(() => props.saved, (message) => {
+  if (!message) return
+  drafting.value = false
+  editing.value = false
+  setImage(undefined)
+})
+
+onBeforeUnmount(() => setImage(undefined))
+
+function setImage(next: File | null | undefined) {
+  if (imagePreview.value) URL.revokeObjectURL(imagePreview.value)
+  imagePreview.value = next ? URL.createObjectURL(next) : ''
+  image.value = next
+}
 
 function isSwatch(value: string): value is NoteColour {
   return swatches.some(swatch => swatch.id === value)
@@ -108,13 +141,41 @@ function startDraft() {
     ? `note:${props.selectedId}`
     : props.defaultModuleId ? `module:${props.defaultModuleId}` : ''
   drafting.value = true
+  editing.value = true
   title.value = ''
   body.value = ''
   colour.value = 'brand'
   moduleId.value = ''
   firstLink.value = preselected
   linkTargetId.value = ''
+  setImage(undefined)
   emit('select', '')
+}
+
+function startEdit() {
+  const note = selected.value
+  if (!note) return
+  const parts = splitNote(note.text)
+  title.value = parts.title
+  body.value = parts.body
+  colour.value = isSwatch(note.colour) ? note.colour : 'brand'
+  moduleId.value = linkedModule(note.id)
+  linkTargetId.value = ''
+  setImage(undefined)
+  editing.value = true
+}
+
+function cancelEdit() {
+  setImage(undefined)
+  editing.value = false
+  drafting.value = false
+}
+
+function pickImage(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) setImage(file)
 }
 
 function linkTitle(link: ModuleLink): string {
@@ -130,6 +191,8 @@ function linkNote() {
 }
 
 function openNote(id: string) {
+  // Clicking the open note again still leaves the editor for its read view.
+  if (id === props.selectedId) cancelEdit()
   emit('select', id)
 }
 
@@ -148,6 +211,7 @@ function save() {
     colour: colour.value,
     moduleId: moduleId.value,
     target: drafting.value ? firstTarget() : null,
+    image: image.value,
   })
 }
 </script>
@@ -156,23 +220,23 @@ function save() {
   <section class="flex min-h-0 flex-col overflow-y-auto bg-paper" aria-label="Notes">
     <div class="flex items-center justify-between gap-2">
       <h2 class="text-sm font-medium text-ink-900">Notes</h2>
-      <button
+      <UButton
         type="button"
-        class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent disabled:opacity-60"
+        class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent hover:bg-accent-hover disabled:bg-accent disabled:opacity-60"
         :disabled="saving"
         @click="startDraft"
       >
         New note
-      </button>
+      </UButton>
     </div>
-    <p v-if="notes.length === 0 && !formOpen" class="mt-2 text-xs leading-5 text-ink-500">
+    <p v-if="notes.length === 0 && !editing" class="mt-2 text-xs leading-5 text-ink-500">
       A note needs a title and a link to a module or another note. It appears on the map when you save.
     </p>
-    <ul v-if="notes.length > 0" class="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto" aria-label="Your notes">
+    <ul v-if="notes.length > 0" class="mt-2 flex max-h-36 shrink-0 flex-col gap-1 overflow-y-auto" aria-label="Your notes">
       <li v-for="note in notes" :key="note.id">
         <button
           type="button"
-          class="flex min-h-11 w-full items-center border-l-4 px-2 text-left text-sm"
+          class="flex min-h-11 w-full items-center border-l-4 px-2 text-left text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900"
           :class="[edgeOf(note.colour), note.id === selectedId && !drafting ? 'bg-brand-50 text-ink-900' : 'text-ink-700 hover:bg-ink-50']"
           :aria-current="note.id === selectedId && !drafting ? 'true' : undefined"
           @click="openNote(note.id)"
@@ -181,12 +245,43 @@ function save() {
         </button>
       </li>
     </ul>
-    <form v-if="formOpen" class="mt-3 flex flex-col gap-3 border-t border-ink-200 pt-3" @submit.prevent="save">
+
+    <!-- The read view and the editor share this one slot, so switching never moves the layout. -->
+    <article
+      v-if="reading && selected"
+      class="mt-3 flex min-h-0 flex-1 flex-col gap-3 border-t border-ink-200 pt-3"
+      aria-label="Note"
+      data-note-read
+    >
+      <div class="flex items-start justify-between gap-2">
+        <h3 class="min-w-0 flex-1 text-base font-semibold break-words text-ink-900">{{ readParts.title || 'Untitled' }}</h3>
+        <UButton
+          type="button"
+          color="neutral"
+          variant="outline"
+          class="min-h-11 shrink-0 rounded-sm px-3 text-sm"
+          @click="startEdit"
+        >
+          Edit
+        </UButton>
+      </div>
+      <img
+        v-if="selected.imageUrl"
+        :src="selected.imageUrl"
+        alt="Image added to this note"
+        class="max-h-56 w-full rounded-sm border border-ink-200 object-contain"
+      >
+      <ChatMarkdown v-if="readParts.body.trim()" :text="readParts.body" class="text-sm leading-6 text-ink-800" />
+      <p v-else class="text-sm text-ink-500">This note has only a title.</p>
+    </article>
+
+    <form v-else-if="editing" class="mt-3 flex min-h-0 flex-1 flex-col gap-3 border-t border-ink-200 pt-3" aria-label="Note editor" @submit.prevent="save">
       <label class="text-xs font-medium text-ink-700">
         Title
         <input
           v-model="title"
           type="text"
+          required
           class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
         >
       </label>
@@ -198,6 +293,45 @@ function save() {
           class="mt-1 w-full rounded-sm border border-ink-300 p-2 text-sm font-normal text-ink-900"
         />
       </label>
+      <div>
+        <p id="note-image-label" class="text-xs font-medium text-ink-700">Image</p>
+        <img
+          v-if="shownImage"
+          :src="shownImage"
+          alt="Image for this note"
+          class="mt-1 max-h-40 w-full rounded-sm border border-ink-200 object-contain"
+        >
+        <div class="mt-1 flex flex-wrap gap-2" role="group" aria-labelledby="note-image-label">
+          <input
+            ref="imageInput"
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            class="sr-only"
+            tabindex="-1"
+            aria-label="Image file"
+            @change="pickImage"
+          >
+          <UButton
+            type="button"
+            color="neutral"
+            variant="outline"
+            class="min-h-11 rounded-sm px-3 text-sm"
+            @click="imageInput?.click()"
+          >
+            {{ shownImage ? 'Replace image' : 'Add image' }}
+          </UButton>
+          <UButton
+            v-if="shownImage"
+            type="button"
+            color="neutral"
+            variant="outline"
+            class="min-h-11 rounded-sm px-3 text-sm"
+            @click="setImage(drafting ? undefined : null)"
+          >
+            Remove image
+          </UButton>
+        </div>
+      </div>
       <div>
         <p id="note-colour-label" class="text-xs font-medium text-ink-700">Colour</p>
         <div class="mt-1 flex flex-wrap gap-1" role="group" aria-labelledby="note-colour-label">
@@ -271,13 +405,22 @@ function save() {
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
-        <button
+        <UButton
           type="submit"
-          class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent disabled:opacity-60"
+          class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent hover:bg-accent-hover disabled:bg-accent disabled:opacity-60"
           :disabled="!canSave"
         >
           Save
-        </button>
+        </UButton>
+        <UButton
+          type="button"
+          color="neutral"
+          variant="outline"
+          class="min-h-11 rounded-sm px-3 text-sm"
+          @click="cancelEdit"
+        >
+          Cancel
+        </UButton>
         <button
           v-if="selected && !drafting"
           type="button"

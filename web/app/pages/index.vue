@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import ConversationPanel from '~/components/workspace/ConversationPanel.vue'
 import CourseRoadmap from '~/components/workspace/CourseRoadmap.vue'
-import MindmapNotes from '~/components/workspace/MindmapNotes.vue'
+import MindmapNotes, { type NoteDraft } from '~/components/workspace/MindmapNotes.vue'
+import { shrinkImage } from '~/utils/shrink-image'
 import MindmapCanvas from '~/components/workspace/MindmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
 import CampusStep from '~/components/workspace/CampusStep.vue'
@@ -104,6 +105,7 @@ interface NoteItem {
   colour: string
   x: number
   y: number
+  imageUrl: string | null
 }
 interface NoteLink {
   id: string
@@ -125,6 +127,17 @@ const selectedNoteId = ref('')
 const addingNote = ref(false)
 const noteError = ref('')
 const noteSaved = ref('')
+// The X on the mindmap panel folds it to a reopen button, so more canvas shows.
+const mindmapPanelOpen = ref(true)
+const reopenPanelButton = ref<{ $el: HTMLElement } | null>(null)
+const closePanelButton = ref<{ $el: HTMLElement } | null>(null)
+async function setMindmapPanelOpen(open: boolean) {
+  mindmapPanelOpen.value = open
+  await nextTick()
+  // Focus follows the panel, so a keyboard user is never left on a removed button.
+  const target = open ? closePanelButton.value : reopenPanelButton.value
+  target?.$el?.focus()
+}
 let noteSavedTimer: ReturnType<typeof setTimeout> | undefined
 
 function showNoteSaved(message: string) {
@@ -146,6 +159,7 @@ function applyMindmap(state: MindmapState) {
     colour: note.colour,
     x: note.x,
     y: note.y,
+    imageUrl: note.imageUrl ?? null,
   }))
   noteLinks.value = state.mindmap.links
 }
@@ -232,6 +246,7 @@ async function selectMindmapModule(moduleId: string) {
 
 function selectMindmapNote(noteId: string) {
   selectedNoteId.value = noteId
+  mindmapPanelOpen.value = true
   choosePanel('notes')
 }
 
@@ -319,10 +334,7 @@ function resetMindmapArrangement() {
   changeArrangement({ event: 'reset_arrangement' }, 'Could not reset the arrangement. Try again.')
 }
 
-async function saveNote(draft: {
-  id: string | null, title: string, body: string, colour: string, moduleId: string,
-  target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string } | null,
-}) {
+async function saveNote(draft: NoteDraft) {
   if (addingNote.value) return
   if (!draft.title.trim() || (!draft.id && !draft.target)) {
     noteError.value = 'A note needs a title and a link to a module or another note.'
@@ -365,13 +377,38 @@ async function saveNote(draft: {
     }
     if (!noteId) throw new Error('The note was not saved.')
     selectedNoteId.value = noteId
+    if (draft.image !== undefined) await saveNoteImage(noteId, draft.image)
     showNoteSaved('Note saved.')
   }
-  catch {
-    noteError.value = 'The note could not be saved. Try again.'
+  catch (error) {
+    noteError.value = error instanceof NoteImageError ? error.message : 'The note could not be saved. Try again.'
   }
   finally {
     addingNote.value = false
+  }
+}
+
+class NoteImageError extends Error {}
+
+// The image is shrunk in the browser to about 1024 px WebP before it is sent.
+async function saveNoteImage(noteId: string, file: File | null) {
+  let image: Awaited<ReturnType<typeof shrinkImage>> | null = null
+  if (file) {
+    try {
+      image = await shrinkImage(file)
+    }
+    catch (error) {
+      throw new NoteImageError(`The note was saved, but not its image. ${error instanceof Error ? error.message : ''}`.trim())
+    }
+  }
+  try {
+    applyMindmap(await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_image_changed', noteId, image },
+    }))
+  }
+  catch {
+    throw new NoteImageError('The note was saved, but not its image. Try again.')
   }
 }
 
@@ -910,7 +947,8 @@ function initialsOf(name: string): string {
       class="min-h-0 min-w-0 flex-1"
       :class="layout === 'study'
         ? 'grid grid-cols-1 grid-rows-[minmax(0,1fr)] md:grid-cols-2 md:grid-rows-[auto_minmax(0,1fr)] lg:grid-cols-[220px_minmax(0,1fr)_360px] lg:grid-rows-[minmax(0,1fr)]'
-        : 'relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)] lg:block'"
+        : ['relative grid grid-cols-1 grid-rows-[minmax(0,1fr)] overflow-hidden bg-ink-50 md:grid-cols-2 lg:block',
+           mindmapPanelOpen ? 'md:grid-rows-[minmax(17rem,45%)_minmax(0,1fr)]' : 'md:grid-rows-[minmax(0,1fr)]']"
     >
       <MindmapCanvas
         v-if="layout === 'mindmap'"
@@ -975,13 +1013,26 @@ function initialsOf(name: string): string {
           'z-10 min-h-0 min-w-0 flex-col gap-3 overflow-hidden bg-paper p-4',
           'max-md:absolute max-md:inset-x-0 max-md:bottom-0 max-md:h-[min(75%,36rem)] max-md:rounded-t-2xl max-md:border max-md:border-ink-200',
           'md:col-span-2 md:row-start-2 lg:absolute lg:top-4 lg:right-4 lg:h-[40rem] lg:max-h-[calc(100%-2rem)] lg:w-[360px]',
-          phonePanel === 'notes' ? 'flex' : 'max-md:hidden md:flex',
+          !mindmapPanelOpen ? 'hidden' : phonePanel === 'notes' ? 'flex' : 'max-md:hidden md:flex',
         ]"
       >
         <div v-if="layout === 'mindmap'" class="shrink-0 border-b border-ink-200 pb-3">
-          <h2 class="text-sm font-medium text-ink-900">
-            {{ currentModuleName }}
-          </h2>
+          <div class="flex items-start justify-between gap-2">
+            <h2 class="min-w-0 flex-1 text-sm font-medium text-ink-900">
+              {{ currentModuleName }}
+            </h2>
+            <UButton
+              ref="closePanelButton"
+              type="button"
+              color="neutral"
+              variant="ghost"
+              class="-mt-2 -mr-2 min-h-11 min-w-11 shrink-0 justify-center rounded-sm text-lg text-ink-600 hover:text-ink-900"
+              aria-label="Close the mindmap panel"
+              @click="setMindmapPanelOpen(false)"
+            >
+              <span aria-hidden="true">×</span>
+            </UButton>
+          </div>
           <p v-if="selectedMindmapModule?.state === 'closed'" class="text-sm text-ink-600">
             {{ selectedMindmapModule.name }} · {{ selectedMindmapModule.closedReason }}
           </p>
@@ -1035,6 +1086,17 @@ function initialsOf(name: string): string {
           @toggle-deskmate="saveDeskmate"
         />
       </div>
+      <UButton
+        v-if="layout === 'mindmap' && !mindmapPanelOpen"
+        ref="reopenPanelButton"
+        type="button"
+        class="absolute top-4 right-4 z-10 min-h-11 rounded-lg bg-accent px-4 text-sm font-medium text-on-accent shadow-md hover:bg-accent-hover"
+        :class="phonePanel === 'notes' ? 'flex' : 'max-md:hidden md:flex'"
+        aria-label="Open the mindmap panel"
+        @click="setMindmapPanelOpen(true)"
+      >
+        Notes
+      </UButton>
     </div>
     <button
       v-if="askButton"
