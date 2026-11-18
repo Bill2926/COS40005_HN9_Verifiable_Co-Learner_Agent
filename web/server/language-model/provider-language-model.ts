@@ -67,8 +67,11 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
         stopWhen: [hasToolCall(proposalTool), stepCountIs(maxSteps)],
         maxRetries: 0,
       })
-      const proposal = toolCalls.find(call => call.toolName === proposalTool)?.input.proposal
-      return proposal ?? null
+      // The provider parses the tool input against the schema it was given, but the answer it hands
+      // back is only typed as unknown text, so it is read through the schema here. A tool call that
+      // breaks the schema is reported rather than passed on as a move.
+      const call = toolCalls.find(toolCall => toolCall.toolName === proposalTool)
+      return call ? schema.parse(call.input).proposal : null
     },
 
     async* streamReply(instructions, prompt) {

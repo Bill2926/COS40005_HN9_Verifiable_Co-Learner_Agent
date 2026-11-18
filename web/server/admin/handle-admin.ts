@@ -264,16 +264,16 @@ function optionalText(body: object, key: string): string | undefined {
 
 // A blank API key keeps the key already in effect. The page only ever receives
 // a mask, so a save that did not type a new key must not wipe the real one.
-async function settingsFromForm(save: ModelForm, request: AdminRequest): Promise<ModelSettings> {
+async function settingsFromForm(form: ModelForm, request: AdminRequest): Promise<ModelSettings> {
   const current = await request.store.read() ?? request.env
-  const apiKey = save.apiKey !== undefined && save.apiKey.trim() !== ''
-    ? save.apiKey
+  const apiKey = form.apiKey !== undefined && form.apiKey.trim() !== ''
+    ? form.apiKey
     : current.apiKey
   return {
-    provider: save.provider,
+    provider: form.provider,
     apiKey,
-    baseUrl: save.baseUrl ?? current.baseUrl,
-    modelName: save.modelName ?? current.modelName,
+    baseUrl: form.baseUrl ?? current.baseUrl,
+    modelName: form.modelName ?? current.modelName,
   }
 }
 

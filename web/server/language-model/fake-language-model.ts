@@ -18,8 +18,8 @@ export interface FakeModelCall {
   operation: 'proposeMove' | 'proposeWithTools' | 'reply' | 'streamReply'
   instructions: string
   prompt: string
-  // How many steps the call spent, and for a tool call the cap it was given.
-  steps: number
+  // Only a tool call spends steps: how many it spent, and the cap it was given.
+  steps?: number
   maxSteps?: number
 }
 
@@ -45,7 +45,7 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
     calls,
 
     async proposeMove<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) {
-      const call: FakeModelCall = { operation: 'proposeMove', instructions, prompt, steps: 1 }
+      const call: FakeModelCall = { operation: 'proposeMove', instructions, prompt }
       calls.push(call)
       const written = read('proposals', script.proposals ?? [])
       if (written instanceof Error) throw written
@@ -57,7 +57,7 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
       calls.push(call)
       for (let step = 0; step < maxSteps; step += 1) {
         const next = read('steps', script.steps ?? [])
-        call.steps += 1
+        call.steps = (call.steps ?? 0) + 1
         if (next instanceof Error) throw next
         if ('proposal' in next) return schema.parse(next).proposal
       }
@@ -66,14 +66,14 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
     },
 
     async reply(instructions, prompt) {
-      calls.push({ operation: 'reply', instructions, prompt, steps: 1 })
+      calls.push({ operation: 'reply', instructions, prompt })
       const written = read('replies', script.replies ?? [])
       if (written instanceof Error) throw written
       return written
     },
 
     async* streamReply(instructions, prompt) {
-      calls.push({ operation: 'streamReply', instructions, prompt, steps: 1 })
+      calls.push({ operation: 'streamReply', instructions, prompt })
       const written = read('replies', script.replies ?? [])
       if (written instanceof Error) throw written
       yield written

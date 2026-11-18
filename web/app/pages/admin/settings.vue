@@ -40,6 +40,14 @@ const refused = computed(() => error.value?.statusCode === 403)
 const unavailable = computed(() => Boolean(error.value) && !refused.value)
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
 
+// The provider as the form holds it, sent as it is for a save and for a connection test alike.
+const modelFields = computed(() => ({
+  provider: provider.value,
+  apiKey: apiKey.value,
+  baseUrl: baseUrl.value,
+  modelName: modelName.value,
+}))
+
 useHead({ title: 'Settings' })
 
 async function onVerifyShield(event: Event) {
@@ -65,16 +73,7 @@ async function save() {
   savedNotice.value = ''
   saving.value = true
   try {
-    await $fetch('/api/admin', {
-      method: 'POST',
-      body: {
-        event: 'save',
-        provider: provider.value,
-        apiKey: apiKey.value,
-        baseUrl: baseUrl.value,
-        modelName: modelName.value,
-      },
-    })
+    await $fetch('/api/admin', { method: 'POST', body: { event: 'save', ...modelFields.value } })
     apiKey.value = ''
     await refresh()
     savedNotice.value = 'Saved. The next turn uses these settings.'
@@ -88,7 +87,7 @@ async function save() {
 }
 
 // An answer is only worth showing for as long as the settings it was given for are on the form.
-watch([provider, apiKey, baseUrl, modelName], () => {
+watch(modelFields, () => {
   report.value = null
   testError.value = ''
 })
@@ -98,16 +97,7 @@ async function testConnection() {
   report.value = null
   testing.value = true
   try {
-    report.value = await $fetch<ConnectionReportView>('/api/admin', {
-      method: 'POST',
-      body: {
-        event: 'testConnection',
-        provider: provider.value,
-        apiKey: apiKey.value,
-        baseUrl: baseUrl.value,
-        modelName: modelName.value,
-      },
-    })
+    report.value = await $fetch<ConnectionReportView>('/api/admin', { method: 'POST', body: { event: 'testConnection', ...modelFields.value } })
   }
   catch (caught) {
     testError.value = messageFrom(caught, 'The connection could not be tested.')
@@ -287,18 +277,19 @@ function checkText(label: string, check: ConnectionCheckView): string {
             >
               {{ testError }}
             </p>
-            <ul
+            <div
               v-else-if="report"
               role="status"
-              class="flex flex-col gap-1 text-xs leading-4"
             >
-              <li :class="report.reply.ok ? 'text-emerald-700' : 'text-rose-700'">
-                {{ checkText('Plain reply', report.reply) }}
-              </li>
-              <li :class="report.toolCall.ok ? 'text-emerald-700' : 'text-rose-700'">
-                {{ checkText('Tool call', report.toolCall) }}
-              </li>
-            </ul>
+              <ul class="flex flex-col gap-1 text-xs leading-4">
+                <li :class="report.reply.ok ? 'text-emerald-700' : 'text-rose-700'">
+                  {{ checkText('Plain reply', report.reply) }}
+                </li>
+                <li :class="report.toolCall.ok ? 'text-emerald-700' : 'text-rose-700'">
+                  {{ checkText('Tool call', report.toolCall) }}
+                </li>
+              </ul>
+            </div>
             <p class="text-xs leading-4 text-muted">
               Two calls with the settings above, saving nothing: one answer in words, and one proposal
               asked for as a tool call. A key left blank is the key in effect.

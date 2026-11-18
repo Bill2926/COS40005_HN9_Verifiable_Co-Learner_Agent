@@ -58,7 +58,7 @@ describe('the fake language model asked for words', () => {
     const model = createFakeLanguageModel({ proposals: ['{"proposal": {"type": "answer_question", "scope": "loops"}}'] })
 
     await expect(model.proposeMove(instructions, prompt, proposalSchema)).resolves.toEqual({ type: 'answer_question', scope: 'loops' })
-    expect(model.calls).toEqual([{ operation: 'proposeMove', instructions, prompt, steps: 1 }])
+    expect(model.calls).toEqual([{ operation: 'proposeMove', instructions, prompt }])
   })
 
   it('answers a reply with the words the script wrote, whole and as a stream', async () => {
