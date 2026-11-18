@@ -28,7 +28,7 @@ export interface StudiedModule extends UnlockableModule {
 
 // Evidence whose module, exercise or quiz question the course no longer has (a lecturer removed
 // it) is not evidence about this course, so it is ignored rather than estimated or refused.
-function evidenceTheCourseHas(course: StudiedCourse, evidence: readonly Observation[]): Observation[] {
+export function evidenceTheCourseHas(course: StudiedCourse, evidence: readonly Observation[]): Observation[] {
   const modules = new Map(course.modules.map(module => [module.id, module]))
   return evidence.filter((observation) => {
     const module = modules.get(observation.moduleId)
