@@ -28,6 +28,7 @@ flowchart LR
     course["<b>course</b><br/>Modules, study content, roadmap"]:::comp
     studentModel["<b>student-model</b><br/>Evidence ledger, mastery"]:::comp
     agents["<b>agents</b><br/>Teacher, Deskmate, moves, role table, prompts"]:::comp
+    agentTools["<b>agent-tools</b><br/>get_student_mastery, tool trace"]:::comp
     lm["<b>language-model</b><br/>Real model, choice"]:::comp
     storage["<b>storage</b><br/>Store interfaces and<br/>Supabase versions"]:::comp
     admin["<b>admin</b><br/>Product-owner handler"]:::comp
@@ -59,6 +60,9 @@ flowchart LR
   turn -->|"createMemoryCourseStore"| storage
   storage -->|"courseFromSpec"| course
   turn -->|"moveKey, roleTable"| agents
+  turn -->|"createAgentTools"| agentTools
+  agents -->|"maxToolSteps"| agentTools
+  agentTools -.->|"type: ModelTool"| lm
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
   turn -->|"createMemoryQuizAnswerStore"| storage
   storage -->|"mergeObservations"| studentModel
@@ -89,6 +93,7 @@ flowchart LR
 | lecturer | `web/server/lecturer/` | [server/10-lecturer.md](10-lecturer.md) |
 | student | `web/server/student/` | [server/11-student.md](11-student.md) |
 | activity recorder | `web/server/activity-recorder/` | [server/12-activity-recorder.md](12-activity-recorder.md) |
+| agent-tools | `web/server/agent-tools/` | [server/13-agent-tools.md](13-agent-tools.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)

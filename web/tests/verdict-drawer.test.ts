@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addressedText, agentText, drawerChecks, reasonText } from '../app/admin/decisions'
+import { addressedText, agentText, drawerChecks, reasonText, toolCallsView } from '../app/admin/decisions'
 
 const base = {
   ruleId: 'scope_requires_unlocked_module',
@@ -72,5 +72,16 @@ describe('verdict drawer addressed agent', () => {
     expect(addressedText('deskmate')).toBe('@Mai')
     expect(addressedText(null)).toBe('no one')
     expect(addressedText(undefined)).toBe('not recorded')
+  })
+
+  it('lists the tools the agent called, or says the trace was not recorded', () => {
+    const call = { name: 'get_student_mastery', input: {}, summary: '11 modules, threshold 0.95' }
+    expect(toolCallsView({ toolTrace: [call] })).toEqual({ note: null, calls: [{ name: 'get_student_mastery', input: '{}', summary: '11 modules, threshold 0.95' }] })
+    expect(toolCallsView({ toolTrace: [] })).toEqual({ note: 'No tools were called.', calls: [] })
+    expect(toolCallsView({})).toEqual({ note: 'Tool calls were not recorded for this decision.', calls: [] })
+  })
+
+  it('words a Teacher that ran out of steps', () => {
+    expect(reasonText('STEP_CAP_REACHED')).toBe('The Teacher reached its 3-step limit before proposing a move, so it said nothing.')
   })
 })

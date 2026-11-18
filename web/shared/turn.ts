@@ -171,3 +171,11 @@ export interface RedrawState {
   // A short note about the turn, e.g. that a message to Mai went to the Teacher.
   notice?: string
 }
+
+// One tool an agent called while it worked out its move: the tool name, what the model asked for,
+// and a short summary of what came back. The full result is not kept.
+export interface ToolCallRecord {
+  name: string
+  input: unknown
+  summary: string
+}

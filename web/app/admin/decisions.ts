@@ -2,7 +2,7 @@
 // verdict drawer turns a decision's rule checks into plain English.
 
 import type { Campus } from '../../shared/campus'
-import { agentNames, type AddressedAgent, type RuleCheck } from '../../shared/turn'
+import { agentNames, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
 
 export type RuleCheckView = RuleCheck
 
@@ -26,6 +26,9 @@ export interface DecisionView {
   ruleChecks?: readonly RuleCheckView[]
   // The agent the student addressed in the turn; null when none was.
   addressedAgent?: AddressedAgent | null
+  // The tools the agent called before its move. Absent on a Deskmate decision and on one recorded
+  // before tool calls were kept.
+  toolTrace?: readonly ToolCallRecord[]
 }
 
 export interface ModelSettingsView {
@@ -87,6 +90,7 @@ const reasons: Record<string, string> = {
   MISCONCEPTION_UNKNOWN: 'The misconception is not one this module names.',
   HINT_IN_ORDER: 'The hint is at most one rung above the last one given.',
   HINT_SKIPPED: 'The hint skipped a rung of the hint ladder.',
+  STEP_CAP_REACHED: 'The Teacher reached its 3-step limit before proposing a move, so it said nothing.',
 }
 
 export function reasonText(reasonCode: string): string {
@@ -127,6 +131,23 @@ export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode
       reason: reasonText(check.reasonCode),
       deciding: index === last,
     })),
+  }
+}
+
+export interface ToolCallView {
+  name: string
+  // The input the model gave, as JSON.
+  input: string
+  summary: string
+}
+
+// The tools an agent called before its move, in order, as the decision review shows them.
+export function toolCallsView(decision: Pick<DecisionView, 'toolTrace'>): { note: string | null, calls: ToolCallView[] } {
+  if (decision.toolTrace === undefined) return { note: 'Tool calls were not recorded for this decision.', calls: [] }
+  if (decision.toolTrace.length === 0) return { note: 'No tools were called.', calls: [] }
+  return {
+    note: null,
+    calls: decision.toolTrace.map(call => ({ name: call.name, input: JSON.stringify(call.input), summary: call.summary })),
   }
 }
 

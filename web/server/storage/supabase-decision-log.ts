@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
-import type { RuleCheck } from '../../shared/turn'
+import type { RuleCheck, ToolCallRecord } from '../../shared/turn'
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -38,6 +38,7 @@ export function createSupabaseDecisionLogStore(options: {
         mastery_threshold: record.masteryThreshold,
         rule_checks: record.ruleChecks ? record.ruleChecks.map(check => ({ ...check })) : null,
         addressed_agent: record.addressedAgent ?? null,
+        tool_trace: record.toolTrace ? record.toolTrace.map(call => ({ ...call })) : null,
       })
       if (result.error) throw new Error(result.error.message)
     },
@@ -46,7 +47,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -79,6 +80,7 @@ interface DecisionRow {
   mastery_threshold: number
   rule_checks: unknown
   addressed_agent: string | null
+  tool_trace: unknown
 }
 
 function presentDecision(row: DecisionRow): DecisionRecord {
@@ -107,7 +109,19 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     // A row from before rule checks were recorded holds null: leave the field out.
     addressedAgent: row.addressed_agent === 'teacher' || row.addressed_agent === 'deskmate' ? row.addressed_agent : null,
     ...(row.rule_checks === null || row.rule_checks === undefined ? {} : { ruleChecks: ruleChecksFrom(row.rule_checks) }),
+    // Likewise a row from before tool calls were recorded, and every Deskmate row.
+    ...(row.tool_trace === null || row.tool_trace === undefined ? {} : { toolTrace: toolTraceFrom(row.tool_trace) }),
   }
+}
+
+function toolTraceFrom(value: unknown): ToolCallRecord[] {
+  if (!Array.isArray(value)) throw new Error('A decision row has a tool trace that is not a list.')
+  return value.map((item) => {
+    if (typeof item !== 'object' || item === null || typeof item.name !== 'string' || typeof item.summary !== 'string') {
+      throw new Error('A decision row has a malformed tool call.')
+    }
+    return { name: item.name, input: item.input ?? null, summary: item.summary }
+  })
 }
 
 function ruleChecksFrom(value: unknown): RuleCheck[] {

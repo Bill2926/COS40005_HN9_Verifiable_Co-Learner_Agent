@@ -22,6 +22,9 @@ function replyingModel(replies: { teacher: unknown, deskmate: unknown }): Langua
       const reply = instructions.includes('You are the Teacher') ? replies.teacher : replies.deskmate
       return schema.parse({ proposal: reply }).proposal
     },
+    proposeWithTools(instructions, prompt, schema) {
+      return this.proposeMove(instructions, prompt, schema)
+    },
     async* streamReply() {
       yield 'A reply.'
     },

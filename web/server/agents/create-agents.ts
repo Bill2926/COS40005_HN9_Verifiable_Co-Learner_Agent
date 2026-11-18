@@ -1,3 +1,4 @@
+import { maxToolSteps } from '../agent-tools'
 import type { LanguageModel } from '../language-model'
 import type { Agents } from './agents'
 import { proposalSchema } from './moves'
@@ -16,8 +17,13 @@ import {
 export function createAgents(languageModel: LanguageModel): Agents {
   return {
     teacher: {
-      propose(context) {
-        return languageModel.proposeMove(teacherProposeInstructions, teacherPrompt(context), proposalSchema)
+      // The Teacher looks mastery up with its tools rather than reading it in the prompt; out of
+      // steps, it stays quiet.
+      propose(context, tools) {
+        return languageModel.proposeWithTools(teacherProposeInstructions, teacherPrompt(context), proposalSchema, maxToolSteps, {
+          tools: tools?.tools ?? [],
+          onStepCap: () => tools?.noteStepCap(),
+        })
       },
       render(context, move) {
         return languageModel.streamReply(teacherRenderInstructions, teacherPrompt(context, move))

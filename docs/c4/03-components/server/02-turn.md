@@ -41,6 +41,8 @@ flowchart LR
   handleTurn -.->|"type: RedrawState, TurnEvent, ..."| turnTypes
 ```
 
+> The Teacher's propose step gets the turn's [agent-tools](13-agent-tools.md), bound to the turn's student standing and course. Its tool calls go on its decisions as `toolTrace` (`tool_trace`); a Teacher that reaches 3 steps gives no move and is recorded as a `none` decision with rule `step_cap` and reason `STEP_CAP_REACHED`. Mastery is no longer in the Teacher's context.
+
 ## What the file does, by event
 
 | Event in the request body | Behaviour (from the code) |

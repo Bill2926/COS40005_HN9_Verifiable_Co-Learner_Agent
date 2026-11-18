@@ -5,11 +5,11 @@
 // answer to the same interface, `resolveModelChoice` reads the saved settings, and `testConnection`
 // asks a provider the two questions the product owner can check by hand.
 // The provider calls stay behind this file.
-export type { LanguageModel, ProposalSchema } from './language-model'
+export type { LanguageModel, ModelTool, ProposalSchema, ToolLoop } from './language-model'
 export { resolveModelChoice } from './model-choice'
 export type { ModelChoice, ModelSettings } from './model-choice'
 export { createRealLanguageModel } from './real-language-model'
 export { createFakeLanguageModel } from './fake-language-model'
-export type { FakeLanguageModelScript, FakeModelCall, FakeModelStep } from './fake-language-model'
+export type { FakeLanguageModelScript, FakeModelCall, FakeModelStep, FakeToolResult } from './fake-language-model'
 export { testConnection, UnusableSettingsError } from './connection-test'
 export type { ConnectionCheck, ConnectionReport } from './connection-test'
