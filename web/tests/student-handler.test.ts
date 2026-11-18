@@ -343,7 +343,7 @@ describe('student handler', () => {
     await call({ event: 'mode_switched', mode: 'practice' })
     await call({ event: 'layout_switched', layout: 'mindmap' })
     await call({ event: 'profile_changed', displayName: 'Anne' })
-    await call({ event: 'note_created', text: 'Loops repeat', colour: 'rose', x: 1, y: 2 })
+    await call({ event: 'note_created', text: 'Loops repeat', colour: 'rose', x: 1, y: 2, target: { kind: 'module', moduleId: 'loops' } })
 
     expect(await mastery.forStudent(studentId)).toEqual(planted)
   })
