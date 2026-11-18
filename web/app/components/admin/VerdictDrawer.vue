@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { addressedText, agentText, drawerChecks, type DecisionView } from '~/admin/decisions'
+import { addressedText, agentText, drawerChecks, toolCallsView, type DecisionView } from '~/admin/decisions'
 
 // How the VerifyShield reached one verdict. It reads only the decision already
 // loaded in the table, so opening it makes no request. A native modal dialog
@@ -17,6 +17,7 @@ const dialog = ref<HTMLDialogElement | null>(null)
 const closeButton = ref<HTMLButtonElement | null>(null)
 
 const view = computed(() => props.decision ? drawerChecks(props.decision) : null)
+const tools = computed(() => props.decision ? toolCallsView(props.decision) : null)
 
 watch(() => props.decision, async (decision) => {
   await nextTick()
@@ -37,7 +38,7 @@ function onClick(event: MouseEvent) {
 }
 
 function moveText(move: string | null, scope: string | null): string {
-  if (!move) return 'nothing (blocked)'
+  if (!move) return props.decision?.outcome === 'step_cap' ? 'nothing (step cap)' : 'nothing (blocked)'
   return scope ? `${move} · ${scope}` : move
 }
 </script>
@@ -61,7 +62,7 @@ function moveText(move: string | null, scope: string | null): string {
             id="verdict-drawer-title"
             class="text-lg font-semibold tracking-tight text-highlighted"
           >
-            Verdict: {{ decision.verdict }}
+            {{ decision.outcome === 'step_cap' ? 'Outcome: step cap' : `Verdict: ${decision.verdict}` }}
           </h2>
           <p class="text-xs leading-4 text-muted">
             {{ agentText(decision.agent) }} ·
@@ -116,6 +117,35 @@ function moveText(move: string | null, scope: string | null): string {
                 class="font-medium text-brand-700"
               >Deciding check</span>
             </span>
+          </li>
+        </ol>
+      </section>
+
+      <section
+        v-if="tools"
+        class="flex flex-col gap-2 border-t border-default px-4 py-4 text-xs leading-5 md:px-6"
+      >
+        <h3 class="text-sm font-semibold text-highlighted">
+          Tool calls
+        </h3>
+        <p
+          v-if="tools.note"
+          class="text-muted"
+        >
+          {{ tools.note }}
+        </p>
+        <ol
+          v-if="tools.calls.length > 0"
+          class="flex flex-col gap-2"
+          data-tool-calls
+        >
+          <li
+            v-for="(call, index) in tools.calls"
+            :key="index"
+            class="flex flex-col rounded-sm border border-default px-3 py-2"
+          >
+            <span class="font-mono text-[11px] text-highlighted [overflow-wrap:anywhere]">{{ call.name }}({{ call.input }})</span>
+            <span class="text-default">{{ call.summary }}</span>
           </li>
         </ol>
       </section>

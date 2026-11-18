@@ -1,4 +1,5 @@
 import { materialsText } from '../../shared/materials'
+import { studentMasteryTool } from '../../shared/turn'
 import type { AnsweredQuizResult, DeskmateContext, DeskmateQuizResult, SubmissionCheck, TeacherContext } from './contexts'
 import { moveKey, scopedMoveTypes, type Move } from './moves'
 import { roleTable } from './role-table'
@@ -38,6 +39,7 @@ export const teacherProposeInstructions = [
   'A closed module and anything out of course must be labelled that way. Do not teach them.',
   `Do not propose ${listMoves(roleTable.deskmate)}. Return proposal null instead.`,
   'Return proposal null when you should stay quiet.',
+  `Call ${studentMasteryTool} when the move depends on how well the student knows a module, such as advance_to_module or stay_and_practise.`,
   'Each agent line in the conversation shows, in brackets, the move that approved it, so you can see which hint rungs you have already given.',
   'Do not hand over a full solution. A proposal is the move, not the words the student will read.',
   dataRule,
@@ -179,7 +181,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
   const lines = [
     'Course roadmap',
     ...context.roadmap.map(module =>
-      `Module ${module.number}: ${module.name} (${module.id}), part ${module.part}, ${module.state}, mastery ${module.mastery}${module.current ? ', current module' : ''}`),
+      `Module ${module.number}: ${module.name} (${module.id}), part ${module.part}, ${module.state}${module.current ? ', current module' : ''}`),
     '',
     'Module materials',
     materialsText(context.materials),

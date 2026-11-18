@@ -30,7 +30,7 @@ function recordingModel() {
   }
   const languageModel: LanguageModel = {
     proposeMove: propose,
-    proposeWithTools: propose,
+    proposeWithTools: async (instructions, prompt, schema) => ({ proposal: await propose(instructions, prompt, schema), ended: 'proposed' as const }),
     async* streamReply(instructions, prompt) {
       calls.push({ agent: agentOf(instructions), phase: 'render', instructions, prompt })
       yield 'A reply.'

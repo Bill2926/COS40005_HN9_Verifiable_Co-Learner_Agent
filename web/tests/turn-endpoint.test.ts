@@ -804,6 +804,9 @@ describe('turn endpoint', () => {
           const level = levels[proposePrompts.length - 1]
           return schema.parse({ proposal: level ? { type: 'hint_level_N', level, scope: 'getting_started' } : null }).proposal
         },
+        async proposeWithTools(instructions, prompt, schema) {
+          return { proposal: await this.proposeMove(instructions, prompt, schema), ended: 'proposed' }
+        },
         async* streamReply(_instructions, prompt) {
           renderPrompts.push(prompt)
           yield `Rung ${renderPrompts.length} given.`
@@ -2187,17 +2190,17 @@ describe('turn endpoint', () => {
     ])
     const proposed = model.exchanges.find(exchange => exchange.agent === 'teacher' && exchange.phase === 'propose')
     expect(proposed && proposed.agent === 'teacher' ? proposed.context.roadmap : []).toEqual([
-      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', mastery: 0.1, current: true },
-      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'closed', mastery: 0.1, current: false },
-      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'closed', mastery: 0.1, current: false },
-      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'closed', mastery: 0.1, current: false },
-      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'closed', mastery: 0.1, current: false },
-      { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', mastery: 0.1, current: false },
-      { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', mastery: 0.1, current: false },
-      { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', mastery: 0.1, current: false },
-      { id: 'modules_and_library', number: 9, name: 'Modules and the Standard Library', part: 'Organizing Code', state: 'closed', mastery: 0.1, current: false },
-      { id: 'file_handling', number: 10, name: 'File Handling', part: 'Working with the Real World', state: 'closed', mastery: 0.1, current: false },
-      { id: 'error_handling', number: 11, name: 'Error Handling and Debugging', part: 'Working with the Real World', state: 'closed', mastery: 0.1, current: false },
+      { id: 'getting_started', number: 1, name: 'Getting Started with Programming and Python', part: 'Foundations', state: 'open', current: true },
+      { id: 'variables', number: 2, name: 'Variables, Data Types, and Operators', part: 'Foundations', state: 'closed', current: false },
+      { id: 'strings', number: 3, name: 'Working with Strings', part: 'Foundations', state: 'closed', current: false },
+      { id: 'conditionals', number: 4, name: 'Conditional Statements', part: 'Control Flow', state: 'closed', current: false },
+      { id: 'loops', number: 5, name: 'Loops', part: 'Control Flow', state: 'closed', current: false },
+      { id: 'lists_and_tuples', number: 6, name: 'Lists and Tuples', part: 'Built-in Data Structures', state: 'closed', current: false },
+      { id: 'dictionaries_and_sets', number: 7, name: 'Dictionaries and Sets', part: 'Built-in Data Structures', state: 'closed', current: false },
+      { id: 'functions', number: 8, name: 'Functions', part: 'Organizing Code', state: 'closed', current: false },
+      { id: 'modules_and_library', number: 9, name: 'Modules and the Standard Library', part: 'Organizing Code', state: 'closed', current: false },
+      { id: 'file_handling', number: 10, name: 'File Handling', part: 'Working with the Real World', state: 'closed', current: false },
+      { id: 'error_handling', number: 11, name: 'Error Handling and Debugging', part: 'Working with the Real World', state: 'closed', current: false },
     ])
   })
 
@@ -2317,6 +2320,9 @@ describe('turn endpoint', () => {
     const agents = createAgents({
       async proposeMove(instructions, _prompt, schema) {
         return schema.parse({ proposal: instructions.includes('You are the Teacher') ? move : null }).proposal
+      },
+      async proposeWithTools(instructions, prompt, schema) {
+        return { proposal: await this.proposeMove(instructions, prompt, schema), ended: 'proposed' }
       },
       streamReply,
     })

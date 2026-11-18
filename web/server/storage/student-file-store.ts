@@ -9,6 +9,7 @@ export interface StudentFile {
 export interface StudentFileStore {
   put: (studentId: string, path: string, file: StudentFile) => Promise<void>
   url: (studentId: string, path: string) => Promise<string | null>
+  remove: (studentId: string, path: string) => Promise<void>
 }
 
 export function createMemoryStudentFileStore(): StudentFileStore {
@@ -20,6 +21,9 @@ export function createMemoryStudentFileStore(): StudentFileStore {
     },
     async url(studentId, path) {
       return files.has(key(studentId, path)) ? `memory:${key(studentId, path)}` : null
+    },
+    async remove(studentId, path) {
+      files.delete(key(studentId, path))
     },
   }
 }

@@ -1,6 +1,6 @@
 import { generateText, hasToolCall, NoObjectGeneratedError, NoOutputGeneratedError, Output, stepCountIs, streamText, tool, type LanguageModel as ProviderModel } from 'ai'
 import { z } from 'zod'
-import type { LanguageModel, ProposalSchema } from './language-model'
+import type { LanguageModel, ProposalSchema, ToolLoop, ToolLoopResult } from './language-model'
 
 // The name of the tool a proposal is asked for as. It says nothing about moves: the tool only ever
 // holds the caller's schema, so this component still does not know which proposals exist.
@@ -48,12 +48,19 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
 
     // The same proposal asked for as a tool call. The provider puts the schema in the tool and the
     // answer in `tool_calls`, which is how a model that can also call its own tools is given a move.
-    async proposeWithTools<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number): Promise<Proposal | null> {
-      const { toolCalls } = await generateText({
+    async proposeWithTools<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, { tools, maxSteps }: ToolLoop): Promise<ToolLoopResult<Proposal>> {
+      // The caller's own tools run here, between steps; their results go back to the model.
+      const ownTools = Object.fromEntries(tools.map(item => [item.name, tool({
+        description: item.description,
+        inputSchema: item.inputSchema,
+        execute: input => item.run(input),
+      })]))
+      const { toolCalls, steps } = await generateText({
         model,
         instructions,
         prompt,
         tools: {
+          ...ownTools,
           [proposalTool]: tool({
             description: 'Record the move you propose, or null when you propose none.',
             inputSchema: schema,
@@ -71,7 +78,10 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
       // back is only typed as unknown text, so it is read through the schema here. A tool call that
       // breaks the schema is reported rather than passed on as a move.
       const call = toolCalls.find(toolCall => toolCall.toolName === proposalTool)
-      return call ? schema.parse(call.input).proposal : null
+      // No move: the cap is reached only when every step was spent; a loop that ended sooner (the
+      // provider interrupting the reply) is a different end, and not reported as the cap.
+      if (!call) return { proposal: null, ended: steps.length >= maxSteps ? 'step_cap' : 'stopped' }
+      return { proposal: schema.parse(call.input).proposal, ended: 'proposed' }
     },
 
     async* streamReply(instructions, prompt) {

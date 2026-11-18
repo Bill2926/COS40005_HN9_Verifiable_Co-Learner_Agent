@@ -41,6 +41,8 @@ flowchart LR
   handleTurn -.->|"type: RedrawState, TurnEvent, ..."| turnTypes
 ```
 
+> The Teacher's propose step gets the turn's [agent-tools](13-agent-tools.md), bound to the turn's student standing and course. Its tool calls go on its decisions as `toolTrace` (`tool_trace`); a Teacher whose tool loop ended at the 3-step cap gives no move and is recorded as a `none` decision with outcome `step_cap`, which is not a VerifyShield ruling and so has no verdict, rule or reason; a loop that stopped earlier without a move is just a quiet Teacher and is not recorded. Every decision of the turn is built through one path, with only its ending (ruled or step cap) differing. Mastery is no longer in the Teacher's context.
+
 ## What the file does, by event
 
 | Event in the request body | Behaviour (from the code) |

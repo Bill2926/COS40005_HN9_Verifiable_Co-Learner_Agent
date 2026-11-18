@@ -2,7 +2,7 @@
 // verdict drawer turns a decision's rule checks into plain English.
 
 import type { Campus } from '../../shared/campus'
-import { agentNames, type AddressedAgent, type RuleCheck } from '../../shared/turn'
+import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
 
 export type RuleCheckView = RuleCheck
 
@@ -13,11 +13,14 @@ export interface DecisionView {
   agent: AddressedAgent
   proposedMove: string
   proposedScope: string | null
-  verdict: 'allow' | 'block' | 'downgrade'
+  // 'ruled' when the VerifyShield ruled on a move; 'step_cap' when the Teacher reached its step cap
+  // first, which carries no verdict, rule or reason.
+  outcome: 'ruled' | 'step_cap'
+  verdict: 'allow' | 'block' | 'downgrade' | null
   ruledMove: string | null
   ruledScope: string | null
-  ruleId: string
-  reasonCode: string
+  ruleId: string | null
+  reasonCode: string | null
   masteries: readonly { moduleId: string, mastery: number }[]
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
@@ -26,6 +29,9 @@ export interface DecisionView {
   ruleChecks?: readonly RuleCheckView[]
   // The agent the student addressed in the turn; null when none was.
   addressedAgent?: AddressedAgent | null
+  // The tools the agent called before its move. Absent on a Deskmate decision and on one recorded
+  // before tool calls were kept.
+  toolTrace?: readonly ToolCallRecord[]
 }
 
 export interface ModelSettingsView {
@@ -93,6 +99,17 @@ export function reasonText(reasonCode: string): string {
   return reasons[reasonCode] ?? reasonCode
 }
 
+// What the decision table shows in the verdict column: the verdict (with a downgrade's move), or
+// the step cap, which is not a verdict.
+export function outcomeText(decision: Pick<DecisionView, 'outcome' | 'verdict' | 'ruledMove' | 'ruledScope'>): string {
+  if (decision.outcome === 'step_cap' || !decision.verdict) return 'step cap'
+  if (decision.verdict !== 'downgrade' || !decision.ruledMove) return decision.verdict
+  const scope = decision.ruledScope ? ` · ${decision.ruledScope}` : ''
+  return `downgrade → ${decision.ruledMove}${scope}`
+}
+
+const stepCapNote = `The Teacher reached its ${maxToolSteps}-step limit before proposing a move, so it said nothing and the VerifyShield had nothing to rule on.`
+
 export interface DrawerCheck {
   ruleId: string
   passed: boolean
@@ -100,10 +117,13 @@ export interface DrawerCheck {
   deciding: boolean
 }
 
-export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode' | 'verdict' | 'verifyShieldOn' | 'ruleChecks'>): {
+export function drawerChecks(decision: Pick<DecisionView, 'outcome' | 'ruleId' | 'reasonCode' | 'verdict' | 'verifyShieldOn' | 'ruleChecks'>): {
   note: string | null
   checks: DrawerCheck[]
 } {
+  if (decision.outcome === 'step_cap' || decision.ruleId === null || decision.reasonCode === null) {
+    return { note: stepCapNote, checks: [] }
+  }
   if (!decision.verifyShieldOn) {
     return { note: 'VerifyShield was off, no rules were checked.', checks: [] }
   }
@@ -127,6 +147,23 @@ export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode
       reason: reasonText(check.reasonCode),
       deciding: index === last,
     })),
+  }
+}
+
+export interface ToolCallView {
+  name: string
+  // The input the model gave, as JSON.
+  input: string
+  summary: string
+}
+
+// The tools an agent called before its move, in order, as the decision review shows them.
+export function toolCallsView(decision: Pick<DecisionView, 'toolTrace'>): { note: string | null, calls: ToolCallView[] } {
+  if (decision.toolTrace === undefined) return { note: 'Tool calls were not recorded for this decision.', calls: [] }
+  if (decision.toolTrace.length === 0) return { note: 'No tools were called.', calls: [] }
+  return {
+    note: null,
+    calls: decision.toolTrace.map(call => ({ name: call.name, input: JSON.stringify(call.input), summary: call.summary })),
   }
 }
 

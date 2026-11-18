@@ -990,13 +990,16 @@ onUnmounted(() => {
     <p v-if="saveError" role="alert" class="absolute right-4 bottom-28 left-4 z-[2] rounded-lg bg-paper p-2 text-sm text-ink-700 lg:right-auto">
       {{ saveError }}
     </p>
+    <!-- Bottom centre, with 44 px hit areas on every screen size. -->
     <div
       ref="footerEl"
-      class="absolute bottom-5 left-4 z-[2] flex max-w-[calc(100%-2rem)] flex-wrap items-center gap-2 lg:left-auto lg:max-w-none lg:flex-nowrap lg:right-[400px]"
+      class="absolute bottom-5 left-1/2 z-[2] flex max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2"
+      role="toolbar"
+      aria-label="Canvas controls"
     >
       <button
         type="button"
-        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-ink-200/80 bg-paper/90 px-2.5 text-[11px] leading-[16.5px] font-medium whitespace-nowrap text-ink-600 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-paper hover:text-ink-900 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900 md:min-h-0 md:py-[5px]"
+        class="min-h-11 shrink-0 cursor-pointer rounded-lg border border-ink-200/80 bg-paper/90 px-4 text-sm font-medium whitespace-nowrap text-ink-700 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px] transition-[background-color,color,translate] duration-150 hover:bg-paper hover:text-ink-900 active:translate-y-px focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink-900"
         :disabled="!positions"
         @click="resetArrangement"
       >
@@ -1009,7 +1012,7 @@ onUnmounted(() => {
       >
         <button
           type="button"
-          class="min-h-11 min-w-9 cursor-pointer rounded-l-lg text-sm text-ink-600 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          class="min-h-11 min-w-11 cursor-pointer rounded-l-lg text-lg text-ink-700 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40"
           aria-label="Zoom out"
           :disabled="zoom <= minZoom"
           @click="zoomTo(zoom / zoomStep)"
@@ -1018,7 +1021,7 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          class="min-h-11 min-w-12 cursor-pointer px-1 font-mono text-[11px] text-ink-500 tabular-nums hover:bg-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 md:min-h-0 md:py-[5px]"
+          class="min-h-11 min-w-14 cursor-pointer px-1 font-mono text-xs text-ink-600 tabular-nums hover:bg-paper focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900"
           aria-label="Fit all modules"
           title="Fit all modules"
           @click="fitAll"
@@ -1027,7 +1030,7 @@ onUnmounted(() => {
         </button>
         <button
           type="button"
-          class="min-h-11 min-w-9 cursor-pointer rounded-r-lg text-sm text-ink-600 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40 md:min-h-0 md:py-[3px]"
+          class="min-h-11 min-w-11 cursor-pointer rounded-r-lg text-lg text-ink-700 transition-colors duration-150 hover:bg-paper hover:text-ink-900 active:bg-ink-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-ink-900 disabled:cursor-default disabled:opacity-40"
           aria-label="Zoom in"
           :disabled="zoom >= maxZoom"
           @click="zoomTo(zoom * zoomStep)"
@@ -1035,14 +1038,6 @@ onUnmounted(() => {
           +
         </button>
       </div>
-      <p
-        class="flex items-center gap-2 rounded-lg border border-ink-200/80 bg-paper/90 px-[11px] py-[5px] font-mono text-[11px] leading-[16.5px] whitespace-nowrap text-ink-500 shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] backdrop-blur-[4px]"
-        aria-hidden="true"
-      >
-        <span>Ctrl+scroll to zoom</span>
-        <span class="text-ink-300">|</span>
-        <span>Studio canvas</span>
-      </p>
     </div>
   </div>
 </template>

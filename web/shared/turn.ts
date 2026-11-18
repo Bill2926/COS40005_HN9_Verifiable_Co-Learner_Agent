@@ -171,3 +171,18 @@ export interface RedrawState {
   // A short note about the turn, e.g. that a message to Mai went to the Teacher.
   notice?: string
 }
+
+// One tool an agent called while it worked out its move: the tool name, what the model asked for,
+// and a short summary of what came back. The full result is not kept.
+export interface ToolCallRecord {
+  name: string
+  input: unknown
+  summary: string
+}
+
+// The Teacher's tool that reads the student's stored mastery, named once for the server, its prompt
+// and the decision review.
+export const studentMasteryTool = 'get_student_mastery'
+
+// The most steps an agent may take in one tool loop; reaching it means no move that turn.
+export const maxToolSteps = 3

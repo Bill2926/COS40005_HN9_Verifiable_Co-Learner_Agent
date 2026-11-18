@@ -20,7 +20,7 @@ Single-context: one `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/age
 
 TypeScript conventions. Folders and files are `kebab-case`; classes, interfaces, types and Vue components are `PascalCase`; functions, variables and properties are `camelCase`.
 
-- A C4 component (see **Component** in `CONTEXT.md`) is a folder named in `kebab-case` after its PascalCase name: the VerifyShield is `web/server/verify-shield/`, not `verdict/`. A component with an `index.ts` is imported only through it (`verify-shield`, `agents`, `language-model`, `student-model` and `course` today; `turn`, `storage` and `admin` are still imported file by file).
+- A C4 component (see **Component** in `CONTEXT.md`) is a folder named in `kebab-case` after its PascalCase name: the VerifyShield is `web/server/verify-shield/`, not `verdict/`. A component with an `index.ts` is imported only through it (`verify-shield`, `agents`, `agent-tools`, `language-model`, `student-model` and `course` today; `turn`, `storage` and `admin` are still imported file by file).
 - Vue single-file components are `PascalCase.vue`, as Nuxt expects.
 - Exceptions are names the framework fixes: `app.config.ts`, `*.client.ts` plugins, `pages/*.vue` route files.
 - "Module" is only a unit of the course, never a part of the system.

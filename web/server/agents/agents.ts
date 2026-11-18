@@ -1,16 +1,18 @@
+import type { TurnTools } from '../agent-tools'
 import type { DeskmateContext, TeacherContext } from './contexts'
 import type { Move } from './moves'
 
-export interface Agent<Context> {
+// `Tools` is what an agent may call before it proposes; an agent with none takes no second argument.
+export interface Agent<Context, Tools = void> {
   // The move this agent wants to make, or null to stay quiet.
-  propose: (context: Context) => Promise<Move | null>
+  propose: (context: Context, tools: Tools) => Promise<Move | null>
   // The words for a move the VerifyShield has approved, as they arrive.
   render: (context: Context, move: Move) => AsyncIterable<string>
 }
 
 // What the turn handler calls: the Teacher and the Deskmate.
 export interface Agents {
-  teacher: Agent<TeacherContext>
+  teacher: Agent<TeacherContext, TurnTools>
   deskmate: Agent<DeskmateContext>
 }
 

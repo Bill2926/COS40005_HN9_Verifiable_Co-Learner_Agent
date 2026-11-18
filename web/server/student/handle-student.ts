@@ -52,6 +52,8 @@ export interface StudentNoteView {
   colour: string
   x: number
   y: number
+  // A short-lived address of the note's one image, or null when it has none.
+  imageUrl: string | null
 }
 
 export interface StudentResponse {
@@ -141,6 +143,10 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
     await changeNote(request, studentId, body)
     return present(request, studentId, false)
   }
+  if (event === 'note_image_changed') {
+    await changeNoteImage(request, studentId, body)
+    return present(request, studentId, false)
+  }
   if (event === 'note_linked') {
     await linkNote(request, studentId, body)
     return present(request, studentId, false)
@@ -184,13 +190,14 @@ async function present(request: StudentHandlerRequest, studentId: string, signPi
     request.mindmap.read(studentId, request.courseId),
   ])
   const pictureUrl = !signPicture ? undefined : profile.picturePath ? await request.files.url(studentId, profile.picturePath) : null
-  const notes = record.notes.map(note => ({
+  const notes = await Promise.all(record.notes.map(async note => ({
     id: note.id,
     text: note.text,
     colour: note.colour,
     x: note.x,
     y: note.y,
-  }))
+    imageUrl: note.imagePath ? await request.files.url(studentId, note.imagePath) : null,
+  })))
   return {
     profile: {
       displayName: profile.displayName,
@@ -289,13 +296,21 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   const point = coordinates(body)
   const id = crypto.randomUUID()
   const target = linkTarget(body, request.moduleIds, id)
+  // A new note may bring its image, so saving one with a picture is still one request.
+  const image = body.image === undefined || body.image === null ? null : readPicture(body.image, 'image')
+  const note = { id, text, colour, ...point }
   const written = await request.mindmap.insertNote(
     studentId,
     request.courseId,
-    { id, text, colour, ...point },
+    note,
     { id: crypto.randomUUID(), fromNoteId: id, target },
   )
   if (!written) throw new StudentRequestError('That note was not found.')
+  if (image) {
+    const path = `notes/${id}-${crypto.randomUUID()}`
+    await request.files.put(studentId, path, image)
+    await request.mindmap.updateNote(studentId, request.courseId, { ...note, imagePath: path })
+  }
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 
@@ -314,6 +329,30 @@ async function changeNote(request: StudentHandlerRequest, studentId: string, bod
   }
   await request.mindmap.updateNote(studentId, request.courseId, note)
   await recordActivity(request, studentId, 'note_changed', { noteId }, request.courseId)
+}
+
+// Sets, replaces or (with image null) removes the note's one image. Each upload
+// gets a fresh name, so a replaced image is never served from a stale cache.
+async function changeNoteImage(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
+  const noteId = field(body, 'noteId')
+  if (!noteId) throw new StudentRequestError('The note is missing.')
+  if (!('image' in body)) throw new StudentRequestError('The image is missing.')
+  const image = body.image === null ? null : readPicture(body.image, 'image')
+  const record = await request.mindmap.read(studentId, request.courseId)
+  const note = record.notes.find(item => item.id === noteId)
+  if (!note) throw new StudentRequestError('That note was not found.')
+  const previous = note.imagePath ?? null
+  if (image) {
+    const path = `notes/${noteId}-${crypto.randomUUID()}`
+    await request.files.put(studentId, path, image)
+    note.imagePath = path
+  }
+  else {
+    note.imagePath = null
+  }
+  await request.mindmap.updateNote(studentId, request.courseId, note)
+  if (previous) await request.files.remove(studentId, previous)
+  await recordActivity(request, studentId, 'note_changed', { noteId, image: image !== null }, request.courseId)
 }
 
 async function linkNote(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
@@ -415,14 +454,14 @@ function linkTarget(body: Record<string, unknown>, moduleIds: readonly string[],
   throw new StudentRequestError('The link is missing its target.')
 }
 
-function readPicture(value: unknown): { bytes: Uint8Array, contentType: string } {
-  if (typeof value !== 'object' || value === null) throw new StudentRequestError('The picture is missing.')
+function readPicture(value: unknown, noun = 'picture'): { bytes: Uint8Array, contentType: string } {
+  if (typeof value !== 'object' || value === null) throw new StudentRequestError(`The ${noun} is missing.`)
   const contentType = 'contentType' in value && typeof value.contentType === 'string' ? value.contentType : ''
   const base64 = 'base64' in value && typeof value.base64 === 'string' ? value.base64 : ''
-  if (!imageTypes.has(contentType)) throw new StudentRequestError('Use a JPEG, PNG or WebP picture.')
+  if (!imageTypes.has(contentType)) throw new StudentRequestError(`Use a JPEG, PNG or WebP ${noun}.`)
   const bytes = Buffer.from(base64, 'base64')
   if (bytes.byteLength === 0 || bytes.byteLength > maxImageBytes) {
-    throw new StudentRequestError('The picture must be 2 MB or smaller.')
+    throw new StudentRequestError(`The ${noun} must be 2 MB or smaller.`)
   }
   return { bytes, contentType }
 }

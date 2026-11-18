@@ -11,7 +11,7 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       const [positions, notes, links] = await Promise.all([
         supabase.from('mindmap_positions').select('module_id, x, y')
           .eq('student_id', studentId).eq('course_id', courseId),
-        supabase.from('mindmap_notes').select('id, text, colour, x, y')
+        supabase.from('mindmap_notes').select('id, text, colour, x, y, image_path')
           .eq('student_id', studentId).eq('course_id', courseId).order('id'),
         supabase.from('mindmap_links').select('id, from_note_id, target_kind, target_id')
           .eq('student_id', studentId).eq('course_id', courseId).order('id'),
@@ -27,6 +27,7 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
           colour: row.colour,
           x: row.x,
           y: row.y,
+          imagePath: row.image_path ?? null,
         })),
         links: links.data.map(row => ({
           id: row.id,
@@ -62,6 +63,7 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
         colour: note.colour,
         x: note.x,
         y: note.y,
+        image_path: note.imagePath ?? null,
       }).eq('id', note.id).eq('student_id', studentId).eq('course_id', courseId)
       if (updated.error) throw new Error(updated.error.message)
     },
@@ -150,6 +152,7 @@ export function createSupabaseMindmapStore(options: { url: string, secretKey: st
       colour: note.colour,
       x: note.x,
       y: note.y,
+      image_path: note.imagePath ?? null,
     })))
     if (inserted.error) throw new Error(inserted.error.message)
   }

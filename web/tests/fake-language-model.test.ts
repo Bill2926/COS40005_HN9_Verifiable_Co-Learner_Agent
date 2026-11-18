@@ -14,42 +14,49 @@ describe('the fake language model asked for a tool call', () => {
   it('answers with the move the script carries', async () => {
     const model = createFakeLanguageModel({ steps: [{ proposal: move }] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 3)).resolves.toEqual(move)
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 3 })).resolves.toEqual({ proposal: move, ended: 'proposed' })
     expect(model.calls).toEqual([{ operation: 'proposeWithTools', instructions, prompt, steps: 1, maxSteps: 3 }])
   })
 
-  it('answers no move once the step cap is reached', async () => {
+  it('answers no move, ended by the step cap, once the cap is reached', async () => {
     const model = createFakeLanguageModel({ steps: [{}, {}, { proposal: move }] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 2)).resolves.toBeNull()
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 2 })).resolves.toEqual({ proposal: null, ended: 'step_cap' })
     expect(model.calls).toEqual([{ operation: 'proposeWithTools', instructions, prompt, steps: 2, maxSteps: 2 }])
   })
 
   it('answers no move when the tool call carries none', async () => {
     const model = createFakeLanguageModel({ steps: [{ proposal: null }] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 3)).resolves.toBeNull()
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 3 })).resolves.toEqual({ proposal: null, ended: 'proposed' })
     expect(model.calls).toEqual([{ operation: 'proposeWithTools', instructions, prompt, steps: 1, maxSteps: 3 }])
+  })
+
+  it('answers no move, ended early rather than by the cap, when the model stops before it', async () => {
+    const model = createFakeLanguageModel({ steps: [{}, { stop: true }] })
+
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 3 })).resolves.toEqual({ proposal: null, ended: 'stopped' })
+    expect(model.calls).toEqual([{ operation: 'proposeWithTools', instructions, prompt, steps: 2, maxSteps: 3 }])
   })
 
   it('refuses a tool call that breaks the proposal schema', async () => {
     const model = createFakeLanguageModel({ steps: [{ proposal: { type: 'write_the_solution' } }] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 3)).rejects.toThrow()
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 3 })).rejects.toThrow()
     expect(model.calls).toEqual([{ operation: 'proposeWithTools', instructions, prompt, steps: 1, maxSteps: 3 }])
   })
 
   it('fails when the script says the call fails', async () => {
     const model = createFakeLanguageModel({ steps: [new Error('Invalid API key')] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 3)).rejects.toThrow('Invalid API key')
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 3 })).rejects.toThrow('Invalid API key')
   })
 
   it('refuses a further call once the script has no step left to spend', async () => {
     const model = createFakeLanguageModel({ steps: [{ proposal: move }] })
 
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 2)).resolves.toEqual(move)
-    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, 2)).rejects.toThrow('no step left')
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 2 })).resolves.toEqual({ proposal: move, ended: 'proposed' })
+    await expect(model.proposeWithTools(instructions, prompt, proposalSchema, { tools: [], maxSteps: 2 })).rejects.toThrow('no step left')
   })
 })
 

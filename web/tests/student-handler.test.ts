@@ -302,6 +302,76 @@ describe('student handler', () => {
     expect(created.profile.pictureUrl).toBeUndefined()
   })
 
+  describe('note image', () => {
+    const webp = { contentType: 'image/webp', base64: tinyPng }
+    async function withNote(call: ReturnType<typeof setup>['call']) {
+      const created = await call({ event: 'note_created', text: 'A loop', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' } })
+      return created.mindmap.notes[0]!.id
+    }
+
+    it('stores one image in the student folder and shows it on the note', async () => {
+      const { activity, call } = setup()
+      const noteId = await withNote(call)
+      const state = await call({ event: 'note_image_changed', noteId, image: webp })
+      const note = state.mindmap.notes[0]!
+      expect(note.imageUrl).toMatch(new RegExp(`^memory:${studentId}/notes/`))
+      expect(activity.events.map(event => event.type)).toEqual(['note_created', 'note_changed'])
+      expect(activity.events[1]?.payload).toEqual({ noteId, image: true })
+      expect(JSON.stringify(activity.events)).not.toContain(tinyPng)
+      const reopened = await call({ event: 'open' })
+      expect(reopened.mindmap.notes[0]!.imageUrl).toBe(note.imageUrl)
+    })
+
+    it('replaces the image, leaving one, and removes it', async () => {
+      const { call } = setup()
+      const noteId = await withNote(call)
+      const first = (await call({ event: 'note_image_changed', noteId, image: webp })).mindmap.notes[0]!.imageUrl
+      const second = (await call({ event: 'note_image_changed', noteId, image: webp })).mindmap.notes[0]!.imageUrl
+      expect(second).not.toBe(first)
+      const removed = await call({ event: 'note_image_changed', noteId, image: null })
+      expect(removed.mindmap.notes[0]!.imageUrl).toBeNull()
+    })
+
+    it('creates a note with its image in one request', async () => {
+      const { activity, call } = setup()
+      const state = await call({ event: 'note_created', text: 'A loop', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' }, image: webp })
+      const note = state.mindmap.notes[0]!
+      expect(note.imageUrl).toMatch(new RegExp(`^memory:${studentId}/notes/${note.id}-`))
+      expect(activity.events.map(event => event.type)).toEqual(['note_created'])
+      expect(JSON.stringify(activity.events)).not.toContain(tinyPng)
+      expect((await call({ event: 'open' })).mindmap.notes[0]!.imageUrl).toBe(note.imageUrl)
+    })
+
+    it('refuses a new note whose image is not a picture, and writes nothing', async () => {
+      const { call } = setup()
+      await expect(call({ event: 'note_created', text: 'A loop', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' }, image: { contentType: 'image/gif', base64: tinyPng } }))
+        .rejects.toMatchObject({ statusCode: 400 })
+      expect((await call({ event: 'open' })).mindmap.notes).toEqual([])
+    })
+
+    it('shows a note without an image as having none', async () => {
+      const { call } = setup()
+      await withNote(call)
+      expect((await call({ event: 'open' })).mindmap.notes[0]!.imageUrl).toBeNull()
+    })
+
+    it.each([
+      { name: 'not WebP, JPEG or PNG', image: { contentType: 'image/gif', base64: tinyPng } },
+      { name: 'empty', image: { contentType: 'image/webp', base64: '' } },
+    ])('refuses an image that is $name', async ({ image }) => {
+      const { call } = setup()
+      const noteId = await withNote(call)
+      await expect(call({ event: 'note_image_changed', noteId, image })).rejects.toMatchObject({ statusCode: 400 })
+    })
+
+    it('refuses an image for a note the student does not have', async () => {
+      const { call } = setup()
+      const noteId = await withNote(call)
+      await expect(call({ event: 'note_image_changed', noteId, image: webp }, { sessionStudentId: otherStudentId }))
+        .rejects.toMatchObject({ statusCode: 400 })
+    })
+  })
+
   it('links a note to a module once', async () => {
     const { activity, call } = setup()
     const created = await call({ event: 'note_created', text: 'A loop keeps going', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' } })
