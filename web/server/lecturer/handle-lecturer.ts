@@ -1,6 +1,7 @@
 import type { CoursePreview, LecturerResponse } from '../../shared/lecturer'
 import { campusRule, isCampus } from '../../shared/campus'
 import { defaultCourseId, parseCourseSpec, type CourseSpec } from '../course'
+import type { CourseImageStore } from '../storage/course-image-store'
 import type { MasteryRecalculator } from '../student-model'
 import type { LecturerStore } from '../storage/lecturer-store'
 import { coursePreview } from './preview-course'
@@ -110,6 +111,30 @@ export async function handleCourseSpec(request: CourseSpecRequest & CourseSpecAc
   }
   if (await request.store.saveDraft(email, defaultCourseId, spec)) return
   throw notFound()
+}
+
+const imageExtensions: Record<string, string> = { 'image/webp': 'webp', 'image/png': 'png', 'image/jpeg': 'jpg' }
+const imageLimit = 2 * 1024 * 1024
+
+// Stores an image the lecturer picked for a materials block and returns the
+// address the block keeps. Only the course's lecturer may add to its folder.
+export async function handleCourseImage(request: LecturerIdentity & {
+  store: Pick<LecturerStore, 'exportSpec'>
+  images: CourseImageStore
+  courseId: unknown
+  image: unknown
+}): Promise<{ url: string }> {
+  const email = requireLecturer(request)
+  if (request.courseId !== defaultCourseId || !(await request.store.exportSpec(email, defaultCourseId))) throw notFound()
+  const image = request.image
+  const contentType = typeof image === 'object' && image !== null && 'contentType' in image && typeof image.contentType === 'string' ? image.contentType : ''
+  const base64 = typeof image === 'object' && image !== null && 'base64' in image && typeof image.base64 === 'string' ? image.base64 : ''
+  const extension = imageExtensions[contentType]
+  if (!extension) throw Object.assign(new Error('Use a JPEG, PNG or WebP image.'), { statusCode: 400 })
+  const bytes = new Uint8Array(Buffer.from(base64, 'base64'))
+  if (bytes.length === 0) throw Object.assign(new Error('The image is empty.'), { statusCode: 400 })
+  if (bytes.length > imageLimit) throw Object.assign(new Error('The image must be 2 MB or smaller.'), { statusCode: 400 })
+  return { url: await request.images.put(defaultCourseId, `${crypto.randomUUID()}.${extension}`, { bytes, contentType }) }
 }
 
 function readSpec(json: unknown): CourseSpec {

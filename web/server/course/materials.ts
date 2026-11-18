@@ -12,7 +12,6 @@ export interface LegacyMaterials {
 const blockFields: Record<MaterialBlock['type'], readonly string[]> = {
   text: ['markdown'],
   code: ['code'],
-  diagram: ['mermaid'],
   image: ['url', 'alt'],
   video: ['url', 'title'],
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CourseSpec } from '../../../server/course'
 import type { MaterialBlock } from '#shared/turn'
-import MermaidDiagram from '../workspace/MermaidDiagram.vue'
+import { shrinkImage } from '../../utils/shrink-image'
 
 type Editable<T> = T extends readonly (infer Item)[]
   ? Editable<Item>[]
@@ -126,12 +126,36 @@ function addBlock(type: MaterialBlock['type']) {
     ? { type, markdown: 'New text' }
     : type === 'code'
       ? { type, code: 'print(1)' }
-      : type === 'diagram'
-        ? { type, mermaid: 'flowchart LR\n  a[Start] --> b[Next]' }
-        : type === 'image'
-          ? { type, url: 'https://example.com/image.png', alt: 'Description of the image' }
-          : { type, url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8', title: 'Video' }
+      : type === 'image'
+        ? { type, url: 'https://example.com/image.png', alt: 'Description of the image' }
+        : { type, url: 'https://www.youtube.com/watch?v=kqtD5dpn9C8', title: 'Video' }
   content.materials.push(block)
+}
+
+async function uploadImage(event: Event, block: Extract<MaterialBlock, { type: 'image' }>) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+  busy.value = true
+  errorMessage.value = ''
+  message.value = ''
+  try {
+    const image = await shrinkImage(file)
+    const { url } = await $fetch<{ url: string }>('/api/lecturer/image', { method: 'POST', body: { courseId: props.courseId, image } })
+    block.url = url
+    // The placeholder is not a description: leave the field empty so saving asks for one.
+    if (block.alt === 'Description of the image') block.alt = ''
+    message.value = 'Image uploaded. Describe it in the image description, then save.'
+  }
+  catch (error) {
+    errorMessage.value = typeof error === 'object' && error && 'statusMessage' in error && typeof error.statusMessage === 'string'
+      ? error.statusMessage
+      : error instanceof Error ? error.message : 'The image could not be uploaded.'
+  }
+  finally {
+    busy.value = false
+  }
 }
 
 function moveBlock(index: number, delta: number) {
@@ -206,7 +230,7 @@ function moveBlock(index: number, delta: number) {
       </label>
       <template v-if="selected.content">
         <div class="flex flex-wrap gap-2">
-          <button v-for="type in ['text', 'code', 'diagram', 'image', 'video']" :key="type" type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="addBlock(type as MaterialBlock['type'])">Add {{ type }}</button>
+          <button v-for="type in ['text', 'code', 'image', 'video']" :key="type" type="button" class="min-h-11 rounded-sm border border-default px-3 text-sm" @click="addBlock(type as MaterialBlock['type'])">Add {{ type }}</button>
         </div>
         <article v-for="(block, index) in selected.content.materials" :key="index" class="flex flex-col gap-2 rounded-sm border border-ink-200 p-3">
           <div class="flex gap-2">
@@ -217,13 +241,14 @@ function moveBlock(index: number, delta: number) {
           </div>
           <textarea v-if="block.type === 'text'" v-model="block.markdown" rows="4" class="w-full rounded-sm border border-ink-300 p-2 text-sm" aria-label="Text" />
           <textarea v-else-if="block.type === 'code'" v-model="block.code" rows="4" class="w-full rounded-sm border border-ink-300 p-2 font-mono text-sm" aria-label="Code" />
-          <template v-else-if="block.type === 'diagram'">
-            <textarea v-model="block.mermaid" rows="4" class="w-full rounded-sm border border-ink-300 p-2 font-mono text-sm" aria-label="Diagram" />
-            <MermaidDiagram :source="block.mermaid" />
-          </template>
           <template v-else-if="block.type === 'image'">
             <input v-model="block.url" class="min-h-11 rounded-sm border border-ink-300 px-3 text-sm" aria-label="Image URL">
             <input v-model="block.alt" class="min-h-11 rounded-sm border border-ink-300 px-3 text-sm" aria-label="Image description">
+            <label class="inline-flex min-h-11 w-fit cursor-pointer items-center text-sm text-brand-700 underline">
+              Upload image
+              <input type="file" accept="image/jpeg,image/png,image/webp" class="sr-only" :disabled="busy" @change="uploadImage($event, block)">
+            </label>
+            <img v-if="block.url && !block.url.startsWith('https://example.com/')" :src="block.url" :alt="block.alt" class="max-h-48 w-fit max-w-full rounded-sm border border-ink-200 bg-white p-2">
           </template>
           <template v-else>
             <input v-model="block.url" class="min-h-11 rounded-sm border border-ink-300 px-3 text-sm" aria-label="Video URL">

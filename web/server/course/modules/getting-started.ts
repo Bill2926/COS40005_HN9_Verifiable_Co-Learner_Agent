@@ -11,8 +11,9 @@ export const gettingStartedModule: ModuleContent = {
       scopeNote: 'These materials belong to this module alone.',
     }),
     {
-      type: 'diagram',
-      mermaid: 'flowchart LR\n  program[A program] --> shown["print()"]',
+      type: 'image',
+      url: '/course-images/first-program.png',
+      alt: 'Diagram: A program leads to print().',
     },
     {
       type: 'video',

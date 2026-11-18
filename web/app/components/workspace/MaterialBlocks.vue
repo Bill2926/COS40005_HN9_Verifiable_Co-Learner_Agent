@@ -2,7 +2,6 @@
 import type { MaterialBlock } from '#shared/turn'
 import ChatMarkdown from './ChatMarkdown.vue'
 import MaterialVideo from './MaterialVideo.vue'
-import MermaidDiagram from './MermaidDiagram.vue'
 import PythonExample from './PythonExample.vue'
 
 defineProps<{
@@ -26,13 +25,10 @@ defineProps<{
         </div>
         <PythonExample :code="block.code" />
       </div>
-      <MermaidDiagram v-else-if="block.type === 'diagram'" :source="block.mermaid" />
-      <img
-        v-else-if="block.type === 'image'"
-        :src="block.url"
-        :alt="block.alt"
-        class="block h-auto max-w-full rounded-[8px] border border-ink-200"
-      >
+      <!-- A white card in both themes, so a diagram drawn for paper stays readable on ink. -->
+      <div v-else-if="block.type === 'image'" class="min-w-0 max-w-full overflow-hidden rounded-[8px] border border-ink-200 bg-white p-3" data-material-image>
+        <img :src="block.url" :alt="block.alt" class="mx-auto block h-auto max-w-full">
+      </div>
       <MaterialVideo v-else :url="block.url" :title="block.title" />
     </template>
   </div>

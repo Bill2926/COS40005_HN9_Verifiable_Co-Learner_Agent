@@ -35,8 +35,9 @@ test('renders the seeded materials in Learn mode and stays within a phone width'
   await expect(working.getByText('These materials belong to this module alone.', { exact: true })).toBeVisible()
   await expect(working.getByRole('textbox', { name: 'Example', exact: true })).toBeVisible()
 
-  const diagram = working.getByLabel('Diagram')
-  await expect(diagram.locator('svg')).toBeVisible()
+  const diagram = working.locator('[data-material-image]')
+  await expect(diagram.getByRole('img', { name: 'Diagram: A program leads to print().' })).toBeVisible()
+  await expect(working.locator('svg[aria-roledescription]')).toHaveCount(0)
   const video = working.getByTitle('A first Python program')
   await expect(video).toBeVisible()
   await expect(video).toHaveAttribute('src', /youtube-nocookie\.com\/embed\//)
