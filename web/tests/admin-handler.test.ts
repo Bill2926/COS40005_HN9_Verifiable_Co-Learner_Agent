@@ -123,16 +123,7 @@ describe('admin handler', () => {
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
       const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
-      return Response.json({
-        id: 'chatcmpl-test',
-        choices: [{
-          message: {
-            role: 'assistant',
-            content: JSON.stringify({ proposal }),
-          },
-          finish_reason: 'stop',
-        }],
-      })
+      return proposalReply(instructions, proposal)
     })
 
     await handleAdmin(ownerRequest({
@@ -219,12 +210,7 @@ describe('admin handler', () => {
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse(realSentence)
       const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
-      return Response.json({
-        choices: [{
-          message: { role: 'assistant', content: JSON.stringify({ proposal }) },
-          finish_reason: 'stop',
-        }],
-      })
+      return proposalReply(instructions, proposal)
     })
 
     const updated = await handleAdmin(ownerRequest({
@@ -294,12 +280,7 @@ describe('admin handler', () => {
       const instructions = JSON.stringify(body.messages ?? [])
       if (body.stream) return sse('From the environment.')
       const proposal = instructions.includes('You are Mai') ? null : { type: 'explain_concept', scope: 'getting_started' }
-      return Response.json({
-        choices: [{
-          message: { role: 'assistant', content: JSON.stringify({ proposal }) },
-          finish_reason: 'stop',
-        }],
-      })
+      return proposalReply(instructions, proposal)
     })
 
     const state = await handleTurn({
@@ -886,6 +867,7 @@ const decisionFields = [
   'ruledScope',
   'studentId',
   'time',
+  'toolTrace',
   'turnId',
   'unlockedModuleIds',
   'verdict',
@@ -1007,3 +989,14 @@ describe('admin campus', () => {
     expect(students.campusChanges).toEqual([])
   })
 })
+
+// The Teacher proposes by tool call and Mai as JSON in the text, as the real agents ask.
+function proposalReply(instructions: string, proposal: unknown): Response {
+  const message = instructions.includes('You are the Teacher')
+    ? { role: 'assistant', content: null, tool_calls: [{ id: 'call-1', type: 'function', function: { name: 'propose', arguments: JSON.stringify({ proposal }) } }] }
+    : { role: 'assistant', content: JSON.stringify({ proposal }) }
+  return Response.json({
+    id: 'chatcmpl-test',
+    choices: [{ message, finish_reason: 'tool_calls' in message ? 'tool_calls' : 'stop' }],
+  })
+}

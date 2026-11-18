@@ -1,4 +1,4 @@
-import type { LanguageModel, ProposalSchema } from './language-model'
+import type { LanguageModel, ProposalSchema, ToolLoop } from './language-model'
 
 // One step of a scripted tool-call conversation. A step carrying a `proposal` is the model calling the
 // proposal tool with it; a step naming none is a step that does not, which is what a model looking
@@ -30,8 +30,9 @@ type List = keyof typeof lists
 // instructions, prompt and schema as the real one and answers from the script, so a step cap, a quiet
 // model and a refused key can be rehearsed with no provider, no key and no cost. Unlike the scripted
 // agents in `agents`, which answer with a move without ever seeing a prompt, this is the layer beneath.
-export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): LanguageModel & { calls: FakeModelCall[] } {
+export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): LanguageModel & { calls: FakeModelCall[], toolResults: FakeToolResult[] } {
   const calls: FakeModelCall[] = []
+  const toolResults: FakeToolResult[] = []
   const spent: Record<List, number> = { steps: 0, proposals: 0, replies: 0 }
 
   function read<Entry>(list: List, entries: (Entry | Error | undefined)[]): Entry | Error {
@@ -43,6 +44,7 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
 
   return {
     calls,
+    toolResults,
 
     async proposeMove<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) {
       const call: FakeModelCall = { operation: 'proposeMove', instructions, prompt }
@@ -52,7 +54,7 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
       return schema.parse(JSON.parse(written) as unknown).proposal
     },
 
-    async proposeWithTools<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number) {
+    async proposeWithTools<Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number, loop: ToolLoop = {}) {
       const call: FakeModelCall = { operation: 'proposeWithTools', instructions, prompt, steps: 0, maxSteps }
       calls.push(call)
       for (let step = 0; step < maxSteps; step += 1) {
@@ -60,7 +62,14 @@ export function createFakeLanguageModel(script: FakeLanguageModelScript = {}): L
         call.steps = (call.steps ?? 0) + 1
         if (next instanceof Error) throw next
         if ('proposal' in next) return schema.parse(next).proposal
+        for (const toolCall of next.toolCalls ?? []) {
+          const found = loop.tools?.find(item => item.name === toolCall.name)
+          if (!found) throw new Error(`The scripted language model called an unknown tool, ${toolCall.name}.`)
+          const output = await found.run(found.inputSchema.parse(toolCall.input))
+          toolResults.push({ name: toolCall.name, input: toolCall.input, output })
+        }
       }
+      loop.onStepCap?.()
       // The cap is reached with no tool call answered: the same no move the real loop returns.
       return null
     },

@@ -46,7 +46,6 @@ export interface TeacherContext {
     name: string
     part: string
     state: 'mastered' | 'open' | 'closed'
-    mastery: number
     current: boolean
   }[]
   answeredQuiz: readonly AnsweredQuizResult[]

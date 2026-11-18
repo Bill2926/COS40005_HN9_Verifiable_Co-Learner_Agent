@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { z } from 'zod'
 import { createAgents, proposalSchema } from '../server/agents'
 import { createRealLanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
@@ -233,6 +234,35 @@ describe('a proposal asked for as a tool call', () => {
     expect(provider.requests()).toHaveLength(1)
   })
 
+  it('runs the caller\'s own tools between steps and hands their results back to the model', async () => {
+    const provider = scriptedToolProvider([
+      { role: 'assistant', content: null, tool_calls: [{ id: 'call-0', type: 'function', function: { name: 'look_up', arguments: '{}' } }] },
+      callProposing(validProposal),
+    ])
+    const run = vi.fn(async () => ({ masteryThreshold: 0.95 }))
+
+    const proposal = await model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3, {
+      tools: [{ name: 'look_up', description: 'Looks something up.', inputSchema: z.object({}), run }],
+    })
+
+    expect(proposal).toEqual({ type: 'explain_concept', scope: 'getting_started' })
+    expect(run).toHaveBeenCalledOnce()
+    expect(provider.requests()).toHaveLength(2)
+    expect(provider.requests()[0]!.tools.map(tool => tool.function.name)).toEqual(['look_up', 'propose'])
+  })
+
+  it('answers no move, and says so, when the step cap is reached', async () => {
+    const lookUp = { role: 'assistant', content: null, tool_calls: [{ id: 'call-0', type: 'function', function: { name: 'look_up', arguments: '{}' } }] }
+    scriptedToolProvider([lookUp, lookUp])
+    const onStepCap = vi.fn()
+
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 2, {
+      tools: [{ name: 'look_up', description: 'Looks something up.', inputSchema: z.object({}), run: async () => ({}) }],
+      onStepCap,
+    })).resolves.toBeNull()
+    expect(onStepCap).toHaveBeenCalledOnce()
+  })
+
   it('gives up when the model answers with words instead of calling the tool', async () => {
     scriptedToolProvider([{ role: 'assistant', content: 'I would explain the loop.' }])
 
@@ -244,8 +274,8 @@ describe('a proposal asked for as a tool call', () => {
 describe('what the student sees', () => {
   const student = '6f1b0c1e-1111-4111-8111-111111111111'
 
-  // A provider where the Teacher's proposals follow the script, Mai stays quiet, and every reply
-  // streams the same words.
+  // A provider where the Teacher's tool calls follow the script, Mai stays quiet, and every reply
+  // streams the same words. The Teacher proposes by tool call, so each entry is the tool's arguments.
   function teacherProvider(teacherProposals: string[]): { teacherCalls: () => number } {
     let teacherCalls = 0
     vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -260,12 +290,15 @@ describe('what the student sees', () => {
         return new Response(sse, { headers: { 'content-type': 'text/event-stream' } })
       }
       const isTeacher = body.messages.some(message => message.role === 'system' && message.content.includes('You are the Teacher'))
-      const content = isTeacher ? teacherProposals[teacherCalls++] : JSON.stringify({ proposal: null })
-      if (content === undefined) throw new Error('No scripted Teacher proposal left.')
-      return Response.json({
-        id: 'chatcmpl-test',
-        choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }],
-      })
+      if (!isTeacher) {
+        return Response.json({
+          id: 'chatcmpl-test',
+          choices: [{ message: { role: 'assistant', content: JSON.stringify({ proposal: null }) }, finish_reason: 'stop' }],
+        })
+      }
+      const proposal = teacherProposals[teacherCalls++]
+      if (proposal === undefined) throw new Error('No scripted Teacher proposal left.')
+      return Response.json({ id: 'chatcmpl-test', choices: [{ message: callProposing(proposal), finish_reason: 'tool_calls' }] })
     })
     return { teacherCalls: () => teacherCalls }
   }
@@ -278,17 +311,17 @@ describe('what the student sees', () => {
     return state.conversation.filter(message => message.author === 'teacher').map(message => message.text)
   }
 
-  it('gets a normal reply when a malformed proposal is followed by a valid one', async () => {
-    const provider = teacherProvider(['{"proposal": ', validProposal])
+  it('gets a normal reply when the Teacher proposes by tool call', async () => {
+    const provider = teacherProvider([validProposal])
 
     expect(await askTheTeacher()).toEqual(['Start with the quotes.'])
-    expect(provider.teacherCalls()).toBe(2)
+    expect(provider.teacherCalls()).toBe(1)
   })
 
-  it('gets the fallback message after two malformed proposals in a row', async () => {
-    const provider = teacherProvider(['{"proposal": ', '{"proposal": {"type": "write_the_solution"}}', validProposal])
+  it('gets the fallback message when the Teacher\'s tool call breaks the schema', async () => {
+    const provider = teacherProvider(['{"proposal": {"type": "write_the_solution"}}', validProposal])
 
     expect(await askTheTeacher()).toEqual(['The Teacher could not answer just now. Please try again.'])
-    expect(provider.teacherCalls()).toBe(2)
+    expect(provider.teacherCalls()).toBe(1)
   })
 })

@@ -1,4 +1,4 @@
-import type { AddressedAgent, RuleCheck } from '../../shared/turn'
+import type { AddressedAgent, RuleCheck, ToolCallRecord } from '../../shared/turn'
 
 export interface DecisionMastery {
   moduleId: string
@@ -27,6 +27,9 @@ export interface DecisionRecord {
   // The agent the student addressed in this turn, null when none was (or Mai was
   // addressed while switched off). Absent on a record from before it was recorded.
   addressedAgent?: AddressedAgent | null
+  // The tools the agent called before this move, in order. Absent on a Deskmate decision and on a
+  // record from before tool calls were recorded.
+  toolTrace?: readonly ToolCallRecord[]
 }
 
 export interface DecisionQuery {
@@ -65,9 +68,10 @@ export function createMemoryDecisionLogStore(): DecisionLogStore {
 }
 
 function copyDecision(record: DecisionRecord): DecisionRecord {
-  const { ruleChecks, ...rest } = record
+  const { ruleChecks, toolTrace, ...rest } = record
   return {
     ...rest,
+    ...(toolTrace ? { toolTrace: toolTrace.map(call => ({ ...call })) } : {}),
     masteries: record.masteries.map(item => ({ ...item })),
     unlockedModuleIds: [...record.unlockedModuleIds],
     ...(ruleChecks ? { ruleChecks: ruleChecks.map(check => ({ ...check })) } : {}),
