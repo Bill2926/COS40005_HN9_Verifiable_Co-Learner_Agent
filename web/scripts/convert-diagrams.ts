@@ -11,6 +11,7 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { createClient } from '@supabase/supabase-js'
 import { altTextFromMermaid } from './diagram-alt-text.ts'
 
@@ -21,6 +22,7 @@ const dryRun = process.argv.includes('--dry-run')
 const courseId = 'intro_python'
 const supabase = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } })
 const work = mkdtempSync(join(tmpdir(), 'diagrams-'))
+const mermaidCli = fileURLToPath(new URL('../node_modules/@mermaid-js/mermaid-cli/src/cli.js', import.meta.url))
 
 interface Block { type: string, mermaid?: string, url?: string, alt?: string }
 interface Spec { modules: { content?: { materials: Block[] } }[] }
@@ -34,7 +36,8 @@ function render(source: string): Buffer {
     args: ['--no-sandbox'],
     ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
   }))
-  execFileSync('npx', ['mmdc', '-i', input, '-o', output, '-t', 'default', '-b', 'white', '-s', '2', '-p', config], { stdio: 'inherit' })
+  // Runs Mermaid CLI's entry file with this Node, since Windows cannot spawn npx directly.
+  execFileSync(process.execPath, [mermaidCli, '-i', input, '-o', output, '-t', 'default', '-b', 'white', '-s', '2', '-p', config], { stdio: 'inherit' })
   return readFileSync(output)
 }
 

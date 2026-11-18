@@ -170,6 +170,7 @@ function scriptedToolProvider(messages: unknown[]): { requests: () => ToolReques
     requests.push({ toolChoice: body.tool_choice, responseFormat: body.response_format, tools: body.tools ?? [] })
     const message = messages[calls++]
     if (message === undefined) throw new Error('No scripted reply left.')
+    if (message instanceof Response) return message
     const isToolCall = typeof message === 'object' && message !== null && 'tool_calls' in message
     return Response.json({
       id: 'chatcmpl-test',
@@ -267,6 +268,72 @@ describe('a proposal asked for as a tool call', () => {
 
 
     await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })).rejects.toThrow()
+  })
+})
+
+// DeepSeek in thinking mode answers tool_choice: 'required' with 400 "Thinking mode does not support
+// this tool_choice". It still calls tools when left to choose, so the proposal is asked for again with
+// tool_choice: 'auto' and an instruction to answer through the tool.
+describe('a provider that will not be made to call a tool', () => {
+  const refusesToolChoice = () => Response.json(
+    { error: { message: 'Thinking mode does not support this tool_choice', type: 'invalid_request_error' } },
+    { status: 400 },
+  )
+
+  it('asks again, letting the model choose, and uses the tool call it makes', async () => {
+    const provider = scriptedToolProvider([refusesToolChoice(), callProposing(validProposal)])
+
+    const result = await model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })
+
+    expect(result).toEqual({ proposal: { type: 'explain_concept', scope: 'getting_started' }, ended: 'proposed' })
+    expect(provider.requests().map(request => request.toolChoice)).toEqual(['required', 'auto'])
+  })
+
+  it('tells the model to answer through the tool once it is free to choose', async () => {
+    const bodies: { messages: { role: string, content: string }[] }[] = []
+    const replies = [refusesToolChoice(), Response.json({
+      id: 'chatcmpl-test',
+      choices: [{ message: callProposing(validProposal), finish_reason: 'tool_calls' }],
+    })]
+    vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = input instanceof Request ? input : new Request(input, init)
+      bodies.push(await request.json() as typeof bodies[number])
+      return replies.shift()!
+    })
+
+    await model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })
+
+    const system = (index: number) => bodies[index]!.messages.filter(message => message.role === 'system').map(message => message.content).join('\n')
+    expect(system(0)).not.toContain('propose tool')
+    expect(system(1)).toContain('propose tool')
+  })
+
+  it('lets the model choose from then on, so later proposals cost one call', async () => {
+    const provider = scriptedToolProvider([refusesToolChoice(), callProposing(validProposal), callProposing(validProposal)])
+    const languageModel = model()
+
+    await languageModel.proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })
+    await languageModel.proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })
+
+    expect(provider.requests().map(request => request.toolChoice)).toEqual(['required', 'auto', 'auto'])
+  })
+
+  it('answers no move when the model, free to choose, writes words instead', async () => {
+    scriptedToolProvider([refusesToolChoice(), { role: 'assistant', content: 'I would explain the loop.' }])
+
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 }))
+      .resolves.toEqual({ proposal: null, ended: 'stopped' })
+  })
+
+  it('does not ask again for any other refused request', async () => {
+    const provider = scriptedToolProvider([
+      Response.json({ error: { message: 'Invalid API key' } }, { status: 401 }),
+      callProposing(validProposal),
+    ])
+
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 }))
+      .rejects.toThrow('Invalid API key')
+    expect(provider.requests()).toHaveLength(1)
   })
 })
 
