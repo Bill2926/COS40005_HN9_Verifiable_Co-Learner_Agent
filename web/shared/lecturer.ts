@@ -1,3 +1,4 @@
+import type { Campus } from './campus'
 import type { ExerciseCheck, ModuleMaterials } from './turn'
 
 export interface CourseHistoryEntry {
@@ -11,6 +12,7 @@ export interface CourseHistoryEntry {
 export interface LecturerStudent {
   displayName: string
   studentNumber: string
+  campus: Campus | null
   email: string
   enrolledAt: string
 }

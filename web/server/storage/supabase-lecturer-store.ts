@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { Campus } from '../../shared/campus'
 import type { LecturerStore } from './lecturer-store'
 
 export function createSupabaseLecturerStore({ url, secretKey }: {
@@ -79,6 +80,7 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
             displayName: student.displayName,
             studentNumber: student.studentNumber,
             email: student.email,
+            campus: student.campus,
             enrolledAt: enrollments.data.find(row => row.student_id === student.id)?.enrolled_at ?? '',
           })),
         }
@@ -86,10 +88,10 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
     },
   }
 
-  async function studentsIn(ids: string[]): Promise<{ id: string, displayName: string, studentNumber: string, email: string }[]> {
+  async function studentsIn(ids: string[]): Promise<{ id: string, displayName: string, studentNumber: string, email: string, campus: Campus | null }[]> {
     if (ids.length === 0) return []
     const result = await supabase.from('student_directory')
-      .select('id, display_name, student_number, email')
+      .select('id, display_name, student_number, email, campus')
       .in('id', ids)
       .order('display_name')
     if (result.error) throw new Error(result.error.message)
@@ -98,6 +100,7 @@ export function createSupabaseLecturerStore({ url, secretKey }: {
       displayName: row.display_name,
       studentNumber: row.student_number,
       email: row.email,
+      campus: row.campus,
     }))
   }
 }

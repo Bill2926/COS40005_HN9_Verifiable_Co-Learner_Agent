@@ -4,6 +4,7 @@ import type { MindmapRecord, MindmapStore } from '../storage/mindmap-store'
 import type { ProfileStore } from '../storage/profile-store'
 import type { StudentFileStore } from '../storage/student-file-store'
 import { isNoteColour, type NoteColour } from '../../shared/mindmap'
+import { campusRule, isCampus, type Campus } from '../../shared/campus'
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const maxImageBytes = 2 * 1024 * 1024
@@ -14,6 +15,15 @@ export class SignInRequiredError extends Error {
   constructor() {
     super('Sign in required')
     this.name = 'SignInRequiredError'
+  }
+}
+
+export class CampusRequiredError extends Error {
+  readonly statusCode = 403
+
+  constructor() {
+    super('Choose your campus before studying.')
+    this.name = 'CampusRequiredError'
   }
 }
 
@@ -30,6 +40,8 @@ export interface StudentProfileView {
   displayName: string
   email: string
   studentNumber: string
+  // Empty until the student chooses it; only the product owner changes it after.
+  campus: Campus | null
   // Only the events that can change the picture, and a fresh open, sign it.
   pictureUrl?: string | null
 }
@@ -74,6 +86,11 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
   if (event === 'open') return present(request, studentId)
   if (event === 'signed_in') {
     await recordActivity(request, studentId, 'signed_in', {}, null)
+    return present(request, studentId)
+  }
+  if (studyEvents.has(event)) await requireCampus(request, studentId)
+  if (event === 'campus_chosen') {
+    await chooseCampus(request, studentId, body)
     return present(request, studentId)
   }
   if (event === 'module_opened') {
@@ -140,6 +157,20 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
   throw new StudentRequestError('The student endpoint does not accept that event.')
 }
 
+// The events that open or use the course. The campus step comes before them.
+const studyEvents = new Set(['module_opened', 'mode_switched', 'layout_switched', 'code_run'])
+
+async function requireCampus(request: StudentHandlerRequest, studentId: string): Promise<void> {
+  if ((await request.profile.read(studentId)).campus === null) throw new CampusRequiredError()
+}
+
+async function chooseCampus(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
+  if (!isCampus(body.campus)) throw new StudentRequestError(campusRule)
+  if (await request.profile.chooseCampus(studentId, body.campus) === 'already-chosen') {
+    throw new StudentRequestError('Your campus is already chosen. Ask the product owner to change it.')
+  }
+}
+
 function requireStudent(request: StudentHandlerRequest): string {
   if (typeof request.sessionStudentId !== 'string' || request.sessionStudentId.length === 0) {
     throw new SignInRequiredError()
@@ -165,6 +196,7 @@ async function present(request: StudentHandlerRequest, studentId: string, signPi
       displayName: profile.displayName,
       email: request.email ?? '',
       studentNumber: profile.studentNumber,
+      campus: profile.campus,
       ...(pictureUrl === undefined ? {} : { pictureUrl }),
     },
     mindmap: { positions: record.positions, notes, links: record.links },
@@ -184,6 +216,7 @@ async function recordActivity(
 async function changeProfile(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const hasName = 'displayName' in body && body.displayName !== undefined
   const hasPicture = 'picture' in body && body.picture !== undefined
+  if ('campus' in body) throw new StudentRequestError('The campus cannot be changed here. Ask the product owner.')
   if (!hasName && !hasPicture) {
     throw new StudentRequestError(
       'studentNumber' in body
