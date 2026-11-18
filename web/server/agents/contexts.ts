@@ -1,4 +1,4 @@
-import type { PracticeTestResult, RunOutput, ModuleMaterials } from '../../shared/turn'
+import type { ModuleMaterials, ModuleState, PracticeTestResult, RunOutput } from '../../shared/turn'
 
 export interface SubmissionCheck {
   code: string
@@ -45,7 +45,7 @@ export interface TeacherContext {
     number: number
     name: string
     part: string
-    state: 'mastered' | 'open' | 'closed'
+    state: ModuleState
     current: boolean
   }[]
   answeredQuiz: readonly AnsweredQuizResult[]

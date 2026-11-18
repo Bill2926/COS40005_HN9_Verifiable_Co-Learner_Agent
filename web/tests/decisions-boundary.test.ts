@@ -53,6 +53,7 @@ describe('decision log boundary', () => {
       agent: 'teacher',
       proposedMove: 'explain_concept',
       proposedScope: 'lists_and_tuples',
+      outcome: 'ruled',
       verdict: 'downgrade',
       ruledMove: 'redirect_to_module',
       ruledScope: 'lists_and_tuples',

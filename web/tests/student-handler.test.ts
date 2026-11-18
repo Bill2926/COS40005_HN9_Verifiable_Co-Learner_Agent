@@ -332,6 +332,23 @@ describe('student handler', () => {
       expect(removed.mindmap.notes[0]!.imageUrl).toBeNull()
     })
 
+    it('creates a note with its image in one request', async () => {
+      const { activity, call } = setup()
+      const state = await call({ event: 'note_created', text: 'A loop', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' }, image: webp })
+      const note = state.mindmap.notes[0]!
+      expect(note.imageUrl).toMatch(new RegExp(`^memory:${studentId}/notes/${note.id}-`))
+      expect(activity.events.map(event => event.type)).toEqual(['note_created'])
+      expect(JSON.stringify(activity.events)).not.toContain(tinyPng)
+      expect((await call({ event: 'open' })).mindmap.notes[0]!.imageUrl).toBe(note.imageUrl)
+    })
+
+    it('refuses a new note whose image is not a picture, and writes nothing', async () => {
+      const { call } = setup()
+      await expect(call({ event: 'note_created', text: 'A loop', colour: 'brand', x: 1, y: 1, target: { kind: 'module', moduleId: 'loops' }, image: { contentType: 'image/gif', base64: tinyPng } }))
+        .rejects.toMatchObject({ statusCode: 400 })
+      expect((await call({ event: 'open' })).mindmap.notes).toEqual([])
+    })
+
     it('shows a note without an image as having none', async () => {
       const { call } = setup()
       await withNote(call)

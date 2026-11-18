@@ -804,8 +804,8 @@ describe('turn endpoint', () => {
           const level = levels[proposePrompts.length - 1]
           return schema.parse({ proposal: level ? { type: 'hint_level_N', level, scope: 'getting_started' } : null }).proposal
         },
-        proposeWithTools(instructions, prompt, schema) {
-          return this.proposeMove(instructions, prompt, schema)
+        async proposeWithTools(instructions, prompt, schema) {
+          return { proposal: await this.proposeMove(instructions, prompt, schema), ended: 'proposed' }
         },
         async* streamReply(_instructions, prompt) {
           renderPrompts.push(prompt)
@@ -2321,8 +2321,8 @@ describe('turn endpoint', () => {
       async proposeMove(instructions, _prompt, schema) {
         return schema.parse({ proposal: instructions.includes('You are the Teacher') ? move : null }).proposal
       },
-      proposeWithTools(instructions, prompt, schema) {
-        return this.proposeMove(instructions, prompt, schema)
+      async proposeWithTools(instructions, prompt, schema) {
+        return { proposal: await this.proposeMove(instructions, prompt, schema), ended: 'proposed' }
       },
       streamReply,
     })

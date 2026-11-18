@@ -22,11 +22,11 @@ flowchart LR
   subgraph tools["agent-tools"]
     direction TB
     index["<b>index.ts</b><br/>the interface"]:::comp
-    impl["<b>agent-tools.ts</b><br/>createAgentTools, maxToolSteps,<br/>get_student_mastery"]:::comp
+    impl["<b>agent-tools.ts</b><br/>createAgentTools,<br/>get_student_mastery"]:::comp
   end
 
   turn -->|"createAgentTools"| index
-  agents -->|"maxToolSteps; type: TurnTools"| index
+  agents -->|"type: TurnTools"| index
   index --> impl
   impl -.->|"type: ModelTool"| lm
   impl -.->|"type: ToolCallRecord"| shared
@@ -38,7 +38,7 @@ flowchart LR
 
 | File | Responsibility |
 |---|---|
-| `agent-tools.ts` | `createAgentTools({ readMastery, masteryThreshold })` gives one turn's `TurnTools`: the tools, the `trace` of calls (name, input, short result summary), `stepCapReached` and `noteStepCap()`. Today one tool, `get_student_mastery`: no input; returns each module's id, name, state and stored mastery, the mastery threshold and the maximum of 1.0. `maxToolSteps` is 3. |
+| `agent-tools.ts` | `createAgentTools({ readMastery, masteryThreshold })` gives one turn's `TurnTools`: a `ToolLoop` (the tools and `maxSteps`, `maxToolSteps` = 3 from `shared/turn.ts`) that the Teacher hands straight to the language model, the `trace` of calls (name, input, and a summary giving the threshold and each module's mastery), and `ended`, the language model's own report of why the loop ended (`proposed`, `step_cap` or `stopped`), handed back by the agent through `loopEnded`. Today one tool, `get_student_mastery` (its name is `studentMasteryTool` in `shared/turn.ts`): no input; returns each module's id, name, state and stored mastery, the mastery threshold and the maximum of 1.0. The mastery is the turn's stored mastery (ADR 0008), already read, with any missing row recomputed and saved, when the turn began. |
 | `index.ts` | The interface: `createAgentTools`, `maxToolSteps`, `AgentToolsBinding`, `ToolModuleMastery`, `TurnTools`. |
 
 ## Notes

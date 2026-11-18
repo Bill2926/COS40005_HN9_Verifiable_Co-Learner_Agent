@@ -179,3 +179,10 @@ export interface ToolCallRecord {
   input: unknown
   summary: string
 }
+
+// The Teacher's tool that reads the student's stored mastery, named once for the server, its prompt
+// and the decision review.
+export const studentMasteryTool = 'get_student_mastery'
+
+// The most steps an agent may take in one tool loop; reaching it means no move that turn.
+export const maxToolSteps = 3

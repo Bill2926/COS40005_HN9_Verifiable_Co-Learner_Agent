@@ -65,9 +65,9 @@ describe('the get_student_mastery tool', () => {
     const { decisions } = await turn({ steps: [lookUp, explain], replies: ['A loop repeats.'] })
 
     expect(decisions).toHaveLength(1)
-    expect(decisions[0]).toMatchObject({ agent: 'teacher', proposedMove: 'explain_concept', verdict: 'allow' })
+    expect(decisions[0]).toMatchObject({ agent: 'teacher', outcome: 'ruled', proposedMove: 'explain_concept', verdict: 'allow' })
     expect(decisions[0]!.toolTrace).toEqual([
-      { name: 'get_student_mastery', input: {}, summary: expect.stringContaining('11 modules') },
+      { name: 'get_student_mastery', input: {}, summary: expect.stringContaining(`threshold ${pythonCourse.masteryThreshold}; getting_started 0.42; `) },
     ])
   })
 
@@ -76,7 +76,15 @@ describe('the get_student_mastery tool', () => {
 
     expect(state.conversation.some(message => message.author === 'teacher' && message.text === 'A loop repeats.')).toBe(false)
     expect(decisions).toHaveLength(1)
-    expect(decisions[0]).toMatchObject({ agent: 'teacher', proposedMove: 'none', verdict: 'block', ruledMove: null, reasonCode: 'STEP_CAP_REACHED' })
+    expect(decisions[0]).toMatchObject({ agent: 'teacher', outcome: 'step_cap', proposedMove: 'none', verdict: null, ruledMove: null, ruleId: null, reasonCode: null })
+    expect(decisions[0]!.ruleChecks).toBeUndefined()
     expect(decisions[0]!.toolTrace).toHaveLength(3)
+  })
+
+  it('stays quiet without recording a step cap when the model stops before 3 steps', async () => {
+    const { decisions, state } = await turn({ steps: [lookUp, { stop: true }] })
+
+    expect(state.conversation.some(message => message.author === 'teacher' && message.text === 'A loop repeats.')).toBe(false)
+    expect(decisions).toEqual([])
   })
 })

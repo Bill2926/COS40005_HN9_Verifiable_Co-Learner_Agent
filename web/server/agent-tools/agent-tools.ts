@@ -1,12 +1,12 @@
 import { z } from 'zod'
-import type { ModelTool } from '../language-model'
-import type { ToolCallRecord } from '../../shared/turn'
+import type { ModelTool, ToolLoop, ToolLoopEnd } from '../language-model'
+import { maxToolSteps, studentMasteryTool, type ModuleState, type ToolCallRecord } from '../../shared/turn'
 
 // One module as the get_student_mastery tool reports it.
 export interface ToolModuleMastery {
   id: string
   name: string
-  state: 'mastered' | 'open' | 'closed'
+  state: ModuleState
   mastery: number
 }
 
@@ -18,48 +18,47 @@ export interface AgentToolsBinding {
   masteryThreshold: number
 }
 
-// The tools of one turn, and what was done with them.
-export interface TurnTools {
-  tools: readonly ModelTool[]
-  // Each call, in order, as the decision log records it.
+// The tool loop of one turn, and what came of it: the loop the agent hands to the language model,
+// each call made, in order, as the decision log records it, and why the loop ended.
+export interface TurnTools extends ToolLoop {
   readonly trace: readonly ToolCallRecord[]
-  // Whether the agent ran out of steps before it proposed.
-  readonly stepCapReached: boolean
-  noteStepCap: () => void
+  // Null until the loop has run (the agent did not take part, or its call failed).
+  readonly ended: ToolLoopEnd | null
+  // The agent hands back the language model's own report of why the loop ended.
+  loopEnded: (ended: ToolLoopEnd) => void
 }
-
-// The most steps an agent may take in one propose; reaching it means no move that turn.
-export const maxToolSteps = 3
 
 export function createAgentTools(binding: AgentToolsBinding): TurnTools {
   const trace: ToolCallRecord[] = []
-  let stepCapReached = false
+  let ended: ToolLoopEnd | null = null
 
   const getStudentMastery: ModelTool = {
-    name: 'get_student_mastery',
+    name: studentMasteryTool,
     description: 'The student\'s mastery of each module of the course, from 0 up to the maximum of 1.0, with the mastery threshold a module must reach to count as mastered. Takes no input.',
     inputSchema: z.object({}),
     async run(input) {
       const modules = (await binding.readMastery()).map(module => ({ ...module }))
-      trace.push({
-        name: 'get_student_mastery',
-        input,
-        summary: `${modules.length} modules, threshold ${binding.masteryThreshold}`,
-      })
+      trace.push({ name: studentMasteryTool, input, summary: masterySummary(modules, binding.masteryThreshold) })
       return { modules, masteryThreshold: binding.masteryThreshold, maximum: 1 }
     },
   }
 
   return {
     tools: [getStudentMastery],
+    maxSteps: maxToolSteps,
     get trace() {
       return trace
     },
-    get stepCapReached() {
-      return stepCapReached
+    get ended() {
+      return ended
     },
-    noteStepCap() {
-      stepCapReached = true
+    loopEnded(end) {
+      ended = end
     },
   }
+}
+
+// Each module's mastery as the decision review shows it, e.g. "threshold 0.95; getting_started 0.42".
+function masterySummary(modules: readonly ToolModuleMastery[], threshold: number): string {
+  return [`threshold ${threshold}`, ...modules.map(module => `${module.id} ${module.mastery}`)].join('; ')
 }

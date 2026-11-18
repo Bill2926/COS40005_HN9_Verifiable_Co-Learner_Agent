@@ -44,7 +44,7 @@ test('adds, recolours, links and deletes a note', async ({ page }) => {
 
   await addNote(page, 'Sketch note', 'Indexing starts at zero.', 'Sky', firstModule)
   await openNote(page, 'Loop note')
-  await notes.getByLabel('Link to another note').selectOption({ label: 'Sketch note' })
+  await choose(page, notes.getByLabel('Link to another note'), 'Sketch note')
   await notes.getByRole('button', { name: 'Link', exact: true }).click()
   const linkLines = page.locator('svg[aria-label="Note links"] path')
   await expect(linkLines).toHaveCount(3)
@@ -182,7 +182,7 @@ test.describe('on a phone', () => {
 
     await addNote(page, 'Second note', 'Notes stay private.', 'Ink', firstModule)
     await openNote(page, 'Phone note')
-    await notes.getByLabel('Link to another note').selectOption({ label: 'Second note' })
+    await choose(page, notes.getByLabel('Link to another note'), 'Second note')
     await notes.getByRole('button', { name: 'Link', exact: true }).tap()
     await expect(linkedList(page).getByRole('listitem').filter({ hasText: 'Second note' })).toBeVisible()
     expect(await sidewaysScroll(page)).toBe(false)
@@ -201,6 +201,12 @@ test.describe('on a phone', () => {
     await expect(notes.getByRole('list', { name: 'Your notes' })).toHaveCount(0)
   })
 })
+
+// A Nuxt UI select is a combobox whose options open in a listbox outside the panel.
+async function choose(page: Page, select: Locator, label: string) {
+  await select.click()
+  await page.getByRole('option', { name: label, exact: true }).click()
+}
 
 function notesPanel(page: Page): Locator {
   return page.getByRole('region', { name: 'Notes', exact: true })
@@ -248,8 +254,7 @@ async function addNote(
   await notes.getByLabel('Title', { exact: true }).fill(title)
   await notes.getByLabel('Note', { exact: true }).fill(body)
   await swatch(page, colour).click()
-  // The label wraps the select, so its accessible name carries the options too.
-  await notes.getByLabel('Module').selectOption({ label: module })
+  await choose(page, notes.getByRole('combobox', { name: 'Module' }), module)
   await notes.getByRole('button', { name: 'Save', exact: true }).click()
   await expect(row(page, title)).toBeVisible({ timeout: 20_000 })
   // The save links the module after the row appears, which selects this note

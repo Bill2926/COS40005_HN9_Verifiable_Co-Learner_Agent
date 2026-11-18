@@ -5,6 +5,10 @@ export interface DecisionMastery {
   mastery: number
 }
 
+// How a decision ended: the VerifyShield ruled on a proposed move, or the agent reached its step
+// cap before proposing one, so there was nothing to rule on.
+export type DecisionOutcome = 'ruled' | 'step_cap'
+
 export interface DecisionRecord {
   time: string
   studentId: string
@@ -12,11 +16,13 @@ export interface DecisionRecord {
   agent: AddressedAgent
   proposedMove: string
   proposedScope: string | null
-  verdict: 'allow' | 'block' | 'downgrade'
+  outcome: DecisionOutcome
+  // The VerifyShield's ruling: null, with no rule or reason, when the outcome is a step cap.
+  verdict: 'allow' | 'block' | 'downgrade' | null
   ruledMove: string | null
   ruledScope: string | null
-  ruleId: string
-  reasonCode: string
+  ruleId: string | null
+  reasonCode: string | null
   masteries: readonly DecisionMastery[]
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
@@ -33,7 +39,7 @@ export interface DecisionRecord {
 }
 
 export interface DecisionQuery {
-  verdict?: DecisionRecord['verdict']
+  verdict?: NonNullable<DecisionRecord['verdict']>
   studentId?: string
 }
 

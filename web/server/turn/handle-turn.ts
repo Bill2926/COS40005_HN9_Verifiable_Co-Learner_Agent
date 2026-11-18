@@ -1,5 +1,5 @@
 import type { ActivityRecorder } from '../activity-recorder'
-import type { AgentTrace, ToolCallRecord, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { createAgentTools, type TurnTools } from '../agent-tools'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
@@ -22,7 +22,7 @@ import {
   type StoredMastery,
   type UnlockStore,
 } from '../student-model'
-import type { DecisionLogStore } from '../storage/decision-log'
+import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
@@ -751,8 +751,8 @@ interface DecisionsToRecord {
   masteryThreshold: number
   addressedAgent: AddressedAgent | null
   decisions: DecisionLogStore | undefined
-  // The Teacher's tools for this turn: their calls go on the Teacher's decisions, and a Teacher that
-  // ran out of steps is recorded even though it proposed nothing.
+  // The Teacher's tools for this turn: their calls go on the Teacher's decisions, and a Teacher whose
+  // tool loop ended at the step cap is recorded even though it proposed nothing.
   teacherTools?: TurnTools
   // Shared by every proposal of one turn; a fresh id and time when left out.
   turnId?: string
@@ -771,37 +771,36 @@ async function recordDecisions({
   time = new Date().toISOString(),
 }: DecisionsToRecord): Promise<void> {
   if (!decisions) return
-  const toolTrace = (agent: AddressedAgent): { toolTrace?: ToolCallRecord[] } =>
-    agent === 'teacher' && teacherTools ? { toolTrace: teacherTools.trace.map(call => ({ ...call })) } : {}
-  if (teacherTools?.stepCapReached) {
+  // What every decision of the turn shares; each outcome adds only how it ended.
+  const decision = (agent: AddressedAgent, ending: DecisionEnding): DecisionRecord => ({
+    time,
+    studentId,
+    turnId,
+    agent,
+    ...ending,
+    masteries: snapshot.masteries.map(item => ({ ...item })),
+    unlockedModuleIds: [...snapshot.unlockedModuleIds],
+    verifyShieldOn: snapshot.verifyShieldOn,
+    masteryThreshold,
+    addressedAgent,
+    ...(agent === 'teacher' && teacherTools ? { toolTrace: teacherTools.trace.map(call => ({ ...call })) } : {}),
+  })
+  if (teacherTools?.ended === 'step_cap') {
     // Not a ruling: the Teacher never reached a move, so the VerifyShield had nothing to rule on.
-    await decisions.append({
-      time,
-      studentId,
-      turnId,
-      agent: 'teacher',
+    await decisions.append(decision('teacher', {
+      outcome: 'step_cap',
       proposedMove: 'none',
       proposedScope: null,
-      verdict: 'block',
+      verdict: null,
       ruledMove: null,
       ruledScope: null,
-      ruleId: 'step_cap',
-      reasonCode: 'STEP_CAP_REACHED',
-      masteries: snapshot.masteries.map(item => ({ ...item })),
-      unlockedModuleIds: [...snapshot.unlockedModuleIds],
-      verifyShieldOn: snapshot.verifyShieldOn,
-      masteryThreshold,
-      ruleChecks: [],
-      addressedAgent,
-      ...toolTrace('teacher'),
-    })
+      ruleId: null,
+      reasonCode: null,
+    }))
   }
   for (const { proposal, verdict } of ruled) {
-    await decisions.append({
-      time,
-      studentId,
-      turnId,
-      agent: verdict.agent,
+    await decisions.append(decision(verdict.agent, {
+      outcome: 'ruled',
       proposedMove: moveKey(proposal.move),
       proposedScope: proposedScope(proposal.move),
       verdict: verdict.decision,
@@ -809,29 +808,22 @@ async function recordDecisions({
       ruledScope: verdict.move ? proposedScope(verdict.move) : null,
       ruleId: verdict.ruleId,
       reasonCode: verdict.reasonCode,
-      masteries: snapshot.masteries.map(item => ({ ...item })),
-      unlockedModuleIds: [...snapshot.unlockedModuleIds],
-      verifyShieldOn: snapshot.verifyShieldOn,
-      masteryThreshold,
       ruleChecks: verdict.ruleChecks.map(check => ({ ...check })),
-      addressedAgent,
-      ...toolTrace(verdict.agent),
-    })
+    }))
   }
 }
 
+// The part of a decision that says how it ended.
+type DecisionEnding = Pick<DecisionRecord, 'outcome' | 'proposedMove' | 'proposedScope' | 'verdict' | 'ruledMove' | 'ruledScope' | 'ruleId' | 'reasonCode' | 'ruleChecks'>
+
 // The Teacher's tools for one turn, bound to this student's standing in this course: the model
-// chooses only whether to call them, never whose mastery they read.
+// chooses only whether to call them, never whose mastery they read. The standing's masteries are
+// the stored ones, read (and, for a module with no row yet, computed and saved) when the turn began.
 function teacherTools(placement: Placement, standing: CourseStanding): TurnTools {
   return createAgentTools({
     masteryThreshold: placement.course.masteryThreshold,
     async readMastery() {
-      return roadmapForStanding(placement.course, standing).map(module => ({
-        id: module.id,
-        name: module.name,
-        state: module.state,
-        mastery: standing.masteries.find(item => item.moduleId === module.id)?.mastery ?? 0,
-      }))
+      return roadmapForStanding(placement.course, standing).map(({ id, name, state, mastery }) => ({ id, name, state, mastery }))
     },
   })
 }

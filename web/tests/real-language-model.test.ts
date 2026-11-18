@@ -209,9 +209,9 @@ describe('a proposal asked for as a tool call', () => {
   it('sends the proposal schema as a tool the model must call', async () => {
     const provider = scriptedToolProvider([callProposing(validProposal)])
 
-    const proposal = await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, 3)
+    const result = await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, { tools: [], maxSteps: 3 })
 
-    expect(proposal).toEqual({ type: 'explain_concept', scope: 'getting_started' })
+    expect(result).toEqual({ proposal: { type: 'explain_concept', scope: 'getting_started' }, ended: 'proposed' })
     const sent = provider.requests()[0]!
     expect(sent.toolChoice).toBe('required')
     expect(sent.tools.map(tool => tool.function.name)).toEqual(['propose'])
@@ -222,7 +222,7 @@ describe('a proposal asked for as a tool call', () => {
   it('stops as soon as the tool has answered, so one call is enough', async () => {
     const provider = scriptedToolProvider([callProposing(validProposal)])
 
-    await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, 3)
+    await model().proposeWithTools('Propose one move.', 'The student is stuck on a loop.', proposalSchema, { tools: [], maxSteps: 3 })
 
     expect(provider.requests()).toHaveLength(1)
   })
@@ -230,7 +230,7 @@ describe('a proposal asked for as a tool call', () => {
   it('answers no move when the tool call carries none', async () => {
     const provider = scriptedToolProvider([callProposing('{"proposal": null}')])
 
-    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3)).resolves.toBeNull()
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })).resolves.toEqual({ proposal: null, ended: 'proposed' })
     expect(provider.requests()).toHaveLength(1)
   })
 
@@ -241,11 +241,12 @@ describe('a proposal asked for as a tool call', () => {
     ])
     const run = vi.fn(async () => ({ masteryThreshold: 0.95 }))
 
-    const proposal = await model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3, {
+    const result = await model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, {
       tools: [{ name: 'look_up', description: 'Looks something up.', inputSchema: z.object({}), run }],
+      maxSteps: 3,
     })
 
-    expect(proposal).toEqual({ type: 'explain_concept', scope: 'getting_started' })
+    expect(result).toEqual({ proposal: { type: 'explain_concept', scope: 'getting_started' }, ended: 'proposed' })
     expect(run).toHaveBeenCalledOnce()
     expect(provider.requests()).toHaveLength(2)
     expect(provider.requests()[0]!.tools.map(tool => tool.function.name)).toEqual(['look_up', 'propose'])
@@ -254,20 +255,18 @@ describe('a proposal asked for as a tool call', () => {
   it('answers no move, and says so, when the step cap is reached', async () => {
     const lookUp = { role: 'assistant', content: null, tool_calls: [{ id: 'call-0', type: 'function', function: { name: 'look_up', arguments: '{}' } }] }
     scriptedToolProvider([lookUp, lookUp])
-    const onStepCap = vi.fn()
 
-    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 2, {
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, {
       tools: [{ name: 'look_up', description: 'Looks something up.', inputSchema: z.object({}), run: async () => ({}) }],
-      onStepCap,
-    })).resolves.toBeNull()
-    expect(onStepCap).toHaveBeenCalledOnce()
+      maxSteps: 2,
+    })).resolves.toEqual({ proposal: null, ended: 'step_cap' })
   })
 
   it('gives up when the model answers with words instead of calling the tool', async () => {
     scriptedToolProvider([{ role: 'assistant', content: 'I would explain the loop.' }])
 
 
-    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, 3)).rejects.toThrow()
+    await expect(model().proposeWithTools('Propose one move.', 'The student is stuck.', proposalSchema, { tools: [], maxSteps: 3 })).rejects.toThrow()
   })
 })
 

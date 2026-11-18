@@ -296,13 +296,21 @@ async function createNote(request: StudentHandlerRequest, studentId: string, bod
   const point = coordinates(body)
   const id = crypto.randomUUID()
   const target = linkTarget(body, request.moduleIds, id)
+  // A new note may bring its image, so saving one with a picture is still one request.
+  const image = body.image === undefined || body.image === null ? null : readPicture(body.image, 'image')
+  const note = { id, text, colour, ...point }
   const written = await request.mindmap.insertNote(
     studentId,
     request.courseId,
-    { id, text, colour, ...point },
+    note,
     { id: crypto.randomUUID(), fromNoteId: id, target },
   )
   if (!written) throw new StudentRequestError('That note was not found.')
+  if (image) {
+    const path = `notes/${id}-${crypto.randomUUID()}`
+    await request.files.put(studentId, path, image)
+    await request.mindmap.updateNote(studentId, request.courseId, { ...note, imagePath: path })
+  }
   await recordActivity(request, studentId, 'note_created', { noteId: id }, request.courseId)
 }
 

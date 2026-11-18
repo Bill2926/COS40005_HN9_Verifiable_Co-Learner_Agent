@@ -2,7 +2,7 @@
 // verdict drawer turns a decision's rule checks into plain English.
 
 import type { Campus } from '../../shared/campus'
-import { agentNames, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
+import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
 
 export type RuleCheckView = RuleCheck
 
@@ -13,11 +13,14 @@ export interface DecisionView {
   agent: AddressedAgent
   proposedMove: string
   proposedScope: string | null
-  verdict: 'allow' | 'block' | 'downgrade'
+  // 'ruled' when the VerifyShield ruled on a move; 'step_cap' when the Teacher reached its step cap
+  // first, which carries no verdict, rule or reason.
+  outcome: 'ruled' | 'step_cap'
+  verdict: 'allow' | 'block' | 'downgrade' | null
   ruledMove: string | null
   ruledScope: string | null
-  ruleId: string
-  reasonCode: string
+  ruleId: string | null
+  reasonCode: string | null
   masteries: readonly { moduleId: string, mastery: number }[]
   unlockedModuleIds: readonly string[]
   verifyShieldOn: boolean
@@ -90,12 +93,22 @@ const reasons: Record<string, string> = {
   MISCONCEPTION_UNKNOWN: 'The misconception is not one this module names.',
   HINT_IN_ORDER: 'The hint is at most one rung above the last one given.',
   HINT_SKIPPED: 'The hint skipped a rung of the hint ladder.',
-  STEP_CAP_REACHED: 'The Teacher reached its 3-step limit before proposing a move, so it said nothing.',
 }
 
 export function reasonText(reasonCode: string): string {
   return reasons[reasonCode] ?? reasonCode
 }
+
+// What the decision table shows in the verdict column: the verdict (with a downgrade's move), or
+// the step cap, which is not a verdict.
+export function outcomeText(decision: Pick<DecisionView, 'outcome' | 'verdict' | 'ruledMove' | 'ruledScope'>): string {
+  if (decision.outcome === 'step_cap' || !decision.verdict) return 'step cap'
+  if (decision.verdict !== 'downgrade' || !decision.ruledMove) return decision.verdict
+  const scope = decision.ruledScope ? ` · ${decision.ruledScope}` : ''
+  return `downgrade → ${decision.ruledMove}${scope}`
+}
+
+const stepCapNote = `The Teacher reached its ${maxToolSteps}-step limit before proposing a move, so it said nothing and the VerifyShield had nothing to rule on.`
 
 export interface DrawerCheck {
   ruleId: string
@@ -104,10 +117,13 @@ export interface DrawerCheck {
   deciding: boolean
 }
 
-export function drawerChecks(decision: Pick<DecisionView, 'ruleId' | 'reasonCode' | 'verdict' | 'verifyShieldOn' | 'ruleChecks'>): {
+export function drawerChecks(decision: Pick<DecisionView, 'outcome' | 'ruleId' | 'reasonCode' | 'verdict' | 'verifyShieldOn' | 'ruleChecks'>): {
   note: string | null
   checks: DrawerCheck[]
 } {
+  if (decision.outcome === 'step_cap' || decision.ruleId === null || decision.reasonCode === null) {
+    return { note: stepCapNote, checks: [] }
+  }
   if (!decision.verifyShieldOn) {
     return { note: 'VerifyShield was off, no rules were checked.', checks: [] }
   }

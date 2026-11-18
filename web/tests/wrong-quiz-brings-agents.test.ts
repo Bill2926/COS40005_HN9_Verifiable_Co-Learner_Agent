@@ -82,8 +82,8 @@ describe('a wrong quiz answer brings the agents in', () => {
         prompts.push(prompt)
         return null
       },
-      proposeWithTools(instructions, prompt, schema) {
-        return this.proposeMove(instructions, prompt, schema)
+      async proposeWithTools(instructions, prompt, schema) {
+        return { proposal: await this.proposeMove(instructions, prompt, schema), ended: 'proposed' }
       },
       async* streamReply(_instructions, prompt) {
         prompts.push(prompt)

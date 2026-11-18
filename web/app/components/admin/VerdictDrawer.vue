@@ -38,7 +38,7 @@ function onClick(event: MouseEvent) {
 }
 
 function moveText(move: string | null, scope: string | null): string {
-  if (!move) return 'nothing (blocked)'
+  if (!move) return props.decision?.outcome === 'step_cap' ? 'nothing (step cap)' : 'nothing (blocked)'
   return scope ? `${move} · ${scope}` : move
 }
 </script>
@@ -62,7 +62,7 @@ function moveText(move: string | null, scope: string | null): string {
             id="verdict-drawer-title"
             class="text-lg font-semibold tracking-tight text-highlighted"
           >
-            Verdict: {{ decision.verdict }}
+            {{ decision.outcome === 'step_cap' ? 'Outcome: step cap' : `Verdict: ${decision.verdict}` }}
           </h2>
           <p class="text-xs leading-4 text-muted">
             {{ agentText(decision.agent) }} ·

@@ -348,6 +348,8 @@ async function saveNote(draft: NoteDraft) {
     let noteId = draft.id ?? ''
     if (!noteId) {
       const previous = new Set(notes.value.map(note => note.id))
+      // A new note's image goes with it, so the save is one request.
+      const image = draft.image ? await shrunk(draft.image, 'The note was not saved.') : undefined
       const created = await $fetch<MindmapState>('/api/student', {
         method: 'POST',
         body: {
@@ -357,6 +359,7 @@ async function saveNote(draft: NoteDraft) {
           x: 48,
           y: 48,
           target: draft.target,
+          ...(image ? { image } : {}),
         },
       })
       applyMindmap(created)
@@ -377,7 +380,7 @@ async function saveNote(draft: NoteDraft) {
     }
     if (!noteId) throw new Error('The note was not saved.')
     selectedNoteId.value = noteId
-    if (draft.image !== undefined) await saveNoteImage(noteId, draft.image)
+    if (draft.id && draft.image !== undefined) await saveNoteImage(noteId, draft.image)
     showNoteSaved('Note saved.')
   }
   catch (error) {
@@ -391,16 +394,17 @@ async function saveNote(draft: NoteDraft) {
 class NoteImageError extends Error {}
 
 // The image is shrunk in the browser to about 1024 px WebP before it is sent.
-async function saveNoteImage(noteId: string, file: File | null) {
-  let image: Awaited<ReturnType<typeof shrinkImage>> | null = null
-  if (file) {
-    try {
-      image = await shrinkImage(file)
-    }
-    catch (error) {
-      throw new NoteImageError(`The note was saved, but not its image. ${error instanceof Error ? error.message : ''}`.trim())
-    }
+async function shrunk(file: File, failure: string): Promise<Awaited<ReturnType<typeof shrinkImage>>> {
+  try {
+    return await shrinkImage(file)
   }
+  catch (error) {
+    throw new NoteImageError(`${failure} ${error instanceof Error ? error.message : ''}`.trim())
+  }
+}
+
+async function saveNoteImage(noteId: string, file: File | null) {
+  const image = file ? await shrunk(file, 'The note was saved, but not its image.') : null
   try {
     applyMindmap(await $fetch<MindmapState>('/api/student', {
       method: 'POST',

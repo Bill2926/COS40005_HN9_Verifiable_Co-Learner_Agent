@@ -1,4 +1,4 @@
-import type { RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
+import type { ModuleState, RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
 import type { CourseStanding } from '../student-model'
 import type { CourseScope } from '../verify-shield'
 import type { CourseSpec } from './course-spec'
@@ -102,7 +102,7 @@ export interface RoadmapModule {
   number: number
   name: string
   part: string
-  state: 'mastered' | 'open' | 'closed'
+  state: ModuleState
   mastery: number
   current: boolean
 }
@@ -123,7 +123,7 @@ export function roadmapForStanding(course: Course, standing: CourseStanding): Ro
 }
 
 interface RoadmapPlace {
-  state: 'mastered' | 'open' | 'closed'
+  state: ModuleState
   mastery: number
   current: boolean
   // Set only when the module is at the threshold but has no passed exercise, so

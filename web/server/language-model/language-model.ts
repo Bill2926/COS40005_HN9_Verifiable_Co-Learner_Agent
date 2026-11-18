@@ -13,10 +13,20 @@ export interface ModelTool {
   run: (input: unknown) => Promise<unknown>
 }
 
+// The tools the model may call before it proposes, and the most steps it may take doing so.
 export interface ToolLoop {
-  tools?: readonly ModelTool[]
-  // Called when `maxSteps` is reached with no proposal, so the caller can record it.
-  onStepCap?: () => void
+  tools: readonly ModelTool[]
+  maxSteps: number
+}
+
+// Why a tool loop ended: the model called the proposal tool (with a move or with none), it took
+// `maxSteps` steps without doing so, or it stopped before the cap without doing so. Only the model
+// knows which, so it is decided here and nowhere else.
+export type ToolLoopEnd = 'proposed' | 'step_cap' | 'stopped'
+
+export interface ToolLoopResult<Proposal> {
+  proposal: Proposal | null
+  ended: ToolLoopEnd
 }
 
 // What a language model can do, with no idea who is asking or which moves exist. `instructions` says
@@ -28,9 +38,10 @@ export interface LanguageModel {
   // either, or at once when the call itself fails.
   proposeMove: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>) => Promise<Proposal | null>
   // The same proposal asked for as a tool call the model must make, rather than as JSON in the text.
-  // `loop.tools` are the tools it may call first; `maxSteps` caps how long the model may keep calling other tools first; no move comes back when
-  // the cap is reached. Rejects when the call fails or the model answers with words instead.
-  proposeWithTools: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, maxSteps: number, loop?: ToolLoop) => Promise<Proposal | null>
+  // `loop.tools` are the tools it may call first, and `loop.maxSteps` caps how many steps it may take;
+  // the result says why the loop ended, and carries no move unless it ended at the proposal tool.
+  // Rejects when the call fails or the model answers with words instead.
+  proposeWithTools: <Proposal>(instructions: string, prompt: string, schema: ProposalSchema<Proposal>, loop: ToolLoop) => Promise<ToolLoopResult<Proposal>>
   // The words of one reply, as they arrive.
   streamReply: (instructions: string, prompt: string) => AsyncIterable<string>
   // One reply in full, asked for without streaming. A request the provider refuses reaches the

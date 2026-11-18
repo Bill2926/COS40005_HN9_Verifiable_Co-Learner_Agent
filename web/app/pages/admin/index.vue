@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import AdminHeader from '~/components/admin/AdminHeader.vue'
 import VerdictDrawer from '~/components/admin/VerdictDrawer.vue'
-import { agentText, type AdminPayload, type DecisionView } from '~/admin/decisions'
+import { agentText, outcomeText, type AdminPayload, type DecisionView } from '~/admin/decisions'
 
 definePageMeta({
   middleware: 'signed-in',
@@ -89,11 +89,6 @@ function proposedText(decision: DecisionView): string {
   return `${decision.proposedMove} · ${decision.proposedScope}`
 }
 
-function verdictText(decision: DecisionView): string {
-  if (decision.verdict !== 'downgrade' || !decision.ruledMove) return decision.verdict
-  const scope = decision.ruledScope ? ` · ${decision.ruledScope}` : ''
-  return `downgrade → ${decision.ruledMove}${scope}`
-}
 
 function timeText(value: string): string {
   const parsed = new Date(value)
@@ -258,14 +253,14 @@ function timeText(value: string): string {
                       aria-haspopup="dialog"
                       @click="openVerdict(decision, $event)"
                     >
-                      {{ verdictText(decision) }}
+                      {{ outcomeText(decision) }}
                     </button>
                   </td>
                   <td class="px-3 py-2 [overflow-wrap:anywhere]">
-                    {{ decision.ruleId }}
+                    {{ decision.ruleId ?? '—' }}
                   </td>
                   <td class="px-3 py-2 [overflow-wrap:anywhere]">
-                    {{ decision.reasonCode }}
+                    {{ decision.reasonCode ?? '—' }}
                   </td>
                   <td class="px-3 py-2">
                     <ul class="flex flex-col gap-0.5">

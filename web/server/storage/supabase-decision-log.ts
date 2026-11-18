@@ -27,6 +27,7 @@ export function createSupabaseDecisionLogStore(options: {
         agent: record.agent,
         proposed_move: record.proposedMove,
         proposed_scope: record.proposedScope,
+        outcome: record.outcome,
         verdict: record.verdict,
         ruled_move: record.ruledMove,
         ruled_scope: record.ruledScope,
@@ -47,7 +48,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, outcome, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -69,11 +70,12 @@ interface DecisionRow {
   agent: string
   proposed_move: string
   proposed_scope: string | null
-  verdict: string
+  outcome: string
+  verdict: string | null
   ruled_move: string | null
   ruled_scope: string | null
-  rule_id: string
-  reason_code: string
+  rule_id: string | null
+  reason_code: string | null
   masteries: unknown
   unlocked_module_ids: unknown
   verify_shield_on: boolean
@@ -87,7 +89,10 @@ function presentDecision(row: DecisionRow): DecisionRecord {
   if (row.agent !== 'teacher' && row.agent !== 'deskmate') {
     throw new Error('A decision row has an unexpected agent.')
   }
-  if (row.verdict !== 'allow' && row.verdict !== 'block' && row.verdict !== 'downgrade') {
+  if (row.outcome !== 'ruled' && row.outcome !== 'step_cap') {
+    throw new Error('A decision row has an unexpected outcome.')
+  }
+  if (row.verdict !== null && row.verdict !== 'allow' && row.verdict !== 'block' && row.verdict !== 'downgrade') {
     throw new Error('A decision row has an unexpected verdict.')
   }
   return {
@@ -97,6 +102,7 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     agent: row.agent,
     proposedMove: row.proposed_move,
     proposedScope: row.proposed_scope,
+    outcome: row.outcome,
     verdict: row.verdict,
     ruledMove: row.ruled_move,
     ruledScope: row.ruled_scope,

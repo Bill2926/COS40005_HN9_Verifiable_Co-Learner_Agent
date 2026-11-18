@@ -58,6 +58,10 @@ const swatches: { id: NoteColour, label: string, dot: string, edge: string }[] =
   { id: 'purple', label: 'Purple', dot: 'bg-purple-500', edge: 'border-l-purple-500' },
 ]
 
+// The editor's fields share one look: a label above, an input tall enough to tap.
+const fieldUi = { label: 'text-xs font-medium text-ink-700' }
+const inputClass = 'min-h-11 rounded-sm text-sm text-ink-900'
+
 // A note opens read-only; Edit or New note switch the same slot to the editor.
 const editing = ref(false)
 const drafting = ref(false)
@@ -83,6 +87,16 @@ const noteToNoteLinks = computed(() => {
   if (!note) return []
   return props.links.filter(link => link.fromNoteId === note.id && link.target.kind === 'note')
 })
+// The link pickers' choices, as Nuxt UI's select lists them: a new note's first link groups modules
+// and notes; a saved note's module and note-to-note pickers list one kind each.
+const firstLinkItems = computed(() => [
+  [{ type: 'label' as const, label: 'Modules' }, ...props.modules.map(module => ({ label: module.name, value: `module:${module.id}` }))],
+  ...(props.notes.length > 0
+    ? [[{ type: 'label' as const, label: 'Notes' }, ...props.notes.map(note => ({ label: preview(note.text), value: `note:${note.id}` }))]]
+    : []),
+])
+const moduleItems = computed(() => props.modules.map(module => ({ label: module.name, value: module.id })))
+const otherNoteItems = computed(() => otherNotes.value.map(note => ({ label: preview(note.text), value: note.id })))
 const readParts = computed(() => splitNote(selected.value?.text ?? ''))
 const shownImage = computed(() => {
   if (image.value === null) return ''
@@ -276,23 +290,12 @@ function save() {
     </article>
 
     <form v-else-if="editing" class="mt-3 flex min-h-0 flex-1 flex-col gap-3 border-t border-ink-200 pt-3" aria-label="Note editor" @submit.prevent="save">
-      <label class="text-xs font-medium text-ink-700">
-        Title
-        <input
-          v-model="title"
-          type="text"
-          required
-          class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
-        >
-      </label>
-      <label class="text-xs font-medium text-ink-700">
-        Note
-        <textarea
-          v-model="body"
-          rows="4"
-          class="mt-1 w-full rounded-sm border border-ink-300 p-2 text-sm font-normal text-ink-900"
-        />
-      </label>
+      <UFormField label="Title" required :ui="fieldUi">
+        <UInput v-model="title" type="text" required color="neutral" class="w-full" :ui="{ base: inputClass }" />
+      </UFormField>
+      <UFormField label="Note" :ui="fieldUi">
+        <UTextarea v-model="body" :rows="4" color="neutral" class="w-full" :ui="{ base: 'text-sm text-ink-900' }" />
+      </UFormField>
       <div>
         <p id="note-image-label" class="text-xs font-medium text-ink-700">Image</p>
         <img
@@ -349,59 +352,64 @@ function save() {
           </button>
         </div>
       </div>
-      <label class="text-xs font-medium text-ink-700">
-        Module
-        <select
+      <UFormField label="Module" :ui="fieldUi">
+        <USelect
           v-if="drafting"
           v-model="firstLink"
-          class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
-        >
-          <option value="" disabled>Choose a module or note</option>
-          <optgroup label="Modules">
-            <option v-for="module in modules" :key="module.id" :value="`module:${module.id}`">{{ module.name }}</option>
-          </optgroup>
-          <optgroup v-if="notes.length > 0" label="Notes">
-            <option v-for="note in notes" :key="note.id" :value="`note:${note.id}`">{{ preview(note.text) }}</option>
-          </optgroup>
-        </select>
-        <select v-else v-model="moduleId" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900">
-          <option value="" disabled>Choose a module</option>
-          <option v-for="module in modules" :key="module.id" :value="module.id">{{ module.name }}</option>
-        </select>
-      </label>
+          :items="firstLinkItems"
+          placeholder="Choose a module or note"
+          color="neutral"
+          class="w-full"
+          :ui="{ base: inputClass }"
+        />
+        <USelect
+          v-else
+          v-model="moduleId"
+          :items="moduleItems"
+          placeholder="Choose a module"
+          color="neutral"
+          class="w-full"
+          :ui="{ base: inputClass }"
+        />
+      </UFormField>
       <p class="text-xs leading-5 text-ink-500">A note always keeps at least one link, to a module or another note. Save puts it on the map.</p>
       <div v-if="selected && !drafting" class="border-t border-ink-200 pt-3">
         <p class="text-xs font-medium text-ink-700">Links to other notes</p>
         <ul v-if="noteToNoteLinks.length > 0" class="mt-1 flex flex-col gap-1" aria-label="Linked notes">
           <li v-for="link in noteToNoteLinks" :key="link.id" class="flex items-center gap-2">
             <span class="min-w-0 flex-1 truncate text-xs text-ink-700">{{ linkTitle(link) }}</span>
-            <button
+            <UButton
               type="button"
-              class="min-h-11 rounded-sm border border-rose-200 px-2 text-xs text-rose-700"
+              color="error"
+              variant="outline"
+              class="min-h-11 rounded-sm px-2 text-xs"
               @click="emit('unlink', link.id)"
             >
               Remove link
-            </button>
+            </UButton>
           </li>
         </ul>
         <p v-else class="mt-1 text-xs text-ink-500">No links to other notes yet.</p>
         <div class="mt-1 flex items-center gap-2">
-          <select
+          <USelect
             v-model="linkTargetId"
+            :items="otherNoteItems"
+            placeholder="Choose a note"
             aria-label="Link to another note"
-            class="min-h-11 min-w-0 flex-1 rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
-          >
-            <option value="">Choose a note</option>
-            <option v-for="note in otherNotes" :key="note.id" :value="note.id">{{ preview(note.text) }}</option>
-          </select>
-          <button
+            color="neutral"
+            class="min-w-0 flex-1"
+            :ui="{ base: inputClass }"
+          />
+          <UButton
             type="button"
-            class="min-h-11 rounded-sm border border-ink-300 px-3 text-sm text-ink-800 disabled:opacity-60"
+            color="neutral"
+            variant="outline"
+            class="min-h-11 rounded-sm px-3 text-sm"
             :disabled="!linkTargetId || saving"
             @click="linkNote"
           >
             Link
-          </button>
+          </UButton>
         </div>
       </div>
       <div class="flex flex-wrap gap-2">
@@ -421,14 +429,16 @@ function save() {
         >
           Cancel
         </UButton>
-        <button
+        <UButton
           v-if="selected && !drafting"
           type="button"
-          class="min-h-11 rounded-sm border border-rose-200 px-3 text-sm text-rose-700"
+          color="error"
+          variant="outline"
+          class="min-h-11 rounded-sm px-3 text-sm"
           @click="emit('remove', selected.id)"
         >
           Delete note
-        </button>
+        </UButton>
       </div>
     </form>
     <p v-if="saved" class="mt-2 text-sm text-emerald-700" role="status" data-note-saved>{{ saved }}</p>

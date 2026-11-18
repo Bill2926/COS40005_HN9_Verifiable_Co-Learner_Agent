@@ -49,7 +49,7 @@ export async function testConnection(settings: ModelSettings): Promise<Connectio
         'Call the tool, with the proposal set to "checked". Do not answer in words.',
         probePrompt,
         probeSchema,
-        1,
+        { tools: [], maxSteps: 1 },
       )
       return true
     }, choice.apiKey),

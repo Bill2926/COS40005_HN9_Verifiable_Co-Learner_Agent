@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { addressedText, agentText, drawerChecks, reasonText, toolCallsView } from '../app/admin/decisions'
+import { addressedText, agentText, drawerChecks, outcomeText, reasonText, toolCallsView } from '../app/admin/decisions'
 
 const base = {
+  outcome: 'ruled' as const,
   ruleId: 'scope_requires_unlocked_module',
   reasonCode: 'MODULE_CLOSED',
   verdict: 'downgrade' as const,
@@ -81,7 +82,17 @@ describe('verdict drawer addressed agent', () => {
     expect(toolCallsView({})).toEqual({ note: 'Tool calls were not recorded for this decision.', calls: [] })
   })
 
-  it('words a Teacher that ran out of steps', () => {
-    expect(reasonText('STEP_CAP_REACHED')).toBe('The Teacher reached its 3-step limit before proposing a move, so it said nothing.')
+  it('shows a step cap as its own outcome, not as a VerifyShield verdict', () => {
+    const stepCap = { outcome: 'step_cap' as const, verdict: null, ruledMove: null, ruledScope: null, ruleId: null, reasonCode: null, verifyShieldOn: true }
+    expect(outcomeText(stepCap)).toBe('step cap')
+    expect(drawerChecks(stepCap)).toEqual({
+      note: 'The Teacher reached its 3-step limit before proposing a move, so it said nothing and the VerifyShield had nothing to rule on.',
+      checks: [],
+    })
+  })
+
+  it('words a ruling as its verdict, with the move a downgrade gave instead', () => {
+    expect(outcomeText({ outcome: 'ruled', verdict: 'allow', ruledMove: 'explain_concept', ruledScope: 'loops' })).toBe('allow')
+    expect(outcomeText({ outcome: 'ruled', verdict: 'downgrade', ruledMove: 'answer_question', ruledScope: 'loops' })).toBe('downgrade → answer_question · loops')
   })
 })
