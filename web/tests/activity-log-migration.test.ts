@@ -115,3 +115,30 @@ it('imports an arrangement once and keeps an account reset across devices', asyn
     expect((await db.query('select module_id from public.mindmap_positions')).rows).toEqual([])
   })
 })
+
+it('writes a note and its first link together, or neither', async () => {
+  await withActivityMigration(async (db) => {
+    await db.exec(await readFile(new URL('20261118120000_note_with_first_link.sql', migrations), 'utf8'))
+    const first = 'c33c33c3-3333-4333-8333-333333333333'
+    const second = 'd44d44d4-4444-4444-8444-444444444444'
+    const insert = (noteId: string, kind: string, target: string, linkId = crypto.randomUUID()) => db.query<{ written: boolean }>(
+      'select public.insert_mindmap_note($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) as written',
+      [an, 'intro_python', noteId, 'A note', 'ink', 1, 2, linkId, kind, target],
+    )
+
+    for (const role of ['anon', 'authenticated']) {
+      await db.exec(`set role ${role}`)
+      await expect(insert(first, 'module', 'loops')).rejects.toMatchObject({ code: '42501' })
+      await db.exec('reset role')
+    }
+
+    await db.exec('set role service_role')
+    expect((await insert(first, 'module', 'loops')).rows).toEqual([{ written: true }])
+    expect((await insert(second, 'note', first)).rows).toEqual([{ written: true }])
+    expect((await insert(crypto.randomUUID(), 'note', crypto.randomUUID())).rows).toEqual([{ written: false }])
+    // A link that breaks a rule leaves no note behind.
+    await expect(insert(crypto.randomUUID(), 'wall', 'loops')).rejects.toMatchObject({ code: '23514' })
+    expect((await db.query('select count(*)::int as n from public.mindmap_notes')).rows).toEqual([{ n: 2 }])
+    expect((await db.query('select count(*)::int as n from public.mindmap_links')).rows).toEqual([{ n: 2 }])
+  })
+})

@@ -315,10 +315,11 @@ function resetMindmapArrangement() {
 
 async function saveNote(draft: {
   id: string | null, title: string, body: string, colour: string, moduleId: string,
+  target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string } | null,
 }) {
   if (addingNote.value) return
-  if (!draft.title.trim() || !draft.moduleId) {
-    noteError.value = 'A note needs a title and one module.'
+  if (!draft.title.trim() || !(draft.id ? draft.moduleId : draft.target)) {
+    noteError.value = 'A note needs a title and a link to a module or another note.'
     return
   }
   addingNote.value = true
@@ -337,6 +338,7 @@ async function saveNote(draft: {
           colour: draft.colour,
           x: 48,
           y: 48,
+          target: draft.target,
         },
       })
       applyMindmap(created)
@@ -352,24 +354,9 @@ async function saveNote(draft: {
           colour: draft.colour,
         },
       }))
+      await moveModuleLink(noteId, draft.moduleId)
     }
     if (!noteId) throw new Error('The note was not saved.')
-    for (const link of noteLinks.value.filter(item => item.fromNoteId === noteId && item.target.kind === 'module')) {
-      if (link.target.kind === 'module' && link.target.moduleId !== draft.moduleId) {
-        applyMindmap(await $fetch<MindmapState>('/api/student', {
-          method: 'POST',
-          body: { event: 'note_unlinked', linkId: link.id },
-        }))
-      }
-    }
-    const linked = noteLinks.value.some(item =>
-      item.fromNoteId === noteId && item.target.kind === 'module' && item.target.moduleId === draft.moduleId)
-    if (!linked) {
-      applyMindmap(await $fetch<MindmapState>('/api/student', {
-        method: 'POST',
-        body: { event: 'note_linked', noteId, target: { kind: 'module', moduleId: draft.moduleId } },
-      }))
-    }
     selectedNoteId.value = noteId
     showNoteSaved('Note saved.')
   }
@@ -378,6 +365,27 @@ async function saveNote(draft: {
   }
   finally {
     addingNote.value = false
+  }
+}
+
+// Link the new module first, then drop the old one, so the note is never
+// left without a link.
+async function moveModuleLink(noteId: string, moduleId: string) {
+  const linked = noteLinks.value.some(item =>
+    item.fromNoteId === noteId && item.target.kind === 'module' && item.target.moduleId === moduleId)
+  if (!linked) {
+    applyMindmap(await $fetch<MindmapState>('/api/student', {
+      method: 'POST',
+      body: { event: 'note_linked', noteId, target: { kind: 'module', moduleId } },
+    }))
+  }
+  for (const link of noteLinks.value.filter(item => item.fromNoteId === noteId && item.target.kind === 'module')) {
+    if (link.target.kind === 'module' && link.target.moduleId !== moduleId) {
+      applyMindmap(await $fetch<MindmapState>('/api/student', {
+        method: 'POST',
+        body: { event: 'note_unlinked', linkId: link.id },
+      }))
+    }
   }
 }
 
@@ -421,6 +429,11 @@ async function linkNotes(noteId: string, targetNoteId: string) {
 
 async function unlinkNotes(linkId: string) {
   noteError.value = ''
+  const link = noteLinks.value.find(item => item.id === linkId)
+  if (link && noteLinks.value.filter(item => item.fromNoteId === link.fromNoteId).length <= 1) {
+    noteError.value = 'A note keeps at least one link. Link it elsewhere first, or delete the note.'
+    return
+  }
   try {
     applyMindmap(await $fetch<MindmapState>('/api/student', {
       method: 'POST',
@@ -968,6 +981,7 @@ function initialsOf(name: string): string {
           :links="noteLinks"
           :modules="noteModules"
           :selected-id="selectedNoteId"
+          :default-module-id="selectedMindmapModuleId"
           :saving="addingNote"
           :saved="noteSaved"
           :error="noteError"

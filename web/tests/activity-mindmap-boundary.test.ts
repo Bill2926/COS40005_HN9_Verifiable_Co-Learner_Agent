@@ -97,4 +97,38 @@ describe('activity log and mindmap boundary', () => {
 
     await mindmap.save(binhId!, 'intro_python', { positions: [], notes: [], links: [] })
   }, 20_000)
+
+  it('stores a new note and its first link together', async () => {
+    const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
+    const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
+    const admin = createClient(url, secretKey, noSession)
+    const binhId = (await admin.auth.admin.listUsers()).data.users.find(user => user.email === demoAccounts[1]!.email)?.id
+    expect(binhId).toBeTruthy()
+    const mindmap = createSupabaseMindmapStore({ url, secretKey })
+    const noteId = crypto.randomUUID()
+    const linkId = crypto.randomUUID()
+    try {
+      const written = await mindmap.insertNote(binhId!, 'intro_python', { id: noteId, text: 'Linked at birth', colour: 'ink', x: 1, y: 2 }, {
+        id: linkId,
+        fromNoteId: noteId,
+        target: { kind: 'module', moduleId: 'getting_started' },
+      })
+      expect(written).toBe(true)
+      const record = await mindmap.read(binhId!, 'intro_python')
+      expect(record.notes.map(note => note.id)).toEqual([noteId])
+      expect(record.links).toEqual([{ id: linkId, fromNoteId: noteId, target: { kind: 'module', moduleId: 'getting_started' } }])
+
+      const orphanId = crypto.randomUUID()
+      const missing = await mindmap.insertNote(binhId!, 'intro_python', { id: orphanId, text: 'Orphan', colour: 'ink', x: 0, y: 0 }, {
+        id: crypto.randomUUID(),
+        fromNoteId: orphanId,
+        target: { kind: 'note', noteId: crypto.randomUUID() },
+      })
+      expect(missing).toBe(false)
+      expect((await mindmap.read(binhId!, 'intro_python')).notes.map(note => note.id)).toEqual([noteId])
+    }
+    finally {
+      await mindmap.save(binhId!, 'intro_python', { positions: [], notes: [], links: [] })
+    }
+  }, 20_000)
 })

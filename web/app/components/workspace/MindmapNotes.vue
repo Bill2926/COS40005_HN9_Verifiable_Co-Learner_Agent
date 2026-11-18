@@ -18,6 +18,8 @@ const props = defineProps<{
   links: ModuleLink[]
   modules: { id: string, name: string }[]
   selectedId: string
+  // The module selected on the canvas; a new note links to it unless a note is selected.
+  defaultModuleId?: string
   saving: boolean
   saved: string
   error: string
@@ -25,11 +27,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [id: string]
-  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string }]
+  save: [draft: { id: string | null, title: string, body: string, colour: string, moduleId: string, target: LinkChoice | null }]
   remove: [id: string]
   link: [noteId: string, targetNoteId: string]
   unlink: [linkId: string]
 }>()
+
+type LinkChoice = { kind: 'module', moduleId: string } | { kind: 'note', noteId: string }
 
 const swatches: { id: NoteColour, label: string, dot: string, edge: string }[] = [
   { id: 'ink', label: 'Ink', dot: 'bg-ink-800', edge: 'border-l-ink-800' },
@@ -46,11 +50,15 @@ const title = ref('')
 const body = ref('')
 const colour = ref<NoteColour>('brand')
 const moduleId = ref('')
+// A new note's first link, written as `module:<id>` or `note:<id>`.
+const firstLink = ref('')
 const linkTargetId = ref('')
 
 const selected = computed(() => props.notes.find(note => note.id === props.selectedId) ?? null)
 const formOpen = computed(() => drafting.value || selected.value !== null)
-const canSave = computed(() => title.value.trim().length > 0 && moduleId.value.length > 0 && !props.saving)
+const canSave = computed(() => title.value.trim().length > 0
+  && (drafting.value ? firstLink.value.length > 0 : moduleId.value.length > 0)
+  && !props.saving)
 const otherNotes = computed(() => props.notes.filter(note => note.id !== props.selectedId))
 const noteToNoteLinks = computed(() => {
   const note = selected.value
@@ -96,11 +104,15 @@ function preview(text: string): string {
 }
 
 function startDraft() {
+  const preselected = props.selectedId && props.notes.some(note => note.id === props.selectedId)
+    ? `note:${props.selectedId}`
+    : props.defaultModuleId ? `module:${props.defaultModuleId}` : ''
   drafting.value = true
   title.value = ''
   body.value = ''
   colour.value = 'brand'
   moduleId.value = ''
+  firstLink.value = preselected
   linkTargetId.value = ''
   emit('select', '')
 }
@@ -121,6 +133,12 @@ function openNote(id: string) {
   emit('select', id)
 }
 
+function firstTarget(): LinkChoice | null {
+  const [kind, id = ''] = firstLink.value.split(/:(.*)/s)
+  if (!id) return null
+  return kind === 'note' ? { kind: 'note', noteId: id } : { kind: 'module', moduleId: id }
+}
+
 function save() {
   if (!canSave.value) return
   emit('save', {
@@ -129,6 +147,7 @@ function save() {
     body: body.value,
     colour: colour.value,
     moduleId: moduleId.value,
+    target: drafting.value ? firstTarget() : null,
   })
 }
 </script>
@@ -147,7 +166,7 @@ function save() {
       </button>
     </div>
     <p v-if="notes.length === 0 && !formOpen" class="mt-2 text-xs leading-5 text-ink-500">
-      A note needs a title and one module. It appears on the map when you save.
+      A note needs a title and a link to a module or another note. It appears on the map when you save.
     </p>
     <ul v-if="notes.length > 0" class="mt-2 flex max-h-36 flex-col gap-1 overflow-y-auto" aria-label="Your notes">
       <li v-for="note in notes" :key="note.id">
@@ -198,12 +217,25 @@ function save() {
       </div>
       <label class="text-xs font-medium text-ink-700">
         Module
-        <select v-model="moduleId" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900">
+        <select
+          v-if="drafting"
+          v-model="firstLink"
+          class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900"
+        >
+          <option value="" disabled>Choose a module or note</option>
+          <optgroup label="Modules">
+            <option v-for="module in modules" :key="module.id" :value="`module:${module.id}`">{{ module.name }}</option>
+          </optgroup>
+          <optgroup v-if="notes.length > 0" label="Notes">
+            <option v-for="note in notes" :key="note.id" :value="`note:${note.id}`">{{ preview(note.text) }}</option>
+          </optgroup>
+        </select>
+        <select v-else v-model="moduleId" class="mt-1 min-h-11 w-full rounded-sm border border-ink-300 px-2 text-sm font-normal text-ink-900">
           <option value="" disabled>Choose a module</option>
           <option v-for="module in modules" :key="module.id" :value="module.id">{{ module.name }}</option>
         </select>
       </label>
-      <p class="text-xs leading-5 text-ink-500">A note has to be linked to one module. Save puts it on the map.</p>
+      <p class="text-xs leading-5 text-ink-500">A note always keeps at least one link, to a module or another note. Save puts it on the map.</p>
       <div v-if="selected && !drafting" class="border-t border-ink-200 pt-3">
         <p class="text-xs font-medium text-ink-700">Links to other notes</p>
         <ul v-if="noteToNoteLinks.length > 0" class="mt-1 flex flex-col gap-1" aria-label="Linked notes">
