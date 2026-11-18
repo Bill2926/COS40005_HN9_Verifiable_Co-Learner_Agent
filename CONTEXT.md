@@ -11,8 +11,12 @@ The first-year learner, with no programming background, who studies a course in 
 _Avoid_: user, learner
 
 **Profile**:
-A student's own display name and profile picture, which they can change, shown with their student number, which they cannot. Only students have a profile for now.
+A student's own display name and profile picture, which they can change, shown with their student number and campus, which they cannot. Only students have a profile for now.
 _Avoid_: account, settings
+
+**Campus**:
+The Swinburne campus a student studies at: Hanoi, Da Nang, Ho Chi Minh City or Can Tho. The student chooses it once, the first time they sign in, and must choose one before studying; afterwards only the product owner can change it. Lecturers and the product owner see it beside the student number, and a lecturer can filter enrolled students by it. It changes nothing about the course, the mastery threshold or the agents.
+_Avoid_: site, location, branch
 
 **Student number**:
 A student's short identifier in the form SWB followed by at least four digits (SWB0001), like a university student ID, given to the student when their account is created and unique across the whole system; a number is never given out twice. Lecturers and the product owner can see it; only the product owner can change it, and each change is recorded. It is how staff tell students apart.
@@ -30,7 +34,7 @@ _Avoid_: companion, buddy, second tutor
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
 **Product owner**:
-The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number. Never sees a student's code, conversation or mastery. Does not manage courses: that is the lecturer.
+The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus. Never sees a student's code, conversation or mastery. Does not manage courses: that is the lecturer.
 _Avoid_: admin, assessor
 
 **Lecturer**:
@@ -60,7 +64,7 @@ The lecturer's view of a course draft as a student would see it, with exercises 
 _Avoid_: test mode, student view
 
 **Materials**:
-What a module teaches in Learn mode, as an ordered list of blocks: text, code examples, diagrams, images and videos. Every kind of block is optional.
+What a module teaches in Learn mode, as an ordered list of blocks: text, code examples, images and videos. A diagram is an image. Every kind of block is optional.
 _Avoid_: content, lesson, notes
 
 **Mastery threshold**:
@@ -120,7 +124,7 @@ The student's personal canvas of a course: every module of the course roadmap, w
 _Avoid_: roadmap, knowledge map, mind map
 
 **Note**:
-A student's own item on their mindmap: natural-language text, an optional image and a colour from a fixed set, which the student can create, change, link to modules or other notes, and delete. The agents never read notes.
+A student's own item on their mindmap: natural-language text, an optional image and a colour from a fixed set, which the student can create, change, link to modules or other notes, and delete. A note is always linked to at least one module or other note. The agents never read notes.
 _Avoid_: node, card, sticky
 
 **Mindmap arrangement**:
