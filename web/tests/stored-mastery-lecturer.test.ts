@@ -57,8 +57,8 @@ function recalculateFor(courses: CourseStore, evidence: EvidenceStore, mastery: 
   return createMasteryRecalculator({
     course: (courseId) => courses.course(courseId),
     enrolledStudentIds: async () => [an, binh],
-    evidence,
-    mastery,
+    evidence: () => evidence,
+    mastery: () => mastery,
   })
 }
 

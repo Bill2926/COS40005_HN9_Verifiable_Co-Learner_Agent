@@ -8,6 +8,7 @@ import {
   readStoredMastery,
   saveMasteryFromEvidence,
   storedCourseEstimate,
+  type MasteryStore,
   type StoredMastery,
   type StudiedCourse,
 } from '../server/student-model'
@@ -105,8 +106,8 @@ describe('stored mastery', () => {
     const recalculate = createMasteryRecalculator({
       course: async () => course,
       enrolledStudentIds: async () => ['an', 'binh'],
-      evidence,
-      mastery,
+      evidence: () => evidence,
+      mastery: () => mastery,
     })
 
     await recalculate.forCourse('intro_python')
@@ -118,5 +119,26 @@ describe('stored mastery', () => {
     expect(binh.find(item => item.moduleId === 'a')!.passedExercise).toBe(false)
     expect(an.find(item => item.moduleId === 'a')!.mastery)
       .toBeGreaterThan(binh.find(item => item.moduleId === 'a')!.mastery)
+  })
+
+  it('writes only the rows of the course it is asked to recompute', async () => {
+    const evidence = createMemoryEvidenceStore()
+    await evidence.append(passed)
+    const byCourse = new Map<string, MasteryStore>()
+    const storeFor = (courseId: string) => {
+      if (!byCourse.has(courseId)) byCourse.set(courseId, createMemoryMasteryStore())
+      return byCourse.get(courseId)!
+    }
+    const recalculate = createMasteryRecalculator({
+      course: async () => course,
+      enrolledStudentIds: async () => ['an'],
+      evidence: () => evidence,
+      mastery: storeFor,
+    })
+
+    await recalculate.forCourse('data_science')
+
+    expect((await storeFor('data_science').forStudent('an')).map(item => item.moduleId)).toEqual(['a', 'b'])
+    expect(await storeFor('intro_python').forStudent('an')).toEqual([])
   })
 })

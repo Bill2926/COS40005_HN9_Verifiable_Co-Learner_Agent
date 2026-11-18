@@ -63,7 +63,9 @@ Each box is a pair of files: the interface file (with its in-memory version) and
 implements it with `import type` from the interface file. The verify shield, evidence, stored mastery and activity log are the exceptions: their interface
 files are in the `verify-shield`, `student-model` and `activity-recorder` components, so only the `supabase-` file is here.
 `supabase-mastery-recalculation.ts` is not a store either: it builds `student-model`'s recalculator out of the course,
-enrollment, evidence and mastery stores, so the two lecturer routes each get one object to call after a change.
+enrollment, evidence and mastery stores, so the two lecturer routes each get one object to call after a change. It takes
+only the connection, never a course id: each `forCourse` call opens the evidence and mastery stores of the course it is
+asked to recompute, because those stores are scoped to one course.
 ## Stores and the tables they use
 
 | Store | Interface offers | Tables (from the Supabase version) |

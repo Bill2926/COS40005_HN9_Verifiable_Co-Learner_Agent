@@ -12,7 +12,7 @@ export default defineEventHandler(async (event) => {
   const store = createSupabaseLecturerStore(connection)
   // A published spec may change the modules, exercises and questions the evidence is about, so
   // every enrolled student's stored mastery is recomputed from it (ADR 0008).
-  const recalculate = createSupabaseMasteryRecalculator(connection, defaultCourseId)
+  const recalculate = createSupabaseMasteryRecalculator(connection)
   const identity = { email: await sessionEmail(event), lecturerEmails: config.lecturerEmails, store, recalculate }
   const command = commandFrom(raw)
   if (command.action === 'publish' || command.action === 'discard') {

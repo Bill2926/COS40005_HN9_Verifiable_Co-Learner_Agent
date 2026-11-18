@@ -9,8 +9,10 @@ export interface MasteryRecalculationSources {
   // The course as it now is, threshold included, read after the change has landed.
   course: (courseId: string) => Promise<StudiedCourse>
   enrolledStudentIds: (courseId: string) => Promise<string[]>
-  evidence: EvidenceStore
-  mastery: MasteryStore
+  // The student-data stores of the course being recomputed, so a change to one course
+  // never reads or writes the rows of another.
+  evidence: (courseId: string) => EvidenceStore
+  mastery: (courseId: string) => MasteryStore
 }
 
 export interface MasteryRecalculator {
@@ -21,8 +23,10 @@ export function createMasteryRecalculator(sources: MasteryRecalculationSources):
   return {
     async forCourse(courseId) {
       const course = await sources.course(courseId)
+      const evidence = sources.evidence(courseId)
+      const mastery = sources.mastery(courseId)
       for (const studentId of await sources.enrolledStudentIds(courseId)) {
-        await saveMasteryFromEvidence(course, await sources.evidence.forStudent(studentId), studentId, sources.mastery)
+        await saveMasteryFromEvidence(course, await evidence.forStudent(studentId), studentId, mastery)
       }
     },
   }

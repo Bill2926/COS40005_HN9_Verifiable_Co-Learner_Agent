@@ -9,15 +9,15 @@ import { createSupabaseMasteryStore } from './supabase-mastery-store'
 export function createSupabaseMasteryRecalculator(connection: {
   url: string
   secretKey: string
-}, courseId: string): MasteryRecalculator {
+}): MasteryRecalculator {
   const courses = createSupabaseCourseStore(connection)
   const enrollments = createSupabaseEnrollmentStore(connection)
-  const studentData = { ...connection, courseId }
+  const studentData = (courseId: string) => ({ ...connection, courseId })
   return createMasteryRecalculator({
     // Read after the change has landed, so the new threshold and modules are the ones estimated with.
     course: (id) => courses.course(id),
     enrolledStudentIds: (id) => enrollments.enrolledStudentIds(id),
-    evidence: createSupabaseEvidenceStore(studentData),
-    mastery: createSupabaseMasteryStore(studentData),
+    evidence: (id) => createSupabaseEvidenceStore(studentData(id)),
+    mastery: (id) => createSupabaseMasteryStore(studentData(id)),
   })
 }
