@@ -93,7 +93,6 @@ describe('course spec parser', () => {
     const materials = [
       { type: 'text' as const, markdown: 'Hello' },
       { type: 'code' as const, code: 'print(1)' },
-      { type: 'diagram' as const, mermaid: 'flowchart LR\n  a --> b' },
       { type: 'image' as const, url: 'https://example.com/a.png', alt: 'A sketch of a variable' },
       { type: 'video' as const, url: 'https://vimeo.com/76979871', title: 'A short clip' },
     ]
@@ -132,8 +131,14 @@ describe('course spec parser', () => {
 
   it('rejects a block that is missing a field and names the module and block', () => {
     const spec = structuredClone(pythonCourseSpec)
-    spec.modules[0]!.content!.materials = [{ type: 'diagram', mermaid: '' }]
-    expect(() => parseCourseSpec(JSON.stringify(spec))).toThrow('Module getting_started, block 1: mermaid is missing.')
+    spec.modules[0]!.content!.materials = [{ type: 'image', url: '/a.png', alt: '' }]
+    expect(() => parseCourseSpec(JSON.stringify(spec))).toThrow('Module getting_started, block 1: alt is missing.')
+  })
+
+  it('refuses a spec that still has a diagram block', () => {
+    const spec = structuredClone(pythonCourseSpec) as unknown as { modules: { content: { materials: unknown[] } }[] }
+    spec.modules[0]!.content.materials = [{ type: 'diagram', mermaid: 'flowchart LR\n  a --> b' }]
+    expect(() => parseCourseSpec(JSON.stringify(spec))).toThrow('Module getting_started, block 1: type is not a materials block.')
   })
 
   it.each([
@@ -167,11 +172,12 @@ describe('course spec parser', () => {
     expect(parseCourseSpec(JSON.stringify(pythonCourseSpec))).toEqual(pythonCourseSpec)
   })
 
-  it('includes a diagram and a video in the seeded Python spec', () => {
+  it('includes an image with alt text and a video in the seeded Python spec', () => {
     const blocks = pythonCourseSpec.modules.flatMap(module => module.content?.materials ?? [])
     expect(blocks).toContainEqual({
-      type: 'diagram',
-      mermaid: 'flowchart LR\n  program[A program] --> shown["print()"]',
+      type: 'image',
+      url: '/course-images/first-program.png',
+      alt: 'Diagram: A program leads to print().',
     })
     expect(blocks).toContainEqual({
       type: 'video',

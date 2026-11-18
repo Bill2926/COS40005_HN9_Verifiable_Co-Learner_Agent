@@ -28,8 +28,6 @@ flowchart LR
     wa["<b>WorkingArea</b><br/>Learn and Practice tabs"]:::comp
     mb["<b>MaterialBlocks</b><br/>Materials in order"]:::comp
     mv["<b>MaterialVideo</b><br/>Embed or link"]:::comp
-    mdg["<b>MermaidDiagram</b><br/>Light and dark themes"]:::comp
-    theme["<b>diagram-theme.ts</b><br/>paper and ink colours"]:::comp
     qz["<b>QuizPanel</b><br/>Three questions, result<br/>once answered"]:::comp
     pp["<b>PracticePanel</b><br/>Run, Submit, results"]:::comp
     pe["<b>PythonEditor</b>"]:::comp
@@ -39,7 +37,6 @@ flowchart LR
 
   chatmd["<b>workspace/chat-markdown.ts</b>"]:::near
   mats["<b>shared/materials.ts</b>"]:::near
-  mermaidPkg["<b>Mermaid</b>"]:::ext
   arr["<b>mindmap/arrangement.ts</b>"]:::near
   drafts["<b>drafts/store.ts</b>"]:::near
   runner["<b>python/runner.ts</b>,<br/>python/browser-runner.ts"]:::near
@@ -60,10 +57,7 @@ flowchart LR
   wa --> qz
   mb --> cm
   mb --> px
-  mb --> mdg
   mb --> mv
-  mdg -->|"diagramTheme"| theme
-  mdg -->|"dynamic import"| mermaidPkg
   mv -->|"videoEmbed"| mats
   qz --> it
   pp --> pe
@@ -92,18 +86,16 @@ flowchart LR
 | `PracticePanel.vue` | Exercise chips, editor, Run and Submit. Runs code and tests in the Pyodide worker, keeps the draft in `localStorage` per student and exercise, emits `draft`, `run`, `runFinished` and `submit`. `runFinished` is the exercise id when a run ends, including a failure, a stop, or the panel going away mid-run, and never the code. |
 | `PythonEditor.vue` | CodeMirror 6 editor bound with `v-model`. Tab accepts the highlighted autocomplete suggestion; with none open Tab moves focus on, so keyboard users are not trapped. |
 | `PythonExample.vue` | Read-only, highlighted code example. A long line scrolls inside the example, not the page. |
-| `MaterialBlocks.vue` | Renders one module's materials in order: text (Markdown), a Python example, a Mermaid diagram, an image (URL and alt text), or a video. |
+| `MaterialBlocks.vue` | Renders one module's materials in order: text (Markdown), a Python example, an image (URL and alt text, on a white card in both colour modes so a diagram drawn for paper stays readable on ink), or a video. |
 | `MaterialVideo.vue` | A YouTube or Vimeo address is an embedded player. Any other address is a link with the video's title. |
-| `MermaidDiagram.vue` | Draws a Mermaid diagram in the browser. `diagram-theme.ts` supplies the light theme (paper and navy) and the dark theme (ink), and the diagram follows the colour mode. The drawing fits the column width and is never drawn larger than its natural size. The app's reduced-motion rule is switched off inside the diagram (`main.css`), because it made Mermaid mis-measure its edge labels and draw a huge, tiny-texted diagram. A diagram Mermaid cannot draw shows its source, wrapped. |
-| `diagram-theme.ts` | `diagramTheme('light' \| 'dark', color)`: Mermaid settings for the two themes. `color` reads a palette variable from the page. `useMaxWidth` makes the SVG fit a phone. |
 | `InlineText.vue` | Shows backtick spans as inline code. It has its own small parser; it does not use `chat-markdown.ts`. |
 
 ## Verified imports
 
 - As drawn. `MindmapNotes.vue` imports only the `NoteColour` type from `shared/mindmap`. `CourseRoadmap.vue` and `ConversationPanel.vue` import only types from `shared/turn` (and `ChatMarkdown`).
 - Type-only imports of `shared/turn` (through the `#shared/turn` alias): `ConversationPanel`, `CourseRoadmap`, `MaterialBlocks` (`MaterialBlock`), `PracticePanel`, `QuizPanel` (`QuizQuestionView`), `MindmapCanvas`, `WorkingArea`. `ChatInline` has a type-only import of `workspace/chat-markdown`.
-- `MaterialVideo` imports `videoEmbed` from `shared/materials` at runtime. `MermaidDiagram` imports `diagram-theme.ts` and loads `mermaid` with a dynamic `import()`.
+- `MaterialVideo` imports `videoEmbed` from `shared/materials` at runtime.
 - `PracticePanel` also has a runtime import of `python/runner` (`RunStopped`) and a dynamic import of `python/browser-runner`.
 - `PythonEditor` and `PythonExample` load `codemirror`, `@codemirror/lang-python`, `@codemirror/state` and `python/highlight` with dynamic `import()` inside `onMounted`.
-- Imported by: `pages/index.vue` (the workspace panels). `CoursePreviewPanel.vue` imports `MaterialBlocks` and `PracticePanel`. `CourseEditor.vue` imports `MermaidDiagram`. The other files are imported by siblings only.
-- `diagram-theme.ts` and `shared/materials.ts` are tested by `materials.test.ts`. No test imports the Vue files.
+- Imported by: `pages/index.vue` (the workspace panels). `CoursePreviewPanel.vue` imports `MaterialBlocks` and `PracticePanel`. `CourseEditor.vue` imports `app/utils/shrink-image.ts` (`shrinkImage`: long side cut to 1024 px, re-encoded as WebP in the browser) and uploads an image block's file to `POST /api/lecturer/image`. The other files are imported by siblings only.
+- `shared/materials.ts` is tested by `materials.test.ts` and `shrink-image.ts` by `diagram-alt-text.test.ts`. No test imports the Vue files.

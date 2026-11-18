@@ -20,7 +20,6 @@ export type RoadmapModule =
 export type MaterialBlock =
   | { type: 'text', markdown: string }
   | { type: 'code', code: string }
-  | { type: 'diagram', mermaid: string }
   | { type: 'image', url: string, alt: string }
   | { type: 'video', url: string, title: string }
 

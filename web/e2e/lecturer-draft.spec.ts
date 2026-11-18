@@ -13,7 +13,7 @@ const widths = [
 const publishedUrl = '/api/lecturer/spec?courseId=intro_python'
 
 for (const width of widths) {
-  test(`edits a hint, adds a diagram block and publishes at ${width.name} width`, async ({ page }) => {
+  test(`edits a hint, uploads an image block and publishes at ${width.name} width`, async ({ page }) => {
     await page.setViewportSize(width.viewport)
     await signIn(page, lecturerAccount)
     const original = await (await page.request.get(publishedUrl)).text()
@@ -24,11 +24,18 @@ for (const width of widths) {
       await openEditor(page)
 
       await editor.getByLabel('Hint 1').fill(hint)
-      const diagrams = editor.getByRole('textbox', { name: 'Diagram', exact: true })
-      const before = await diagrams.count()
-      await editor.getByRole('button', { name: 'Add diagram' }).click()
-      await expect(diagrams).toHaveCount(before + 1)
-      await expect(editor.locator('svg').last()).toBeVisible()
+      await expect(editor.getByRole('button', { name: 'Add diagram' })).toHaveCount(0)
+      const images = editor.getByLabel('Image description', { exact: true })
+      const before = await images.count()
+      await editor.getByRole('button', { name: 'Add image' }).click()
+      await expect(images).toHaveCount(before + 1)
+      await editor.locator('input[type=file][accept^="image/"]').last().setInputFiles({
+        name: 'sketch.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/q842iQAAAABJRU5ErkJggg==', 'base64'),
+      })
+      await expect(editor.getByLabel('Image URL').last()).toHaveValue(/course-images\/intro_python\/.+\.webp$/)
+      await images.last().fill('A one pixel sketch')
 
       await editor.getByRole('button', { name: 'Save draft' }).click()
       await expect(editor.getByRole('status')).toHaveText('Draft saved.')

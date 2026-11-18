@@ -23,7 +23,6 @@ const quizQuestion = z.strictObject({
 const materialBlock = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('text'), markdown: z.string().min(1) }),
   z.strictObject({ type: z.literal('code'), code: z.string().min(1) }),
-  z.strictObject({ type: z.literal('diagram'), mermaid: z.string().min(1) }),
   z.strictObject({ type: z.literal('image'), url: z.string().min(1), alt: z.string().min(1) }),
   z.strictObject({ type: z.literal('video'), url: z.string().min(1), title: z.string().min(1) }),
 ])

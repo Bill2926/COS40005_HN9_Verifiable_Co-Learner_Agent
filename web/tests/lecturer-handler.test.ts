@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
-import { handleCourseSpec, handleLecturer } from '../server/lecturer/handle-lecturer'
+import { handleCourseImage, handleCourseSpec, handleLecturer } from '../server/lecturer/handle-lecturer'
 import { pythonCourseSpec, type CourseSpec } from '../server/course'
+import { createMemoryCourseImageStore } from '../server/storage/course-image-store'
 import { createMemoryLecturerStore } from '../server/storage/lecturer-store'
 
 const lecturerEmails = 'other@example.com, LECTURER@example.com'
@@ -162,8 +163,8 @@ describe('lecturer course spec', () => {
   it('names the module and block when the draft is invalid', async () => {
     const { upload, download } = setup()
     const spec = structuredClone(pythonCourseSpec)
-    spec.modules[0]!.content!.materials = [{ type: 'diagram', mermaid: '' }]
-    await expect(upload(spec)).rejects.toThrow('Module getting_started, block 1: mermaid is missing.')
+    spec.modules[0]!.content!.materials = [{ type: 'image', url: '/a.png', alt: '' }]
+    await expect(upload(spec)).rejects.toThrow('Module getting_started, block 1: alt is missing.')
     expect(await download()).toEqual(pythonCourseSpec)
   })
 
@@ -229,5 +230,40 @@ describe('lecturer course spec', () => {
       .rejects.toMatchObject({ statusCode })
     await expect(handleCourseSpec({ ...request, email, action: 'import', json: JSON.stringify(pythonCourseSpec) }))
       .rejects.toMatchObject({ statusCode })
+  })
+})
+
+describe('course image upload', () => {
+  const store = () => createMemoryLecturerStore([{ ...python, spec: pythonCourseSpec }])
+  const png = { contentType: 'image/png', base64: Buffer.from([1, 2, 3]).toString('base64') }
+
+  it('stores the lecturer\'s image in the course folder and returns its address', async () => {
+    const images = createMemoryCourseImageStore()
+    const { url } = await handleCourseImage({ email: 'lecturer@example.com', lecturerEmails, store: store(), images, courseId: 'intro_python', image: png })
+    expect(url).toMatch(/^memory:intro_python\/[0-9a-f-]+\.png$/)
+    expect([...images.files.values()]).toEqual([{ bytes: new Uint8Array([1, 2, 3]), contentType: 'image/png' }])
+  })
+
+  it.each([
+    { email: null, statusCode: 401 },
+    { email: 'an@example.com', statusCode: 403 },
+    { email: 'other@example.com', statusCode: 404 },
+  ])('refuses $email with $statusCode and stores nothing', async ({ email, statusCode }) => {
+    const images = createMemoryCourseImageStore()
+    await expect(handleCourseImage({ email, lecturerEmails, store: store(), images, courseId: 'intro_python', image: png }))
+      .rejects.toMatchObject({ statusCode })
+    expect(images.files.size).toBe(0)
+  })
+
+  it.each([
+    { image: { contentType: 'image/gif', base64: 'AQID' }, message: 'Use a JPEG, PNG or WebP image.' },
+    { image: { contentType: 'image/png', base64: '' }, message: 'The image is empty.' },
+    { image: { contentType: 'image/png', base64: Buffer.alloc(2 * 1024 * 1024 + 1).toString('base64') }, message: 'The image must be 2 MB or smaller.' },
+    { image: null, message: 'Use a JPEG, PNG or WebP image.' },
+  ])('refuses a bad image: $message', async ({ image, message }) => {
+    const images = createMemoryCourseImageStore()
+    await expect(handleCourseImage({ email: 'lecturer@example.com', lecturerEmails, store: store(), images, courseId: 'intro_python', image }))
+      .rejects.toMatchObject({ statusCode: 400, message })
+    expect(images.files.size).toBe(0)
   })
 })

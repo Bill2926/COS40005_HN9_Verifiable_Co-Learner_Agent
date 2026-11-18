@@ -4,7 +4,6 @@ export function materialsText(materials: ModuleMaterials): string {
   return materials.map((block) => {
     if (block.type === 'text') return block.markdown
     if (block.type === 'code') return block.code
-    if (block.type === 'diagram') return block.mermaid
     if (block.type === 'image') return `${block.alt} (${block.url})`
     return `${block.title} (${block.url})`
   }).join('\n\n')
