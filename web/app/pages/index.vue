@@ -318,7 +318,7 @@ async function saveNote(draft: {
   target: { kind: 'module', moduleId: string } | { kind: 'note', noteId: string } | null,
 }) {
   if (addingNote.value) return
-  if (!draft.title.trim() || !(draft.id ? draft.moduleId : draft.target)) {
+  if (!draft.title.trim() || (!draft.id && !draft.target)) {
     noteError.value = 'A note needs a title and a link to a module or another note.'
     return
   }
@@ -354,7 +354,8 @@ async function saveNote(draft: {
           colour: draft.colour,
         },
       }))
-      await moveModuleLink(noteId, draft.moduleId)
+      // A note linked only to other notes may stay that way.
+      if (draft.moduleId) await moveModuleLink(noteId, draft.moduleId)
     }
     if (!noteId) throw new Error('The note was not saved.')
     selectedNoteId.value = noteId

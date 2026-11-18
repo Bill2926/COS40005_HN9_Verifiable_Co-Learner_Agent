@@ -57,7 +57,7 @@ const linkTargetId = ref('')
 const selected = computed(() => props.notes.find(note => note.id === props.selectedId) ?? null)
 const formOpen = computed(() => drafting.value || selected.value !== null)
 const canSave = computed(() => title.value.trim().length > 0
-  && (drafting.value ? firstLink.value.length > 0 : moduleId.value.length > 0)
+  && (!drafting.value || firstLink.value.length > 0)
   && !props.saving)
 const otherNotes = computed(() => props.notes.filter(note => note.id !== props.selectedId))
 const noteToNoteLinks = computed(() => {
