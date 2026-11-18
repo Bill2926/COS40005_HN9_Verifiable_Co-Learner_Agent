@@ -4,6 +4,8 @@ This research experiment scores English prompts for the historical OpenAI modera
 
 The companion [editor activity experiment](KEYSTROKE-RESEARCH.md) includes its own executed notebook and model export.
 
+The [real CS1 log follow-up](CS1-SUBMISSION-RESEARCH.md) evaluates a separate model that forecasts an exercise's first recorded submission.
+
 ## Results
 
 The benchmark has 1,444 unique prompts with a known label. The fixed split holds out 289 prompts, including 10 positives. Five-fold development predictions selected the threshold of 0.413605 before the holdout was scored.
