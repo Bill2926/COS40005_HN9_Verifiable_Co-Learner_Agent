@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { PracticeTestResult } from '../../shared/turn'
+import { learningPlanColumns, presentPlan } from './supabase-learning-plan-store'
 import type { StaffReviewStore } from './staff-review-store'
 
 // The most activity read for one student, so a very long history cannot make one opening unbounded.
@@ -72,6 +73,16 @@ export function createSupabaseStaffReviewStore({ url, secretKey }: { url: string
         message: row.message,
         time: row.created_at,
       }))
+    },
+    async learningPlans(studentId, courseId) {
+      const result = await supabase.from('learning_plans')
+        .select(learningPlanColumns)
+        .eq('student_id', studentId)
+        .eq('course_id', courseId)
+        .order('module_id')
+        .order('revision')
+      if (result.error) throw new Error(result.error.message)
+      return result.data.map(presentPlan)
     },
     async conversations(studentId, courseId) {
       const conversations = await supabase.from('conversations').select('id, module_id')

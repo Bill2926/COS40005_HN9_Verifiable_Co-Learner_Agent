@@ -29,7 +29,8 @@ import type { NewSubmission, SubmissionStore } from '../storage/submission-store
 import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 import { planProgress, planStepTitle, planView, type LearningPlan, type PlanProgress, type PlanRecords, type PlanStepKind } from '../learning-plan'
-import { learningPattern, type LearningPattern } from '../learning-pattern'
+import { gatherLearningPattern } from '../learning-pattern/gather'
+import type { LearningPattern } from '../learning-pattern'
 import { showsCodeMisconception } from './code-findings'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
@@ -1493,51 +1494,7 @@ function weakSpotTexts(pattern: LearningPattern, placement: Placement): string[]
 // student's records through the stores, nothing written. A store that is absent
 // contributes nothing.
 async function learningPatternFor(studentId: string, placement: Placement, options?: TurnOptions): Promise<LearningPattern> {
-  const [observations, submissions, activity, decisions, quizAnswers] = await Promise.all([
-    options?.evidence?.forStudent(studentId) ?? [],
-    options?.submissions?.forStudent(studentId) ?? [],
-    options?.activity?.forStudent(studentId) ?? [],
-    options?.decisions?.list({ studentId }) ?? [],
-    wrongQuizSightings(studentId, placement, options),
-  ])
-  return learningPattern({
-    evidence: observations.flatMap(observation =>
-      observation.kind === 'submission'
-        ? [{ time: observation.time, exerciseId: observation.exerciseId, allPassed: observation.allPassed }]
-        : []),
-    submissions: submissions.map(row => ({
-      time: row.createdAt,
-      moduleId: row.moduleId,
-      exerciseId: row.exerciseId,
-      outcome: row.outcome,
-      findings: row.findings,
-    })),
-    quizAnswers,
-    activity,
-    decisions: decisions.map(({ moduleId, ruledMove }) => ({ moduleId: moduleId ?? null, ruledMove })),
-  })
-}
-
-// Every wrong quiz answer in the course that names a misconception, for the
-// pattern. A wrong answer with no misconception named is a weak spot of nothing.
-async function wrongQuizSightings(
-  studentId: string,
-  placement: Placement,
-  options?: TurnOptions,
-): Promise<{ time: string, moduleId: string, misconceptionId: string }[]> {
-  const quizStore = options?.quizAnswers
-  if (!quizStore) return []
-  const sightings = await Promise.all(placement.course.studyModules.map(async (module) => {
-    const rows = await quizStore.forStudentModule(studentId, module.id)
-    return rows
-      .filter(row => !row.correct)
-      .flatMap((row) => {
-        const question = module.quiz.find(item => item.id === row.questionId)
-        const misconceptionId = question?.misconceptions?.[row.choice as 0 | 1 | 2 | 3]
-        return misconceptionId ? [{ time: row.time, moduleId: module.id, misconceptionId }] : []
-      })
-  }))
-  return sightings.flat()
+  return gatherLearningPattern(options ?? {}, studentId, placement.course)
 }
 
 function composeState(

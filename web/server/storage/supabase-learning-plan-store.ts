@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import type { LearningPlan, PlanStep, PlanStepKind } from '../learning-plan'
 import type { LearningPlanStore } from './learning-plan-store'
 
+export const learningPlanColumns = 'module_id, revision, steps, current_step, agreed_at, created_at, trigger, decision_turn_id'
+
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const kinds: readonly PlanStepKind[] = ['materials', 'quiz', 'exercise', 'misconception', 'approach', 'try']
 
@@ -23,7 +25,7 @@ export function createSupabaseLearningPlanStore(options: {
       if (!studentIdPattern.test(studentId)) return null
       const result = await supabase
         .from('learning_plans')
-        .select('module_id, revision, steps, current_step, agreed_at, created_at, trigger, decision_turn_id')
+        .select(learningPlanColumns)
         .eq('course_id', options.courseId)
         .eq('student_id', studentId)
         .eq('module_id', moduleId)
@@ -50,7 +52,7 @@ export function createSupabaseLearningPlanStore(options: {
   }
 }
 
-interface LearningPlanRow {
+export interface LearningPlanRow {
   module_id: string
   revision: number
   steps: unknown
@@ -61,7 +63,7 @@ interface LearningPlanRow {
   decision_turn_id: string | null
 }
 
-function presentPlan(row: LearningPlanRow): LearningPlan {
+export function presentPlan(row: LearningPlanRow): LearningPlan {
   return {
     moduleId: row.module_id,
     revision: Number(row.revision),

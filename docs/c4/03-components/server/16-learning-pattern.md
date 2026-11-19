@@ -43,6 +43,8 @@ flowchart LR
 Every list is sorted (count descending then id, or id ascending), so the output is deterministic
 however the input rows were ordered.
 
+`gather.ts` (`gatherLearningPattern`) reads the five stores and calls `learningPattern`; the turn and the staff review both use it, so both show the same pattern.
+
 ## How the turn uses it
 
 - The Teacher's context carries the whole pattern; the Teacher's propose prompt has a `Learning
