@@ -447,6 +447,15 @@ describe('decide', () => {
     }])
   })
 
+  it('still redirects an advance to a closed module while a study step is chosen', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'strings' } }],
+      snapshot({ unlockedModuleIds: ['loops'], studyStepModuleId: 'loops', studentMessage: 'Next?' }),
+      roleTable,
+      course,
+    )).toMatchObject([{ decision: 'downgrade', ruleId: 'scope_requires_unlocked_module', move: { type: 'redirect_to_module' } }])
+  })
+
   it('allows an advance to the open module the study step already names', () => {
     const move = { type: 'advance_to_module' as const, moduleId: 'strings' }
     expect(decide(

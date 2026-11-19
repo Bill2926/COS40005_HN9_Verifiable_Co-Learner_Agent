@@ -367,7 +367,7 @@ const situations: readonly Situation[] = [
       const lastSubmission = tail.findLastIndex(entry => entry.type === 'submitted')
       const openings = tail.slice(lastSubmission + 1)
       return openings.length >= patternSize
-        ? [{ moduleId: log.input.currentModuleId, anchor: openings[patternSize - 1]!.id }]
+        ? [{ moduleId: log.input.currentModuleId, anchor: openings.at(-1)!.id }]
         : []
     },
     say: (log, { moduleId }) => practiceOn(

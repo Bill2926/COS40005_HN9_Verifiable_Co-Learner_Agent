@@ -333,8 +333,9 @@ function advanceDowngrade(
   checks.push({ ruleId: 'advance_known_module', passed: true, reasonCode: 'MODULE_KNOWN' })
 
   // While the study suggestion names a module, the Teacher may not advise a different one: the
-  // student is kept on this module, or sent to the module the step names.
-  if (snapshot.studyStepModuleId !== null && target !== snapshot.studyStepModuleId) {
+  // student is kept on this module, or sent to the module the step names. A closed module
+  // keeps its redirect below.
+  if (snapshot.studyStepModuleId !== null && target !== snapshot.studyStepModuleId && snapshot.unlockedModuleIds.includes(target)) {
     return {
       decision: 'downgrade',
       ruleId: 'advance_follows_study_step',
