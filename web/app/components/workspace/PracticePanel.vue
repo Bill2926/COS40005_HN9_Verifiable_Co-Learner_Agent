@@ -25,6 +25,7 @@ const emit = defineEmits<{
   runFinished: [run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }]
   pasted: [characters: number]
   active: []
+  running: [running: boolean]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
 }>()
 
@@ -42,6 +43,7 @@ watch(() => props.submitting, (submitting) => {
   if (!submitting && !busy.value) action.value = 'run'
 })
 const busy = computed(() => status.value === 'loading' || status.value === 'running' || status.value === 'checking')
+watch(busy, isBusy => emit('running', isBusy))
 
 let runner: PythonRunner | null = null
 let alive = true

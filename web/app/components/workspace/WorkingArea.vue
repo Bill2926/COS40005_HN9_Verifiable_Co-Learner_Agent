@@ -27,6 +27,7 @@ const emit = defineEmits<{
   runFinished: [run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }]
   pasted: [characters: number]
   active: []
+  running: [running: boolean]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
   quizAnswer: [answer: { questionId: string, choice: number }]
   'update:mode': [mode: 'learn' | 'practice']
@@ -191,6 +192,7 @@ watch(() => props.mode, (mode) => {
           @run-finished="emit('runFinished', $event)"
           @pasted="emit('pasted', $event)"
           @active="emit('active')"
+          @running="emit('running', $event)"
           @submit="emit('submit', $event)"
         />
       </div>

@@ -86,6 +86,8 @@ function chooseMode(mode: 'learn' | 'practice') {
 const practiceQuietMs = 3 * 60 * 1000
 let quietTimer: ReturnType<typeof setTimeout> | undefined
 let practiceQuiet = false
+let practiceRunning = false
+let quietPlace: { moduleId: string, exerciseId: string } | null = null
 
 function clearQuietTimer() {
   if (quietTimer === undefined) return
@@ -99,40 +101,49 @@ function practicePlace(): { moduleId: string, exerciseId: string } | null {
   return { moduleId: area.moduleId, exerciseId: area.exercise.id }
 }
 
-function notePracticeActivity() {
-  if (!import.meta.client) return
-  const place = practicePlace()
-  if (!place) return
-  if (practiceQuiet) {
-    practiceQuiet = false
-    void recordStudentActivity({ event: 'returned', moduleId: place.moduleId, exerciseId: place.exerciseId })
-  }
+function recordReturn() {
+  if (!practiceQuiet || !quietPlace) return
+  practiceQuiet = false
+  const place = quietPlace
+  quietPlace = null
+  void recordStudentActivity({ event: 'returned', moduleId: place.moduleId, exerciseId: place.exerciseId })
+}
+
+function armQuietTimer() {
   clearQuietTimer()
+  if (practiceRunning) return
   quietTimer = setTimeout(() => {
     quietTimer = undefined
-    const still = practicePlace()
-    if (!still) return
+    const place = practicePlace()
+    if (!place) return
     practiceQuiet = true
-    void recordStudentActivity({ event: 'went_idle', moduleId: still.moduleId, exerciseId: still.exerciseId })
+    quietPlace = place
+    void recordStudentActivity({ event: 'went_idle', moduleId: place.moduleId, exerciseId: place.exerciseId })
   }, practiceQuietMs)
 }
 
+function markPracticeActivity() {
+  if (!import.meta.client) return
+  if (!practicePlace()) return
+  recordReturn()
+  armQuietTimer()
+}
+
+function onPracticeRunning(running: boolean) {
+  practiceRunning = running
+  if (running) clearQuietTimer()
+  else markPracticeActivity()
+}
+
 function leavePractice() {
-  const area = workspace.value?.workingArea
-  if (practiceQuiet && area) {
-    void recordStudentActivity({
-      event: 'returned',
-      moduleId: area.moduleId,
-      exerciseId: area.exercise.id,
-    })
-  }
-  practiceQuiet = false
+  recordReturn()
+  practiceRunning = false
   clearQuietTimer()
 }
 
 watch(workingMode, (mode, previous) => {
   if (!import.meta.client) return
-  if (mode === 'practice') notePracticeActivity()
+  if (mode === 'practice') markPracticeActivity()
   else if (previous === 'practice') leavePractice()
 })
 
@@ -647,6 +658,7 @@ async function selectModule(moduleId: string) {
   const chosen = current.courseRoadmap.find(module => module.id === moduleId)
   if (!chosen || chosen.current || chosen.state === 'closed') return
 
+  markPracticeActivity()
   const snapshot = current
   const modeBeforeSelect = workingMode.value
   const generation = ++selectGeneration
@@ -698,7 +710,7 @@ async function selectExercise(exerciseId: string) {
   if (!current || selecting.value || sending.value) return
   if (current.workingArea.exercise.id === exerciseId) return
 
-  notePracticeActivity()
+  markPracticeActivity()
   selecting.value = true
   selectingExerciseId.value = exerciseId
   selectError.value = ''
@@ -815,14 +827,14 @@ function onRun(result: RunOutput | null) {
 
 function onDraft(code: string) {
   liveDraft.value = code
-  notePracticeActivity()
+  markPracticeActivity()
 }
 
 function onPasted(characters: number) {
   const exerciseId = workspace.value?.workingArea.exercise.id
   if (!exerciseId || characters < 1) return
   void recordStudentActivity({ event: 'pasted', exerciseId, characters })
-  notePracticeActivity()
+  markPracticeActivity()
 }
 
 function onRunFinished(run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }) {
@@ -865,7 +877,7 @@ function askQuote() {
 async function sendMessage(text: string, addressedAgent: AddressedAgent | null, quote: Quote | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
-  notePracticeActivity()
+  markPracticeActivity()
   const storedDraft = studentId.value
     ? createDraftStore(localStorage, studentId.value).read(current.workingArea.exercise.id)
     : null
@@ -882,7 +894,7 @@ async function sendMessage(text: string, addressedAgent: AddressedAgent | null, 
 
 async function submitCode(submission: SubmissionPayload) {
   if (!workspace.value || sending.value || selecting.value) return
-  notePracticeActivity()
+  markPracticeActivity()
   await streamAgentTurn({
     event: 'submission',
     code: submission.code,
@@ -1085,7 +1097,8 @@ function initialsOf(name: string): string {
           @run="onRun"
           @run-finished="onRunFinished"
           @pasted="onPasted"
-          @active="notePracticeActivity"
+          @active="markPracticeActivity"
+          @running="onPracticeRunning"
           @submit="submitCode"
           @quiz-answer="answerQuiz"
         />
@@ -1167,6 +1180,7 @@ function initialsOf(name: string): string {
           :loading="pendingModuleName.length > 0"
           :floating="false"
           @send="sendMessage"
+          @active="markPracticeActivity"
           @open-learn="openInLearn"
           @toggle-deskmate="saveDeskmate"
         />
