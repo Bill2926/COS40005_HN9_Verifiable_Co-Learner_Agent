@@ -208,6 +208,10 @@ _Avoid_: resume point, mastery
 The system's estimate, between 0 and 1, of how well a student knows a module, computed from evidence alone, from both submissions and quiz answers; a module counts as mastered once its mastery reaches the threshold and the student has passed at least one of its exercises, so quiz answers alone never master a module.
 _Avoid_: progress, score, level, SM
 
+**Progress panel**:
+What a student sees of their own progress, under the course roadmap: each module's mastery (the roadmap's bars), the exercises they have passed with how many verified attempts each took (every submission up to and including the first pass), and their weak spots in plain words. Its figures are the evidence ledger's and the learning pattern's. It never shows a **Review signal** or the raw **Activity log**, and it changes nothing.
+_Avoid_: dashboard, report card
+
 **Learning plan**:
 The Teacher's suggestion, for one module, of what the student should do there and in what order: one to five steps. The student agrees to it with Start, and from then on it is in progress, with one step current. A plan is kept as revisions, each a new record rather than an edit, and the newest revision is the one in force. A step is done only when the student's verified records show it: a sandbox result, a quiz answer, a run, or time on the materials. The Teacher may revise a plan only after something new: the same exercise failed three times (the course spec may say otherwise), a wrong quiz answer, a misconception found in the code, or a finished step; a revision with nothing new behind it becomes a check-in. Each revision records what brought it about and the decision-log entry that ruled on it. It never changes mastery or opens a module.
 _Avoid_: roadmap, syllabus, to-do list

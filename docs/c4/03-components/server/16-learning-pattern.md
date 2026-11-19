@@ -52,8 +52,9 @@ however the input rows were ordered.
   rungs per module and the seconds on materials per module. The Deskmate's context never carries it.
 - Every decision the turn records carries the turn's module id and the pattern snapshot the Teacher
   saw (`module_id` and `learning_pattern` on `decisions`), for audit against the hash chain.
-- The student sees only the weak spots, in plain words: each spot's misconception response text from
-  the course spec, on the state as `weakSpots`.
+- The student sees the weak spots, in plain words: each spot's misconception response text from
+  the course spec, on the state as `weakSpots`, and the passed exercises with their attempts, on the
+  state as `progress` (built by the turn from `exerciseAttempts`). Nothing else of the pattern reaches them.
 
 The records the function takes are minimal shapes of its own (one entry per evidence row, submission,
 quiz answer, activity event and decision), so the stores it reads through are not coupled to it. A

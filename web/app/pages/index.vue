@@ -1122,6 +1122,8 @@ function initialsOf(name: string): string {
         :class="phonePanel === 'roadmap' ? 'max-md:flex' : 'max-md:hidden'"
         :modules="workspace.courseRoadmap"
         :mastery-threshold="workspace.masteryThreshold"
+        :progress="workspace.progress"
+        :weak-spots="workspace.weakSpots"
         :pending-module-id="pendingModuleId"
         :selecting-module-id="selectingModuleId"
         @select-module="selectModule"

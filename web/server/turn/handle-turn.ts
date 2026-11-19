@@ -1,5 +1,5 @@
 import type { ActivityRecorder } from '../activity-recorder'
-import type { AgentTrace, ConversationMessage, CurrentExercise, LearningPlanView, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { AgentTrace, ConversationMessage, CurrentExercise, LearningPlanView, PracticeTestResult, ProgressView, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { createAgentTools, type TurnTools } from '../agent-tools'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
@@ -315,11 +315,11 @@ async function* turnBody(
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
     const next = { course, module: chosen, exercise }
-    const [existing, displayName, quizAnswers, weakSpots, plan] = await Promise.all([
+    const [existing, displayName, quizAnswers, pattern, plan] = await Promise.all([
       store.messages(studentId, chosen.id),
       store.displayName(studentId),
       quizStore.forStudentModule(studentId, chosen.id),
-      weakSpotTexts(await learningPatternFor(studentId, next, options), next),
+      learningPatternFor(studentId, next, options),
       // A preview never proposes a plan: it writes nothing.
       isPreviewModule(body)
         ? options?.plans?.latest(studentId, chosen.id) ?? null
@@ -328,7 +328,7 @@ async function* turnBody(
     ])
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots, await presentedPlan(studentId, next, quizStore, plan ?? null, options)),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, pattern, await presentedPlan(studentId, next, quizStore, plan ?? null, options)),
     }
     return
   }
@@ -1476,7 +1476,7 @@ async function redraw(
     quizStore.forStudentModule(studentId, placement.module.id),
     presentedPlan(studentId, placement, quizStore, plan === undefined ? await (options?.plans?.latest(studentId, placement.module.id) ?? null) : plan, options, seen),
   ])
-  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpotTexts(seen, placement), learningPlan)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers, seen, learningPlan)
 }
 
 // The pattern's weak spots in plain words: the course's response text for each
@@ -1497,6 +1497,22 @@ async function learningPatternFor(studentId: string, placement: Placement, optio
   return gatherLearningPattern(options ?? {}, studentId, placement.course)
 }
 
+// The exercises the student has passed, with the verified attempts each took:
+// the learning pattern's counts, named from the course, in course order. Mastery
+// is the roadmap's; no review signal and no raw activity event reaches here.
+function presentedProgress(course: Course, pattern: LearningPattern): ProgressView {
+  const attempts = new Map(pattern.exerciseAttempts.filter(item => item.passed).map(item => [item.exerciseId, item.attempts]))
+  return {
+    completedExercises: course.studyModules.flatMap(module =>
+      module.exercises.flatMap((exercise) => {
+        const taken = attempts.get(exercise.id)
+        return taken === undefined
+          ? []
+          : [{ moduleId: module.id, moduleName: nameOfModule(course, module.id), exerciseId: exercise.id, title: exercise.title, attempts: taken }]
+      })),
+  }
+}
+
 function composeState(
   placement: Placement,
   standing: CourseStanding,
@@ -1504,7 +1520,7 @@ function composeState(
   displayName: string,
   mode: 'learn' | null,
   quizAnswers: readonly QuizAnswerRow[],
-  weakSpots: readonly string[],
+  pattern: LearningPattern,
   learningPlan: LearningPlanView | null = null,
 ): TurnState {
   return {
@@ -1512,7 +1528,8 @@ function composeState(
     course: placement.course.title,
     courseRoadmap: presentedRoadmap(placement.course, standing),
     masteryThreshold: placement.course.masteryThreshold,
-    weakSpots,
+    weakSpots: weakSpotTexts(pattern, placement),
+    progress: presentedProgress(placement.course, pattern),
     learningPlan,
     workingArea: {
       mode,
