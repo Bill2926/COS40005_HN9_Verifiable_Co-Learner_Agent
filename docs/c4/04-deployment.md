@@ -76,12 +76,13 @@ flowchart TB
 
 ## GitHub Actions
 
-Two workflows live in `.github/workflows/`. They run on GitHub after those files are on the default branch. `check.yml` and `schema-push.yml` do not deploy the server. The Render service is described in `render.yaml`.
+Three workflows live in `.github/workflows/`. `check.yml` and `schema-push.yml` do not deploy the server. `deploy.yml` calls the Render deploy hook after Schema push and Check succeed on `main`. The service is described in `render.yaml`.
 
 | Workflow | When | What it runs | Credentials |
 |---|---|---|---|
 | `check.yml` | every pull request, and every push to `main` | In `web/`: `pnpm typecheck`, and `pnpm test` with `CHECK_SKIP_LIVE_SUPABASE=1`. Also `supabase db push --dry-run` against project ref `nopyjjyimtmvuucsirxb`, which does not write | `SUPABASE_ACCESS_TOKEN` for the dry-run only |
 | `schema-push.yml` | every push to `main`, queued, not cancelled mid-run | `supabase db push` for project ref `nopyjjyimtmvuucsirxb` (`VerifiableCoLearnerAgents`), without `--include-seed`. The CLI opens a temporary login role from the access token | `SUPABASE_ACCESS_TOKEN` |
+| `deploy.yml` | after Schema push succeeds on `main`, and only if Check for that commit also succeeded | Calls the Render deploy hook. A commit that is no longer the tip of `main` does not deploy | `RENDER_DEPLOY_HOOK` |
 
 `check.yml` skips the Vitest files that sign in to the shared project (`*boundary*.test.ts` and `conversation-storage.test.ts`). Those still run from `pnpm test` on a machine that has `web/.env`. Playwright rehearsal is not in either workflow. A red Check does not block a merge until someone with admin marks the `typecheck`, `test`, and `migrations` jobs as required status checks. See ADR 0007. The Vitest migration files replay SQL in PGlite from an empty database. The dry-run is the check against the migration history of the shared project.
 
@@ -129,7 +130,7 @@ flowchart LR
 
 | Node | Evidence in the repo |
 |---|---|
-| Render web service | `render.yaml` (`verifiable-co-learner`) |
+| Render web service | `render.yaml` (`verifiable-co-learner`), `.github/workflows/deploy.yml` |
 | Sandbox function in Sydney | `infra/sandbox` (`ap-southeast-2`, `colearner-sandbox`), `web/server/sandbox/lambda.ts`, `render.yaml` (`NUXT_SANDBOX_FUNCTION`, `NUXT_SANDBOX_REGION`) |
 | Registry | `infra/sandbox` `aws_ecr_repository.sandbox`, image built from `sandbox/Dockerfile` |
 
