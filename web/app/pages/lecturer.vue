@@ -10,7 +10,8 @@ useHead({ title: 'Lecturer' })
 
 const productOwner = ref(false)
 onMounted(async () => {
-  productOwner.value = await isProductOwner($fetch)
+  const role = (url: string) => $fetch(url as '/api/staff-role')
+  productOwner.value = await isProductOwner(role)
 })
 
 async function signOut() {

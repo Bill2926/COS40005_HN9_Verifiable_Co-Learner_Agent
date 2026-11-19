@@ -3,7 +3,6 @@ import io
 import json
 import os
 import signal
-import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -83,11 +82,9 @@ def emit(payload):
     sys.__stdout__.flush()
 
 
-def worker():
-    # Student code runs here. It does not learn the expected values, and a
-    # document it writes on this process's stdout is not a pass: the supervisor
-    # decides that by comparing each actual with the expected value it kept.
-    payload = json.load(sys.stdin)
+def produce(payload):
+    # Student code runs in the forked process. It is not given the expected
+    # values. Whatever it writes is not a pass: the parent compares each actual.
     code = payload["code"]
     tests = payload["tests"]
     namespace = {"__name__": "__main__"}
@@ -113,20 +110,18 @@ def worker():
             except Exception as exc:
                 actual = format_error(exc)
                 if actual.startswith("The library "):
-                    emit({"outcome": "refused", "message": actual})
-                    return
+                    return {"outcome": "refused", "message": actual}
             actuals.append({"name": test["name"], "actual": actual})
-        emit({"actuals": actuals})
+        return {"actuals": actuals}
     except TooMuchOutput:
-        emit({"outcome": "refused", "message": guard.PRINTED_TOO_MUCH})
+        return {"outcome": "refused", "message": guard.PRINTED_TOO_MUCH}
     except MemoryError:
-        emit({"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY})
+        return {"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY}
     except Exception as exc:
         actual = format_error(exc)
         if actual.startswith("The library "):
-            emit({"outcome": "refused", "message": actual})
-            return
-        emit({"actuals": [{"name": test["name"], "actual": actual} for test in tests]})
+            return {"outcome": "refused", "message": actual}
+        return {"actuals": [{"name": test["name"], "actual": actual} for test in tests]}
     finally:
         sys.stdout = previous_out
         sys.stderr = previous_err
@@ -176,35 +171,42 @@ def score(tests, out, returncode):
 
 
 def supervise(payload):
+    # Fork inside the jail. A second interpreter cannot be started there: its
+    # path is the jail path, and spawning it is what made every image check fail.
     tests = payload["tests"]
-    worker_body = {
+    student = {
         "code": payload["code"],
         "tests": [{"name": test["name"], "expression": test["expression"]} for test in tests],
         "confineOnly": bool(payload.get("confineOnly")),
     }
-    env = dict(os.environ)
-    env["SANDBOX_WORKER"] = "1"
-    proc = subprocess.Popen(
-        [sys.executable, "-I", os.path.abspath(__file__)],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=env,
-        close_fds=True,
-    )
-    try:
-        out, _err = proc.communicate(json.dumps(worker_body).encode(), timeout=guard.SECONDS)
-    except subprocess.TimeoutExpired:
-        proc.kill()
-        proc.wait()
-        return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
-    return score(tests, out, proc.returncode)
+    read_fd, write_fd = os.pipe()
+    pid = os.fork()
+    if pid == 0:
+        try:
+            os.close(read_fd)
+            # fd 1 is the report back to the runner. Close it before student code.
+            os.close(1)
+            os.dup2(write_fd, 1)
+            os.close(write_fd)
+            os.write(1, json.dumps(produce(student)).encode())
+            os._exit(0)
+        except MemoryError:
+            os._exit(2)
+        except Exception:
+            os._exit(1)
+    os.close(write_fd)
+    chunks = []
+    while True:
+        chunk = os.read(read_fd, 65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    os.close(read_fd)
+    _, status = os.waitpid(pid, 0)
+    return score(tests, b"".join(chunks), os.waitstatus_to_exitcode(status))
 
 
 def main():
-    if os.environ.get("SANDBOX_WORKER") == "1":
-        worker()
-        return
     payload = json.load(sys.stdin)
     emit(supervise(payload))
 

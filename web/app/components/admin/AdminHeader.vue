@@ -14,7 +14,10 @@ const pages = [
 
 const alsoLectures = ref(false)
 onMounted(async () => {
-  alsoLectures.value = await isLecturer($fetch)
+  // A direct $fetch argument makes TypeScript compare every route. Naming the
+  // one route this call uses keeps that comparison small.
+  const role = (url: string) => $fetch(url as '/api/staff-role')
+  alsoLectures.value = await isLecturer(role)
 })
 
 const linkClass = 'text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current'
