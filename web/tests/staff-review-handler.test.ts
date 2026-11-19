@@ -1,15 +1,23 @@
 import { describe, expect, it } from 'vitest'
 import { handleAdmin } from '../server/admin/handle-admin'
 import { createMemoryModelSettingsStore } from '../server/storage/model-settings-store'
+import { createMemoryCourseStore } from '../server/storage/course-store'
+import { createMemorySubmissionStore } from '../server/storage/submission-store'
 import { createMemoryStaffAccessLog } from '../server/storage/staff-access-log'
 import { createMemoryStaffReviewStore, type StaffReviewStudent } from '../server/storage/staff-review-store'
 import { handleStaffReview } from '../server/staff-review'
+import type { LearningPlan } from '../server/learning-plan'
 import type { ReviewEvent } from '../shared/staff-review'
 
 const adminEmails = 'owner@example.com'
 const lecturerEmails = 'lecturer@example.com, other@example.com'
 const an: StaffReviewStudent = { id: 'an-id', displayName: 'An', studentNumber: 'SWB0001', campus: 'Hanoi', email: 'an@example.com' }
 const binh: StaffReviewStudent = { id: 'binh-id', displayName: 'Bình', studentNumber: 'SWB0002', campus: null, email: 'binh@example.com' }
+
+const plans: LearningPlan[] = [
+  { moduleId: 'loops', revision: 1, steps: [{ kind: 'materials', ref: '' }, { kind: 'quiz', ref: 'gone' }], currentStep: 0, agreedAt: null, createdAt: '2026-11-19T07:00:00Z', trigger: null, decisionTurnId: null },
+  { moduleId: 'loops', revision: 2, steps: [{ kind: 'materials', ref: '' }, { kind: 'quiz', ref: 'gone' }], currentStep: 1, agreedAt: '2026-11-19T07:05:00Z', createdAt: '2026-11-19T07:05:00Z', trigger: null, decisionTurnId: null },
+]
 
 const events: ReviewEvent[] = [
   { id: 1, type: 'pasted', time: '2026-11-19T08:00:00Z', payload: { exerciseId: 'sum', characters: 400 } },
@@ -24,6 +32,7 @@ function setup() {
       { id: 'other_course', ownerEmail: 'other@example.com', enrolled: ['binh-id'] },
     ],
     activity: { 'an-id': events },
+    learningPlans: { 'an-id': plans },
     submissions: {
       'an-id': [{
         id: 's1',
@@ -41,13 +50,18 @@ function setup() {
     },
   })
   const accessLog = createMemoryStaffAccessLog({ 'an-id': 'SWB0001', 'binh-id': 'SWB0002' })
-  return { store, accessLog }
+  const submissions = createMemorySubmissionStore()
+  return { store, accessLog, submissions }
+}
+
+function reading(submissions: ReturnType<typeof createMemorySubmissionStore>) {
+  return { courses: createMemoryCourseStore(), patternSources: () => ({ submissions }) }
 }
 
 function open(email: string | null, studentNumber: string, parts = setup()) {
   return {
     parts,
-    result: handleStaffReview({ email, adminEmails, lecturerEmails, studentNumber, store: parts.store, accessLog: parts.accessLog }),
+    result: handleStaffReview({ email, adminEmails, lecturerEmails, studentNumber, store: parts.store, accessLog: parts.accessLog, ...reading(parts.submissions) }),
   }
 }
 
@@ -128,6 +142,7 @@ describe('staff review handler', () => {
       studentNumber: 'SWB0001',
       store: parts.store,
       accessLog: failing,
+      ...reading(parts.submissions),
     })).rejects.toThrow('log down')
   })
 
@@ -139,6 +154,40 @@ describe('staff review handler', () => {
 
     expect(second.signals).toEqual(first.signals)
     expect(await parts.store.activity('an-id', 'intro_python')).toEqual(events)
+  })
+})
+
+describe('the plan and the pattern a review shows', () => {
+  it('lists each revision of the plan, oldest first, with the steps in words', async () => {
+    const review = await open('lecturer@example.com', 'SWB0001').result
+
+    expect(review.plans).toHaveLength(1)
+    const [plan] = review.plans
+    expect(plan!.moduleId).toBe('loops')
+    expect(plan!.revisions.map(revision => [revision.revision, revision.agreedAt !== null])).toEqual([[1, false], [2, true]])
+    expect(plan!.revisions[0]!.steps.map(step => step.title)).toEqual(['Read the module materials', 'quiz gone'])
+  })
+
+  it('shows the whole learning pattern, not only the weak spots the student sees', async () => {
+    const parts = setup()
+    await parts.submissions.record({ studentId: 'an-id', moduleId: 'loops', exerciseId: 'sum', code: 'x', results: [], outcome: 'failed', message: null, findings: ['off_by_one'] })
+
+    const review = await open('lecturer@example.com', 'SWB0001', parts).result
+
+    expect(review.learningPattern.weakSpots.map(spot => spot.misconceptionId)).toEqual(['off_by_one'])
+    expect(review.learningPattern.recurringErrors).toEqual([{ kind: 'failed', count: 1 }])
+  })
+
+  it('hands a student none of it: they are refused, and the plan and pattern are never read', async () => {
+    const { result } = open('an@example.com', 'SWB0001')
+
+    await expect(result).rejects.toMatchObject({ statusCode: 403 })
+  })
+
+  it('refuses a lecturer the plan and pattern of a student outside their courses', async () => {
+    const { result } = open('other@example.com', 'SWB0001')
+
+    await expect(result).rejects.toMatchObject({ statusCode: 403 })
   })
 })
 
@@ -164,6 +213,7 @@ describe('the activity a review lists', () => {
       studentNumber: 'SWB0001',
       store,
       accessLog: parts.accessLog,
+      ...reading(parts.submissions),
     })
 
     const listed = review.activity.map(event => event.id)

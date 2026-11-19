@@ -1,7 +1,10 @@
-import type { ReviewEvent, StaffReview } from '../../shared/staff-review'
+import type { ReviewEvent, ReviewPlan, StaffReview } from '../../shared/staff-review'
 import type { StaffAccessLog, StaffAccessRole } from '../storage/staff-access-log'
 import type { StaffReviewStore } from '../storage/staff-review-store'
-import { defaultCourseId } from '../course'
+import { defaultCourseId, type Course } from '../course'
+import { gatherLearningPattern, type LearningPatternSources } from '../learning-pattern/gather'
+import { planStepTitle, type LearningPlan } from '../learning-plan'
+import type { CourseStore } from '../storage/course-store'
 import { staffRole } from '../staff/staff-role'
 import { reviewSignals } from './review-signals'
 
@@ -22,6 +25,9 @@ export interface StaffReviewRequest {
   studentNumber: string
   store: StaffReviewStore
   accessLog: StaffAccessLog
+  courses: CourseStore
+  // The stores the learning pattern is read through, scoped to the course being reviewed.
+  patternSources: (courseId: string) => LearningPatternSources
 }
 
 // One student's records for a member of staff. An administrator may open any
@@ -53,10 +59,13 @@ export async function handleStaffReview(request: StaffReviewRequest): Promise<St
 
   await request.accessLog.record({ actorEmail: email, actorRole, studentId: student.id, courseId, opened: 'student_review' })
 
-  const [events, submissions, conversations] = await Promise.all([
+  const course = await request.courses.course(courseId)
+  const [events, submissions, conversations, plans, learningPattern] = await Promise.all([
     request.store.activity(student.id, courseId),
     request.store.submissions(student.id, courseId),
     request.store.conversations(student.id, courseId),
+    request.store.learningPlans(student.id, courseId),
+    gatherLearningPattern(request.patternSources(courseId), student.id, course),
   ])
   const signals = reviewSignals(events)
   return {
@@ -66,7 +75,31 @@ export async function handleStaffReview(request: StaffReviewRequest): Promise<St
     submissions,
     conversations,
     signals,
+    plans: reviewPlans(plans, course),
+    learningPattern,
   }
+}
+
+// The plans by module, every revision of each, oldest first, with each step in words.
+function reviewPlans(revisions: readonly LearningPlan[], course: Course): ReviewPlan[] {
+  const byModule = new Map<string, ReviewPlan>()
+  for (const plan of [...revisions].sort((left, right) => left.revision - right.revision)) {
+    const module = course.studyModules.find(candidate => candidate.id === plan.moduleId)
+    const entry = byModule.get(plan.moduleId) ?? { moduleId: plan.moduleId, revisions: [] }
+    entry.revisions.push({
+      revision: plan.revision,
+      steps: plan.steps.map(step => ({
+        kind: step.kind,
+        title: (module ? planStepTitle(step, module) : '') || (step.ref === '' ? step.kind : `${step.kind} ${step.ref}`),
+      })),
+      currentStep: plan.currentStep,
+      agreedAt: plan.agreedAt,
+      time: plan.createdAt,
+      trigger: plan.trigger,
+    })
+    byModule.set(plan.moduleId, entry)
+  }
+  return [...byModule.values()].sort((left, right) => left.moduleId < right.moduleId ? -1 : 1)
 }
 
 // The latest events, newest first, and any older event a signal links to, so each link lands somewhere.

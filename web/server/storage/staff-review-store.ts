@@ -1,3 +1,4 @@
+import type { LearningPlan } from '../learning-plan'
 import type {
   ReviewConversation,
   ReviewedStudent,
@@ -21,6 +22,8 @@ export interface StaffReviewStore {
   activity: (studentId: string, courseId: string) => Promise<ReviewEvent[]>
   submissions: (studentId: string, courseId: string) => Promise<ReviewSubmission[]>
   conversations: (studentId: string, courseId: string) => Promise<ReviewConversation[]>
+  // Every revision of every plan, oldest first.
+  learningPlans: (studentId: string, courseId: string) => Promise<LearningPlan[]>
 }
 
 export interface MemoryStaffReviewData {
@@ -29,6 +32,7 @@ export interface MemoryStaffReviewData {
   courses: readonly { id: string, ownerEmail: string, enrolled: readonly string[] }[]
   activity?: Readonly<Record<string, readonly ReviewEvent[]>>
   submissions?: Readonly<Record<string, readonly ReviewSubmission[]>>
+  learningPlans?: Readonly<Record<string, readonly LearningPlan[]>>
   conversations?: Readonly<Record<string, readonly ReviewConversation[]>>
 }
 
@@ -47,6 +51,9 @@ export function createMemoryStaffReviewStore(data: MemoryStaffReviewData): Staff
     },
     async submissions(studentId) {
       return (data.submissions?.[studentId] ?? []).map(submission => ({ ...submission }))
+    },
+    async learningPlans(studentId) {
+      return (data.learningPlans?.[studentId] ?? []).map(plan => ({ ...plan, steps: plan.steps.map(step => ({ ...step })) }))
     },
     async conversations(studentId) {
       return (data.conversations?.[studentId] ?? []).map(conversation => ({

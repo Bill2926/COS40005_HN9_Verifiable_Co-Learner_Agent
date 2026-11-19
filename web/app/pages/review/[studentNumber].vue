@@ -63,6 +63,12 @@ function detail(payload: Record<string, unknown>): string {
   return Object.entries(payload).map(([key, value]) => `${key}: ${String(value)}`).join(', ')
 }
 
+function duration(seconds: number): string {
+  const minutes = Math.floor(seconds / 60)
+  return minutes === 0 ? `${seconds}s` : `${minutes}m ${seconds % 60}s`
+}
+const planState = (revision: { agreedAt: string | null }) => revision.agreedAt ? 'Agreed' : 'Proposed'
+
 const authors: Record<string, string> = { student: 'Student', teacher: 'Teacher', deskmate: 'Mai', event: 'System' }
 const outcomes: Record<string, string> = { passed: 'Passed', failed: 'Failed', refused: 'Not checked' }
 const signalTitles: Record<string, string> = {
@@ -139,6 +145,85 @@ const signalTitles: Record<string, string> = {
               </p>
             </li>
           </ul>
+        </section>
+
+        <section aria-labelledby="plan-heading" class="flex flex-col gap-3" data-testid="review-plans">
+          <h2 id="plan-heading" class="text-base font-semibold text-highlighted">
+            Learning plan
+          </h2>
+          <p v-if="!data.plans.length" class="text-sm text-muted">
+            No plan yet.
+          </p>
+          <div v-for="plan in data.plans" :key="plan.moduleId" class="rounded-lg border border-default bg-default p-3 shadow-xs">
+            <h3 class="text-sm font-medium text-highlighted">
+              {{ plan.moduleId }}
+            </h3>
+            <ol class="mt-2 flex flex-col gap-3">
+              <li v-for="revision in plan.revisions" :key="revision.revision" class="text-sm">
+                <p class="flex flex-wrap items-baseline gap-x-3">
+                  <strong class="text-highlighted">Revision {{ revision.revision }}</strong>
+                  <span class="text-muted">{{ planState(revision) }}</span>
+                  <span v-if="revision.trigger" class="text-xs text-muted">Because: {{ revision.trigger }}</span>
+                  <time :datetime="revision.time" class="ml-auto text-xs text-muted">{{ timeText(revision.time) }}</time>
+                </p>
+                <ol class="mt-1 list-decimal pl-5 text-default">
+                  <li v-for="(step, index) in revision.steps" :key="index" class="[overflow-wrap:anywhere]">
+                    {{ step.title }}<span v-if="index === revision.currentStep" class="text-xs text-muted"> (current)</span>
+                  </li>
+                </ol>
+              </li>
+            </ol>
+          </div>
+        </section>
+
+        <section aria-labelledby="pattern-heading" class="flex flex-col gap-3" data-testid="review-pattern">
+          <h2 id="pattern-heading" class="text-base font-semibold text-highlighted">
+            Learning pattern
+          </h2>
+          <p class="max-w-prose text-sm text-muted">
+            The student sees only the weak spots. The habits below are for staff.
+          </p>
+          <div class="grid gap-3 md:grid-cols-2">
+            <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
+              <h3 class="font-medium text-highlighted">Weak spots</h3>
+              <p v-if="!data.learningPattern.weakSpots.length" class="text-muted">None seen.</p>
+              <ul v-else class="mt-1">
+                <li v-for="spot in data.learningPattern.weakSpots" :key="spot.misconceptionId">
+                  {{ spot.misconceptionId }} · {{ spot.count }}× · last {{ timeText(spot.lastSeen) }}
+                </li>
+              </ul>
+            </div>
+            <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
+              <h3 class="font-medium text-highlighted">Recurring errors</h3>
+              <p v-if="!data.learningPattern.recurringErrors.length" class="text-muted">None seen.</p>
+              <ul v-else class="mt-1">
+                <li v-for="error in data.learningPattern.recurringErrors" :key="error.kind">
+                  {{ error.kind }} · {{ error.count }}×
+                </li>
+              </ul>
+            </div>
+            <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
+              <h3 class="font-medium text-highlighted">Attempts to pass</h3>
+              <p v-if="!data.learningPattern.exerciseAttempts.length" class="text-muted">No attempts yet.</p>
+              <ul v-else class="mt-1">
+                <li v-for="item in data.learningPattern.exerciseAttempts" :key="item.exerciseId">
+                  {{ item.exerciseId }} · {{ item.attempts }} {{ item.attempts === 1 ? 'attempt' : 'attempts' }} · {{ item.passed ? 'passed' : 'not passed yet' }}
+                </li>
+              </ul>
+            </div>
+            <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
+              <h3 class="font-medium text-highlighted">Hints and materials</h3>
+              <p v-if="!data.learningPattern.hintRungs.length && !data.learningPattern.materialsSeconds.length" class="text-muted">Nothing yet.</p>
+              <ul class="mt-1">
+                <li v-for="item in data.learningPattern.hintRungs" :key="`hint-${item.moduleId}`">
+                  {{ item.moduleId }} · hint rungs {{ item.rungs.join(', ') }}
+                </li>
+                <li v-for="item in data.learningPattern.materialsSeconds" :key="`time-${item.moduleId}`">
+                  {{ item.moduleId }} · {{ duration(item.seconds) }} on materials
+                </li>
+              </ul>
+            </div>
+          </div>
         </section>
 
         <section aria-labelledby="submissions-heading" class="flex flex-col gap-3">

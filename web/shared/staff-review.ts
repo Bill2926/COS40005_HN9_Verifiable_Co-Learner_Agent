@@ -56,6 +56,40 @@ export interface ReviewSignal {
   eventIds: number[]
 }
 
+export interface ReviewPlanStep {
+  kind: string
+  // The step in words, read from the module content; the step's ref when the
+  // module no longer has it.
+  title: string
+}
+
+// One revision of a plan. Revisions are append-only, so the list is the plan's history.
+export interface ReviewPlanRevision {
+  revision: number
+  steps: ReviewPlanStep[]
+  currentStep: number
+  agreedAt: string | null
+  time: string
+  // What brought this revision about; null for a first proposal.
+  trigger: string | null
+}
+
+export interface ReviewPlan {
+  moduleId: string
+  // Oldest first; the last is the plan in force.
+  revisions: ReviewPlanRevision[]
+}
+
+// The whole learning pattern, including the habits the student never sees: the
+// student sees only the weak spots, in plain words.
+export interface ReviewLearningPattern {
+  weakSpots: readonly { misconceptionId: string, count: number, lastSeen: string }[]
+  recurringErrors: readonly { kind: string, count: number }[]
+  exerciseAttempts: readonly { exerciseId: string, attempts: number, passed: boolean }[]
+  hintRungs: readonly { moduleId: string, rungs: readonly number[] }[]
+  materialsSeconds: readonly { moduleId: string, seconds: number }[]
+}
+
 export interface StaffReview {
   student: ReviewedStudent
   courseId: string
@@ -64,6 +98,8 @@ export interface StaffReview {
   submissions: ReviewSubmission[]
   conversations: ReviewConversation[]
   signals: ReviewSignal[]
+  plans: ReviewPlan[]
+  learningPattern: ReviewLearningPattern
 }
 
 export interface StaffAccessEntry {
