@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import BusySpinner from '../BusySpinner.vue'
-import type { RoadmapModule } from '#shared/turn'
+import type { ProgressView, RoadmapModule } from '#shared/turn'
+import ProgressPanel from './ProgressPanel.vue'
 
 const props = defineProps<{
   modules: RoadmapModule[]
   masteryThreshold: number
+  progress: ProgressView
+  weakSpots: readonly string[]
   pendingModuleId?: string
   // The module a select turn is opening, shown with a spinner.
   selectingModuleId?: string
@@ -183,6 +186,10 @@ function cardClass(module: RoadmapModule): string {
           </li>
         </template>
       </ul>
+      <ProgressPanel
+        :progress="progress"
+        :weak-spots="weakSpots"
+      />
     </div>
   </aside>
 </template>

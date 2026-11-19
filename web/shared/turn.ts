@@ -178,6 +178,18 @@ export interface LearningPlanView {
   currentStep: number
 }
 
+// What the student has finished in the course, for the progress panel: each passed
+// exercise and the verified attempts it took. Mastery per module is the roadmap's.
+export interface ProgressView {
+  completedExercises: readonly {
+    moduleId: string
+    moduleName: string
+    exerciseId: string
+    title: string
+    attempts: number
+  }[]
+}
+
 export interface RedrawState {
   displayName: string
   course: string
@@ -188,6 +200,7 @@ export interface RedrawState {
   conversation: ConversationMessage[]
   // The learning pattern's weak spots in plain words, so the student knows what to work on.
   weakSpots: readonly string[]
+  progress: ProgressView
   // The plan the Teacher proposed for the current module, or null when there is none.
   learningPlan: LearningPlanView | null
   trace?: TurnTrace
