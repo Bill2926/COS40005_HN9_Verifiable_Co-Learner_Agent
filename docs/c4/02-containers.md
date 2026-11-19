@@ -16,7 +16,7 @@ flowchart TB
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
   student(["<b>Student</b>"]):::person
-  owner(["<b>Product owner</b>"]):::person
+  owner(["<b>Administrator</b>"]):::person
   lecturer(["<b>Lecturer</b>"]):::person
 
   subgraph sys["Verifiable Co-Learner"]

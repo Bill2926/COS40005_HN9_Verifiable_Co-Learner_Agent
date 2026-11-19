@@ -77,7 +77,7 @@ export interface WorkingAreaView {
 // The two agents a student can address with an `@` tag, and that make proposals.
 export type AddressedAgent = 'teacher' | 'deskmate'
 
-// What the student and the product owner see each agent called.
+// What the student and the administrator see each agent called.
 export const agentNames: Readonly<Record<AddressedAgent, string>> = {
   teacher: 'Teacher',
   deskmate: 'Mai',

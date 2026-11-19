@@ -72,7 +72,7 @@ describe('admin handler', () => {
     expect(await store.read()).toBeNull()
   })
 
-  it('answers a role check for the product owner and refuses anyone else', () => {
+  it('answers a role check for the administrator and refuses anyone else', () => {
     expect(checkAdminRole({ email: owner, adminEmails })).toEqual({ productOwner: true })
     expect(() => checkAdminRole({ email: 'an@example.com', adminEmails })).toThrow(expect.objectContaining({ statusCode: 403 }))
     expect(() => checkAdminRole({ email: null, adminEmails })).toThrow(expect.objectContaining({ statusCode: 401 }))
@@ -303,7 +303,7 @@ describe('admin handler', () => {
     expect(scripted.conversation.find(message => message.author === 'teacher')?.text).toBe(fakeSentence)
   })
 
-  it('shows the product owner one decision per agent proposal', async () => {
+  it('shows the administrator one decision per agent proposal', async () => {
     const decisions = createMemoryDecisionLogStore()
     const lesson = 'LISTS_LESSON_SHOULD_NOT_BE_LOGGED'
     await handleTurn({
@@ -618,7 +618,7 @@ describe('admin student numbers', () => {
     campus: null,
   }
 
-  it('lists every student for the product owner', async () => {
+  it('lists every student for the administrator', async () => {
     const students = createMemoryStudentDirectoryStore([an, binh])
 
     const viewed = await handleAdmin(ownerRequest({ students, body: { event: 'students' } }))

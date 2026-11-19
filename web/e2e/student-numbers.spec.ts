@@ -2,8 +2,8 @@ import { expect, test, type Page } from '@playwright/test'
 import { demoAccounts, lecturerAccount, productOwnerAccount } from '../server/auth/demo-accounts'
 import { resetDemoAccounts } from './reset-demo-accounts'
 
-// The student number is the seam: the lecturer's enrolled list and the product
-// owner's directory, at desktop and phone width.
+// The student number is the seam: the lecturer's enrolled list and the
+// administrator's directory, at desktop and phone width.
 
 const widths = [
   { name: 'desktop', viewport: { width: 1440, height: 900 } },
@@ -51,10 +51,10 @@ for (const width of widths) {
     await expectNoSidewaysScroll(page)
   })
 
-  test(`lets the product owner read and change student numbers at ${width.name} width`, async ({ page }) => {
+  test(`lets the administrator read and change student numbers at ${width.name} width`, async ({ page }) => {
     await page.setViewportSize(width.viewport)
     await signIn(page, productOwnerAccount)
-    await page.getByRole('navigation', { name: 'Product owner' }).getByRole('link', { name: 'Students' }).click()
+    await page.getByRole('navigation', { name: 'Administrator' }).getByRole('link', { name: 'Students' }).click()
     await expect(page).toHaveURL(/\/admin\/students$/)
     await expect(page.getByRole('heading', { name: 'Students', exact: true })).toBeVisible()
 
@@ -95,7 +95,7 @@ for (const width of widths) {
 }
 
 for (const width of widths) {
-  test(`lets the product owner change a campus and the lecturer filter by it at ${width.name} width`, async ({ page }) => {
+  test(`lets the administrator change a campus and the lecturer filter by it at ${width.name} width`, async ({ page }) => {
     await resetDemoAccounts()
     await page.setViewportSize(width.viewport)
     await signIn(page, productOwnerAccount)
@@ -122,10 +122,10 @@ for (const width of widths) {
   })
 }
 
-test('tells a student the Students page is for the product owner', async ({ page }) => {
+test('tells a student the Students page is for the administrator', async ({ page }) => {
   await signIn(page, demoAccounts[0])
   await page.goto('/admin/students')
-  await expect(page.getByText('This page is for the product owner.')).toBeVisible()
+  await expect(page.getByText('This page is for the administrator.')).toBeVisible()
 })
 
 async function expectNoSidewaysScroll(page: Page) {

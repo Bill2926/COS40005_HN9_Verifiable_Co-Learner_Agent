@@ -85,7 +85,7 @@ async function changeNumber(studentId: string) {
         role="alert"
         class="max-w-sm text-sm text-default"
       >
-        This page is for the product owner.
+        This page is for the administrator.
       </p>
       <p
         v-else-if="unavailable"

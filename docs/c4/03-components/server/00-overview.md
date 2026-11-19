@@ -31,7 +31,7 @@ flowchart LR
     agentTools["<b>agent-tools</b><br/>get_student_mastery, tool trace"]:::comp
     lm["<b>language-model</b><br/>Real model, choice"]:::comp
     storage["<b>storage</b><br/>Store interfaces and<br/>Supabase versions"]:::comp
-    admin["<b>admin</b><br/>Product-owner handler"]:::comp
+    admin["<b>admin</b><br/>Administrator handler"]:::comp
     lecturer["<b>lecturer</b><br/>Lecturer handler"]:::comp
     student["<b>student</b><br/>Profile and reported actions"]:::comp
     activity["<b>activity recorder</b><br/>Append-only activity log"]:::comp

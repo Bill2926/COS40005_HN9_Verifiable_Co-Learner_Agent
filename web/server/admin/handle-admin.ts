@@ -19,7 +19,7 @@ export class ProductOwnerRequiredError extends Error {
   readonly statusCode = 403
 
   constructor() {
-    super('Product owner access required')
+    super('Administrator access required')
     this.name = 'ProductOwnerRequiredError'
   }
 }
@@ -78,7 +78,7 @@ export interface AdminResponse {
   students: AdminStudent[]
 }
 
-// The answer to a role check: reaching it at all means the caller is the product owner.
+// The answer to a role check: reaching it at all means the caller is an administrator.
 export interface AdminRoleResponse {
   productOwner: true
 }
@@ -168,7 +168,7 @@ function wantsDirectory(body: unknown): boolean {
   return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus')
 }
 
-// The product owner may correct a number to SWB followed by at least four
+// The administrator may correct a number to SWB followed by at least four
 // digits. Whether the number is free is the store's decision.
 function studentNumberBody(body: unknown): { studentId: string, studentNumber: string } | null {
   if (typeof body !== 'object' || body === null) return null

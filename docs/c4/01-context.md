@@ -6,7 +6,7 @@ The Verifiable Co-Learner is a web application in which first-year students lear
 with two LLM agents (a Teacher and a Deskmate). A deterministic VerifyShield rules on every move
 the agents propose before the student sees any text.
 
-Terms follow `CONTEXT.md` (Student, Product owner, VerifyShield, Move, Decision log).
+Terms follow `CONTEXT.md` (Student, Administrator, VerifyShield, Move, Decision log).
 
 How to read the diagrams in `docs/c4/`: blue is code in this repo, grey is another part of this
 repo, brown is an external system, teal is a database. Box colours are fixed so they stay readable
@@ -20,7 +20,7 @@ flowchart TB
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
   student(["<b>Student</b><br/>First-year learner"]):::person
-  owner(["<b>Product owner</b><br/>Reviews decisions,<br/>sets model and shield"]):::person
+  owner(["<b>Administrator</b><br/>Reviews decisions,<br/>sets model and shield"]):::person
   lecturer(["<b>Lecturer</b><br/>Views enrollment and course history"]):::person
 
   app["<b>Verifiable Co-Learner</b><br/>Python course with a Teacher and a<br/>Deskmate agent inside a VerifyShield"]:::system
@@ -42,11 +42,11 @@ flowchart TB
 | Element | Type | Notes |
 |---|---|---|
 | Student | Person | Signs in with Supabase Auth to study and practise. |
-| Product owner | Person | Identified by email against the `adminEmails` setting. Sees decisions and settings, never a student's code. |
+| Administrator | Person | Identified by email against the `adminEmails` setting. Sees decisions and settings, never a student's code. |
 | Lecturer | Person | Identified by the `LECTURER_EMAILS` list. Sees enrollment counts and course history for owned courses. |
 | Verifiable Co-Learner | System | The system in scope. Detailed in [02-containers.md](02-containers.md). |
 | Supabase | External system | Hosts Postgres (schema in `supabase/migrations/`) and Supabase Auth. |
-| LLM provider | External system | Configured by env (`NUXT_MODEL_*`) or by the product owner on `/admin`. A scripted fake model exists for use without a network. |
+| LLM provider | External system | Configured by env (`NUXT_MODEL_*`) or by the administrator on `/admin`. A scripted fake model exists for use without a network. |
 | jsDelivr CDN | External system | `web/app/python/browser-worker.mjs` loads Pyodide from `https://cdn.jsdelivr.net/pyodide/v<version>/full/`. Without it the student's browser cannot run or check Python. |
 
 ## Out of scope for this diagram

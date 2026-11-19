@@ -62,7 +62,7 @@ flowchart TB
 |---|---|
 | Developer machine, `pnpm dev` on port 3000 | `web/README.md` ("pnpm dev"), `web/playwright.config.ts` (`baseURL` `http://localhost:3000`, command `pnpm dev --port 3000`) |
 | Supabase cloud project | `web/.env.example` points `NUXT_PUBLIC_SUPABASE_URL` at a `*.supabase.co` URL; `web/README.md` says to use the team's Supabase project `VerifiableCoLearnerAgents`; `.mcp.json` points at the same project |
-| LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the product owner can change it on `/admin` |
+| LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the administrator can change it on `/admin` |
 | jsDelivr | `web/app/python/browser-worker.mjs` |
 
 ## GitHub Actions

@@ -10,7 +10,7 @@ function fetcherFor(role: { productOwner: boolean, lecturer: boolean }) {
 }
 
 describe('staff landing', () => {
-  it('sends a product owner to the admin pages, even when they also lecture', async () => {
+  it('sends an administrator to the admin pages, even when they also lecture', async () => {
     await expect(staffLanding(fetcherFor({ productOwner: true, lecturer: true }))).resolves.toBe('/admin')
   })
 

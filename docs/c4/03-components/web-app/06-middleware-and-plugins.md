@@ -49,7 +49,7 @@ flowchart LR
 |---|---|
 | `middleware/signed-in.ts` | On the server: no session in the request cookies leads to `/sign-in`. In the browser: no signed-in user from `$supabase` leads to `/sign-in`. |
 | `middleware/workspace-layout.ts` | On `/` without `?layout=` in the browser, replaces the route with one that carries the remembered layout, so Back returns to the layout that was showing. The server renders `/` from the cookie without a redirect. |
-| `middleware/staff-landing.ts` | On `/`, asks one role check through `staff/landing` (`GET /api/staff-role`, which answers `{productOwner, lecturer}` with 200 for a student too, so a student's page load leaves no 403 in the server log) and redirects a product owner to `/admin` and a lecturer to `/lecturer`. A move within `/` (a layout switch) is left alone. |
+| `middleware/staff-landing.ts` | On `/`, asks one role check through `staff/landing` (`GET /api/staff-role`, which answers `{productOwner, lecturer}` with 200 for a student too, so a student's page load leaves no 403 in the server log) and redirects an administrator to `/admin` and a lecturer to `/lecturer`. A move within `/` (a layout switch) is left alone. |
 | `plugins/supabase.client.ts` | Creates the browser Supabase client with the URL and publishable key from the public runtime config, and provides it as `$supabase`. |
 | `plugins/layout-transition.client.ts` | Uses the View Transitions API to crossfade the switch between Study and Mindmap on the same page without remounting the panels. Skipped when reduced motion is requested or the API is missing. |
 
