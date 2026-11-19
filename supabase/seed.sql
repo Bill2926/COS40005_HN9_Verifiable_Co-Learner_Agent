@@ -1,5 +1,8 @@
--- Demo students An and Bình, the administrator and the lecturer. Keep emails, passwords,
--- and display names aligned with web/server/auth/demo-accounts.ts.
+-- Demo students An and Bình, the administrator and the lecturer. Keep emails and
+-- display names aligned with web/server/auth/demo-accounts.ts. Student passwords
+-- are the demo passwords. Staff passwords are not in this file: a null password
+-- leaves a new staff account with an unknown one, and leaves an existing staff
+-- password untouched. The account owner sets the staff passwords outside the seed.
 
 create or replace function private.seed_demo_student(
   student_id uuid,
@@ -39,7 +42,11 @@ begin
     'authenticated',
     'authenticated',
     student_email,
-    extensions.crypt(student_password, extensions.gen_salt('bf')),
+    case
+      when student_password is null
+        then extensions.crypt(encode(extensions.gen_random_bytes(32), 'hex'), extensions.gen_salt('bf'))
+      else extensions.crypt(student_password, extensions.gen_salt('bf'))
+    end,
     now(),
     '{"provider":"email","providers":["email"]}'::jsonb,
     jsonb_build_object('display_name', student_display_name),
@@ -56,7 +63,10 @@ begin
   )
   on conflict (id) do update set
     email = excluded.email,
-    encrypted_password = excluded.encrypted_password,
+    encrypted_password = case
+      when student_password is null then auth.users.encrypted_password
+      else excluded.encrypted_password
+    end,
     email_confirmed_at = coalesce(auth.users.email_confirmed_at, excluded.email_confirmed_at),
     raw_user_meta_data = excluded.raw_user_meta_data,
     updated_at = now();
@@ -104,14 +114,14 @@ select private.seed_demo_student(
 select private.seed_demo_student(
   'c33c33c3-3333-4333-8333-333333333333',
   'owner@example.com',
-  'owner-demo-password',
+  null,
   'Owner'
 );
 
 select private.seed_demo_student(
   'd44d44d4-4444-4444-8444-444444444444',
   'lecturer@example.com',
-  'lecturer-demo-password',
+  null,
   'Lecturer'
 );
 

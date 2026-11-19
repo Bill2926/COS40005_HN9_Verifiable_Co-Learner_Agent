@@ -68,8 +68,7 @@ it('keeps campus empty until chosen, records each change and keeps the student f
       .toEqual([{ campus: 'Da Nang' }])
 
     await db.exec('set role authenticated')
-    const refused = await db.query("update public.students set campus = 'Can Tho' where id = $1", [an])
-    expect(refused.affectedRows).toBe(0)
+    await expect(db.query("update public.students set campus = 'Can Tho' where id = $1", [an])).rejects.toMatchObject({ code: '42501' })
     await expect(change('owner@example.com', an, 'Can Tho')).rejects.toMatchObject({ code: '42501' })
     await expect(choose(binh, 'Can Tho')).rejects.toMatchObject({ code: '42501' })
     await expect(db.query('select * from public.campus_changes')).rejects.toMatchObject({ code: '42501' })

@@ -51,8 +51,8 @@ describe('model settings boundary', () => {
       })
 
       const selected = await supabase.from('model_settings').select('*')
-      expect(selected.error).toBeNull()
-      expect(selected.data).toEqual([])
+      if (selected.error) expect(selected.error.code).toBe('42501')
+      else expect(selected.data).toEqual([])
       expect(JSON.stringify(selected)).not.toContain(boundaryKey)
 
       const inserted = await supabase.from('model_settings').insert({

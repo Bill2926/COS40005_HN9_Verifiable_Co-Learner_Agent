@@ -53,7 +53,7 @@ flowchart LR
   routes -->|"agentsForTurn"| agents
   routes -->|"createSupabase...Store"| storage
   routes -->|"verifyShieldForTurn"| shield
-  routes -->|"sessionStudentId,<br/>sessionEmail"| shared
+  routes -->|"sessionStudentId;<br/>student route also sessionEmail"| shared
   routes -->|"defaultCourseId"| course
   turn -->|"decide"| shield
   turn -->|"defaultCourseId, course helpers,<br/>studyModule"| course

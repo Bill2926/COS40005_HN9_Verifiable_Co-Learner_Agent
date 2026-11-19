@@ -1,4 +1,4 @@
-import { resolveModelChoice, testConnection, UnusableSettingsError, type ConnectionReport, type ModelSettings } from '../language-model'
+import { modelAddressLocked, resolveModelChoice, testConnection, UnusableSettingsError, type ConnectionReport, type ModelSettings } from '../language-model'
 import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
@@ -68,6 +68,8 @@ export interface AdminRequest {
   verifyShield?: VerifyShieldStore
   verifyShieldEnv?: string
   students?: StudentDirectoryStore
+  // Set by tests. A production server leaves it unset and the address stays locked.
+  production?: boolean
   body: unknown
 }
 
@@ -108,7 +110,7 @@ export async function handleConnectionTest(request: AdminRequest): Promise<Conne
   const form = modelForm(request.body, 'testConnection')
   if (!form) throw new ModelSettingsError('The settings to test are missing.')
   try {
-    return await testConnection(await settingsFromForm(form, request))
+    return await testConnection(await settingsFromForm(form, request), { production: modelAddressLocked(request.production) })
   }
   catch (error) {
     if (error instanceof UnusableSettingsError) throw new ModelSettingsError(error.message)
@@ -282,7 +284,7 @@ async function settingsToStore(save: ModelForm, request: AdminRequest): Promise<
 
   let choice
   try {
-    choice = resolveModelChoice(next)
+    choice = resolveModelChoice(next, { production: modelAddressLocked(request.production) })
   }
   catch (error) {
     const message = error instanceof Error ? error.message : 'The model settings are not usable.'

@@ -14,7 +14,7 @@ flowchart LR
   classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
-  routes["<b>server routes</b><br/>turn.post, admin.post"]:::near
+  routes["<b>server routes</b><br/>turn.post, student.post"]:::near
   pagesmw["<b>web app</b><br/>3 pages and signed-in middleware"]:::near
   typeUsers["<b>server and web app</b><br/>type-only users of turn.ts"]:::near
   auth["<b>Supabase Auth</b>"]:::ext
@@ -49,7 +49,7 @@ flowchart LR
 |---|---|
 | `campus.ts` | The four campuses, the `Campus` type and `isCampus`. |
 | `student-email.ts` | The student email domain, its message and `isStudentEmail`, used by the sign-in page and by the sign-in code handler. |
-| `student-id.ts` | `studentIdFromAuth(client)` reads the signed-in user's id from the session claims (`getClaims`). `sessionStudentId(event)` and `sessionEmail(event)` do the same on the server from request cookies and return `null` when Supabase is not configured. |
+| `student-id.ts` | `studentIdFromAuth(client)` reads the signed-in user's id from the session claims (`getClaims`). `sessionStudentId(event)` and `sessionEmail(event)` do the same on the server from request cookies and return `null` when Supabase is not configured. Staff routes do not use `sessionEmail`; they read the confirmed email from the user record with the secret key. |
 | `supabase-server.ts` | `createRequestClient(event, url, publishableKey)`: a Supabase server client that reads cookies from the request and writes refreshed ones to the response. |
 | `turn.ts` | The screen state (`RedrawState`), roadmap, working area, conversation, trace and the `TurnEvent` stream; `AddressedAgent`, `RuleCheck`, and the one runtime value `agentNames` (Teacher, Mai), the single agent-to-display-name map. `MaterialBlock` is one materials block: text, code, diagram, image or video. |
 | `materials.ts` | `materialsText` flattens a module's blocks for the Teacher prompt. `videoEmbed` returns a YouTube or Vimeo player address, or null so any other address stays a link. |

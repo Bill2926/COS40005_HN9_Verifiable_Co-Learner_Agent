@@ -63,8 +63,10 @@ Open <http://localhost:3000> and sign in with one of the demo accounts:
 |---|---|---|---|
 | An, a student starting Module 1 | an@example.com | an-demo-password | `/` |
 | Bình, a student starting Module 5 | binh@example.com | binh-demo-password | `/` |
-| Administrator | owner@example.com | owner-demo-password | `/admin` |
-| Lecturer | lecturer@example.com | lecturer-demo-password | `/lecturer` |
+| Administrator | owner@example.com | set by the account owner | `/admin` |
+| Lecturer | lecturer@example.com | set by the account owner | `/lecturer` |
+
+The administrator and lecturer passwords are not in this repository. The account owner keeps the new ones in the team password manager and in the GitHub Actions secrets `DEMO_OWNER_PASSWORD` and `DEMO_LECTURER_PASSWORD`. A rehearsal reads those names from the environment or from `web/.env`.
 
 The administrator can change the language model on `/admin` without a restart. A choice saved there replaces the `NUXT_MODEL*` values in `.env`.
 

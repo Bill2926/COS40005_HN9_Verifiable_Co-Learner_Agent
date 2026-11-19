@@ -6,7 +6,7 @@
 // asks a provider the two questions the administrator can check by hand.
 // The provider calls stay behind this file.
 export type { LanguageModel, ModelTool, ProposalSchema, ToolLoop, ToolLoopEnd, ToolLoopResult } from './language-model'
-export { resolveModelChoice } from './model-choice'
+export { approvedModelAddress, modelAddressLocked, resolveModelChoice } from './model-choice'
 export type { ModelChoice, ModelSettings } from './model-choice'
 export { createRealLanguageModel } from './real-language-model'
 export { createFakeLanguageModel } from './fake-language-model'

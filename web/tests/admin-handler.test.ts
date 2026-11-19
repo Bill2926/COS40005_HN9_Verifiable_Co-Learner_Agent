@@ -40,6 +40,7 @@ function ownerRequest(overrides: {
   verifyShield?: ReturnType<typeof createMemoryVerifyShieldStore>
   students?: ReturnType<typeof createMemoryStudentDirectoryStore>
   verifyShieldEnv?: string
+  production?: boolean
   body?: unknown
 } = {}) {
   return {
@@ -51,6 +52,7 @@ function ownerRequest(overrides: {
     verifyShield: overrides.verifyShield,
     students: overrides.students,
     verifyShieldEnv: overrides.verifyShieldEnv,
+    production: overrides.production,
     body: overrides.body ?? { event: 'read' },
   }
 }
@@ -235,6 +237,36 @@ describe('admin handler', () => {
     expect(JSON.stringify(updated)).not.toContain(savedKey)
     expect(calls.every(call => call.authorization === `Bearer ${savedKey}`)).toBe(true)
     expect(calls.every(call => call.model === 'deepseek-chat')).toBe(true)
+  })
+
+  it('refuses a saved model address other than the approved one in production', async () => {
+    const store = createMemoryModelSettingsStore()
+
+    await expect(handleAdmin(ownerRequest({
+      production: true,
+      store,
+      body: {
+        event: 'save',
+        provider: 'real',
+        apiKey: savedKey,
+        baseUrl: 'https://example.test',
+        modelName: 'deepseek-chat',
+      },
+    }))).rejects.toMatchObject({ statusCode: 400, message: expect.stringMatching(/https:\/\/api\.deepseek\.com/) })
+
+    expect(await store.read()).toBeNull()
+  })
+
+  it('does not call a saved address other than the approved one in production', async () => {
+    const store = createMemoryModelSettingsStore()
+    await store.save({
+      provider: 'real',
+      apiKey: savedKey,
+      baseUrl: 'https://example.test',
+      modelName: 'deepseek-chat',
+    })
+
+    await expect(agentsForTurn(store, realEnv, { production: true })).rejects.toThrow(/https:\/\/api\.deepseek\.com/)
   })
 
   it('refuses to save a real model with a blank model name', async () => {

@@ -44,8 +44,8 @@ describe('student numbers boundary', () => {
       .update({ student_number: 'SWB7777' })
       .eq('id', studentId)
       .select('student_number')
-    expect(updated.error).toBeNull()
-    expect(updated.data).toEqual([])
+    if (updated.error) expect(updated.error.code).toBe(permissionDenied)
+    else expect(updated.data).toEqual([])
 
     const changed = await student.rpc('set_student_number', {
       actor_email: an.email,

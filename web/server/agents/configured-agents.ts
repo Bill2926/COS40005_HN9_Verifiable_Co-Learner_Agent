@@ -1,4 +1,4 @@
-import { createRealLanguageModel, resolveModelChoice, type ModelSettings } from '../language-model'
+import { createRealLanguageModel, modelAddressLocked, resolveModelChoice, type ModelSettings } from '../language-model'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { Agents } from './agents'
 import { createAgents } from './create-agents'
@@ -14,8 +14,8 @@ function logOnce(line: string): void {
   console.info(line)
 }
 
-export function createConfiguredAgents(settings: ModelSettings): Agents {
-  const choice = resolveModelChoice(settings)
+export function createConfiguredAgents(settings: ModelSettings, options?: { production?: boolean }): Agents {
+  const choice = resolveModelChoice(settings, { production: options?.production ?? false })
 
   if (choice.kind === 'real') {
     // The key is never logged and never named in an error.
@@ -46,7 +46,8 @@ export function createConfiguredAgents(settings: ModelSettings): Agents {
 export async function agentsForTurn(
   store: ModelSettingsStore,
   env: ModelSettings,
+  options?: { production?: boolean },
 ): Promise<Agents> {
   const saved = await store.read()
-  return createConfiguredAgents(saved ?? env)
+  return createConfiguredAgents(saved ?? env, { production: modelAddressLocked(options?.production) })
 }
