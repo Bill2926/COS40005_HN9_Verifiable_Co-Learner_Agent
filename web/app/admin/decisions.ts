@@ -1,4 +1,4 @@
-// What the product owner's pages read from the admin endpoint, and how the
+// What the administrator's pages read from the admin endpoint, and how the
 // verdict drawer turns a decision's rule checks into plain English.
 
 import type { Campus } from '../../shared/campus'

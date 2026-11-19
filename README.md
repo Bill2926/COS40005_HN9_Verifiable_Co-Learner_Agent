@@ -63,10 +63,10 @@ Open <http://localhost:3000> and sign in with one of the demo accounts:
 |---|---|---|---|
 | An, a student starting Module 1 | an@example.com | an-demo-password | `/` |
 | Bình, a student starting Module 5 | binh@example.com | binh-demo-password | `/` |
-| Product owner | owner@example.com | owner-demo-password | `/admin` |
+| Administrator | owner@example.com | owner-demo-password | `/admin` |
 | Lecturer | lecturer@example.com | lecturer-demo-password | `/lecturer` |
 
-The product owner can change the language model on `/admin` without a restart. A choice saved there replaces the `NUXT_MODEL*` values in `.env`.
+The administrator can change the language model on `/admin` without a restart. A choice saved there replaces the `NUXT_MODEL*` values in `.env`.
 
 ### Using your own Supabase project
 

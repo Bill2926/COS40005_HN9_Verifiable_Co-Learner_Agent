@@ -7,7 +7,7 @@ A web-based co-learner for first-year students learning Python, where a teacher 
 ### People and agents
 
 **Student**:
-The first-year learner, with no programming background, who studies a course in the app. The primary user. A lecturer or the product owner is never a student: they are never enrolled and never see a student's pages.
+The first-year learner, with no programming background, who studies a course in the app. The primary user. A lecturer or an administrator is never a student: they are never enrolled and never see a student's pages.
 _Avoid_: user, learner
 
 **Profile**:
@@ -15,11 +15,11 @@ A student's own display name and profile picture, which they can change, shown w
 _Avoid_: account, settings
 
 **Campus**:
-The Swinburne campus a student studies at: Hanoi, Da Nang, Ho Chi Minh City or Can Tho. The student chooses it once, the first time they sign in, and must choose one before studying; afterwards only the product owner can change it. Lecturers and the product owner see it beside the student number, and a lecturer can filter enrolled students by it. It changes nothing about the course, the mastery threshold or the agents.
+The Swinburne campus a student studies at: Hanoi, Da Nang, Ho Chi Minh City or Can Tho. The student chooses it once, the first time they sign in, and must choose one before studying; afterwards only an administrator can change it. Lecturers and the administrator see it beside the student number, and a lecturer can filter enrolled students by it. It changes nothing about the course, the mastery threshold or the agents.
 _Avoid_: site, location, branch
 
 **Student number**:
-A student's short identifier in the form SWB followed by at least four digits (SWB0001), like a university student ID, given to the student when their account is created and unique across the whole system; a number is never given out twice. Lecturers and the product owner can see it; only the product owner can change it, and each change is recorded. It is how staff tell students apart.
+A student's short identifier in the form SWB followed by at least four digits (SWB0001), like a university student ID, given to the student when their account is created and unique across the whole system; a number is never given out twice. Lecturers and administrators can see it; only an administrator can change it, and each change is recorded. It is how staff tell students apart.
 _Avoid_: student id, user id
 
 **Teacher agent**:
@@ -33,12 +33,12 @@ _Avoid_: companion, buddy, second tutor
 **Co-learner agent**:
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
-**Product owner**:
+**Administrator**:
 The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus. Never sees a student's code, conversation or mastery. Does not manage courses: that is the lecturer.
-_Avoid_: admin, assessor
+_Avoid_: product owner, admin, assessor
 
 **Lecturer**:
-The person who owns a course: edits or imports its course spec, sets its mastery threshold, and sees who is enrolled by name, student number and email. Never sees a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and the product owner.
+The person who owns a course: edits or imports its course spec, sets its mastery threshold, and sees who is enrolled by name, student number and email. Never sees a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and an administrator.
 _Avoid_: teacher, instructor, admin, product owner
 
 ### Course
@@ -198,7 +198,7 @@ The one agent a student names at the start of a message (`@Teacher` or `@Mai`); 
 _Avoid_: mention, tag, target
 
 **Deskmate switch**:
-The student's own choice to keep the deskmate agent out of their conversations. While it is off the deskmate agent proposes nothing, so nothing of it reaches the decision log, and naming it as the addressed agent has no effect. On unless the student switches it off; it belongs to the student, across courses and devices. It is not the VerifyShield, which only the product owner switches.
+The student's own choice to keep the deskmate agent out of their conversations. While it is off the deskmate agent proposes nothing, so nothing of it reaches the decision log, and naming it as the addressed agent has no effect. On unless the student switches it off; it belongs to the student, across courses and devices. It is not the VerifyShield, which only an administrator switches.
 _Avoid_: Mai toggle, mute
 
 **Move**:

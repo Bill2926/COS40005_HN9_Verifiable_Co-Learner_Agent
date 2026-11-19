@@ -155,7 +155,7 @@ function enrolledText(value: string): string {
             to="/admin"
             class="text-sm text-muted underline decoration-transparent underline-offset-4 hover:text-highlighted hover:decoration-current"
           >
-            Admin page
+            Administrator page
           </NuxtLink>
           <button
             type="button"

@@ -21,7 +21,7 @@ for (const width of widths) {
     await expect(page.getByRole('link', { name: 'Back to the course' })).toHaveCount(0)
   })
 
-  test(`lands the product owner on /admin and away from the course at ${width.name} width`, async ({ page }) => {
+  test(`lands the administrator on /admin and away from the course at ${width.name} width`, async ({ page }) => {
     await page.setViewportSize(width.viewport)
     await signIn(page, productOwnerAccount)
     await expect(page).toHaveURL(/\/admin$/)
@@ -42,7 +42,7 @@ for (const width of widths) {
 
 test('gives each single staff role no switch to the other', async ({ page }) => {
   await signIn(page, lecturerAccount)
-  await expect(page.getByRole('link', { name: 'Admin page' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Administrator page' })).toHaveCount(0)
 
   await signOut(page)
   await signIn(page, productOwnerAccount)
@@ -69,7 +69,7 @@ test('switches a person with both staff roles from the admin pages to the lectur
 test('switches a person with both staff roles from the lecturer page to the admin pages', async ({ page }) => {
   await signIn(page, lecturerAccount)
   await expect(page).toHaveURL(/\/lecturer$/)
-  // The demo lecturer is not the product owner. Answer the page's role check
+  // The demo lecturer is not an administrator. Answer the page's role check
   // as both roles, which is what the server does for a person who does both jobs.
   await page.route('**/api/staff-role', route => route.fulfill({
     status: 200,
@@ -77,7 +77,7 @@ test('switches a person with both staff roles from the lecturer page to the admi
     body: JSON.stringify({ productOwner: true, lecturer: true }),
   }))
   await page.reload()
-  const switchLink = page.getByRole('link', { name: 'Admin page' })
+  const switchLink = page.getByRole('link', { name: 'Administrator page' })
   await expect(switchLink).toBeVisible()
   await switchLink.click()
   await expect(page).toHaveURL(/\/admin$/)

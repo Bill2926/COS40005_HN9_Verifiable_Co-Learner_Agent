@@ -2,7 +2,7 @@ import { expect, test, type Page } from '@playwright/test'
 import { demoAccounts, productOwnerAccount } from '../server/auth/demo-accounts'
 import { adminClient } from './reset-demo-accounts'
 
-// The product owner's pages are the seam: where sign-in lands, the
+// The administrator's pages are the seam: where sign-in lands, the
 // Decisions/Settings split, and the verdict drawer.
 
 const turnId = crypto.randomUUID()
@@ -63,7 +63,7 @@ test.afterAll(async () => {
   await adminClient().from('decisions').delete().eq('turn_id', turnId)
 })
 
-test('lands the product owner on Decisions and keeps them out of the course', async ({ page }) => {
+test('lands the administrator on Decisions and keeps them out of the course', async ({ page }) => {
   await signInAsOwner(page)
   await expect(page).toHaveURL(/\/admin$/)
   await expect(page.getByRole('heading', { name: 'Decisions', exact: true })).toBeVisible()
@@ -75,7 +75,7 @@ test('lands the product owner on Decisions and keeps them out of the course', as
 
 test('splits Decisions and Settings, and the nav marks the current page', async ({ page }) => {
   await signInAsOwner(page)
-  const nav = page.getByRole('navigation', { name: 'Product owner' })
+  const nav = page.getByRole('navigation', { name: 'Administrator' })
   await expect(nav.getByRole('link', { name: 'Decisions' })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('table')).toBeVisible()
   await expect(page.getByRole('checkbox', { name: /VerifyShield is/ })).toHaveCount(0)
@@ -124,7 +124,7 @@ test('covers the screen with the drawer on a phone', async ({ page }) => {
   expect(box?.height).toBe(844)
 })
 
-test('tells a student both admin pages are for the product owner', async ({ page }) => {
+test('tells a student both admin pages are for the administrator', async ({ page }) => {
   await page.goto('/sign-in')
   await waitForApp(page)
   await page.getByLabel('Email').fill(demoAccounts[0].email)
@@ -134,7 +134,7 @@ test('tells a student both admin pages are for the product owner', async ({ page
 
   for (const path of ['/admin', '/admin/settings']) {
     await page.goto(path)
-    await expect(page.getByText('This page is for the product owner.')).toBeVisible()
+    await expect(page.getByText('This page is for the administrator.')).toBeVisible()
   }
 })
 

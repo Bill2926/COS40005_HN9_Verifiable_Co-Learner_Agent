@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { testConnection } from '../server/language-model'
 
-// The product owner's two questions, asked with the settings on the form and answered with what the
+// The administrator's two questions, asked with the settings on the form and answered with what the
 // provider really did. The provider is stubbed here, so the messages are the ones DeepSeek and any
 // other OpenAI-compatible server send back.
 

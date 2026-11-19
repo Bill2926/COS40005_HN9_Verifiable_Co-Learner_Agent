@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { isLecturer } from '~/staff/landing'
 
-// The header both product owner pages share: the nav between Decisions and
-// Settings, and the switch to the lecturer page for a product owner who also
+// The header both administrator pages share: the nav between Decisions and
+// Settings, and the switch to the lecturer page for an administrator who also
 // lectures.
 const route = useRoute()
 
@@ -40,7 +40,7 @@ async function signOut() {
           Verifiable Co-Learner
         </p>
         <nav
-          aria-label="Product owner"
+          aria-label="Administrator"
           class="flex items-center gap-1"
         >
           <NuxtLink

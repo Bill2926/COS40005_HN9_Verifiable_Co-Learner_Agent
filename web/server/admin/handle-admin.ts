@@ -19,7 +19,7 @@ export class ProductOwnerRequiredError extends Error {
   readonly statusCode = 403
 
   constructor() {
-    super('Product owner access required')
+    super('Administrator access required')
     this.name = 'ProductOwnerRequiredError'
   }
 }
@@ -78,7 +78,7 @@ export interface AdminResponse {
   students: AdminStudent[]
 }
 
-// The answer to a role check: reaching it at all means the caller is the product owner.
+// The answer to a role check: reaching it at all means the caller is an administrator.
 export interface AdminRoleResponse {
   productOwner: true
 }
@@ -100,7 +100,7 @@ export function isConnectionTest(body: unknown): boolean {
   return typeof body === 'object' && body !== null && 'event' in body && body.event === 'testConnection'
 }
 
-// The two checks the product owner asked for, of the settings on the form and of nothing else: what is
+// The two checks the administrator asked for, of the settings on the form and of nothing else: what is
 // saved stays as it was until the owner saves it. A provider that refuses or cannot be reached is
 // answered inside the report; only settings that describe no call at all are a fault.
 export async function handleConnectionTest(request: AdminRequest): Promise<ConnectionReport> {
@@ -168,7 +168,7 @@ function wantsDirectory(body: unknown): boolean {
   return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus')
 }
 
-// The product owner may correct a number to SWB followed by at least four
+// The administrator may correct a number to SWB followed by at least four
 // digits. Whether the number is free is the store's decision.
 function studentNumberBody(body: unknown): { studentId: string, studentNumber: string } | null {
   if (typeof body !== 'object' || body === null) return null

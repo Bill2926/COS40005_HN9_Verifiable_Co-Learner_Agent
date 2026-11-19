@@ -30,7 +30,7 @@ Components are ordered the way a request travels through them (server) or the wa
 | [06-agents.md](03-components/server/06-agents.md) | agents | Teacher and Deskmate: moves, role table, prompts, and the agents built on a language model |
 | [07-language-model.md](03-components/server/07-language-model.md) | language-model | The real language model and the choice of model settings |
 | [08-storage.md](03-components/server/08-storage.md) | storage | Store interfaces and their Supabase versions |
-| [09-admin.md](03-components/server/09-admin.md) | admin | Product-owner handler: model, shield, decisions |
+| [09-admin.md](03-components/server/09-admin.md) | admin | Administrator handler: model, shield, decisions |
 | [10-lecturer.md](03-components/server/10-lecturer.md) | lecturer | Lecturer handler: courses, enrollments, course history |
 | [11-student.md](03-components/server/11-student.md) | student | Profile, mindmap and the actions the browser reports |
 | [12-activity-recorder.md](03-components/server/12-activity-recorder.md) | activity recorder | Append-only activity log shared by the student handler and the turn |

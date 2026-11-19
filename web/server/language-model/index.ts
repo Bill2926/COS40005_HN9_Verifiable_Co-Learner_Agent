@@ -3,7 +3,7 @@
 // who is asking or which moves exist; the agents component writes both and passes the proposal schema.
 // `createRealLanguageModel` is the OpenAI-compatible client, `createFakeLanguageModel` the scripted
 // answer to the same interface, `resolveModelChoice` reads the saved settings, and `testConnection`
-// asks a provider the two questions the product owner can check by hand.
+// asks a provider the two questions the administrator can check by hand.
 // The provider calls stay behind this file.
 export type { LanguageModel, ModelTool, ProposalSchema, ToolLoop, ToolLoopEnd, ToolLoopResult } from './language-model'
 export { resolveModelChoice } from './model-choice'

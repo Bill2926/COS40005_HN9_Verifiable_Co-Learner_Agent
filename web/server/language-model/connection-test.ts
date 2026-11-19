@@ -4,7 +4,7 @@ import { resolveModelChoice, type ModelChoice, type ModelSettings } from './mode
 import type { ProposalSchema } from './language-model'
 
 // One of the two answers, with how long the provider took. `error` is what the provider said, with the
-// API key taken out of it: the page shows this to the product owner, and the key never leaves the server.
+// API key taken out of it: the page shows this to the administrator, and the key never leaves the server.
 export interface ConnectionCheck {
   ok: boolean
   ms: number
@@ -33,7 +33,7 @@ const probeSchema: ProposalSchema<'checked' | 'none'> = z.object({ proposal: z.e
 
 const probePrompt = 'This is a connection check, not a lesson.'
 
-// The two questions the product owner can ask of a provider by hand: will it answer in words, and will
+// The two questions the administrator can ask of a provider by hand: will it answer in words, and will
 // it answer a forced tool call. Each is timed and each is reported on its own, because a model can do
 // one and not the other. Nothing is saved here and nothing is retried.
 export async function testConnection(settings: ModelSettings): Promise<ConnectionReport> {
@@ -43,7 +43,7 @@ export async function testConnection(settings: ModelSettings): Promise<Connectio
   return {
     reply: await check(async () => (await model.reply('Answer with one short sentence and nothing else.', probePrompt)).trim() !== '', choice.apiKey),
     // One step is all a tool call needs, so a model that will not call one fails here rather than
-    // spending a cap's worth of calls on the product owner's bill.
+    // spending a cap's worth of calls on the administrator's bill.
     toolCall: await check(async () => {
       await model.proposeWithTools(
         'Call the tool, with the proposal set to "checked". Do not answer in words.',
@@ -57,7 +57,7 @@ export async function testConnection(settings: ModelSettings): Promise<Connectio
 }
 
 // A fake provider has nothing to reach, and a real one needs every field: both are answered before a
-// call is made, so the product owner is told what to fix instead of watching two timeouts.
+// call is made, so the administrator is told what to fix instead of watching two timeouts.
 function realChoice(settings: ModelSettings): Extract<ModelChoice, { kind: 'real' }> {
   let choice
   try {

@@ -1,4 +1,4 @@
--- Demo students An and Bình, the product owner and the lecturer. Keep emails, passwords,
+-- Demo students An and Bình, the administrator and the lecturer. Keep emails, passwords,
 -- and display names aligned with web/server/auth/demo-accounts.ts.
 
 create or replace function private.seed_demo_student(
