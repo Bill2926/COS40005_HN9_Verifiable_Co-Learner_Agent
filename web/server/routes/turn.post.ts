@@ -3,6 +3,7 @@ import { agentsForTurn } from '../agents'
 import { defaultCourseId } from '../course'
 import { createSupabaseCourseStore } from '../storage/supabase-course-store'
 import { createSupabaseConversationStore } from '../storage/supabase-conversation-store'
+import { createSupabaseDailyTurnAllowance } from '../storage/supabase-daily-turn-allowance'
 import { createSupabaseDeskmateSettingStore } from '../storage/supabase-deskmate-setting-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
@@ -55,6 +56,8 @@ export default defineEventHandler(async (event) => {
     decisions: createSupabaseDecisionLogStore(studentData),
     // The deskmate switch is the student's own, the same in every course.
     deskmateSettings: createSupabaseDeskmateSettingStore(connection),
+    // The 60 proposing turns are the student's for the Hanoi day, in every course.
+    dailyTurns: createSupabaseDailyTurnAllowance(connection),
     evidence: createSupabaseEvidenceStore(studentData),
     quizAnswers: createSupabaseQuizAnswerStore(studentData),
     unlocks: createSupabaseUnlockStore(studentData),

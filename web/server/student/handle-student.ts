@@ -8,6 +8,19 @@ import { campusRule, isCampus, type Campus } from '../../shared/campus'
 
 const imageTypes = new Set(['image/jpeg', 'image/png', 'image/webp'])
 const maxImageBytes = 2 * 1024 * 1024
+// A client report is a few ids. Anything larger is treated as smuggled content.
+const maxActivityReportBytes = 1024
+const activityReports = new Set([
+  'signed_in',
+  'module_opened',
+  'mode_switched',
+  'layout_switched',
+  'code_run',
+  'run_finished',
+  'pasted',
+  'went_idle',
+  'returned',
+])
 
 export class SignInRequiredError extends Error {
   readonly statusCode = 401
@@ -85,6 +98,9 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
 
   const body = objectBody(request.body)
   const event = eventName(body)
+  if (activityReports.has(event) && JSON.stringify(body).length > maxActivityReportBytes) {
+    throw new StudentRequestError('That report is too large.')
+  }
   if (event === 'open') return present(request, studentId)
   if (event === 'signed_in') {
     await recordActivity(request, studentId, 'signed_in', {}, null)
@@ -113,9 +129,31 @@ export async function handleStudent(request: StudentHandlerRequest): Promise<Stu
     return present(request, studentId)
   }
   if (event === 'code_run') {
-    const exerciseId = field(body, 'exerciseId')
-    if (!exerciseId) throw new StudentRequestError('The exercise is missing.')
-    await recordActivity(request, studentId, 'code_run', { exerciseId }, request.courseId)
+    await recordActivity(request, studentId, 'code_run', { exerciseId: exerciseId(body) }, request.courseId)
+    return present(request, studentId)
+  }
+  if (event === 'run_finished') {
+    const outcome = runOutcome(body)
+    const errorType = runErrorType(body, outcome)
+    await recordActivity(request, studentId, 'run_finished', {
+      exerciseId: exerciseId(body),
+      outcome,
+      errorType,
+    }, request.courseId)
+    return present(request, studentId)
+  }
+  if (event === 'pasted') {
+    await recordActivity(request, studentId, 'pasted', {
+      exerciseId: exerciseId(body),
+      characters: pasteCharacters(body),
+    }, request.courseId)
+    return present(request, studentId)
+  }
+  if (event === 'went_idle' || event === 'returned') {
+    await recordActivity(request, studentId, event, {
+      moduleId: requiredModule(body, request.moduleIds),
+      exerciseId: exerciseId(body),
+    }, request.courseId)
     return present(request, studentId)
   }
   if (event === 'profile_changed') {
@@ -409,6 +447,38 @@ function eventName(body: Record<string, unknown>): string {
 function field(body: Record<string, unknown>, key: string): string {
   const value = body[key]
   return typeof value === 'string' ? value.trim() : ''
+}
+
+const runOutcomes = new Set(['completed', 'error', 'stopped', 'failed'])
+
+function runOutcome(body: Record<string, unknown>): string {
+  const outcome = field(body, 'outcome')
+  if (!runOutcomes.has(outcome)) throw new StudentRequestError('That run outcome is not recognised.')
+  return outcome
+}
+
+function exerciseId(body: Record<string, unknown>): string {
+  const id = field(body, 'exerciseId')
+  if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new StudentRequestError('The exercise is missing.')
+  return id
+}
+
+function pasteCharacters(body: Record<string, unknown>): number {
+  const characters = body.characters
+  if (typeof characters !== 'number' || !Number.isInteger(characters) || characters < 0) {
+    throw new StudentRequestError('The paste size is missing.')
+  }
+  return characters
+}
+
+function runErrorType(body: Record<string, unknown>, outcome: string): string | null {
+  if (!('errorType' in body) || body.errorType === null || body.errorType === undefined) return null
+  const errorType = body.errorType
+  const named = typeof errorType === 'string'
+    && /^[A-Za-z_][A-Za-z0-9_]*$/.test(errorType)
+    && errorType.length <= 64
+  if (!named || outcome !== 'error') throw new StudentRequestError('That error kind is not recognised.')
+  return errorType
 }
 
 function requiredModule(body: Record<string, unknown>, moduleIds: readonly string[]): string {

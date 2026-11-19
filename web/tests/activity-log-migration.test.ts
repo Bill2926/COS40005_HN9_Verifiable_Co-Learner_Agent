@@ -89,6 +89,32 @@ it('lets neither anon nor authenticated read, update or delete an activity row',
   })
 })
 
+it('accepts a finished run, a paste and going quiet, and still refuses code', async () => {
+  await withActivityMigration(async (db) => {
+    const migration = '20261119063919_activity_run_paste_and_idle.sql'
+    await db.exec(await readFile(new URL(migration, migrations), 'utf8'))
+    await db.exec('set role service_role')
+    const reports = [
+      ['run_finished', '{"exerciseId":"say_hello","outcome":"error","errorType":"NameError"}'],
+      ['pasted', '{"exerciseId":"say_hello","characters":42}'],
+      ['went_idle', '{"moduleId":"getting_started","exerciseId":"say_hello"}'],
+      ['returned', '{"moduleId":"getting_started","exerciseId":"say_hello"}'],
+    ] as const
+    for (const [eventType, payload] of reports) {
+      await db.exec(
+        `insert into public.activity_log (student_id, course_id, event_type, payload) values ('${an}', 'intro_python', '${eventType}', '${payload}')`,
+      )
+    }
+    const rows = (await db.query<{ event_type: string }>(
+      `select event_type from public.activity_log where student_id = '${an}' order by id`,
+    )).rows
+    expect(rows.map(row => row.event_type)).toEqual(['run_finished', 'pasted', 'went_idle', 'returned'])
+    await expect(db.exec(
+      `insert into public.activity_log (student_id, event_type, payload) values ('${an}', 'pasted', '{"code":"print(1)"}')`,
+    )).rejects.toMatchObject({ code: '23514' })
+  })
+})
+
 it('imports an arrangement once and keeps an account reset across devices', async () => {
   await withActivityMigration(async (db) => {
     const migration = '20261117161403_mindmap_arrangement_reset.sql'
