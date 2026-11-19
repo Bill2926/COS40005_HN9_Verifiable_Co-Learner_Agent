@@ -8,6 +8,7 @@ import { createMemoryQuizAnswerStore } from '../server/storage/quiz-answer-store
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
 import { createMemoryActivityLog } from '../server/activity-recorder'
+import { createFakeSandbox } from '../server/sandbox'
 import { handleTurn, streamTurn, studentIdForTurn } from '../server/turn/handle-turn'
 
 const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -1848,7 +1849,7 @@ describe('turn endpoint', () => {
     for await (const event of streamTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'submission', code, results },
-    }, store, model)) {
+    }, store, model, { sandbox: createFakeSandbox({ outcome: 'checked', results }) })) {
       events.push(event)
     }
 
@@ -2586,7 +2587,17 @@ describe('turn endpoint', () => {
           { name: 'empty list', passed: false, expected: '0', actual: '0' },
         ],
       },
-    }, memoryStore(), speakingTeacher(), { activity })
+    }, memoryStore(), speakingTeacher(), {
+      activity,
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [
+          { name: 'three numbers', passed: false, expected: '6', actual: '0' },
+          { name: 'one number', passed: true, expected: '10', actual: '10' },
+          { name: 'empty list', passed: false, expected: '0', actual: '0' },
+        ],
+      }),
+    })
 
     expect(activity.events).toEqual([{
       studentId: signedInStudent,
@@ -2676,14 +2687,22 @@ describe('turn endpoint', () => {
       ],
     }
     const activity = createMemoryActivityLog()
+    const sandbox = createFakeSandbox({
+      outcome: 'checked',
+      results: [
+        { name: 'three numbers', passed: true, expected: '6', actual: '6' },
+        { name: 'one number', passed: true, expected: '10', actual: '10' },
+        { name: 'empty list', passed: false, expected: '0', actual: '1' },
+      ],
+    })
     const logged = await handleTurn({
       sessionStudentId: signedInStudent,
       body,
-    }, memoryStore(), speakingTeacher(), { activity })
+    }, memoryStore(), speakingTeacher(), { activity, sandbox })
     const plain = await handleTurn({
       sessionStudentId: signedInStudent,
       body,
-    }, memoryStore(), speakingTeacher())
+    }, memoryStore(), speakingTeacher(), { sandbox })
 
     expect(activity.events).toEqual([{
       studentId: signedInStudent,

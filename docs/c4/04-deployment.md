@@ -2,8 +2,8 @@
 
 > [C4 index](README.md) / Deployment (supplementary)
 
-This shows how the system runs today. AWS is the planned target but has no design yet, so it is
-listed at the bottom as a placeholder and is not drawn.
+This shows how the system runs today. The submission sandbox is a local container. ADR 0010 places
+that image on Lambda in Sydney; that adapter is not drawn, because it is not wired yet.
 
 Colours: blue is code in this repo, brown is an external service, teal is a database.
 
@@ -24,6 +24,7 @@ flowchart TB
     subgraph node["Node.js process: pnpm dev, port 3000"]
       server["<b>Turn and admin server</b><br/>Nuxt Nitro dev server"]:::comp
     end
+    sandbox["<b>Sandbox</b><br/>colearner-sandbox image<br/>docker run, no network"]:::comp
   end
 
   subgraph supa["Supabase cloud project: VerifiableCoLearnerAgents"]
@@ -47,6 +48,7 @@ flowchart TB
   server -->|"Verifies the session, HTTPS"| auth
   server -->|"Reads and appends records<br/>supabase-js, secret key"| db
   server -->|"Requests moves and text, HTTPS"| llm
+  server -->|"docker run: code and tests in,<br/>the report out"| sandbox
 
   style dev fill:none,stroke:#8b949e,stroke-dasharray:5 4
   style browser fill:none,stroke:#8b949e,stroke-dasharray:5 4
@@ -64,6 +66,7 @@ flowchart TB
 | Supabase cloud project | `web/.env.example` points `NUXT_PUBLIC_SUPABASE_URL` at a `*.supabase.co` URL; `web/README.md` says to use the team's Supabase project `VerifiableCoLearnerAgents`; `.mcp.json` points at the same project |
 | LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the administrator can change the model on `/admin`. In production a saved address other than `https://api.deepseek.com` is refused |
 | jsDelivr | `web/app/python/browser-worker.mjs` |
+| Sandbox image | `sandbox/Dockerfile`, started by `web/server/sandbox/container.ts` as `colearner-sandbox` (`NUXT_SANDBOX_IMAGE` overrides the name). Build it with `docker build -t colearner-sandbox sandbox` |
 
 ## GitHub Actions
 
@@ -82,9 +85,11 @@ Two workflows live in `.github/workflows/`. They run on GitHub after those files
 - **Playwright rehearsal.** `pnpm rehearsal` starts its own dev server on :3000 with `NUXT_MODEL=fake`
   and resets demo accounts in the same cloud project using the secret key.
 
-## Planned: AWS
+## Planned: the sandbox on Lambda
 
-Not designed. Open questions to settle before drawing it:
+ADR 0010 runs this same image as a Lambda function in Sydney (`ap-southeast-2`). The server in this diagram still starts the image with Docker on the machine that runs it. The Lambda adapter is not wired yet.
+
+Open questions that remain for the rest of the AWS move:
 
 - Where the Nitro server runs (container service, VM, or serverless) and which Nitro preset is used.
   `nuxt.config.ts` sets none today.

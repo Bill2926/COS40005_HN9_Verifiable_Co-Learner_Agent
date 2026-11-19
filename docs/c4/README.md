@@ -34,6 +34,7 @@ Components are ordered the way a request travels through them (server) or the wa
 | [10-lecturer.md](03-components/server/10-lecturer.md) | lecturer | Lecturer handler: courses, enrollments, course history |
 | [11-student.md](03-components/server/11-student.md) | student | Profile, mindmap and the actions the browser reports |
 | [12-activity-recorder.md](03-components/server/12-activity-recorder.md) | activity recorder | Append-only activity log shared by the student handler and the turn |
+| [14-sandbox.md](03-components/server/14-sandbox.md) | sandbox | Re-runs a submission; only its report is evidence |
 
 ### Web app (`web/app/`)
 

@@ -15,6 +15,7 @@ export default defineNuxtConfig({
     lecturerEmails: process.env.LECTURER_EMAILS ?? 'lecturer@example.com',
     // on unless set to off, false, or 0. A saved verify_shield_settings row replaces this.
     verifyShield: 'on',
+    sandboxImage: 'colearner-sandbox',
     public: {
       supabaseUrl: '',
       supabasePublishableKey: '',

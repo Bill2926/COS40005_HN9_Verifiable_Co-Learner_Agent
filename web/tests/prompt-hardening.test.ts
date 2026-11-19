@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createAgents } from '../server/agents'
 import type { LanguageModel, ProposalSchema } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createFakeSandbox } from '../server/sandbox'
 import { handleTurn } from '../server/turn/handle-turn'
 
 const signedInStudent = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -94,7 +95,12 @@ describe('prompt hardening', () => {
         code: 'def hello(name):\n    return SUBMITTED_SENTINEL\n',
         results: [{ name: 'greets An', passed: false, expected: 'Hello, An', actual: 'ACTUAL_SENTINEL' }],
       },
-    }, memoryStore(), agents)
+    }, memoryStore(), agents, {
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [{ name: 'greets An', passed: false, expected: 'Hello, An', actual: 'ACTUAL_SENTINEL' }],
+      }),
+    })
 
     expect(calls).toHaveLength(4)
     for (const call of calls) {

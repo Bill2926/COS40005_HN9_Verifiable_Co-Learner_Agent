@@ -51,6 +51,6 @@ flowchart TB
 
 ## Out of scope for this diagram
 
-- Deployment: see [04-deployment.md](04-deployment.md) for the current setup (localhost + Supabase cloud). AWS is planned but not designed yet.
+- Deployment: see [04-deployment.md](04-deployment.md). The submission sandbox runs as a local container today. ADR 0010 places that image on Lambda in Sydney; that adapter is not wired yet.
 - Developer tooling (Supabase MCP server, Playwright, Claude Code skills).
 - Fonts (Inter, JetBrains Mono are named in `main.css`): whether they are fetched from an external host was not verified.

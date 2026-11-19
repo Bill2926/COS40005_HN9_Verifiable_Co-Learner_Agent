@@ -4,6 +4,7 @@ import { createMemoryConversationStore } from '../server/storage/conversation-st
 import { createMemoryDailyTurnAllowance } from '../server/storage/daily-turn-allowance'
 import { createMemoryDecisionLogStore } from '../server/storage/decision-log'
 import { createMemoryQuizAnswerStore } from '../server/storage/quiz-answer-store'
+import { createFakeSandbox } from '../server/sandbox'
 import { handleTurn, type TurnOptions, type TurnRequest } from '../server/turn/handle-turn'
 
 const an = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -152,7 +153,13 @@ describe('daily proposing turns', () => {
         code: 'print("hi")',
         results: [{ name: 'greeting', passed: false, expected: 'Hello', actual: '' }],
       },
-    }, store, submitting, options)
+    }, store, submitting, {
+      ...options,
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [{ name: 'greeting', passed: false, expected: 'Hello', actual: '' }],
+      }),
+    })
     expect(submitting.exchanges.some(exchange => exchange.phase === 'propose')).toBe(true)
     expect(submitted.conversation.some(entry => entry.text === '0/1 tests passed')).toBe(true)
 
@@ -202,7 +209,13 @@ describe('daily proposing turns', () => {
         code: 'return "Hello, An"',
         results: [{ name: 'greeting', passed: true, expected: 'Hello, An', actual: 'Hello, An' }],
       },
-    }, store, submitting, options)
+    }, store, submitting, {
+      ...options,
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [{ name: 'greeting', passed: true, expected: 'Hello, An', actual: 'Hello, An' }],
+      }),
+    })
     expect(submitting.exchanges).toEqual([])
     expect(submitted.notice).toBe(dailyTurnNotice)
     expect(submitted.conversation.some(entry => entry.text === '1/1 tests passed')).toBe(true)

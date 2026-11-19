@@ -35,14 +35,17 @@ flowchart LR
     lecturer["<b>lecturer</b><br/>Lecturer handler"]:::comp
     student["<b>student</b><br/>Profile and reported actions"]:::comp
     activity["<b>activity recorder</b><br/>Append-only activity log"]:::comp
+    sandbox["<b>sandbox</b><br/>Re-runs a submission"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
+
+  image["<b>Sandbox image</b><br/>CPython container"]:::near
 
   auth["<b>Supabase Auth</b>"]:::ext
   db[("<b>Postgres</b>")]:::db
   llm["<b>LLM provider</b>"]:::ext
 
-  spa ==>|"POST /turn, POST /api/student,<br/>POST /api/admin,<br/>GET /course-outline"| routes
+  spa ==>|"POST /turn, POST /api/student,<br/>POST /api/submission, POST /api/admin,<br/>GET /course-outline"| routes
   routes -->|"handleTurn, streamTurn"| turn
   routes -->|"handleAdmin"| admin
   routes -->|"GET /api/lecturer · handleLecturer"| lecturer
@@ -64,6 +67,9 @@ flowchart LR
   agents -->|"maxToolSteps"| agentTools
   agentTools -.->|"type: ModelTool"| lm
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
+  turn -->|"couldNotCheck"| sandbox
+  routes -->|"createContainerSandbox"| sandbox
+  sandbox ==>|"docker run"| image
   turn -->|"createMemoryQuizAnswerStore"| storage
   storage -->|"mergeObservations"| studentModel
   admin -->|"resolveModelChoice"| lm
@@ -94,13 +100,14 @@ flowchart LR
 | student | `web/server/student/` | [server/11-student.md](11-student.md) |
 | activity recorder | `web/server/activity-recorder/` | [server/12-activity-recorder.md](12-activity-recorder.md) |
 | agent-tools | `web/server/agent-tools/` | [server/13-agent-tools.md](13-agent-tools.md) |
+| sandbox | `web/server/sandbox/` | [server/14-sandbox.md](14-sandbox.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)
 
 | From | To | What |
 |---|---|---|
-| turn | shared, agents, verify-shield, student-model, storage, activity recorder | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`; `ActivityRecorder` |
+| turn | shared, agents, verify-shield, student-model, storage, activity recorder, sandbox | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`, `SubmissionStore`; `ActivityRecorder`; `Sandbox`, `SandboxReport` |
 | student | activity recorder, storage, shared | `ActivityRecorder`, `ActivityEventType`; `MindmapStore`, `MindmapRecord`, `ProfileStore`, `StudentFileStore`; `NoteColour` |
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
