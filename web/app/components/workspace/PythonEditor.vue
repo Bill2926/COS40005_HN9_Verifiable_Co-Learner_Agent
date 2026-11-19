@@ -5,6 +5,10 @@ const props = defineProps<{
   active: boolean
 }>()
 
+const emit = defineEmits<{
+  pasted: [characters: number]
+}>()
+
 const host = ref<HTMLElement | null>(null)
 let editor: { destroy: () => void, requestMeasure: () => void } | null = null
 let measureObserver: ResizeObserver | null = null
@@ -44,6 +48,13 @@ onMounted(async () => {
         }),
         EditorView.updateListener.of((update) => {
           if (alive && update.docChanged) code.value = update.state.doc.toString()
+        }),
+        EditorView.domEventHandlers({
+          paste(event) {
+            const text = event.clipboardData?.getData('text/plain') ?? ''
+            if (text.length > 0) emit('pasted', text.length)
+            return false
+          },
         }),
         EditorView.theme({
           '&': { height: '100%', fontSize: 'var(--python-editor-font-size)', color: pythonHighlightColours.text },

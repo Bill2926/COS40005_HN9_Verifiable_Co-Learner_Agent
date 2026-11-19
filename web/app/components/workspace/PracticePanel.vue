@@ -22,7 +22,10 @@ const emit = defineEmits<{
   selectExercise: [exerciseId: string]
   draft: [code: string]
   run: [result: RunResult | null]
-  runFinished: [exerciseId: string]
+  runFinished: [run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }]
+  pasted: [characters: number]
+  active: []
+  running: [running: boolean]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
 }>()
 
@@ -40,6 +43,7 @@ watch(() => props.submitting, (submitting) => {
   if (!submitting && !busy.value) action.value = 'run'
 })
 const busy = computed(() => status.value === 'loading' || status.value === 'running' || status.value === 'checking')
+watch(busy, isBusy => emit('running', isBusy))
 
 let runner: PythonRunner | null = null
 let alive = true
@@ -56,6 +60,19 @@ watch(outcome, result => emit('run', result))
 
 function practiceRunInProgress(): boolean {
   return action.value === 'run' && (status.value === 'loading' || status.value === 'running')
+}
+
+function pythonErrorKind(message: string): string | null {
+  const name = message.split(':')[0] ?? ''
+  return /^[A-Za-z_][A-Za-z0-9_]*$/.test(name) ? name : null
+}
+
+function finishRun(
+  exerciseId: string,
+  outcome: 'completed' | 'error' | 'stopped' | 'failed',
+  errorType: string | null = null,
+) {
+  emit('runFinished', { exerciseId, outcome, errorType })
 }
 
 watch(() => props.exercise.id, (next, previous) => {
@@ -78,7 +95,7 @@ watch(() => props.exercise.id, (next, previous) => {
   restoring = true
   if (draft.value !== restored) draft.value = restored
   restoring = false
-  if (reportRun) emit('runFinished', previous)
+  if (reportRun) finishRun(previous, 'stopped')
 })
 
 onBeforeUnmount(() => {
@@ -86,7 +103,7 @@ onBeforeUnmount(() => {
   drafts.write(props.exercise.id, draft.value)
   const reportRun = practiceRunInProgress()
   runner?.stop()
-  if (reportRun) emit('runFinished', props.exercise.id)
+  if (reportRun) finishRun(props.exercise.id, 'stopped')
 })
 
 function chooseExercise(exerciseId: string) {
@@ -96,6 +113,7 @@ function chooseExercise(exerciseId: string) {
 
 async function onRun() {
   if (busy.value || props.submitting) return
+  emit('active')
   action.value = 'run'
   const generation = ++runGeneration
   outcome.value = null
@@ -115,19 +133,24 @@ async function onRun() {
     if (!alive || generation !== runGeneration) return
     outcome.value = result
     status.value = 'idle'
-    emit('runFinished', props.exercise.id)
+    finishRun(
+      props.exercise.id,
+      result.error ? 'error' : 'completed',
+      result.error ? pythonErrorKind(result.error.message) : null,
+    )
   }
   catch (error) {
     if (!alive || generation !== runGeneration) return
     outcome.value = null
     pythonReady.value = false
     status.value = error instanceof RunStopped ? 'stopped' : 'failed'
-    emit('runFinished', props.exercise.id)
+    finishRun(props.exercise.id, error instanceof RunStopped ? 'stopped' : 'failed')
   }
 }
 
 async function onSubmit() {
   if (busy.value || props.submitting) return
+  emit('active')
   action.value = 'submit'
   const generation = ++runGeneration
   submission.value = null
@@ -165,13 +188,14 @@ function chipClass(selected: boolean): string {
 }
 
 function onStop() {
+  emit('active')
   const reportRun = practiceRunInProgress()
   runGeneration += 1
   pythonReady.value = false
   outcome.value = null
   status.value = 'stopped'
   runner?.stop()
-  if (reportRun) emit('runFinished', props.exercise.id)
+  if (reportRun) finishRun(props.exercise.id, 'stopped')
 }
 </script>
 
@@ -237,6 +261,7 @@ function onStop() {
           :key="exercise.id"
           v-model="draft"
           :active="active"
+          @pasted="emit('pasted', $event)"
         />
       </div>
     </div>

@@ -78,6 +78,121 @@ describe('student handler', () => {
     }])
   })
 
+  it('records how a finished run ended, and never the code', async () => {
+    const { activity, call } = setup()
+    await call({
+      event: 'run_finished',
+      exerciseId: 'say_hello',
+      outcome: 'error',
+      errorType: 'NameError',
+      code: 'print(name)',
+      draft: 'print(name)',
+      keystrokes: 'p',
+      stdout: 'NAME_ERROR_OUTPUT',
+      message: 'NameError: name is not defined',
+    })
+    expect(activity.events).toEqual([{
+      studentId,
+      courseId,
+      type: 'run_finished',
+      payload: { exerciseId: 'say_hello', outcome: 'error', errorType: 'NameError' },
+    }])
+    expect(JSON.stringify(activity.events)).not.toContain('print(name)')
+    expect(JSON.stringify(activity.events)).not.toContain('NAME_ERROR_OUTPUT')
+  })
+
+  it('records a finished run with no error kind when the run did not fail', async () => {
+    const { activity, call } = setup()
+    await call({ event: 'run_finished', exerciseId: 'say_hello', outcome: 'completed', errorType: null })
+    expect(activity.events).toEqual([{
+      studentId,
+      courseId,
+      type: 'run_finished',
+      payload: { exerciseId: 'say_hello', outcome: 'completed', errorType: null },
+    }])
+  })
+
+  it('refuses a finished run whose error kind is the message, and writes nothing', async () => {
+    const { activity, call } = setup()
+    await expect(call({
+      event: 'run_finished',
+      exerciseId: 'say_hello',
+      outcome: 'error',
+      errorType: 'NameError: name \'total\' is not defined',
+    })).rejects.toMatchObject({ statusCode: 400 })
+    expect(activity.events).toEqual([])
+  })
+
+  it('records a paste as a character count, and never the pasted text', async () => {
+    const { activity, call } = setup()
+    await call({
+      event: 'pasted',
+      exerciseId: 'say_hello',
+      characters: 42,
+      text: 'PASTED_SOLUTION_TEXT',
+      code: 'print(1)',
+      draft: 'print(1)',
+      keystrokes: 'p',
+    })
+    expect(activity.events).toEqual([{
+      studentId,
+      courseId,
+      type: 'pasted',
+      payload: { exerciseId: 'say_hello', characters: 42 },
+    }])
+    expect(JSON.stringify(activity.events)).not.toContain('PASTED_SOLUTION_TEXT')
+  })
+
+  it('records going quiet in practice and coming back', async () => {
+    const { activity, call } = setup()
+    await call({
+      event: 'went_idle',
+      moduleId: 'getting_started',
+      exerciseId: 'say_hello',
+      code: 'print(1)',
+      draft: 'print(1)',
+      keystrokes: 'p',
+    })
+    await call({ event: 'returned', moduleId: 'getting_started', exerciseId: 'say_hello' })
+    expect(activity.events).toEqual([
+      {
+        studentId,
+        courseId,
+        type: 'went_idle',
+        payload: { moduleId: 'getting_started', exerciseId: 'say_hello' },
+      },
+      {
+        studentId,
+        courseId,
+        type: 'returned',
+        payload: { moduleId: 'getting_started', exerciseId: 'say_hello' },
+      },
+    ])
+    expect(JSON.stringify(activity.events)).not.toContain('print(1)')
+  })
+
+  it('refuses a report that puts code in the exercise id, and writes nothing', async () => {
+    const { activity, call } = setup()
+    await expect(call({
+      event: 'pasted',
+      exerciseId: 'print("hello")',
+      characters: 14,
+    })).rejects.toMatchObject({ statusCode: 400 })
+    expect(activity.events).toEqual([])
+  })
+
+  it('refuses an unknown event kind or an oversized report, and writes nothing', async () => {
+    const { activity, call } = setup()
+    await expect(call({ event: 'keystrokes' })).rejects.toMatchObject({ statusCode: 400 })
+    await expect(call({
+      event: 'pasted',
+      exerciseId: 'say_hello',
+      characters: 1200,
+      text: 'x'.repeat(1200),
+    })).rejects.toMatchObject({ statusCode: 400 })
+    expect(activity.events).toEqual([])
+  })
+
   it('records nothing when a report is only read or is rejected', async () => {
     const { activity, call } = setup()
     await call({ event: 'open' })

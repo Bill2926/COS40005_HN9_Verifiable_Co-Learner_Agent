@@ -47,6 +47,10 @@ flowchart LR
 | `mode_switched` | Student handler, reported by the workspace | `{ mode }`: `learn` or `practice` |
 | `layout_switched` | Student handler, reported by the workspace | `{ layout }`: `study` or `mindmap` |
 | `code_run` | Student handler, reported by the workspace | `{ exerciseId }` only. A run still going when the practice panel goes away is included |
+| `run_finished` | Student handler, reported by the workspace when a run ends | `{ exerciseId, outcome, errorType }`. Outcome is `completed`, `error`, `stopped` or `failed`. `errorType` is a Python error name, or null. Never the code, the output or the message |
+| `pasted` | Student handler, reported by the workspace | `{ exerciseId, characters }`. The character count only, never the pasted text |
+| `went_idle` | Student handler, reported by the workspace | `{ moduleId, exerciseId }` after three minutes in Practice mode without typing, pasting, clicking Run, Stop or Submit, changing exercise or module, or sending a message. The clock waits while a run or a check is in progress |
+| `returned` | Student handler, reported by the workspace | `{ moduleId, exerciseId }` for the place that went quiet, when activity resumes or the student leaves Practice mode |
 | `submitted` | Turn, on a submission | Module, exercise, tests passed and tests total. Never the code |
 | `quiz_answered` | Turn, on the first stored answer to a question | Module, question and whether it was correct. A repeat appends nothing |
 | `message_sent` | Turn, on a student message | Module, and whether the message quoted something. Never the text, the draft or a run |
@@ -54,7 +58,7 @@ flowchart LR
 | `mindmap_moved` | Student handler | The kind and id, `{ imported: true }` for a one-time import, or `{ reset: true }` when clearing saved positions |
 | `profile_changed` | Student handler | Whether the name or the picture changed, never the picture |
 
-A turn that opens or selects a module appends nothing. The workspace reports `module_opened` once that open has succeeded. A preview request on the student handler writes nothing. A rejected report writes nothing.
+A turn that opens or selects a module appends nothing. The workspace reports `module_opened` once that open has succeeded. A preview request on the student handler writes nothing. A rejected report writes nothing. A client report the handler does not recognise, or whose JSON is larger than 1024 characters, is refused and writes nothing. An exercise id on a run, a paste or a quiet-period report is an id of at most 80 letters, digits, underscores or hyphens.
 
 ## The table
 
@@ -68,5 +72,5 @@ Home and the profile tell the student that activity is recorded and is not used 
 
 - Runtime: `storage/supabase-activity-log.ts` imports `activityPayload` from `activity-recorder`. `student/index.ts` re-exports `handle-student.ts`, which is what `api/student.post.ts` imports.
 - Type only: `storage/supabase-activity-log.ts` imports `ActivityRecorder`. `student/handle-student.ts` imports `ActivityRecorder` and `ActivityEventType`. `turn/handle-turn.ts` imports `ActivityRecorder`. The routes do not import this folder; they construct `createSupabaseActivityLog` and pass it in.
-- Browser: `app/activity/record.ts` posts to `POST /api/student` and ignores a failure, so a missed report does not undo the action. `pages/index.vue` reports `module_opened` for the module the workspace opens onto and again when the student opens another, `mode_switched` only when the student chooses Learn or Practice, `layout_switched`, and `code_run` when a run ends (the exercise id only, including a failure, a stop, or the practice panel going away while the run is still going). `pages/sign-in.vue` reports `signed_in`. Applying a turn's own mode does not record a mode switch.
+- Browser: `app/activity/record.ts` posts to `POST /api/student` and ignores a failure, so a missed report does not undo the action. `pages/index.vue` reports `module_opened` for the module the workspace opens onto and again when the student opens another, `mode_switched` only when the student chooses Learn or Practice, `layout_switched`, and both `code_run` and `run_finished` when a run ends (including a failure, a stop, or the practice panel going away while the run is still going). `run_finished` carries the outcome and the error name, never the code. A paste in the editor reports `pasted` with the character count. Three minutes without activity in Practice mode reports `went_idle`; the clock waits while a run or a check is in progress. The next activity, or leaving Practice, reports `returned` for the place that went quiet. `pages/sign-in.vue` reports `signed_in`. Applying a turn's own mode does not record a mode switch. The course preview does not report these events.
 - Tests: `student-handler.test.ts` and `turn-endpoint.test.ts` use `createMemoryActivityLog`. `activity-log-migration.test.ts` runs the migration (and the note-with-first-link function) on PGlite. `activity-mindmap-boundary.test.ts` checks the live project.

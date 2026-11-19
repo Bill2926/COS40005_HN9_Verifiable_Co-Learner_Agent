@@ -28,6 +28,7 @@ const emit = defineEmits<{
   openLearn: []
   close: []
   toggleDeskmate: [on: boolean]
+  active: []
 }>()
 
 interface BubbleRow {
@@ -586,6 +587,7 @@ watch(() => props.sending, (sending) => {
               :disabled="sending"
               class="h-11 w-full bg-transparent pr-[13px] pl-1 text-base text-ink-800 outline-none placeholder:text-ink-400 disabled:opacity-60 md:h-[32px] md:text-xs"
               @keydown="onKeydown"
+              @input="emit('active')"
             >
           </label>
         </div>
