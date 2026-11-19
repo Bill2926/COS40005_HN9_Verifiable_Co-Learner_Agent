@@ -190,6 +190,23 @@ export interface ProgressView {
   }[]
 }
 
+// Where the study suggestion's button takes the student. The page performs it
+// with the controls the student already has; it never submits code.
+export type StudySuggestionAction =
+  | { kind: 'learn', moduleId: string }
+  | { kind: 'practice', moduleId: string, exerciseId: string }
+  | { kind: 'study', moduleId: string, exerciseId: string }
+
+// The one next step the rules chose from the student's activity log, shown in a
+// dialog until it is dismissed. `key` names this episode of the step, and goes
+// back with the dismissal.
+export interface StudySuggestionView {
+  key: string
+  sentence: string
+  button: string
+  action: StudySuggestionAction
+}
+
 export interface RedrawState {
   displayName: string
   course: string
@@ -203,6 +220,8 @@ export interface RedrawState {
   progress: ProgressView
   // The plan the Teacher proposed for the current module, or null when there is none.
   learningPlan: LearningPlanView | null
+  // The study suggestion to show, or null when there is none or it was dismissed.
+  studySuggestion: StudySuggestionView | null
   trace?: TurnTrace
   // Whether the student's deskmate switch is on: Mai takes part in their turns.
   deskmateOn: boolean

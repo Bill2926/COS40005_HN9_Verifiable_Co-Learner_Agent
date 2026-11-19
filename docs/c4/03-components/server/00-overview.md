@@ -39,6 +39,7 @@ flowchart LR
     sandbox["<b>sandbox</b><br/>Re-runs a submission"]:::comp
     pattern["<b>learning-pattern</b><br/>Weak spots, errors,<br/>attempts, rungs, study time"]:::comp
     plan["<b>learning-plan</b><br/>Plan steps, titles,<br/>the plan in force"]:::comp
+    suggestion["<b>study-suggestion</b><br/>The one next step<br/>from the activity log"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
 
@@ -76,6 +77,8 @@ flowchart LR
   turn -->|"couldNotCheck"| sandbox
   turn -->|"learningPattern"| pattern
   turn -->|"planView"| plan
+  turn -->|"chooseStudyStep,<br/>visibleStudySuggestion"| suggestion
+  suggestion -->|"canonicalModuleId"| course
   shield -->|"planStepLimit"| plan
   routes -->|"createSubmissionSandbox"| sandbox
   sandbox ==>|"InvokeFunction in Sydney,<br/>or docker run locally"| image
@@ -113,19 +116,21 @@ flowchart LR
 | staff-review | `web/server/staff-review/` | [server/15-staff-review.md](15-staff-review.md) |
 | learning-pattern | `web/server/learning-pattern/` | [server/16-learning-pattern.md](16-learning-pattern.md) |
 | learning-plan | `web/server/learning-plan/` | [server/17-learning-plan.md](17-learning-plan.md) |
+| study-suggestion | `web/server/study-suggestion/` | [server/18-study-suggestion.md](18-study-suggestion.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)
 
 | From | To | What |
 |---|---|---|
-| turn | shared, agents, verify-shield, student-model, storage, activity recorder, sandbox, learning-pattern, learning-plan | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`, `SubmissionStore`, `LearningPlanStore`; `ActivityRecorder`; `Sandbox`, `SandboxReport`; `LearningPattern`; `LearningPlan` |
+| turn | shared, agents, verify-shield, student-model, storage, activity recorder, sandbox, learning-pattern, learning-plan, study-suggestion | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`, `SubmissionStore`, `LearningPlanStore`; `ActivityRecorder`; `Sandbox`, `SandboxReport`; `LearningPattern`; `LearningPlan`; `StudyStep` |
 | student | activity recorder, storage, shared | `ActivityRecorder`, `ActivityEventType`; `MindmapStore`, `MindmapRecord`, `ProfileStore`, `StudentFileStore`; `NoteColour` |
 | verify-shield | agents, learning-plan | `Move`, `RoleTable`; `PlanStep` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage, learning-pattern | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore`; `LearningPattern` |
 | storage | verify-shield, student-model, language-model, activity recorder, learning-pattern, learning-plan | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore`; `ActivityRecorder`; `LearningPattern`; `LearningPlan`, `PlanStep`, `PlanStepKind` |
 | learning-plan | shared | `LearningPlanView`, `LearningPlanStepView` |
+| study-suggestion | activity recorder, course, shared | `ActivityRow`; `Course`; `StudySuggestionAction`, `StudySuggestionView` |
 | admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`, `StaffAccessLog`; `ModelSettings`; `VerifyShieldStore` |
 | staff-review | storage, shared | `StaffReviewStore`, `StaffAccessLog`; `StaffReview` and its parts |
 

@@ -65,11 +65,17 @@ async function runCase(fixture: BenchmarkCase, verifyShieldOn: boolean): Promise
   if (fixture.priorQuizAnswer) {
     await quizAnswers.record({ studentId, moduleId, ...fixture.priorQuizAnswer })
   }
+  // The student ran the exercise before any plan was agreed, so the study suggestion's "asked first"
+  // step does not fire: these cases measure the VerifyShield's rules, not the step.
+  let clock = new Date(Date.now() - 7_200_000)
+  const activity = createMemoryActivityLog(() => clock)
+  await activity.record({ studentId, courseId: 'intro_python', type: 'code_run', payload: { exerciseId } })
+  clock = new Date()
   const state = await handleTurn({
     sessionStudentId: studentId,
     body: { event: 'message', text: fixture.prompt, addressedAgent: fixture.agent },
   }, store, agents, { verifyShieldOn, decisions, unlocks, evidence: createMemoryEvidenceStore(), quizAnswers,
-    plans, activity: createMemoryActivityLog() })
+    plans, activity })
 
   const rows = await decisions.list()
   const record = rows[0]

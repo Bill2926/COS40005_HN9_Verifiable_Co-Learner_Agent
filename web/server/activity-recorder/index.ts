@@ -44,6 +44,10 @@ export interface ActivityEvent {
 // the module it belongs to (from the payload, null when it has none) and the
 // payload itself.
 export interface ActivityRow {
+  // The log's own sequence number: later rows have larger ids.
+  id: number
+  // The course the event was about; null for an event that belongs to none.
+  courseId: string | null
   time: string
   type: ActivityEventType
   moduleId: string | null
@@ -65,7 +69,7 @@ export function activityPayload(payload: Record<string, unknown>): Record<string
 export function createMemoryActivityLog(now: () => Date = () => new Date()): ActivityRecorder & { events: ActivityEvent[] } {
   const events: ActivityEvent[] = []
   // Each event paired with the time it was recorded, so the two can never drift apart.
-  const rows: { event: ActivityEvent, time: string }[] = []
+  const rows: { id: number, event: ActivityEvent, time: string }[] = []
   return {
     events,
     async record(event) {
@@ -76,12 +80,14 @@ export function createMemoryActivityLog(now: () => Date = () => new Date()): Act
         payload: activityPayload(event.payload),
       }
       events.push(stored)
-      rows.push({ event: stored, time: now().toISOString() })
+      rows.push({ id: rows.length + 1, event: stored, time: now().toISOString() })
     },
     async forStudent(studentId) {
       return rows
         .filter(row => row.event.studentId === studentId)
-        .map(({ event, time }) => ({
+        .map(({ id, event, time }) => ({
+          id,
+          courseId: event.courseId,
           time,
           type: event.type,
           moduleId: typeof event.payload.moduleId === 'string' ? event.payload.moduleId : null,

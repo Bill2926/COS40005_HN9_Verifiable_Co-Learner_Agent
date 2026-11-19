@@ -1,5 +1,5 @@
 import type { ActivityRecorder } from '../activity-recorder'
-import type { AgentTrace, ConversationMessage, CurrentExercise, LearningPlanView, PracticeTestResult, ProgressView, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { AgentTrace, StudySuggestionView, ConversationMessage, CurrentExercise, LearningPlanView, PracticeTestResult, ProgressView, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { createAgentTools, type TurnTools } from '../agent-tools'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
@@ -32,6 +32,8 @@ import { planProgress, planStepTitle, planView, type LearningPlan, type PlanProg
 import { gatherLearningPattern } from '../learning-pattern/gather'
 import type { LearningPattern } from '../learning-pattern'
 import { showsCodeMisconception } from './code-findings'
+import { chooseStudyStep, studySuggestionKey, visibleStudySuggestion, type StudyStep } from '../study-suggestion'
+import type { StudySuggestionStore } from '../storage/study-suggestion-store'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -127,6 +129,9 @@ export interface TurnOptions {
   // The Teacher's plans, append-only. Absent in tests that are not about plans,
   // which then never ask the Teacher for one and show none.
   plans?: LearningPlanStore
+  // The study suggestions the student has dismissed. Without it none is remembered, so a
+  // dismissed suggestion would show again; the suggestion itself is read from `activity`.
+  studySuggestions?: StudySuggestionStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -272,6 +277,16 @@ async function* turnBody(
     return
   }
 
+  if (isDismissStudySuggestion(body)) {
+    // Only the step the rules choose now can be dismissed, and only for the session student.
+    const step = await studyStepFor(studentId, placement, standing, options)
+    if (step && studySuggestionKey(step) === body.key) {
+      await options?.studySuggestions?.dismiss(studentId, step.identity, step.anchor)
+    }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
+    return
+  }
+
   if (isPlanStart(body)) {
     // Agreeing is a new revision with the time it was agreed, so no stored
     // revision is ever rewritten. A module with no plan, or one already
@@ -326,9 +341,12 @@ async function* turnBody(
         : ensurePlan(studentId, next, standingFor(estimate, next.module.id), store, quizStore, agents, options),
       isPreviewModule(body) ? Promise.resolve() : adoptPlacement(studentId, store, next),
     ])
+    const nextStanding = standingFor(estimate, next.module.id)
+    // A preview of another module carries no suggestion: it records nothing and advises nothing.
+    const suggestion = isPreviewModule(body) ? null : await studySuggestionFor(studentId, next, nextStanding, options)
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, pattern, await presentedPlan(studentId, next, quizStore, plan ?? null, options)),
+      state: composeState(next, nextStanding, existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, pattern, await presentedPlan(studentId, next, quizStore, plan ?? null, options), suggestion),
     }
     return
   }
@@ -776,6 +794,7 @@ function turnSnapshot(
     planInForce: context.plan !== null,
     planTriggers: context.plan?.triggers ?? [],
     approachAwaitingTry: context.plan?.approachAwaitingTry ?? false,
+    studyStepModuleId: context.studySuggestion?.moduleId ?? null,
   }
 }
 
@@ -1309,6 +1328,9 @@ async function teacherContext(
     answeredQuiz: answeredQuiz(placement.module, quizAnswers),
     learningPattern: pattern,
     plan: planContext(placement.module, await planStateFor(studentId, placement, quizStore, options, pattern)),
+    // Told even after the student has dismissed the dialog, for as long as the rules choose it.
+    studySuggestion: await studyStepFor(studentId, placement, standing, options)
+      .then(step => step ? { sentence: step.sentence, moduleId: step.moduleId } : null),
   }
 }
 
@@ -1470,13 +1492,44 @@ async function redraw(
   plan?: LearningPlan | null,
 ): Promise<TurnState> {
   const seen = pattern ?? await learningPatternFor(studentId, placement, options)
-  const [messages, displayName, quizAnswers, learningPlan] = await Promise.all([
+  const [messages, displayName, quizAnswers, learningPlan, suggestion] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
     quizStore.forStudentModule(studentId, placement.module.id),
     presentedPlan(studentId, placement, quizStore, plan === undefined ? await (options?.plans?.latest(studentId, placement.module.id) ?? null) : plan, options, seen),
+    studySuggestionFor(studentId, placement, standing, options),
   ])
-  return composeState(placement, standing, messages, displayName, mode, quizAnswers, seen, learningPlan)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers, seen, learningPlan, suggestion)
+}
+
+// The one step the fixed rules choose from the student's activity log for this course, or null
+// when no situation is true. Nothing is written: the log is not evidence.
+async function studyStepFor(
+  studentId: string,
+  placement: Placement,
+  standing: CourseStanding,
+  options?: TurnOptions,
+): Promise<StudyStep | null> {
+  if (!options?.activity) return null
+  return chooseStudyStep({
+    course: placement.course,
+    rows: await options.activity.forStudent(studentId),
+    currentModuleId: placement.module.id,
+    currentExerciseId: placement.exercise.id,
+    unlockedModuleIds: standing.unlockedModuleIds,
+  })
+}
+
+// The step as the dialog shows it: null once this episode of it was dismissed.
+async function studySuggestionFor(
+  studentId: string,
+  placement: Placement,
+  standing: CourseStanding,
+  options?: TurnOptions,
+): Promise<StudySuggestionView | null> {
+  const step = await studyStepFor(studentId, placement, standing, options)
+  if (!step) return null
+  return visibleStudySuggestion(step, await options?.studySuggestions?.dismissed(studentId) ?? new Map())
 }
 
 // The pattern's weak spots in plain words: the course's response text for each
@@ -1522,6 +1575,7 @@ function composeState(
   quizAnswers: readonly QuizAnswerRow[],
   pattern: LearningPattern,
   learningPlan: LearningPlanView | null = null,
+  studySuggestion: StudySuggestionView | null = null,
 ): TurnState {
   return {
     displayName,
@@ -1531,6 +1585,7 @@ function composeState(
     weakSpots: weakSpotTexts(pattern, placement),
     progress: presentedProgress(placement.course, pattern),
     learningPlan,
+    studySuggestion,
     workingArea: {
       mode,
       moduleId: placement.module.id,
@@ -1666,6 +1721,15 @@ function isIdle(input: unknown): input is { event: 'idle' } {
     && input !== null
     && 'event' in input
     && input.event === 'idle'
+}
+
+function isDismissStudySuggestion(input: unknown): input is { event: 'dismiss_study_suggestion', key: string } {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'dismiss_study_suggestion'
+    && 'key' in input
+    && typeof input.key === 'string'
 }
 
 function isPlanStart(input: unknown): input is { event: 'plan_start' } {

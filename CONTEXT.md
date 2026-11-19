@@ -224,6 +224,10 @@ _Avoid_: plan (that is the Teacher's), answer, solution
 Three minutes in Practice mode without activity. The Teacher checks in once on the plan in force; any activity of the student ends the period, and only then may it check in again.
 _Avoid_: timeout, inactivity
 
+**Study suggestion**:
+The one next step a student is shown, drawn from how they have actually been studying: fixed rules read their activity log for the current course and choose at most one, among the modules they have unlocked and the work of the current module. They see it in a dialog that covers the workspace until they close it or follow it; following it only moves them somewhere they could already open, and never submits code for them. A closed step stays dismissed until it has ended and the rules choose it again, and a lower step does not take its place at the moment of dismissal. The rules, not a language model, choose it. The Teacher's prompt includes the current step and the VerifyShield stops it advising the opposite; the Deskmate never hears it. It is not a learning plan, and since the activity log is not evidence it changes no mastery, unlock or roadmap.
+_Avoid_: nudge, alert, learning plan
+
 **Plan step**:
 One item of a learning plan: the module's materials, one of its quiz questions, one of its exercises, or one of its misconception responses that the student's learning pattern calls a weak spot. A step the module no longer holds, or a misconception that is not a weak spot, is dropped or refuses the plan, so a plan never points outside its module.
 _Avoid_: task, milestone

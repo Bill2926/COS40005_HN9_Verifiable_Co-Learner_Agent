@@ -5,9 +5,10 @@ import MindmapNotes, { type NoteDraft } from '~/components/workspace/MindmapNote
 import { shrinkImage } from '~/utils/shrink-image'
 import MindmapCanvas from '~/components/workspace/MindmapCanvas.vue'
 import WorkingArea from '~/components/workspace/WorkingArea.vue'
+import StudySuggestionDialog from '~/components/workspace/StudySuggestionDialog.vue'
 import CampusStep from '~/components/workspace/CampusStep.vue'
 import type { Campus } from '#shared/campus'
-import type { AddressedAgent, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
+import type { AddressedAgent, StudySuggestionView, PracticeTestResult, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '#shared/turn'
 import { sessionStudentId, studentIdFromAuth } from '#shared/student-id'
 import { createDraftStore } from '~/drafts/store'
 import { type Arrangement, type Point } from '~/mindmap/arrangement'
@@ -43,13 +44,22 @@ watchEffect(() => {
 })
 
 watch(layout, (value, previous) => {
-  if (previous && value !== previous) void recordStudentActivity({ event: 'layout_switched', layout: value })
+  if (previous && value !== previous) void reportActivity({ event: 'layout_switched', layout: value })
 })
 
 const { data, error } = await useFetch<RedrawState>('/turn', {
   method: 'POST',
   body: { event: 'open' },
 })
+
+let suggestionTimer: ReturnType<typeof setTimeout> | undefined
+const suggestionQuietMs = 400
+
+// A report of the student's activity that does not redraw the workspace. Afterwards the
+// page asks for the workspace again, so the study suggestion follows the new log.
+function reportActivity(body: Record<string, unknown>): Promise<void> {
+  return recordStudentActivity(body).then(scheduleSuggestionRefresh)
+}
 
 const workspace = ref<RedrawState | null>(null)
 const latestTrace = ref<TurnTrace | null>(null)
@@ -80,7 +90,7 @@ const workingMode = ref<'learn' | 'practice'>('learn')
 function chooseMode(mode: 'learn' | 'practice') {
   if (mode === workingMode.value) return
   workingMode.value = mode
-  void recordStudentActivity({ event: 'mode_switched', mode })
+  void reportActivity({ event: 'mode_switched', mode })
 }
 
 // The plan's current step asks for the student's approach: the message box invites it.
@@ -113,7 +123,7 @@ function recordReturn() {
   practiceQuiet = false
   const place = quietPlace
   quietPlace = null
-  void recordStudentActivity({ event: 'returned', moduleId: place.moduleId, exerciseId: place.exerciseId })
+  void reportActivity({ event: 'returned', moduleId: place.moduleId, exerciseId: place.exerciseId })
 }
 
 function armQuietTimer() {
@@ -125,7 +135,7 @@ function armQuietTimer() {
     if (!place) return
     practiceQuiet = true
     quietPlace = place
-    void recordStudentActivity({ event: 'went_idle', moduleId: place.moduleId, exerciseId: place.exerciseId })
+    void reportActivity({ event: 'went_idle', moduleId: place.moduleId, exerciseId: place.exerciseId })
     void checkInAfterQuiet()
   }, practiceQuietMs)
 }
@@ -170,6 +180,7 @@ const answering = ref<{ questionId: string, choice: number } | null>(null)
 // True while the student's agreement to the Teacher's plan is being recorded.
 const planStarting = ref(false)
 const moduleViews = new Map<string, RedrawState>()
+let workspaceVersion = 0
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
 const sending = ref(false)
@@ -590,7 +601,8 @@ async function loadPortrait() {
 }
 
 function rememberModule(state: RedrawState) {
-  moduleViews.set(state.workingArea.moduleId, state)
+  // A remembered view never keeps a study suggestion: the server decides what to show.
+  moduleViews.set(state.workingArea.moduleId, { ...state, studySuggestion: null })
 }
 
 function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
@@ -605,6 +617,7 @@ function withCurrentModule(state: RedrawState, moduleId: string): RedrawState {
 }
 
 function showWorkspace(state: RedrawState) {
+  workspaceVersion += 1
   if (state.workingArea.mode === 'learn') workingMode.value = 'learn'
   if (state.trace) latestTrace.value = state.trace
   workspace.value = state
@@ -647,7 +660,7 @@ function warmModules() {
 if (data.value) {
   showWorkspace(data.value)
   if (import.meta.client) {
-    void recordStudentActivity({
+    void reportActivity({
       event: 'module_opened',
       moduleId: data.value.workingArea.moduleId,
     })
@@ -700,7 +713,7 @@ async function selectModule(moduleId: string) {
       method: 'POST',
       body: { event: 'select_module', moduleId },
     }))
-    void recordStudentActivity({ event: 'module_opened', moduleId })
+    void reportActivity({ event: 'module_opened', moduleId })
   }
   catch {
     workingMode.value = modeBeforeSelect
@@ -713,6 +726,74 @@ async function selectModule(moduleId: string) {
     pendingModuleId.value = ''
     pendingModuleName.value = ''
   }
+}
+
+function scheduleSuggestionRefresh() {
+  if (!import.meta.client) return
+  clearTimeout(suggestionTimer)
+  suggestionTimer = setTimeout(() => void refreshSuggestion(), suggestionQuietMs)
+}
+
+// The workspace open redraw: it introduces the module only while its conversation is empty,
+// and otherwise only redraws. A redraw that arrives after the student has acted again is dropped.
+async function refreshSuggestion() {
+  if (!workspace.value) return
+  if (selecting.value || sending.value) {
+    scheduleSuggestionRefresh()
+    return
+  }
+  const version = workspaceVersion
+  try {
+    const state = await $fetch<RedrawState>('/turn', { method: 'POST', body: { event: 'open' } })
+    if (version !== workspaceVersion || selecting.value || sending.value) return
+    if (state.workingArea.moduleId !== workspace.value?.workingArea.moduleId) return
+    showWorkspace(state)
+  }
+  catch {
+    // The suggestion is advice: a missed redraw leaves the workspace as it was.
+  }
+}
+
+const suggestionBusy = ref(false)
+const suggestionError = ref('')
+
+// Closing and following both dismiss this episode first; a dismissal that is not saved leaves
+// the dialog up. Following then moves the student with the controls they already have.
+async function closeSuggestion(follow: boolean) {
+  const suggestion = workspace.value?.studySuggestion
+  if (!suggestion || suggestionBusy.value) return
+  suggestionBusy.value = true
+  suggestionError.value = ''
+  try {
+    showWorkspace(await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: { event: 'dismiss_study_suggestion', key: suggestion.key },
+    }))
+  }
+  catch {
+    suggestionError.value = 'That could not be saved. Try again.'
+    return
+  }
+  finally {
+    suggestionBusy.value = false
+  }
+  if (follow) await followSuggestion(suggestion)
+}
+
+async function followSuggestion(suggestion: StudySuggestionView) {
+  const action = suggestion.action
+  if (action.kind === 'study') {
+    await navigateTo(layoutTarget('study'))
+    phonePanel.value = 'working'
+  }
+  if (workspace.value?.workingArea.moduleId !== action.moduleId) await selectModule(action.moduleId)
+  if (workspace.value?.workingArea.moduleId !== action.moduleId) return
+  if (action.kind === 'learn') {
+    chooseMode('learn')
+    return
+  }
+  await selectExercise(action.exerciseId)
+  chooseMode('practice')
 }
 
 async function selectExercise(exerciseId: string) {
@@ -882,14 +963,14 @@ function onDraft(code: string) {
 function onPasted(characters: number) {
   const exerciseId = workspace.value?.workingArea.exercise.id
   if (!exerciseId || characters < 1) return
-  void recordStudentActivity({ event: 'pasted', exerciseId, characters })
+  void reportActivity({ event: 'pasted', exerciseId, characters })
   markPracticeActivity()
 }
 
 function onRunFinished(run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }) {
   if (!run.exerciseId) return
-  void recordStudentActivity({ event: 'code_run', exerciseId: run.exerciseId })
-  void recordStudentActivity({
+  void reportActivity({ event: 'code_run', exerciseId: run.exerciseId })
+  void reportActivity({
     event: 'run_finished',
     exerciseId: run.exerciseId,
     outcome: run.outcome,
@@ -1252,6 +1333,14 @@ function initialsOf(name: string): string {
         Notes
       </UButton>
     </div>
+    <StudySuggestionDialog
+      v-if="workspace.studySuggestion && campus !== null"
+      :suggestion="workspace.studySuggestion"
+      :busy="suggestionBusy"
+      :error="suggestionError"
+      @close="closeSuggestion(false)"
+      @follow="closeSuggestion(true)"
+    />
     <button
       v-if="askButton"
       type="button"

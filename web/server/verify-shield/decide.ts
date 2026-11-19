@@ -45,6 +45,9 @@ export interface TurnSnapshot {
   // The student wrote their approach to this exercise and has run or submitted
   // nothing since: the approach has not yet been tried.
   approachAwaitingTry: boolean
+  // The module the study suggestion names, or null when the rules choose no step. While it is
+  // set the Teacher may advance only to that module.
+  studyStepModuleId: string | null
 }
 
 export interface CourseModule {
@@ -328,6 +331,21 @@ function advanceDowngrade(
     return { decision: 'block', ruleId: 'advance_known_module', reasonCode: 'ADVANCE_UNKNOWN_MODULE', move: null }
   }
   checks.push({ ruleId: 'advance_known_module', passed: true, reasonCode: 'MODULE_KNOWN' })
+
+  // While the study suggestion names a module, the Teacher may not advise a different one: the
+  // student is kept on this module, or sent to the module the step names. A closed module
+  // keeps its redirect below.
+  if (snapshot.studyStepModuleId !== null && target !== snapshot.studyStepModuleId && snapshot.unlockedModuleIds.includes(target)) {
+    return {
+      decision: 'downgrade',
+      ruleId: 'advance_follows_study_step',
+      reasonCode: 'ADVANCE_AGAINST_STUDY_STEP',
+      move: { type: 'stay_and_practise' },
+    }
+  }
+  if (snapshot.studyStepModuleId !== null) {
+    checks.push({ ruleId: 'advance_follows_study_step', passed: true, reasonCode: 'FOLLOWS_STUDY_STEP' })
+  }
 
   if (target === snapshot.moduleId) {
     return {
