@@ -1,4 +1,4 @@
-import type { StaffRole } from '../../shared/staff-role'
+import type { StaffRole } from '#shared/staff-role'
 
 // Staff are never students. One request to the role endpoint says which staff
 // roles the person holds. It answers 200 for a student too, so a student's

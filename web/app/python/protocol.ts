@@ -1,4 +1,4 @@
-import type { ExerciseCheck } from '../../shared/turn'
+import type { ExerciseCheck } from '#shared/turn'
 
 export type { ExerciseCheck }
 
