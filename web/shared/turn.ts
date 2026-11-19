@@ -163,6 +163,8 @@ export interface LearningPlanStepView {
   title: string
   // The step the student is on.
   current: boolean
+  // Verified by the student's records, never by an agent.
+  done: boolean
 }
 
 // The Teacher's plan for the module the student opened: proposed until the

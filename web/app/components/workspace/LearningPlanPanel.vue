@@ -13,14 +13,12 @@ const emit = defineEmits<{
   start: []
 }>()
 
-// The view marks the current step on the step itself, so a hidden stale step
-// cannot shift the mark. Steps before it were worked through in order.
-const currentIndex = computed(() => props.plan.steps.findIndex(step => step.current))
-
+// The view marks the current step and each done step on the steps themselves:
+// a step is done only when the student's verified work shows it.
 function stepState(index: number): 'done' | 'current' | 'next' {
-  if (index === currentIndex.value) return 'current'
-  if (currentIndex.value >= 0 && index < currentIndex.value) return 'done'
-  return 'next'
+  const step = props.plan.steps[index]
+  if (step?.done) return 'done'
+  return step?.current ? 'current' : 'next'
 }
 
 function stepClass(state: 'done' | 'current' | 'next'): string {

@@ -3,6 +3,7 @@ import { studentMasteryTool } from '../../shared/turn'
 import type { AnsweredQuizResult, DeskmateContext, DeskmateQuizResult, SubmissionCheck, TeacherContext } from './contexts'
 import { moveKey, scopedMoveTypes, type Move } from './moves'
 import { roleTable } from './role-table'
+import { planStepTitle } from '../learning-plan'
 
 // "a, b, or c": moves as a prompt names them.
 function listMoves(moves: readonly string[], conjunction: 'or' | 'and' = 'or'): string {
@@ -39,6 +40,10 @@ export const teacherProposeInstructions = [
   'hint_level_N needs a level from 1 to 3.',
   `${listMoves(teacherScopedMoves, 'and')} need a scope.`,
   'Scope is the module id the question is about, taken from the course roadmap, or out_of_course.',
+  'The prompt shows the plan in force, which step the student is on and what happened since the plan was last revised.',
+  'Propose revise_plan, with the steps of the new plan, only when that section lists a trigger, and use only ids the prompt lists.',
+  'Propose continue_plan to check in on the current step of the plan, for example when the student has been quiet.',
+  'While the student has written an approach and not yet run or submitted code, let them try it: propose continue_plan, not a hint or a correction.',
   'Propose address_misconception only for a misconception the student\'s submitted code or quiz answers show. The prompt lists those their work shows.',
   'Use out_of_course for anything this course does not cover, including small talk.',
   'A closed module and anything out of course must be labelled that way. Do not teach them.',
@@ -56,6 +61,7 @@ export const teacherPlanInstructions = [
   'Reply with the propose_plan move, or proposal null when you cannot.',
   'A plan has one to five steps, in the order the student should do them.',
   'Each step has a kind and a ref. materials takes an empty ref. quiz takes a quiz question id. exercise takes an exercise id. misconception takes a misconception id.',
+  'approach takes an exercise id and asks the student to write their approach to it in plain words before coding; try takes the same exercise id and asks them to run their approach. Put approach before try.',
   'Use only ids listed in the prompt.',
   'Choose a route for this student: use their learning pattern, and leave room for practice.',
   'Include a misconception step only for a misconception the learning pattern lists as a weak spot.',
@@ -215,6 +221,29 @@ function learningPatternLines(context: TeacherContext): string[] {
   ]
 }
 
+// The plan in force as the Teacher sees it, and what the move it is about to
+// word changes. A revised plan is shown with the steps the move brings.
+function planLines(context: TeacherContext, move?: Move): string[] {
+  const plan = context.plan
+  if (!plan) return ['', 'Plan', 'none']
+  const marks = (step: NonNullable<TeacherContext['plan']>['steps'][number]) =>
+    `${step.title}${step.done ? ' (done)' : ''}${step.current ? ' (current step)' : ''}`
+  return [
+    '',
+    `Plan, revision ${plan.revision}, ${plan.agreed ? 'agreed by the student' : 'not yet agreed'}`,
+    ...plan.steps.map((step, index) => `${index + 1}. ${marks(step)}`),
+    `Triggers since the last revision: ${plan.triggers.length > 0 ? plan.triggers.join(', ') : 'none'}`,
+    `Approach written and not yet tried: ${plan.approachAwaitingTry ? 'yes' : 'no'}`,
+    ...(move?.type === 'revise_plan'
+      ? ['New steps:', ...move.steps.map((step, index) => `${index + 1}. ${planStepTitle(step, context)}`)]
+      : []),
+    'Ids a revised plan may use:',
+    ...context.exercises.map(exercise => `exercise, approach or try ${exercise.id}`),
+    ...context.quiz.map(question => `quiz ${question.id}`),
+    ...context.misconceptionResponses.map(response => `misconception ${response.id}`),
+  ]
+}
+
 function formatRun(run: TeacherContext['runOutput']): string {
   if (!run) return 'The student has not run the draft.'
   return [
@@ -242,6 +271,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
     'Misconceptions the student\'s work shows',
     ...(context.codeFindings.length > 0 ? context.codeFindings : ['none']),
     ...learningPatternLines(context),
+    ...planLines(context, move),
     '',
     'Exercise',
     context.exercise.title,

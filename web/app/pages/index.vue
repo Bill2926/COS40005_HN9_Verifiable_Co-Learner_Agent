@@ -83,6 +83,13 @@ function chooseMode(mode: 'learn' | 'practice') {
   void recordStudentActivity({ event: 'mode_switched', mode })
 }
 
+// The plan's current step asks for the student's approach: the message box invites it.
+const askingApproach = computed(() => {
+  const plan = workspace.value?.learningPlan
+  if (!plan?.agreed) return false
+  return plan.steps.find(step => step.current)?.id.startsWith('approach:') ?? false
+})
+
 const practiceQuietMs = 3 * 60 * 1000
 let quietTimer: ReturnType<typeof setTimeout> | undefined
 let practiceQuiet = false
@@ -119,6 +126,7 @@ function armQuietTimer() {
     practiceQuiet = true
     quietPlace = place
     void recordStudentActivity({ event: 'went_idle', moduleId: place.moduleId, exerciseId: place.exerciseId })
+    void checkInAfterQuiet()
   }, practiceQuietMs)
 }
 
@@ -763,6 +771,24 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   }
 }
 
+// After three quiet minutes in Practice mode the Teacher may check in. The server
+// allows one check-in per quiet period, so asking again is harmless.
+async function checkInAfterQuiet() {
+  if (sending.value || selecting.value) return
+  sending.value = true
+  try {
+    await readTurn({ event: 'idle' })
+  }
+  catch {
+    // A missed check-in is not worth an error: the student is simply left to work.
+  }
+  finally {
+    sending.value = false
+    streamingTeacher.value = ''
+    streamingDeskmate.value = ''
+  }
+}
+
 async function startPlan() {
   const current = workspace.value
   if (!current || !current.learningPlan || current.learningPlan.agreed) return
@@ -1194,6 +1220,7 @@ function initialsOf(name: string): string {
           :display-name="workspace.displayName"
           :portrait-url="portraitUrl"
           :incoming-quote="incomingQuote"
+          :asking-approach="askingApproach"
           :trace="latestTrace"
           :deskmate-on="workspace.deskmateOn"
           :deskmate-busy="deskmateBusy"

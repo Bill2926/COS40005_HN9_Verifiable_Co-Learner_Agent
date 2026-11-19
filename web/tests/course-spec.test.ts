@@ -208,3 +208,17 @@ describe('course spec parser', () => {
   })
 })
 
+
+describe('the failures before a plan revision', () => {
+  it('is three unless the course spec says otherwise', () => {
+    expect(courseFromSpec(specWith({})).failuresBeforeRevision).toBe(3)
+    expect(courseFromSpec(specWith({ failuresBeforeRevision: 5 })).failuresBeforeRevision).toBe(5)
+  })
+
+  it('is read from the imported spec and refused when it is not a whole number from 1 to 10', () => {
+    const json = (value: unknown) => JSON.stringify({ ...specWith({}), failuresBeforeRevision: value })
+
+    expect(parseCourseSpec(json(2)).failuresBeforeRevision).toBe(2)
+    for (const bad of [0, 11, 2.5, '3']) expect(() => parseCourseSpec(json(bad))).toThrow()
+  })
+})

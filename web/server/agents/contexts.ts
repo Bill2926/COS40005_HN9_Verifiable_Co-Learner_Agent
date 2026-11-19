@@ -61,6 +61,25 @@ export interface TeacherContext {
   // Where the student's work says they struggle and how they study, computed from
   // their records in this course. The Deskmate's context never carries it.
   learningPattern: LearningPattern
+  // The plan in force for the module, how far the student's records say it has
+  // got, and what happened since its last revision; null when there is none.
+  // The Deskmate's context never carries it.
+  plan: {
+    revision: number
+    agreed: boolean
+    steps: readonly {
+      kind: 'materials' | 'quiz' | 'exercise' | 'misconception' | 'approach' | 'try'
+      ref: string
+      title: string
+      done: boolean
+      current: boolean
+    }[]
+    // What may make the Teacher revise the plan: a failure count reached, a wrong quiz answer,
+    // a misconception in the code, or a finished step, each since the last revision.
+    triggers: readonly string[]
+    // The student wrote their approach and has run or submitted nothing since.
+    approachAwaitingTry: boolean
+  } | null
 }
 
 export interface DeskmateContext {

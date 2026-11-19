@@ -1,6 +1,7 @@
 import type { ModuleState, RoadmapModule as StudentRoadmapModule } from '../../shared/turn'
 import type { CourseStanding } from '../student-model'
 import type { CourseScope } from '../verify-shield'
+import { defaultFailureLimit } from '../learning-plan'
 import type { CourseSpec } from './course-spec'
 import { normaliseCourseSpec } from './materials'
 import { pythonCourseSpec } from './python-course'
@@ -26,6 +27,8 @@ export interface Course {
   id: string
   title: string
   masteryThreshold: number
+  // Failed submissions of one exercise after which the learning plan may be revised.
+  failuresBeforeRevision: number
   legacyUnlocks?: { before: string, threshold: number }
   modules: readonly CourseModule[]
   studyModules: readonly StudyModule[]
@@ -83,6 +86,7 @@ export function courseFromSpec(input: CourseSpec): Course {
     id: spec.courseId,
     title: spec.title,
     masteryThreshold: spec.masteryThreshold,
+    failuresBeforeRevision: spec.failuresBeforeRevision ?? defaultFailureLimit,
     modules,
     studyModules,
     scope: { modules, outOfCourseKeywords: spec.outOfCourseKeywords },

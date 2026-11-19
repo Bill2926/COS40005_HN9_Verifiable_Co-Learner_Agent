@@ -209,8 +209,16 @@ The system's estimate, between 0 and 1, of how well a student knows a module, co
 _Avoid_: progress, score, level, SM
 
 **Learning plan**:
-The Teacher's suggestion, for one module, of what the student should do there and in what order: one to five steps. The student agrees to it with Start, and from then on it is in progress, with one step current. A plan is kept as revisions, each a new record rather than an edit, and the newest revision is the one in force. It never changes mastery or opens a module.
+The Teacher's suggestion, for one module, of what the student should do there and in what order: one to five steps. The student agrees to it with Start, and from then on it is in progress, with one step current. A plan is kept as revisions, each a new record rather than an edit, and the newest revision is the one in force. A step is done only when the student's verified records show it: a sandbox result, a quiz answer, a run, or time on the materials. The Teacher may revise a plan only after something new: the same exercise failed three times (the course spec may say otherwise), a wrong quiz answer, a misconception found in the code, or a finished step; a revision with nothing new behind it becomes a check-in. Each revision records what brought it about and the decision-log entry that ruled on it. It never changes mastery or opens a module.
 _Avoid_: roadmap, syllabus, to-do list
+
+**Approach**:
+The student's own plain-words account of how they will solve an exercise, written before they code it. While the agreed plan's current step asks for it, the student's next message is kept as their approach. It is tried, not judged: until the student has run or submitted since writing it, the Teacher gives no hint or correction and only checks in.
+_Avoid_: plan (that is the Teacher's), answer, solution
+
+**Quiet period**:
+Three minutes in Practice mode without activity. The Teacher checks in once on the plan in force; any activity of the student ends the period, and only then may it check in again.
+_Avoid_: timeout, inactivity
 
 **Plan step**:
 One item of a learning plan: the module's materials, one of its quiz questions, one of its exercises, or one of its misconception responses that the student's learning pattern calls a weak spot. A step the module no longer holds, or a misconception that is not a weak spot, is dropped or refuses the plan, so a plan never points outside its module.
