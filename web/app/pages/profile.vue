@@ -132,6 +132,7 @@ async function sendPicture(file: File) {
   <main class="phone-safe mx-auto flex min-h-dvh w-full max-w-lg flex-col gap-6 bg-default px-4 py-8">
     <p class="text-sm"><NuxtLink to="/" class="text-brand-700 underline">Back to the workspace</NuxtLink></p>
     <h1 class="text-xl font-semibold text-highlighted">Profile</h1>
+    <RecordingNotice class="text-sm/6 text-muted" />
     <div class="relative size-24">
       <img
         :src="profile?.pictureUrl ?? '/portraits/student.png'"

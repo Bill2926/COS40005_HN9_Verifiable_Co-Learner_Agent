@@ -105,10 +105,12 @@ const secondaryButton = 'inline-flex min-h-11 items-center justify-center rounde
             <h1 class="about-rise text-4xl/[1.08] font-semibold tracking-tight text-highlighted md:text-5xl/[1.05] xl:text-[3.25rem]/[1.05]" style="--i: 1">
               A co-learner for your course, with a teacher and a deskmate beside you.
             </h1>
-            <p class="about-rise max-w-xl text-lg/7 text-muted" style="--i: 2">
-              Learn any course step by step with AI agents whose every reply is checked before you see it.
-              Your activity in the app is recorded. It is not used to grade you, and no screen shows it.
-            </p>
+            <div class="about-rise flex max-w-xl flex-col gap-3 text-lg/7 text-muted" style="--i: 2">
+              <p>
+                Learn any course step by step with AI agents whose every reply is checked before you see it.
+              </p>
+              <RecordingNotice />
+            </div>
             <div class="about-rise flex flex-col gap-3 pt-2 sm:flex-row" style="--i: 3">
               <NuxtLink :to="start.to" :class="primaryButton">
                 {{ start.label }}

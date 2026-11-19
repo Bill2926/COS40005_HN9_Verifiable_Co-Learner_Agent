@@ -28,7 +28,8 @@ test('opens the profile page by a full load', async ({ page }) => {
   await expect(page.getByLabel('Display name')).toHaveValue('An')
   await expect(page.getByText(/SWB\d{4,}/)).toBeVisible()
   await expect(page.getByText(anAccount.email)).toBeVisible()
-  await expect(page.getByText('Your activity in the app is recorded.')).toHaveCount(0)
+  await expect(page.getByText('Your activity, submitted code and conversations are recorded. Your lecturers and administrators can review them. DeepSeek processes your conversations.')).toBeVisible()
+  await expect(page.getByText('no screen shows it')).toHaveCount(0)
   await expect(page.getByText('Upload picture', { exact: true })).toBeVisible()
 })
 
