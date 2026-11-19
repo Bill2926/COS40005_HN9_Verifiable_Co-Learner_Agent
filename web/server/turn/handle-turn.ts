@@ -27,6 +27,7 @@ import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
 import type { NewSubmission, SubmissionStore } from '../storage/submission-store'
 import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
+import { learningPattern, type LearningPattern } from '../learning-pattern'
 import { showsCodeMisconception } from './code-findings'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
@@ -252,7 +253,7 @@ async function* turnBody(
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode, options) }
     return
   }
 
@@ -260,7 +261,7 @@ async function* turnBody(
     // Only the session student's own switch is ever read or written.
     await options?.deskmateSettings?.save(studentId, body.on)
     flags.deskmateOn = body.on
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
     return
   }
 
@@ -268,7 +269,7 @@ async function* turnBody(
     const chosen = studyModule(course, canonicalModuleId(body.moduleId))
     // Choosing a closed module changes nothing. A preview never writes the resume point.
     if (!chosen || !standing.unlockedModuleIds.includes(chosen.id)) {
-      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
       return
     }
     const point = openedPoint
@@ -277,15 +278,16 @@ async function* turnBody(
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
     const next = { course, module: chosen, exercise }
-    const [existing, displayName, quizAnswers] = await Promise.all([
+    const [existing, displayName, quizAnswers, weakSpots] = await Promise.all([
       store.messages(studentId, chosen.id),
       store.displayName(studentId),
       quizStore.forStudentModule(studentId, chosen.id),
+      weakSpotTexts(await learningPatternFor(studentId, next, options), next),
       isPreviewModule(body) ? Promise.resolve() : adoptPlacement(studentId, store, next),
     ])
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots),
     }
     return
   }
@@ -301,7 +303,7 @@ async function* turnBody(
       text: exercise.title,
       exerciseId: exercise.id,
     })
-    yield { type: 'state', state: await redraw(studentId, next, standing, store, quizStore, null) }
+    yield { type: 'state', state: await redraw(studentId, next, standing, store, quizStore, null, options) }
     return
   }
 
@@ -328,7 +330,7 @@ async function* turnBody(
       }, store, quizStore, agents, '', everyone, flags, options)
       return
     }
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
     return
   }
 
@@ -353,7 +355,7 @@ async function* turnBody(
         exerciseId: placement.exercise.id,
       })
       flags.notice = report.message
-      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
       return
     }
     if (!agents) throw new Error('The agents have no language model.')
@@ -477,7 +479,7 @@ async function* introduceModule(
 ): AsyncGenerator<InnerEvent> {
   if (!(await proposingTurnAllowed(studentId, options))) {
     flags.notice = dailyTurnLimitNotice
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, 'learn') }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, 'learn', options) }
     return
   }
   const context = await teacherContext(studentId, placement, standing, store, quizStore, {
@@ -496,7 +498,7 @@ async function* introduceModule(
     logModelFailure('teacher propose', cause)
     yield {
       type: 'state',
-      state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', verifyShieldTrace(null, null, [], snapshot)),
+      state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', verifyShieldTrace(null, null, [], snapshot), options, context.learningPattern),
     }
     return
   }
@@ -525,6 +527,8 @@ async function* introduceModule(
     teacherTools: tools,
     codeVersion: options?.codeVersion,
     courseHistoryId: options?.courseHistoryId,
+    moduleId: placement.module.id,
+    learningPattern: context.learningPattern,
   })
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
@@ -545,7 +549,7 @@ async function* introduceModule(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace, options, context.learningPattern) }
 }
 
 // Marks a quiz answer and reports whether this call stored it and whether it was
@@ -693,7 +697,7 @@ async function* answerMessage(
 ): AsyncGenerator<InnerEvent> {
   if ((participants.teacher || participants.deskmate) && !(await proposingTurnAllowed(studentId, options))) {
     flags.notice = dailyTurnLimitNotice
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
     return
   }
   const context = await teacherContext(studentId, placement, standing, store, quizStore, seen, options)
@@ -726,6 +730,8 @@ async function* answerMessage(
     time: recordedAt,
     codeVersion: options?.codeVersion,
     courseHistoryId: options?.courseHistoryId,
+    moduleId: placement.module.id,
+    learningPattern: context.learningPattern,
   })
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
@@ -774,12 +780,14 @@ async function* answerMessage(
     time: recordedAt,
     codeVersion: options?.codeVersion,
     courseHistoryId: options?.courseHistoryId,
+    moduleId: placement.module.id,
+    learningPattern: context.learningPattern,
   })
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
 
   if (teacherFailed) {
-    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace) }
+    yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace, options, context.learningPattern) }
   }
 
   if (deskmateSettled.status === 'rejected') {
@@ -814,7 +822,7 @@ async function* answerMessage(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace) }
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace, options, context.learningPattern) }
 }
 
 async function redrawWithTrace(
@@ -825,9 +833,11 @@ async function redrawWithTrace(
   quizStore: QuizAnswerStore,
   mode: 'learn' | null,
   trace: TurnTrace,
+  options?: TurnOptions,
+  pattern?: LearningPattern,
 ): Promise<TurnState> {
   return {
-    ...await redraw(studentId, placement, standing, store, quizStore, mode),
+    ...await redraw(studentId, placement, standing, store, quizStore, mode, options, pattern),
     trace,
   }
 }
@@ -864,6 +874,9 @@ interface DecisionsToRecord {
   time?: string
   codeVersion?: string
   courseHistoryId?: number | null
+  // The turn's module, and the pattern snapshot kept on each decision for audit.
+  moduleId: string
+  learningPattern: LearningPattern
 }
 
 async function recordDecisions({
@@ -878,6 +891,8 @@ async function recordDecisions({
   time = new Date().toISOString(),
   codeVersion,
   courseHistoryId,
+  moduleId,
+  learningPattern,
 }: DecisionsToRecord): Promise<void> {
   if (!decisions) return
   // What every decision of the turn shares; each outcome adds only how it ended.
@@ -896,6 +911,8 @@ async function recordDecisions({
     ...(codeVersion === undefined && courseHistoryId === undefined
       ? {}
       : { codeVersion: codeVersion ?? null, courseHistoryId: courseHistoryId ?? null }),
+    moduleId,
+    learningPattern,
   })
   if (teacherTools?.ended === 'step_cap') {
     // Not a ruling: the Teacher never reached a move, so the VerifyShield had nothing to rule on.
@@ -1027,6 +1044,7 @@ async function teacherContext(
     // Mastery stays out: the Teacher looks it up with get_student_mastery.
     roadmap: roadmapForStanding(placement.course, standing).map(({ mastery: _mastery, ...module }) => module),
     answeredQuiz: answeredQuiz(placement.module, quizAnswers),
+    learningPattern: await learningPatternFor(studentId, placement, options),
   }
 }
 
@@ -1160,13 +1178,80 @@ async function redraw(
   store: ConversationStore,
   quizStore: QuizAnswerStore,
   mode: 'learn' | null = null,
+  options?: TurnOptions,
+  // The pattern the Teacher saw this turn, when a caller already computed it;
+  // redraw reads the records itself otherwise.
+  pattern?: LearningPattern,
 ): Promise<TurnState> {
-  const [messages, displayName, quizAnswers] = await Promise.all([
+  const [messages, displayName, quizAnswers, weakSpots] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
     quizStore.forStudentModule(studentId, placement.module.id),
+    weakSpotTexts(pattern ?? await learningPatternFor(studentId, placement, options), placement),
   ])
-  return composeState(placement, standing, messages, displayName, mode, quizAnswers)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpots)
+}
+
+// The pattern's weak spots in plain words: the course's response text for each
+// misconception the student's records keep meeting, so the student is told what
+// to work on without any ids.
+function weakSpotTexts(pattern: LearningPattern, placement: Placement): string[] {
+  return pattern.weakSpots.flatMap(spot =>
+    placement.course.studyModules.flatMap(module =>
+      module.misconceptionResponses
+        .filter(response => response.id === spot.misconceptionId)
+        .map(response => response.response)))
+}
+
+// The learning pattern for one student in the turn's course: a pure read of the
+// student's records through the stores, nothing written. A store that is absent
+// contributes nothing.
+async function learningPatternFor(studentId: string, placement: Placement, options?: TurnOptions): Promise<LearningPattern> {
+  const [observations, submissions, activity, decisions, quizAnswers] = await Promise.all([
+    options?.evidence?.forStudent(studentId) ?? [],
+    options?.submissions?.forStudent(studentId) ?? [],
+    options?.activity?.forStudent(studentId) ?? [],
+    options?.decisions?.list({ studentId }) ?? [],
+    wrongQuizSightings(studentId, placement, options),
+  ])
+  return learningPattern({
+    evidence: observations.flatMap(observation =>
+      observation.kind === 'submission'
+        ? [{ time: observation.time, exerciseId: observation.exerciseId, allPassed: observation.allPassed }]
+        : []),
+    submissions: submissions.map(row => ({
+      time: row.createdAt,
+      moduleId: row.moduleId,
+      exerciseId: row.exerciseId,
+      outcome: row.outcome,
+      findings: row.findings,
+    })),
+    quizAnswers,
+    activity,
+    decisions: decisions.map(({ moduleId, ruledMove }) => ({ moduleId: moduleId ?? null, ruledMove })),
+  })
+}
+
+// Every wrong quiz answer in the course that names a misconception, for the
+// pattern. A wrong answer with no misconception named is a weak spot of nothing.
+async function wrongQuizSightings(
+  studentId: string,
+  placement: Placement,
+  options?: TurnOptions,
+): Promise<{ time: string, moduleId: string, misconceptionId: string }[]> {
+  const quizStore = options?.quizAnswers
+  if (!quizStore) return []
+  const sightings = await Promise.all(placement.course.studyModules.map(async (module) => {
+    const rows = await quizStore.forStudentModule(studentId, module.id)
+    return rows
+      .filter(row => !row.correct)
+      .flatMap((row) => {
+        const question = module.quiz.find(item => item.id === row.questionId)
+        const misconceptionId = question?.misconceptions?.[row.choice as 0 | 1 | 2 | 3]
+        return misconceptionId ? [{ time: row.time, moduleId: module.id, misconceptionId }] : []
+      })
+  }))
+  return sightings.flat()
 }
 
 function composeState(
@@ -1176,12 +1261,14 @@ function composeState(
   displayName: string,
   mode: 'learn' | null,
   quizAnswers: readonly QuizAnswerRow[],
+  weakSpots: readonly string[],
 ): TurnState {
   return {
     displayName,
     course: placement.course.title,
     courseRoadmap: presentedRoadmap(placement.course, standing),
     masteryThreshold: placement.course.masteryThreshold,
+    weakSpots,
     workingArea: {
       mode,
       moduleId: placement.module.id,

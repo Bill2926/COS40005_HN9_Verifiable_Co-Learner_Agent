@@ -165,6 +165,8 @@ export interface RedrawState {
   masteryThreshold: number
   workingArea: WorkingAreaView
   conversation: ConversationMessage[]
+  // The learning pattern's weak spots in plain words, so the student knows what to work on.
+  weakSpots: readonly string[]
   trace?: TurnTrace
   // Whether the student's deskmate switch is on: Mai takes part in their turns.
   deskmateOn: boolean

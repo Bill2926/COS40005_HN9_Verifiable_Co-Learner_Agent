@@ -168,6 +168,36 @@ function deskmateQuizLines(results: readonly DeskmateQuizResult[]): string[] {
   return quizLines(results, quizResultLine)
 }
 
+function learningPatternLines(context: TeacherContext): string[] {
+  const pattern = context.learningPattern
+  const none = 'none'
+  return [
+    '',
+    'Learning pattern',
+    'Weak spots (misconception, times seen, last seen): '
+      + (pattern.weakSpots.length
+        ? pattern.weakSpots.map(spot => `${spot.misconceptionId}, ${spot.count}x, last seen ${spot.lastSeen}`).join('; ')
+        : none),
+    'Recurring errors: '
+      + (pattern.recurringErrors.length
+        ? pattern.recurringErrors.map(error => `${error.kind}, ${error.count}x`).join('; ')
+        : none),
+    'Attempts to pass an exercise: '
+      + (pattern.exerciseAttempts.length
+        ? pattern.exerciseAttempts.map(attempts =>
+            `${attempts.exerciseId}, ${attempts.attempts} attempt${attempts.attempts === 1 ? '' : 's'}${attempts.passed ? ', passed' : ''}`).join('; ')
+        : none),
+    'Hint rungs used: '
+      + (pattern.hintRungs.length
+        ? pattern.hintRungs.map(rungs => `${rungs.moduleId}: rung ${rungs.rungs.join(', ')}`).join('; ')
+        : none),
+    'Seconds on materials: '
+      + (pattern.materialsSeconds.length
+        ? pattern.materialsSeconds.map(seconds => `${seconds.moduleId}: ${seconds.seconds}`).join('; ')
+        : none),
+  ]
+}
+
 function formatRun(run: TeacherContext['runOutput']): string {
   if (!run) return 'The student has not run the draft.'
   return [
@@ -194,6 +224,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
     '',
     'Misconceptions the student\'s work shows',
     ...(context.codeFindings.length > 0 ? context.codeFindings : ['none']),
+    ...learningPatternLines(context),
     '',
     'Exercise',
     context.exercise.title,

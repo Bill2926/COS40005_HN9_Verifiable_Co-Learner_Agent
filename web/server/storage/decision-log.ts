@@ -1,4 +1,5 @@
 import type { AddressedAgent, RuleCheck, ToolCallRecord } from '../../shared/turn'
+import type { LearningPattern } from '../learning-pattern'
 
 export interface DecisionMastery {
   moduleId: string
@@ -40,6 +41,11 @@ export interface DecisionRecord {
   // Absent on a decision recorded before they were kept.
   codeVersion?: string | null
   courseHistoryId?: number | null
+  // The module the decision's turn was placed on. Absent on a row from before it was recorded.
+  moduleId?: string
+  // The learning pattern the Teacher saw this turn, a snapshot for audit. Absent
+  // on a row from before it was recorded.
+  learningPattern?: LearningPattern
 }
 
 export interface DecisionQuery {
@@ -87,12 +93,23 @@ export function createMemoryDecisionLogStore(): DecisionLogStore {
 }
 
 function copyDecision(record: DecisionRecord): DecisionRecord {
-  const { ruleChecks, toolTrace, ...rest } = record
+  const { ruleChecks, toolTrace, learningPattern, ...rest } = record
   return {
     ...rest,
     ...(toolTrace ? { toolTrace: toolTrace.map(call => ({ ...call })) } : {}),
     masteries: record.masteries.map(item => ({ ...item })),
     unlockedModuleIds: [...record.unlockedModuleIds],
     ...(ruleChecks ? { ruleChecks: ruleChecks.map(check => ({ ...check })) } : {}),
+    ...(learningPattern ? { learningPattern: copyPattern(learningPattern) } : {}),
+  }
+}
+
+function copyPattern(pattern: LearningPattern): LearningPattern {
+  return {
+    weakSpots: pattern.weakSpots.map(spot => ({ ...spot })),
+    recurringErrors: pattern.recurringErrors.map(error => ({ ...error })),
+    exerciseAttempts: pattern.exerciseAttempts.map(attempts => ({ ...attempts })),
+    hintRungs: pattern.hintRungs.map(rungs => ({ moduleId: rungs.moduleId, rungs: [...rungs.rungs] })),
+    materialsSeconds: pattern.materialsSeconds.map(seconds => ({ ...seconds })),
   }
 }

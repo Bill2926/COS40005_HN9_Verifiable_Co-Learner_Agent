@@ -919,8 +919,10 @@ describe('admin connection test', () => {
 const decisionFields = [
   'addressedAgent',
   'agent',
+  'learningPattern',
   'masteries',
   'masteryThreshold',
+  'moduleId',
   'outcome',
   'proposedMove',
   'proposedScope',

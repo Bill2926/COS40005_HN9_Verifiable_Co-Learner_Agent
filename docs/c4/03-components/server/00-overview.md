@@ -3,8 +3,8 @@
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
 Component-level view of `web/server/` and `web/shared/`. Every arrow below was checked against a real
-`import` statement (script over `web/server`, `web/shared`, `web/app`, `web/tests`, `web/e2e`; 229 resolved
-imports inside the repo — 204 relative and 25 through a Nuxt alias — 0 unresolved).
+`import` statement (script over `web/server`, `web/shared`, `web/app`, `web/tests`, `web/e2e`; 234 resolved
+imports inside the repo — 208 relative and 26 through a Nuxt alias — 0 unresolved).
 
 Legend: solid arrow = runtime import (the code is called). Thick arrow = runtime link with no import (HTTP call).
 Blue = component in this server, grey = another container, brown = external, teal = database.
@@ -37,6 +37,7 @@ flowchart LR
     activity["<b>activity recorder</b><br/>Append-only activity log"]:::comp
     staffReview["<b>staff-review</b><br/>Review of one student, signals"]:::comp
     sandbox["<b>sandbox</b><br/>Re-runs a submission"]:::comp
+    pattern["<b>learning-pattern</b><br/>Weak spots, errors,<br/>attempts, rungs, study time"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
 
@@ -72,6 +73,7 @@ flowchart LR
   agentTools -.->|"type: ModelTool"| lm
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
   turn -->|"couldNotCheck"| sandbox
+  turn -->|"learningPattern"| pattern
   routes -->|"createSubmissionSandbox"| sandbox
   sandbox ==>|"InvokeFunction in Sydney,<br/>or docker run locally"| image
   turn -->|"createMemoryQuizAnswerStore"| storage
@@ -106,18 +108,19 @@ flowchart LR
 | agent-tools | `web/server/agent-tools/` | [server/13-agent-tools.md](13-agent-tools.md) |
 | sandbox | `web/server/sandbox/` | [server/14-sandbox.md](14-sandbox.md) |
 | staff-review | `web/server/staff-review/` | [server/15-staff-review.md](15-staff-review.md) |
+| learning-pattern | `web/server/learning-pattern/` | [server/16-learning-pattern.md](16-learning-pattern.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)
 
 | From | To | What |
 |---|---|---|
-| turn | shared, agents, verify-shield, student-model, storage, activity recorder, sandbox | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`, `SubmissionStore`; `ActivityRecorder`; `Sandbox`, `SandboxReport` |
+| turn | shared, agents, verify-shield, student-model, storage, activity recorder, sandbox, learning-pattern | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`, `SubmissionStore`; `ActivityRecorder`; `Sandbox`, `SandboxReport`; `LearningPattern` |
 | student | activity recorder, storage, shared | `ActivityRecorder`, `ActivityEventType`; `MindmapStore`, `MindmapRecord`, `ProfileStore`, `StudentFileStore`; `NoteColour` |
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
-| agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
-| storage | verify-shield, student-model, language-model, activity recorder | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore`; `ActivityRecorder` |
+| agents | shared, language-model, storage, learning-pattern | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore`; `LearningPattern` |
+| storage | verify-shield, student-model, language-model, activity recorder, learning-pattern | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore`; `ActivityRecorder`; `LearningPattern` |
 | admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`, `StaffAccessLog`; `ModelSettings`; `VerifyShieldStore` |
 | staff-review | storage, shared | `StaffReviewStore`, `StaffAccessLog`; `StaffReview` and its parts |
 

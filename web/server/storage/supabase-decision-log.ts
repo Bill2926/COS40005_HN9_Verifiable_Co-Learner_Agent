@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { DecisionChain, DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
+import type { LearningPattern } from '../learning-pattern'
 import type { RuleCheck, ToolCallRecord } from '../../shared/turn'
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -42,6 +43,8 @@ export function createSupabaseDecisionLogStore(options: {
         tool_trace: record.toolTrace ? record.toolTrace.map(call => ({ ...call })) : null,
         ...(record.codeVersion ? { code_version: record.codeVersion } : {}),
         ...(record.courseHistoryId != null ? { course_history_id: record.courseHistoryId } : {}),
+        ...(record.moduleId ? { module_id: record.moduleId } : {}),
+        ...(record.learningPattern ? { learning_pattern: record.learningPattern } : {}),
       })
       if (result.error) throw new Error(result.error.message)
     },
@@ -50,7 +53,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, outcome, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace, code_version, course_history_id')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, outcome, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace, code_version, course_history_id, module_id, learning_pattern')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -94,6 +97,8 @@ interface DecisionRow {
   tool_trace: unknown
   code_version: string | null
   course_history_id: number | null
+  module_id: string | null
+  learning_pattern: unknown
 }
 
 function presentDecision(row: DecisionRow): DecisionRecord {
@@ -130,7 +135,29 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     ...(row.tool_trace === null || row.tool_trace === undefined ? {} : { toolTrace: toolTraceFrom(row.tool_trace) }),
     ...(row.code_version ? { codeVersion: row.code_version } : {}),
     ...(row.course_history_id == null ? {} : { courseHistoryId: Number(row.course_history_id) }),
+    // A row from before the turn module and the learning pattern snapshot was recorded holds null: leave the fields out.
+    ...(row.module_id == null ? {} : { moduleId: row.module_id }),
+    ...(row.learning_pattern == null ? {} : { learningPattern: patternFrom(row.learning_pattern) }),
   }
+}
+
+function patternFrom(value: unknown): LearningPattern {
+  if (typeof value !== 'object' || value === null) {
+    throw new Error('A decision row has a learning pattern that is not a record.')
+  }
+  const pattern = value as Record<string, unknown>
+  return {
+    weakSpots: listOf(pattern.weakSpots, 'weak spot'),
+    recurringErrors: listOf(pattern.recurringErrors, 'recurring error'),
+    exerciseAttempts: listOf(pattern.exerciseAttempts, 'exercise attempt'),
+    hintRungs: listOf(pattern.hintRungs, 'hint rungs'),
+    materialsSeconds: listOf(pattern.materialsSeconds, 'materials seconds'),
+  }
+}
+
+function listOf(value: unknown, what: string): never[] {
+  if (!Array.isArray(value)) throw new Error(`A decision row has a learning pattern without its ${what}.`)
+  return value as never[]
 }
 
 function toolTraceFrom(value: unknown): ToolCallRecord[] {
