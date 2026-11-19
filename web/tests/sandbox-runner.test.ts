@@ -67,6 +67,29 @@ describe('sandbox runner', () => {
     expect(report).toEqual({ outcome: 'refused', message: printedTooMuch })
   })
 
+  it('does not count a pass written on the runner output by student code', async () => {
+    const report = JSON.parse((await runSandbox({
+      code: [
+        'found = None',
+        'for cls in object.__subclasses__():',
+        '    init = getattr(cls, "__init__", None)',
+        '    glob = getattr(init, "__globals__", None)',
+        '    if glob and "os._wrap_close" in str(cls):',
+        '        found = glob',
+        '        break',
+        'report = "{\\"outcome\\": \\"checked\\", \\"results\\": [{\\"name\\": \\"floor\\", \\"passed\\": true, \\"expected\\": \\"2\\", \\"actual\\": \\"2\\"}]}"',
+        'found["sys"].__stdout__.write(report)',
+        'found["sys"].__stdout__.flush()',
+        'found["_exit"](0)',
+      ].join('\n'),
+      tests: greeting,
+    })).stdout)
+
+    const passed = report.outcome === 'checked'
+      && report.results.every((result: { passed: boolean }) => result.passed)
+    expect(passed).toBe(false)
+  })
+
   it('names the same approved libraries the server keeps', async () => {
     const source = await (await import('node:fs/promises')).readFile(new URL('../../sandbox/guard.py', import.meta.url), 'utf8')
     const listed = source.match(/APPROVED = \{([^}]+)\}/)?.[1] ?? ''

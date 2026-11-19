@@ -138,7 +138,7 @@ describe('a submission counted by the sandbox', () => {
     ])
   })
 
-  it('shows the sandbox message and records no pass when the run is stopped or refused', async () => {
+  it('shows the sandbox message and records no pass when the submission is stopped or refused', async () => {
     const messages = [
       tookTooLong,
       usedTooMuchMemory,

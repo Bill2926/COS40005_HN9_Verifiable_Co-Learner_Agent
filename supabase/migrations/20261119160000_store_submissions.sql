@@ -1,5 +1,5 @@
 -- A submission kept after the sandbox checks it: the code, each test's result,
--- and the outcome. Only the server reads or writes it. A refused run keeps the
+-- and the outcome. Only the server reads or writes it. A refused submission keeps the
 -- message and no pass. Rows are append-only.
 
 create table public.submissions (

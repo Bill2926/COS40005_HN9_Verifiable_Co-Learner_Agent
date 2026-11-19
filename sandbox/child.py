@@ -2,6 +2,8 @@ import builtins
 import io
 import json
 import os
+import signal
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -81,14 +83,10 @@ def emit(payload):
     sys.__stdout__.flush()
 
 
-def failed_tests(tests, actual):
-    return [
-        {"name": test["name"], "passed": False, "expected": test["expected"], "actual": actual}
-        for test in tests
-    ]
-
-
-def main():
+def worker():
+    # Student code runs here. It does not learn the expected values, and a
+    # document it writes on this process's stdout is not a pass: the supervisor
+    # decides that by comparing each actual with the expected value it kept.
     payload = json.load(sys.stdin)
     code = payload["code"]
     tests = payload["tests"]
@@ -104,12 +102,10 @@ def main():
     try:
         compiled = compile(code, "<student>", "exec")
         exec(compiled, namespace)
-        results = []
+        actuals = []
         for test in tests:
-            expected = test["expected"]
             try:
                 actual = str(eval(test["expression"], namespace))
-                passed = actual == expected
             except TooMuchOutput:
                 raise
             except MemoryError:
@@ -119,14 +115,8 @@ def main():
                 if actual.startswith("The library "):
                     emit({"outcome": "refused", "message": actual})
                     return
-                passed = False
-            results.append({
-                "name": test["name"],
-                "passed": passed,
-                "expected": expected,
-                "actual": actual,
-            })
-        emit({"outcome": "checked", "results": results})
+            actuals.append({"name": test["name"], "actual": actual})
+        emit({"actuals": actuals})
     except TooMuchOutput:
         emit({"outcome": "refused", "message": guard.PRINTED_TOO_MUCH})
     except MemoryError:
@@ -136,10 +126,87 @@ def main():
         if actual.startswith("The library "):
             emit({"outcome": "refused", "message": actual})
             return
-        emit({"outcome": "checked", "results": failed_tests(tests, actual)})
+        emit({"actuals": [{"name": test["name"], "actual": actual} for test in tests]})
     finally:
         sys.stdout = previous_out
         sys.stderr = previous_err
+
+
+def could_not_check():
+    return {"outcome": "refused", "message": "This submission could not be checked."}
+
+
+def score(tests, out, returncode):
+    if returncode not in (0, None):
+        if returncode is not None and returncode < 0 and -returncode in (signal.SIGXCPU, signal.SIGALRM):
+            return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
+        if returncode is not None and returncode < 0:
+            return {"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY}
+        return could_not_check()
+    try:
+        data = json.loads(out.decode("utf-8", errors="replace").strip())
+    except (json.JSONDecodeError, UnicodeError):
+        return could_not_check()
+    if isinstance(data, dict) and data.get("outcome") == "refused" and isinstance(data.get("message"), str):
+        return {"outcome": "refused", "message": data["message"]}
+    actuals = data.get("actuals") if isinstance(data, dict) else None
+    if not isinstance(actuals, list):
+        return could_not_check()
+    by_name = {}
+    for item in actuals:
+        if not isinstance(item, dict) or "passed" in item or "expected" in item:
+            return could_not_check()
+        name = item.get("name")
+        actual = item.get("actual")
+        if not isinstance(name, str) or not isinstance(actual, str):
+            return could_not_check()
+        by_name[name] = actual
+    results = []
+    for test in tests:
+        if test["name"] not in by_name:
+            return could_not_check()
+        actual = by_name[test["name"]]
+        results.append({
+            "name": test["name"],
+            "passed": actual == test["expected"],
+            "expected": test["expected"],
+            "actual": actual,
+        })
+    return {"outcome": "checked", "results": results}
+
+
+def supervise(payload):
+    tests = payload["tests"]
+    worker_body = {
+        "code": payload["code"],
+        "tests": [{"name": test["name"], "expression": test["expression"]} for test in tests],
+        "confineOnly": bool(payload.get("confineOnly")),
+    }
+    env = dict(os.environ)
+    env["SANDBOX_WORKER"] = "1"
+    proc = subprocess.Popen(
+        [sys.executable, "-I", os.path.abspath(__file__)],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+        close_fds=True,
+    )
+    try:
+        out, _err = proc.communicate(json.dumps(worker_body).encode(), timeout=guard.SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+        return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
+    return score(tests, out, proc.returncode)
+
+
+def main():
+    if os.environ.get("SANDBOX_WORKER") == "1":
+        worker()
+        return
+    payload = json.load(sys.stdin)
+    emit(supervise(payload))
 
 
 if __name__ == "__main__":

@@ -26,7 +26,9 @@ def confine():
         os.chdir("/tmp")
         os.setgid(65534)
         os.setuid(65534)
-    resource.setrlimit(resource.RLIMIT_CPU, (guard.SECONDS, guard.SECONDS))
+    # The hard limit is one second higher so a busy loop receives SIGXCPU, the
+    # time signal, rather than an immediate SIGKILL.
+    resource.setrlimit(resource.RLIMIT_CPU, (guard.SECONDS, guard.SECONDS + 1))
     resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     if IN_IMAGE:

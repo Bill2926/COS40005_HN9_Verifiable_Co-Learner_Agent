@@ -45,7 +45,7 @@ flowchart LR
 | `messages.ts` | The approved libraries (`math`, `random`, `string`, `itertools`, `collections`, `datetime`, `re`, `statistics`, `functools`) and the plain messages for a library, for 10 seconds, for 512 MB and for 64 KB. |
 | `container.ts` | Runs the image `colearner-sandbox` (or `runtimeConfig.sandboxImage`) with no network, a read-only root, a 512 MB memory cap and a process cap. A killed container is the memory message. Anything that is not a report is "This submission could not be checked." |
 | `sandbox/runner.py` | The image entrypoint. Refuses a disallowed import by name before it runs. Starts `child.py` in a fresh process with an empty environment, a 10 second limit, and, inside the image, a chroot, a private temporary directory deleted afterwards, and a limit on new processes. |
-| `sandbox/child.py` | Runs the code and the exercise's tests. The same import list is enforced again in the child. Output past 64 KB, and a memory error, come back as a refusal. |
+| `sandbox/child.py` | Starts a further process for the student code. That process returns each test's actual value and does not receive the expected value. This process decides `passed` by comparing them, so a document the student writes on the output channel is not a pass. The same import list is enforced again around the student code. Output past 64 KB, and a memory error, come back as a refusal. |
 | `sandbox/guard.py` | The approved list and the scan of `import`, `from` and a literal `__import__` or `import_module`. |
 | `sandbox/Dockerfile` | CPython 3.12 and a jail that holds the interpreter and the standard library, and not the rest of the image. |
 

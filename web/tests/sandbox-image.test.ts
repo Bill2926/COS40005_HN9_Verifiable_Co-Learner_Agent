@@ -80,12 +80,12 @@ describe.skipIf(!dockerIsReady())('sandbox container image', () => {
     expect(report).toEqual({ outcome: 'refused', message: printedTooMuch })
   }, 60_000)
 
-  it('stops a run past 10 seconds without recording a pass', async () => {
+  it('stops a submission past 10 seconds without recording a pass', async () => {
     const report = await runImage('while True:\n    pass\nvalue = 1\n', passed)
     expect(report).toEqual({ outcome: 'refused', message: tookTooLong })
   }, 30_000)
 
-  it('stops a run past 512 MB without recording a pass', async () => {
+  it('stops a submission past 512 MB without recording a pass', async () => {
     const report = await runImage('value = bytearray(600 * 1024 * 1024)\n', passed)
     expect(report).toEqual({ outcome: 'refused', message: usedTooMuchMemory })
   }, 60_000)
@@ -177,7 +177,10 @@ describe.skipIf(!dockerIsReady())('sandbox container image', () => {
         tests: [{ name: 'gone', expression: 'value', expected: 'gone' }],
       }),
     )
-    expect(interpretSandboxOutput(first)).toMatchObject({ outcome: 'checked' })
+    expect(interpretSandboxOutput(first)).toEqual({
+      outcome: 'checked',
+      results: [{ name: 'wrote', passed: true, expected: 'wrote', actual: 'wrote' }],
+    })
     expect(interpretSandboxOutput(second)).toEqual({
       outcome: 'checked',
       results: [{ name: 'gone', passed: true, expected: 'gone', actual: 'gone' }],
