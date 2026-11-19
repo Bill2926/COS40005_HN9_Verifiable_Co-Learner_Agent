@@ -30,10 +30,20 @@ export function createConfiguredAgents(settings: ModelSettings, options?: { prod
   logOnce('Language model: fake, scripted Teacher and Deskmate replies.')
   return createFakeAgents({
     // Scoped to the current module, as the real Teacher scopes a question about it.
-    proposal: context => ({
-      type: 'explain_concept',
-      scope: context.roadmap.find(module => module.current)?.id ?? 'out_of_course',
-    }),
+    proposal: (context) => {
+      // A plan that keeps failing is revised onto an exercise it does not hold yet, so a rehearsal
+      // can walk the revision. Only an agreed plan with that trigger is revised; the VerifyShield
+      // still rules the move.
+      if (context.plan?.agreed && context.plan.triggers.includes('failed_submissions')) {
+        const held = new Set(context.plan.steps.map(step => step.ref))
+        const next = context.exercises.find(exercise => !held.has(exercise.id))
+        if (next) return { type: 'revise_plan', steps: [{ kind: 'exercise', ref: next.id }] }
+      }
+      return {
+        type: 'explain_concept',
+        scope: context.roadmap.find(module => module.current)?.id ?? 'out_of_course',
+      }
+    },
     // The module's materials, then its first exercise, as a real plan would.
     plan: context => ({
       type: 'propose_plan',

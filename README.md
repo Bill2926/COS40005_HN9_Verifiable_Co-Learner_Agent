@@ -99,6 +99,8 @@ describes its scripted proposals, starting states and the recorded Sprint 1 demo
 
 `pnpm rehearsal` starts its own dev server on port 3000 with the fake model, so stop `pnpm dev` first. It resets the demo accounts in the Supabase project that `.env` points at.
 
+To walk the demonstration on the public site instead, run `REHEARSAL_URL=<public URL> pnpm rehearsal:public`. The site has to run the scripted agents. See [deployment](docs/c4/04-deployment.md#rehearsal-against-the-public-url).
+
 To make a production build, run `pnpm build`, then `pnpm preview` to serve it locally.
 
 ## Troubleshooting

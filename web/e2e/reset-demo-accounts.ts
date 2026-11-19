@@ -85,6 +85,15 @@ export async function resetDemoAccounts() {
   }
 }
 
+export async function studentNumberOf(email: string): Promise<string> {
+  const admin = adminClient()
+  const found = await admin.from('students').select('student_number').eq('id', await demoStudentIdByEmail(admin, email)).single()
+  if (found.error) throw new Error(found.error.message)
+  const number = found.data.student_number as string | null
+  if (!number) throw new Error(`Demo account ${email} has no student number.`)
+  return number
+}
+
 export async function clearDemoCampus(email: string) {
   const admin = adminClient()
   const cleared = await admin.from('students').update({ campus: null }).eq('id', (await demoStudentIdByEmail(admin, email)))
