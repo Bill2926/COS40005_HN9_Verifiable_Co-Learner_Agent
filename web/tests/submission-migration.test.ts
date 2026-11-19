@@ -45,14 +45,30 @@ it('keeps a submission for the server alone, and refuses a change', async () => 
          '[{"name":"greeting for An","passed":true,"expected":"Hello, An","actual":"Hello, An"}]'::jsonb,
          'passed', null);
     `)
-    const rows = await db.query<{ student_id: string, outcome: string, code: string }>(
-      'select student_id, outcome, code from public.submissions',
+    const rows = await db.query<{ student_id: string, outcome: string, code: string, findings: string[] }>(
+      'select student_id, outcome, code, findings from public.submissions',
     )
     expect(rows.rows).toEqual([{
       student_id: an,
       outcome: 'passed',
       code: 'def hello(name):\n    return "Hello, " + name\n',
+      findings: [],
     }])
+
+    await db.exec(`
+      insert into public.submissions
+        (id, student_id, course_id, module_id, exercise_id, code, results, outcome, message, findings)
+      values
+        ('e55e55e5-5555-4555-8555-555555555555', '${an}', 'intro_python', 'getting_started', 'say_hello',
+         'def hello(name):\n    return Hello, name\n', '[]'::jsonb, 'failed', null, '["missing_quotes"]'::jsonb);
+    `)
+    await expect(db.exec(`
+      insert into public.submissions
+        (id, student_id, course_id, module_id, exercise_id, code, results, outcome, message, findings)
+      values
+        ('f66f66f6-6666-4666-8666-666666666666', '${an}', 'intro_python', 'getting_started', 'say_hello',
+         'def hello(name):\n    return Hello, name\n', '[]'::jsonb, 'failed', null, '{"id":"missing_quotes"}'::jsonb);
+    `)).rejects.toMatchObject({ code: '23514' })
 
     await expect(db.exec(`
       update public.submissions set outcome = 'failed' where id = '${submission}';

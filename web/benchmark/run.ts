@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 import { createFakeAgents, moveKey, proposalSchema } from '../server/agents'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
+import { createMemoryQuizAnswerStore } from '../server/storage/quiz-answer-store'
 import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
 import { handleTurn } from '../server/turn/handle-turn'
 import { benchmarkCases, type BenchmarkCase } from './cases'
@@ -50,10 +51,14 @@ async function runCase(fixture: BenchmarkCase, verifyShieldOn: boolean): Promise
     { proposal: fixture.agent === 'teacher' ? fixture.proposal : null, text: 'Scripted teacher reply.' },
     { proposal: fixture.agent === 'deskmate' ? fixture.proposal : null, text: 'Scripted Mai reply.' },
   )
+  const quizAnswers = createMemoryQuizAnswerStore()
+  if (fixture.priorQuizAnswer) {
+    await quizAnswers.record({ studentId, moduleId, ...fixture.priorQuizAnswer })
+  }
   const state = await handleTurn({
     sessionStudentId: studentId,
     body: { event: 'message', text: fixture.prompt, addressedAgent: fixture.agent },
-  }, store, agents, { verifyShieldOn, decisions, unlocks, evidence: createMemoryEvidenceStore() })
+  }, store, agents, { verifyShieldOn, decisions, unlocks, evidence: createMemoryEvidenceStore(), quizAnswers })
 
   const rows = await decisions.list()
   const record = rows[0]

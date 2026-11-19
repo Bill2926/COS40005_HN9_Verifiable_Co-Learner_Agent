@@ -112,4 +112,5 @@ export const stringsModule: ModuleContent = {
       response: 'The first character is at index 0, not 1. word[1] is the second character.',
     },
   ],
+  codeMisconception: { id: 'index_starts_at_one', checks: ['index_from_one'] },
 }

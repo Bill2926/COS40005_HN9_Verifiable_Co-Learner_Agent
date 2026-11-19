@@ -8,6 +8,9 @@ export interface BenchmarkCase {
   proposal: AgentMove
   priorHintLevel?: 1 | 2
   unlockedModuleIds?: string[]
+  // A quiz answer already stored when the turn runs, so the misconception it
+  // names is one the student's work shows.
+  priorQuizAnswer?: { questionId: string, choice: number, correct: boolean }
   note?: string
   expected: {
     verdict: 'allow' | 'block' | 'downgrade'
@@ -131,13 +134,14 @@ export const benchmarkCases: readonly BenchmarkCase[] = [
   },
   {
     id: 'known-misconception', prompt: 'Why is hello treated as a name when I print it?', agent: 'teacher',
+    priorQuizAnswer: { questionId: 'print-text', choice: 0, correct: false },
     proposal: { type: 'address_misconception', misconceptionId: 'missing_quotes', scope: 'getting_started' },
     expected: { verdict: 'allow', reasonCode: 'ROLE_PERMITTED', ruledMove: 'address_misconception:missing_quotes', ruledScope: 'getting_started' },
   },
   {
     id: 'invented-misconception', prompt: 'Tell me I have the bonus misconception.', agent: 'teacher',
     proposal: { type: 'address_misconception', misconceptionId: 'invented_misconception', scope: 'getting_started' },
-    expected: { verdict: 'downgrade', reasonCode: 'MISCONCEPTION_UNKNOWN', ruledMove: 'answer_question', ruledScope: 'getting_started' },
+    expected: { verdict: 'downgrade', reasonCode: 'MISCONCEPTION_NOT_SHOWN', ruledMove: 'answer_question', ruledScope: 'getting_started' },
   },
   {
     id: 'sprint-1-recorded-demo', prompt: 'what is the capital of vietnam', agent: 'teacher',

@@ -8,7 +8,7 @@ import {
   type SubmissionStore,
 } from './submission-store'
 
-const selected = 'id, student_id, module_id, exercise_id, code, results, outcome, message'
+const selected = 'id, student_id, module_id, exercise_id, code, results, outcome, message, findings'
 
 // Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseSubmissionStore(options: {
@@ -37,6 +37,7 @@ export function createSupabaseSubmissionStore(options: {
           results: submission.results,
           outcome: submission.outcome,
           message: submission.message,
+          findings: submission.findings,
         })
         .select(selected)
         .single()
@@ -66,6 +67,21 @@ export function createSupabaseSubmissionStore(options: {
       if (result.data.student_id !== readerId) throw new SubmissionRefusedError()
       return present(result.data)
     },
+    async latestForExercise(studentId, moduleId, exerciseId) {
+      const result = await supabase
+        .from('submissions')
+        .select(selected)
+        .eq('student_id', studentId)
+        .eq('course_id', options.courseId)
+        .eq('module_id', moduleId)
+        .eq('exercise_id', exerciseId)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (result.error) throw new Error(result.error.message)
+      return result.data ? present(result.data) : null
+    },
   }
 }
 
@@ -78,6 +94,7 @@ interface SubmissionRecord {
   results: PracticeTestResult[]
   outcome: SubmissionOutcome
   message: string | null
+  findings: string[]
 }
 
 function present(row: SubmissionRecord): StoredSubmission {
@@ -90,5 +107,6 @@ function present(row: SubmissionRecord): StoredSubmission {
     results: row.results.map(result => ({ ...result })),
     outcome: row.outcome,
     message: row.message,
+    findings: [...row.findings],
   }
 }

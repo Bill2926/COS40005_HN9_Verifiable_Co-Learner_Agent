@@ -124,4 +124,5 @@ export const conditionalsModule: ModuleContent = {
       response: 'Only the first true branch runs. elif and else are skipped once an earlier condition matched.',
     },
   ],
+  codeMisconception: { id: 'every_branch_runs', checks: ['separate_branches'] },
 }

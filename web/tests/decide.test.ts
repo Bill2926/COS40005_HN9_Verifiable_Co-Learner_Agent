@@ -25,7 +25,7 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
     studentMessage: 'How does a for loop work?',
     verifyShieldOn: true,
     highestHintRung: 0,
-    misconceptionIds: ['accumulator_reset_inside_loop'],
+    shownMisconceptionIds: ['accumulator_reset_inside_loop'],
     ...overrides,
   }
 }
@@ -485,7 +485,7 @@ describe('decide', () => {
     ).map(verdict => verdict.reasonCode)).toEqual(['VERIFYSHIELD_OFF', 'VERIFYSHIELD_OFF'])
   })
 
-  it('allows a misconception the current module has', () => {
+  it('allows a misconception the student\'s work shows', () => {
     const move = { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' }
     expect(decide(
       [{ agent: 'teacher', move }],
@@ -501,17 +501,32 @@ describe('decide', () => {
     }])
   })
 
-  it('answers the question instead when the misconception is not one the module has', () => {
+  it('answers the question instead when the work does not show the misconception', () => {
     expect(decide(
-      [{ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'off_by_one_range', scope: 'loops' } }],
-      snapshot({ studentMessage: 'Why is my total always the last number?' }),
+      [{ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' } }],
+      snapshot({ studentMessage: 'Why is my total always the last number?', shownMisconceptionIds: [] }),
       roleTable,
       course,
     )).toMatchObject([{
       agent: 'teacher',
       decision: 'downgrade',
-      ruleId: 'misconception_known',
-      reasonCode: 'MISCONCEPTION_UNKNOWN',
+      ruleId: 'misconception_shown',
+      reasonCode: 'MISCONCEPTION_NOT_SHOWN',
+      move: { type: 'answer_question', scope: 'loops' },
+    }])
+  })
+
+  it('answers on the student\'s own module when the claim names another one', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'address_misconception', misconceptionId: 'missing_quotes', scope: 'strings' } }],
+      snapshot({ unlockedModuleIds: ['loops', 'strings'], shownMisconceptionIds: [] }),
+      roleTable,
+      course,
+    )).toMatchObject([{
+      agent: 'teacher',
+      decision: 'downgrade',
+      ruleId: 'misconception_shown',
+      reasonCode: 'MISCONCEPTION_NOT_SHOWN',
       move: { type: 'answer_question', scope: 'loops' },
     }])
   })
@@ -586,7 +601,7 @@ describe('decide', () => {
         { ruleId: 'scope_keyword', passed: true, reasonCode: 'NO_CLOSED_KEYWORD' },
         { ruleId: 'scope_in_course', passed: true, reasonCode: 'IN_COURSE' },
         { ruleId: 'scope_requires_unlocked_module', passed: true, reasonCode: 'MODULE_UNLOCKED' },
-        { ruleId: 'misconception_known', passed: false, reasonCode: 'MISCONCEPTION_UNKNOWN' },
+        { ruleId: 'misconception_shown', passed: false, reasonCode: 'MISCONCEPTION_NOT_SHOWN' },
       ])
     })
 

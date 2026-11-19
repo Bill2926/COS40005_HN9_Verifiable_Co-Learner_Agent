@@ -55,6 +55,10 @@ function checkSpec(spec: CourseSpec): void {
       throw new Error(`Module ${module.id} is in part "${module.part}", out of the order the course spec lists its parts.`)
     }
     partIndex = index
+    const declared = module.content?.codeMisconception
+    if (declared && !module.content?.misconceptionResponses.some(response => response.id === declared.id)) {
+      throw new Error(`Module ${module.id} reads its code for the misconception ${declared.id}, which it does not name.`)
+    }
   }
 }
 

@@ -27,6 +27,7 @@ import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
 import type { NewSubmission, SubmissionStore } from '../storage/submission-store'
 import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
+import { showsCodeMisconception } from './code-findings'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
@@ -343,6 +344,7 @@ async function* turnBody(
         results: [],
         outcome: 'refused',
         message: report.message,
+        findings: codeFindings(body.code, placement.module),
       })
       await store.appendMessage(studentId, placement.module.id, {
         author: 'event',
@@ -373,6 +375,7 @@ async function* turnBody(
       results,
       outcome: testsPassed === results.length ? 'passed' : 'failed',
       message: null,
+      findings: codeFindings(body.code, placement.module),
     })
     await options?.activity?.record({
       studentId,
@@ -481,9 +484,9 @@ async function* introduceModule(
     draft: null,
     runOutput: null,
     submission: null,
-  })
+  }, options)
 
-  const snapshot = turnSnapshot(placement, standing, '', highestHintRung(context.conversation), options)
+  const snapshot = turnSnapshot(placement, standing, '', context, options)
   const tools = teacherTools(placement, standing)
   let proposal: Move | null = null
   try {
@@ -596,7 +599,7 @@ function turnSnapshot(
   placement: Placement,
   standing: CourseStanding,
   studentMessage: string,
-  highestHintRung: number,
+  context: TeacherContext,
   options?: TurnOptions,
 ): TurnSnapshot {
   return {
@@ -606,9 +609,18 @@ function turnSnapshot(
     unlockedModuleIds: standing.unlockedModuleIds,
     studentMessage,
     verifyShieldOn: options?.verifyShieldOn !== false,
-    highestHintRung,
-    misconceptionIds: placement.module.misconceptionResponses.map(response => response.id),
+    highestHintRung: highestHintRung(context.conversation),
+    shownMisconceptionIds: shownMisconceptions(context),
   }
+}
+
+// The misconceptions the student's work shows: those the latest submission's
+// code shows, and those their wrong quiz answers named.
+function shownMisconceptions(context: TeacherContext): string[] {
+  const fromQuiz = context.answeredQuiz.flatMap(result =>
+    !result.correct && result.misconceptionId ? [result.misconceptionId] : [],
+  )
+  return [...new Set([...context.codeFindings, ...fromQuiz])]
 }
 
 // The highest hint rung already approved in this module's conversation, 0 if
@@ -684,7 +696,7 @@ async function* answerMessage(
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
     return
   }
-  const context = await teacherContext(studentId, placement, standing, store, quizStore, seen)
+  const context = await teacherContext(studentId, placement, standing, store, quizStore, seen, options)
   const deskmate = deskmateContext(context)
   // Mai's proposal runs while the Teacher is already writing, so the first
   // words are not held back for the second model call. An agent that does not
@@ -697,7 +709,7 @@ async function* answerMessage(
   const addressedAgent = participants.addressedAgent
 
   const teacherMove = teacherSettled.status === 'fulfilled' ? teacherSettled.value : null
-  const snapshot = turnSnapshot(placement, standing, studentMessage, highestHintRung(context.conversation), options)
+  const snapshot = turnSnapshot(placement, standing, studentMessage, context, options)
   const turnId = crypto.randomUUID()
   const recordedAt = new Date().toISOString()
   const teacherProposals = teacherMove ? [{ agent: 'teacher' as const, move: teacherMove }] : []
@@ -986,15 +998,18 @@ async function teacherContext(
   store: ConversationStore,
   quizStore: QuizAnswerStore,
   seen: SeenWork,
+  options?: TurnOptions,
 ): Promise<TeacherContext> {
-  const [messages, quizAnswers] = await Promise.all([
+  const [messages, quizAnswers, findings] = await Promise.all([
     store.messages(studentId, placement.module.id),
     quizStore.forStudentModule(studentId, placement.module.id),
+    codeFindingsFor(studentId, placement, seen, options),
   ])
   return {
     materials: placement.module.materials.map(block => ({ ...block })),
     hintLadder: [...placement.module.hintLadder],
     misconceptionResponses: placement.module.misconceptionResponses.map(response => ({ ...response })),
+    codeFindings: findings,
     exercise: {
       id: placement.exercise.id,
       title: placement.exercise.title,
@@ -1337,6 +1352,30 @@ async function checkedSubmission(
 
 async function rememberSubmission(store: SubmissionStore | undefined, submission: NewSubmission): Promise<void> {
   await store?.record(submission)
+}
+
+// The misconceptions the module's declared checks read in the submitted code,
+// which is none when the module declares no check or the code shows none.
+function codeFindings(code: string, module: StudyModule): readonly string[] {
+  const declared = module.codeMisconception
+  return declared && showsCodeMisconception(code, declared) ? [declared.id] : []
+}
+
+// The findings for the work in hand: read from the code just submitted, or, for
+// a turn without a submission, from the latest submission kept for the exercise.
+async function codeFindingsFor(
+  studentId: string,
+  placement: Placement,
+  seen: SeenWork,
+  options?: TurnOptions,
+): Promise<readonly string[]> {
+  if (seen.submission) return codeFindings(seen.submission.code, placement.module)
+  const latest = await options?.submissions?.latestForExercise(
+    studentId,
+    placement.module.id,
+    placement.exercise.id,
+  )
+  return latest?.findings ?? []
 }
 
 function submissionSummary(results: readonly { passed: boolean }[]): string {

@@ -1001,8 +1001,16 @@ describe('turn endpoint', () => {
     ])
   })
 
-  it('lets the Teacher address a misconception the current module has', async () => {
+  it('lets the Teacher address a misconception the quiz answers show', async () => {
     const store = memoryStore()
+    const quizAnswers = createMemoryQuizAnswerStore()
+    await quizAnswers.record({
+      studentId: signedInStudent,
+      moduleId: 'getting_started',
+      questionId: 'print-text',
+      choice: 0,
+      correct: false,
+    })
     const model = createFakeAgents({
       proposal: { type: 'address_misconception', misconceptionId: 'missing_quotes', scope: 'getting_started' },
       text: 'The words need quotes around them.',
@@ -1011,7 +1019,7 @@ describe('turn endpoint', () => {
     const state = await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'message', text: 'Why does print(Hello) fail?' },
-    }, store, model)
+    }, store, model, { quizAnswers })
 
     expect(state.trace?.agents[0]).toMatchObject({
       agent: 'teacher',
@@ -1024,7 +1032,7 @@ describe('turn endpoint', () => {
     })
   })
 
-  it('answers the question instead when the Teacher invents a misconception', async () => {
+  it('answers the question instead when nothing the student did shows the misconception', async () => {
     const store = memoryStore()
     const model = createFakeAgents({
       proposal: { type: 'address_misconception', misconceptionId: 'accumulator_reset_inside_loop', scope: 'getting_started' },
@@ -1041,8 +1049,8 @@ describe('turn endpoint', () => {
       proposal: 'address_misconception:accumulator_reset_inside_loop',
       verdict: {
         decision: 'downgrade',
-        ruleId: 'misconception_known',
-        reasonCode: 'MISCONCEPTION_UNKNOWN',
+        ruleId: 'misconception_shown',
+        reasonCode: 'MISCONCEPTION_NOT_SHOWN',
       },
     })
     expect(state.conversation.at(-1)).toMatchObject({
@@ -1955,10 +1963,20 @@ describe('turn endpoint', () => {
     // advance only towards a module the course has and the student is not in.
     // The resume point keeps the student on Getting Started all the same.
     const evidence = createMemoryEvidenceStore()
+    // The misconception reply below names one the quiz answers show, so the
+    // VerifyShield approves it as asked.
+    const quizAnswers = createMemoryQuizAnswerStore()
+    await quizAnswers.record({
+      studentId: signedInStudent,
+      moduleId: 'getting_started',
+      questionId: 'print-text',
+      choice: 0,
+      correct: false,
+    })
     await handleTurn({
       sessionStudentId: signedInStudent,
       body: { event: 'select_exercise', exerciseId: 'say_hello' },
-    }, store, undefined, { evidence })
+    }, store, undefined, { evidence, quizAnswers })
     for (const exerciseId of ['say_hello', 'join_words', 'sign_the_program']) {
       await evidence.append({ studentId: signedInStudent, moduleId: 'getting_started', exerciseId, testsPassed: 3, testsTotal: 3 })
     }
@@ -2016,7 +2034,7 @@ describe('turn endpoint', () => {
       }, store, createFakeAgents({
         proposal: reply.proposal,
         text: reply.text,
-      }), { evidence })
+      }), { evidence, quizAnswers })
 
       expect(state.conversation.find(message => message.text === reply.text)).toMatchObject({
         author: 'teacher',

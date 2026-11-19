@@ -14,7 +14,7 @@ describe('VerifyShield snapshot contract', () => {
       studentMessage: string
       verifyShieldOn: boolean
       highestHintRung: number
-      misconceptionIds: readonly string[]
+      shownMisconceptionIds: readonly string[]
     }>()
   })
 

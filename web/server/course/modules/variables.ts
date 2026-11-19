@@ -112,4 +112,5 @@ export const variablesModule: ModuleContent = {
       response: 'A number was joined to text. int() turns text into a number first, and then + can add.',
     },
   ],
+  codeMisconception: { id: 'added_text_to_a_number', checks: ['text_plus_number'] },
 }

@@ -66,7 +66,7 @@ so leaving one out is a type error rather than a rule that silently does not run
 | `studentMessage` | The student's text this turn (empty for an opening turn or a submission). | Rule 4 |
 | `verifyShieldOn` | The switch. | Rule 1 |
 | `highestHintRung` | The highest hint rung already given in the module's conversation (0 if none), worked out by `handle-turn.ts` from the stored approved moves. | Rule 12 |
-| `misconceptionIds` | The ids of the current module's misconception responses, filled by `handle-turn.ts` from the module. | Rule 11 |
+| `shownMisconceptionIds` | The misconceptions the student's work shows: the findings kept with their latest submission for the placed exercise, plus the misconception ids of their wrong quiz answers, worked out by `handle-turn.ts`. | Rule 11 |
 
 `verify-shield-contract.test-d.ts` holds the contract at the type level; `vitest run` checks it with `tsc` through
 `web/tsconfig.type-tests.json`.
@@ -88,7 +88,7 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 8 | `advance_known_module` | `ADVANCE_UNKNOWN_MODULE` | `advance_to_module` toward a module the course does not have: block, so the Teacher says nothing for that move. |
 | 9 | `advance_not_current_module` | `ADVANCE_TO_CURRENT` | `advance_to_module` toward the module the student is already placed on: downgrade to `stay_and_practise`, so the suggestion makes sense. |
 | 10 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | `advance_to_module` toward a module the course has but the student has not unlocked: downgrade to redirect. |
-| 11 | `misconception_known` | `MISCONCEPTION_UNKNOWN` | Teacher `address_misconception` whose id is not in `misconceptionIds`: downgrade to `answer_question` with the same scope. Not a block, so the Teacher still answers while the student is wrong. The scope rules run first, so an invented id on a closed module still redirects. |
+| 11 | `misconception_shown` | `MISCONCEPTION_NOT_SHOWN` | Teacher `address_misconception` whose id is not in `shownMisconceptionIds`: downgrade to `answer_question` on the student's own module (`moduleId`, whatever scope the proposal named). Not a block, so the Teacher still answers while the student is wrong, and only a claim the student's code or quiz answers support stands. The scope rules run first, so an invented id on a closed module still redirects. |
 | 12 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
 | 13 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
@@ -106,7 +106,7 @@ after the deciding one are not evaluated and do not appear. A rule that passed i
 | `scope_requires_unlocked_module` | `MODULE_UNLOCKED` |
 | `advance_known_module` | `MODULE_KNOWN` |
 | `advance_not_current_module` | `NOT_CURRENT_MODULE` |
-| `misconception_known` | `MISCONCEPTION_KNOWN` |
+| `misconception_shown` | `MISCONCEPTION_SHOWN` |
 | `hint_ladder` | `HINT_IN_ORDER` |
 
 Checks stay in the order the rules ran, so `role_table` is always first. A block or downgrade ends with the failed rule.

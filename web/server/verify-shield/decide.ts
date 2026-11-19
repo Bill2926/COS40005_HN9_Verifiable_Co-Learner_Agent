@@ -18,8 +18,10 @@ export interface TurnSnapshot {
   verifyShieldOn: boolean
   // The highest hint rung already given in this module's conversation, 0 if none.
   highestHintRung: number
-  // The misconceptions the current module can name; the teacher may address no other.
-  misconceptionIds: readonly string[]
+  // The misconceptions the student's work shows: the findings kept with their
+  // latest submission and the ones their quiz answers named. The teacher may
+  // address one of these, and a claim they do not support is an answer.
+  shownMisconceptionIds: readonly string[]
 }
 
 export interface CourseModule {
@@ -226,9 +228,10 @@ function advanceDowngrade(
   }
 }
 
-// The teacher may name only a misconception the current module has. An invented
-// one is answered as a plain question on the same scope, not blocked, so the
-// teacher does not fall silent while the student is wrong.
+// The teacher may name only a misconception the student's code or quiz answers
+// show. A claim they do not support is answered as a plain question on the
+// student's own module, not blocked, so the teacher does not fall silent while
+// the student is wrong.
 function misconceptionDowngrade(
   proposal: Proposal,
   snapshot: TurnSnapshot,
@@ -236,16 +239,16 @@ function misconceptionDowngrade(
 ): Ruling | null {
   if (proposal.agent !== 'teacher') return null
   if (proposal.move.type !== 'address_misconception') return null
-  if (snapshot.misconceptionIds.includes(proposal.move.misconceptionId)) {
-    checks.push({ ruleId: 'misconception_known', passed: true, reasonCode: 'MISCONCEPTION_KNOWN' })
+  if (snapshot.shownMisconceptionIds.includes(proposal.move.misconceptionId)) {
+    checks.push({ ruleId: 'misconception_shown', passed: true, reasonCode: 'MISCONCEPTION_SHOWN' })
     return null
   }
 
   return {
     decision: 'downgrade',
-    ruleId: 'misconception_known',
-    reasonCode: 'MISCONCEPTION_UNKNOWN',
-    move: { type: 'answer_question', scope: proposal.move.scope },
+    ruleId: 'misconception_shown',
+    reasonCode: 'MISCONCEPTION_NOT_SHOWN',
+    move: { type: 'answer_question', scope: snapshot.moduleId },
   }
 }
 
