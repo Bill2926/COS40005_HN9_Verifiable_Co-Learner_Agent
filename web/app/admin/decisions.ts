@@ -2,6 +2,7 @@
 // verdict drawer turns a decision's rule checks into plain English.
 
 import type { Campus } from '../../shared/campus'
+import type { StaffAccessEntry } from '../../shared/staff-review'
 import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
 
 export type RuleCheckView = RuleCheck
@@ -73,6 +74,7 @@ export interface AdminPayload {
   decisions: DecisionView[]
   chain: 'verified' | 'broken'
   students: AdminStudentView[]
+  staffAccess: StaffAccessEntry[]
 }
 
 // The reason code stays the stored value; this is the only place it is worded.

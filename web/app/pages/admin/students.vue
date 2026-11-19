@@ -152,6 +152,13 @@ async function changeNumber(studentId: string) {
                     <p class="font-medium text-highlighted [overflow-wrap:anywhere]">
                       {{ student.displayName }}
                     </p>
+                    <NuxtLink
+                      :to="`/review/${student.studentNumber}`"
+                      class="text-xs font-medium text-brand-700 underline underline-offset-4"
+                      :aria-label="`Review ${student.displayName}'s work`"
+                    >
+                      Review work
+                    </NuxtLink>
                     <p class="text-xs text-muted [overflow-wrap:anywhere] md:hidden">
                       {{ student.email }}
                     </p>
