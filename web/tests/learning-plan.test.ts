@@ -18,6 +18,9 @@ function plan(overrides: Partial<LearningPlan> = {}): LearningPlan {
     ],
     currentStep: 0,
     agreedAt: null,
+    createdAt: '2026-11-19T09:00:00.000Z',
+    trigger: null,
+    decisionTurnId: null,
     ...overrides,
   }
 }
@@ -60,8 +63,8 @@ describe('planView', () => {
       revision: 1,
       agreed: false,
       steps: [
-        { id: 'materials', title: 'Read the module materials', current: false },
-        { id: 'exercise:sum_of_a_list', title: 'Practise: Sum of a list', current: true },
+        { id: 'materials', title: 'Read the module materials', current: false, done: false },
+        { id: 'exercise:sum_of_a_list', title: 'Practise: Sum of a list', current: true, done: false },
       ],
       currentStep: 1,
     })
@@ -90,7 +93,7 @@ describe('planView', () => {
       currentStep: 1,
     }), module)
     expect(viewed.steps).toEqual([
-      { id: 'exercise:sum_of_a_list', title: 'Practise: Sum of a list', current: true },
+      { id: 'exercise:sum_of_a_list', title: 'Practise: Sum of a list', current: true, done: false },
     ])
   })
 })

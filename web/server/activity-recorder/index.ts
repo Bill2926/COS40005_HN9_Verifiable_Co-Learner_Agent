@@ -22,6 +22,13 @@ export const activityEventTypes = [
   'note_deleted',
   'mindmap_moved',
   'profile_changed',
+  // The student's words about how they will tackle an exercise, written while
+  // the plan's approach step was current. Only the exercise is kept, not the words.
+  'approach_written',
+  // The student pressed Start on a learning plan.
+  'plan_agreed',
+  // The Teacher checked in after a quiet period in Practice mode.
+  'idle_check_in',
 ] as const
 
 export type ActivityEventType = (typeof activityEventTypes)[number]

@@ -11,7 +11,7 @@ const scope = z.string().min(1)
 // materials step). The VerifyShield drops a step the module or the learning
 // pattern does not support.
 export const planStepSchema = z.object({
-  kind: z.enum(['materials', 'quiz', 'exercise', 'misconception']),
+  kind: z.enum(['materials', 'quiz', 'exercise', 'misconception', 'approach', 'try']),
   ref: z.string(),
 })
 
@@ -29,6 +29,10 @@ export const agentMoveSchema = z.discriminatedUnion('type', [
   // The list is not capped here: a plan with no steps or more than five is
   // refused by the VerifyShield, so the log says which rule refused it.
   z.object({ type: z.literal('propose_plan'), steps: z.array(planStepSchema).max(10) }),
+  // A new revision of the plan in force; ruled only when something happened since the last revision.
+  z.object({ type: z.literal('revise_plan'), steps: z.array(planStepSchema).max(10) }),
+  // A check-in on the current step of the plan in force: no payload.
+  z.object({ type: z.literal('continue_plan') }),
 ])
 
 // What either agent returns when asked to propose: one move, or null to stay quiet.

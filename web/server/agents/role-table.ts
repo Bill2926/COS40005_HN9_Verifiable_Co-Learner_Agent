@@ -14,6 +14,8 @@ export const roleTable: RoleTable = {
     'advance_to_module',
     'stay_and_practise',
     'propose_plan',
+    'revise_plan',
+    'continue_plan',
   ],
   deskmate: [
     'peer_question',

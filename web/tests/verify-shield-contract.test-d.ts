@@ -22,6 +22,9 @@ describe('VerifyShield snapshot contract', () => {
         misconceptionIds: readonly string[]
       }
       weakSpotMisconceptionIds: readonly string[]
+      planInForce: boolean
+      planTriggers: readonly string[]
+      approachAwaitingTry: boolean
     }>()
   })
 

@@ -21,6 +21,8 @@ const props = defineProps<{
   notice?: string
   portraitUrl?: string | null
   incomingQuote?: Quote | null
+  // The plan's current step asks for the student's approach, so the box invites it.
+  askingApproach?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -580,7 +582,7 @@ watch(() => props.sending, (sending) => {
               ref="messageInput"
               v-model="text"
               name="message"
-              placeholder="Message, or @ to address an agent"
+:placeholder="askingApproach ? 'Write your approach in your own words, before you code' : 'Message, or @ to address an agent'"
               autocomplete="off"
               aria-autocomplete="list"
               aria-controls="address-menu"

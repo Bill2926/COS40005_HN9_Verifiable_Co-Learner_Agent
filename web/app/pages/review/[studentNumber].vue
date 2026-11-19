@@ -52,6 +52,9 @@ const eventLabels: Record<string, string> = {
   note_deleted: 'Deleted a note',
   mindmap_moved: 'Moved on the mindmap',
   profile_changed: 'Changed their profile',
+  approach_written: 'Wrote their approach',
+  plan_agreed: 'Agreed to a plan',
+  idle_check_in: 'The Teacher checked in',
 }
 function eventText(type: string): string {
   return eventLabels[type] ?? type

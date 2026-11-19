@@ -38,6 +38,13 @@ export interface TurnSnapshot {
   // The misconceptions the learning pattern names as weak spots. A plan step
   // may revisit one of these, and only one of these.
   weakSpotMisconceptionIds: readonly string[]
+  // Whether a plan is in force for the module, and what happened since its
+  // latest revision that a revision could answer.
+  planInForce: boolean
+  planTriggers: readonly string[]
+  // The student wrote their approach to this exercise and has run or submitted
+  // nothing since: the approach has not yet been tried.
+  approachAwaitingTry: boolean
 }
 
 export interface CourseModule {
@@ -139,9 +146,11 @@ function rule(
 
   return scopeDowngrade(proposal, snapshot, course, checks)
     ?? advanceDowngrade(proposal, snapshot, course, checks)
+    ?? approachDowngrade(proposal, snapshot)
     ?? misconceptionDowngrade(proposal, snapshot, checks)
     ?? hintLadderDowngrade(proposal, snapshot, checks)
     ?? planDowngrade(proposal, snapshot, checks)
+    ?? checkInRule(proposal, snapshot, checks)
     ?? { decision: 'allow', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED', move: proposal.move }
 }
 
@@ -155,8 +164,25 @@ function planDowngrade(
   snapshot: TurnSnapshot,
   checks: RuleCheck[],
 ): Ruling | null {
-  if (proposal.move.type !== 'propose_plan') return null
+  if (proposal.move.type !== 'propose_plan' && proposal.move.type !== 'revise_plan') return null
+  const revising = proposal.move.type === 'revise_plan'
   const steps = proposal.move.steps
+  if (revising) {
+    // A revision needs a plan to revise and something new to answer; without
+    // that it is only a check-in on the plan as it stands.
+    if (!snapshot.planInForce) {
+      return { decision: 'block', ruleId: 'plan_revision_needs_trigger', reasonCode: 'NO_PLAN_IN_FORCE', move: null }
+    }
+    if (snapshot.planTriggers.length === 0) {
+      return {
+        decision: 'downgrade',
+        ruleId: 'plan_revision_needs_trigger',
+        reasonCode: 'PLAN_NO_TRIGGER',
+        move: { type: 'continue_plan' },
+      }
+    }
+    checks.push({ ruleId: 'plan_revision_needs_trigger', passed: true, reasonCode: 'PLAN_TRIGGER_SEEN' })
+  }
   if (steps.length < 1) {
     return { decision: 'block', ruleId: 'plan_step_count', reasonCode: 'PLAN_WITHOUT_STEPS', move: null }
   }
@@ -183,11 +209,36 @@ function planDowngrade(
       decision: 'downgrade',
       ruleId: 'plan_steps_in_module',
       reasonCode: 'PLAN_STEPS_DROPPED',
-      move: { type: 'propose_plan', steps: kept },
+      move: { type: proposal.move.type, steps: kept },
     }
   }
   checks.push({ ruleId: 'plan_steps_in_module', passed: true, reasonCode: 'PLAN_STEPS_IN_MODULE' })
   return null
+}
+
+// A check-in is on the plan in force, so there must be one.
+function checkInRule(proposal: Proposal, snapshot: TurnSnapshot, checks: RuleCheck[]): Ruling | null {
+  if (proposal.move.type !== 'continue_plan') return null
+  if (!snapshot.planInForce) {
+    return { decision: 'block', ruleId: 'plan_in_force', reasonCode: 'NO_PLAN_IN_FORCE', move: null }
+  }
+  checks.push({ ruleId: 'plan_in_force', passed: true, reasonCode: 'PLAN_IN_FORCE' })
+  return null
+}
+
+// The approach is tried before it is corrected: until the student has run or
+// submitted since writing it, a hint or a misconception correction becomes a
+// check-in on the current step.
+function approachDowngrade(proposal: Proposal, snapshot: TurnSnapshot): Ruling | null {
+  if (proposal.agent !== 'teacher') return null
+  if (proposal.move.type !== 'hint_level_N' && proposal.move.type !== 'address_misconception') return null
+  if (!snapshot.planInForce || !snapshot.approachAwaitingTry) return null
+  return {
+    decision: 'downgrade',
+    ruleId: 'approach_before_correction',
+    reasonCode: 'APPROACH_NOT_TRIED',
+    move: { type: 'continue_plan' },
+  }
 }
 
 function stepFits(
@@ -197,7 +248,7 @@ function stepFits(
   const targets = snapshot.planTargets
   if (step.kind === 'materials') return targets.materials > 0
   if (step.kind === 'quiz') return targets.questionIds.includes(step.ref)
-  if (step.kind === 'exercise') return targets.exerciseIds.includes(step.ref)
+  if (step.kind === 'exercise' || step.kind === 'approach' || step.kind === 'try') return targets.exerciseIds.includes(step.ref)
   return targets.misconceptionIds.includes(step.ref) && snapshot.weakSpotMisconceptionIds.includes(step.ref)
 }
 

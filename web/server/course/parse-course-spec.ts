@@ -44,6 +44,7 @@ const courseSpec = z.strictObject({
   courseId: z.string().min(1),
   title: z.string().min(1),
   masteryThreshold: z.number().min(0.5).max(0.99),
+  failuresBeforeRevision: z.int().min(1).max(10).optional(),
   parts: z.array(z.string()),
   modules: z.array(z.strictObject({
     id: z.string().min(1),

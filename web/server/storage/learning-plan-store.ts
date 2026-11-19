@@ -5,10 +5,13 @@ import type { LearningPlan, PlanStep } from '../learning-plan'
 // the plan in force.
 export interface LearningPlanStore {
   latest: (studentId: string, moduleId: string) => Promise<LearningPlan | null>
-  append: (studentId: string, plan: LearningPlan) => Promise<void>
+  // The store stamps `createdAt`, as the database clock does for a stored row.
+  append: (studentId: string, plan: NewLearningPlan) => Promise<void>
 }
 
-export function createMemoryLearningPlanStore(): LearningPlanStore {
+export type NewLearningPlan = Omit<LearningPlan, 'createdAt'>
+
+export function createMemoryLearningPlanStore(now: () => Date = () => new Date()): LearningPlanStore {
   const plans = new Map<string, LearningPlan[]>()
   const keyOf = (studentId: string, moduleId: string) => `${studentId}\n${moduleId}`
   return {
@@ -18,7 +21,7 @@ export function createMemoryLearningPlanStore(): LearningPlanStore {
     },
     async append(studentId, plan) {
       const key = keyOf(studentId, plan.moduleId)
-      plans.set(key, [...(plans.get(key) ?? []), copyPlan(plan)])
+      plans.set(key, [...(plans.get(key) ?? []), copyPlan({ ...plan, createdAt: now().toISOString() })])
     },
   }
 }

@@ -24,11 +24,11 @@ import {
 } from '../student-model'
 import { dailyProposingTurnLimit, type DailyTurnAllowance } from '../storage/daily-turn-allowance'
 import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
-import type { LearningPlanStore } from '../storage/learning-plan-store'
+import type { LearningPlanStore, NewLearningPlan } from '../storage/learning-plan-store'
 import type { NewSubmission, SubmissionStore } from '../storage/submission-store'
 import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
-import { planView, type LearningPlan } from '../learning-plan'
+import { planProgress, planStepTitle, planView, type LearningPlan, type PlanProgress, type PlanRecords, type PlanStepKind } from '../learning-plan'
 import { learningPattern, type LearningPattern } from '../learning-pattern'
 import { showsCodeMisconception } from './code-findings'
 
@@ -277,10 +277,24 @@ async function* turnBody(
     // agreed, changes nothing.
     const plan = await options?.plans?.latest(studentId, placement.module.id)
     if (plan && plan.agreedAt === null) {
+      const agreedAt = (options?.now?.() ?? new Date()).toISOString()
+      const agreed = { ...plan, revision: plan.revision + 1, agreedAt, createdAt: agreedAt }
+      const records = await planRecordsFor(studentId, placement, quizStore, options)
       await options?.plans?.append(studentId, {
-        ...plan,
-        revision: plan.revision + 1,
-        agreedAt: (options.now?.() ?? new Date()).toISOString(),
+        moduleId: agreed.moduleId,
+        revision: agreed.revision,
+        steps: agreed.steps,
+        // The step the student is on when they agree, from their records.
+        currentStep: planProgress(agreed, records, placement.course.failuresBeforeRevision).currentStep,
+        agreedAt,
+        trigger: plan.trigger,
+        decisionTurnId: plan.decisionTurnId,
+      })
+      await options?.activity?.record({
+        studentId,
+        courseId: options.courseId ?? defaultCourseId,
+        type: 'plan_agreed',
+        payload: { moduleId: placement.module.id },
       })
     }
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
@@ -313,7 +327,7 @@ async function* turnBody(
     ])
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots, plan ?? null),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots, await presentedPlan(studentId, next, quizStore, plan ?? null, options)),
     }
     return
   }
@@ -334,6 +348,7 @@ async function* turnBody(
   }
 
   if (isQuizAnswer(body)) {
+    const stepBefore = (await planStateFor(studentId, placement, quizStore, options))?.progress.currentStep
     const marked = await recordQuizAnswer(studentId, placement, store, quizStore, body)
     // Only a stored answer feeds the ledger (through the quiz store), so mastery
     // is taken again only then; an invalid or repeat answer leaves it untouched.
@@ -346,9 +361,12 @@ async function* turnBody(
         payload: { moduleId: placement.module.id, questionId: body.questionId, correct: marked.correct },
       })
     }
-    // A wrong answer brings the agents in, as a failed submission does; a right
-    // answer, and a repeat of an answered question, does not.
-    if (marked.stored && !marked.correct && agents) {
+    // A wrong answer brings the agents in, as a failed submission does, and so does
+    // a right answer that finishes a step of the plan; any other right answer, and
+    // a repeat of an answered question, does not.
+    const stepAfter = marked.stored ? (await planStateFor(studentId, placement, quizStore, options))?.progress.currentStep : undefined
+    const finishedStep = stepBefore !== undefined && stepAfter !== undefined && stepAfter > stepBefore
+    if (marked.stored && (!marked.correct || finishedStep) && agents) {
       yield* answerMessage(studentId, placement, standing, {
         draft: null,
         runOutput: null,
@@ -432,6 +450,27 @@ async function* turnBody(
     return
   }
 
+  if (isIdle(body)) {
+    // The browser reports three quiet minutes in Practice mode. The Teacher checks in
+    // once per quiet period, and only on a plan there is.
+    if (agents && await quietPeriodOpen(studentId, options) && await planStateFor(studentId, placement, quizStore, options)) {
+      await options?.activity?.record({
+        studentId,
+        courseId: options?.courseId ?? defaultCourseId,
+        type: 'idle_check_in',
+        payload: { moduleId: placement.module.id, exerciseId: placement.exercise.id },
+      })
+      yield* answerMessage(studentId, placement, standing, {
+        draft: null,
+        runOutput: null,
+        submission: null,
+      }, store, quizStore, agents, '', everyone, flags, options)
+      return
+    }
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
+    return
+  }
+
   if (isMessage(body)) {
     if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
@@ -457,6 +496,17 @@ async function* turnBody(
       type: 'message_sent',
       payload: { moduleId: placement.module.id, hasQuote: quote !== null },
     })
+    // While the agreed plan asks for the student's approach, their next message is it.
+    const asking = await planStateFor(studentId, placement, quizStore, options)
+    const approachStep = asking?.plan.agreedAt ? asking.plan.steps[asking.progress.currentStep] : undefined
+    if (approachStep?.kind === 'approach') {
+      await options?.activity?.record({
+        studentId,
+        courseId: options?.courseId ?? defaultCourseId,
+        type: 'approach_written',
+        payload: { moduleId: placement.module.id, exerciseId: approachStep.ref },
+      })
+    }
     const participants: Participants = addressedAgent === null
       ? everyone
       : { teacher: addressedAgent === 'teacher', deskmate: addressedAgent === 'deskmate', addressedAgent }
@@ -469,6 +519,15 @@ async function* turnBody(
   }
 
   throw new Error('The turn endpoint does not accept that event.')
+}
+
+// Whether the student has been quiet since the Teacher last checked in: the last
+// check-in is ended by any activity of theirs after it, going quiet again aside.
+async function quietPeriodOpen(studentId: string, options?: TurnOptions): Promise<boolean> {
+  const events = await options?.activity?.forStudent(studentId) ?? []
+  const lastCheckIn = events.findLastIndex(event => event.type === 'idle_check_in')
+  if (lastCheckIn === -1) return true
+  return events.slice(lastCheckIn + 1).some(event => event.type !== 'went_idle' && event.type !== 'idle_check_in')
 }
 
 // A proposing turn is allowed when no allowance is in use, or when this student still has one of
@@ -615,6 +674,7 @@ async function ensurePlan(
   if (!proposal) return null
   const proposed = { agent: 'teacher' as const, move: proposal }
   const verdict = decide([proposed], snapshot, roleTable, placement.course.scope)[0]
+  const turnId = crypto.randomUUID()
   await recordDecisions({
     studentId,
     ruled: verdict ? [{ proposal: proposed, verdict }] : [],
@@ -622,21 +682,24 @@ async function ensurePlan(
     masteryThreshold: placement.course.masteryThreshold,
     addressedAgent: null,
     decisions: options?.decisions,
+    turnId,
     moduleId: placement.module.id,
     learningPattern: context.learningPattern,
     codeVersion: options?.codeVersion,
     courseHistoryId: options?.courseHistoryId,
   })
   if (!verdict || verdict.decision === 'block' || verdict.move?.type !== 'propose_plan') return null
-  const plan: LearningPlan = {
+  const plan: NewLearningPlan = {
     moduleId: placement.module.id,
     revision: 1,
     steps: verdict.move.steps.map(step => ({ kind: step.kind, ref: step.ref })),
     currentStep: 0,
     agreedAt: null,
+    trigger: null,
+    decisionTurnId: turnId,
   }
   await plans.append(studentId, plan)
-  return plan
+  return plans.latest(studentId, placement.module.id)
 }
 
 // Marks a quiz answer and reports whether this call stored it and whether it was
@@ -709,6 +772,9 @@ function turnSnapshot(
       misconceptionIds: placement.module.misconceptionResponses.map(response => response.id),
     },
     weakSpotMisconceptionIds: context.learningPattern.weakSpots.map(spot => spot.misconceptionId),
+    planInForce: context.plan !== null,
+    planTriggers: context.plan?.triggers ?? [],
+    approachAwaitingTry: context.plan?.approachAwaitingTry ?? false,
   }
 }
 
@@ -828,6 +894,9 @@ async function* answerMessage(
     learningPattern: context.learningPattern,
   })
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
+  if (teacherVerdict && teacherVerdict.decision !== 'block' && teacherVerdict.move?.type === 'revise_plan') {
+    await reviseTurnPlan(studentId, placement, quizStore, context, teacherVerdict.move.steps, turnId, options)
+  }
 
   let teacherFailed = false
   if (teacherSettled.status === 'rejected') {
@@ -917,6 +986,100 @@ async function* answerMessage(
   }
 
   yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, null, trace, options, context.learningPattern) }
+}
+
+// Writes the revision a ruled revise_plan asks for, as a new row that keeps what
+// the student agreed to. It says what brought it about and which turn's decision
+// ruled on it. Nothing is written for a module with no plan.
+async function reviseTurnPlan(
+  studentId: string,
+  placement: Placement,
+  quizStore: QuizAnswerStore,
+  context: TeacherContext,
+  steps: readonly { kind: PlanStepKind, ref: string }[],
+  turnId: string,
+  options?: TurnOptions,
+): Promise<void> {
+  const plans = options?.plans
+  const current = await plans?.latest(studentId, placement.module.id)
+  if (!plans || !current) return
+  const candidate: LearningPlan = {
+    ...current,
+    revision: current.revision + 1,
+    steps: steps.map(step => ({ kind: step.kind, ref: step.ref })),
+    createdAt: (options?.now?.() ?? new Date()).toISOString(),
+  }
+  const records = await planRecordsFor(studentId, placement, quizStore, options, context.learningPattern)
+  await plans.append(studentId, {
+    moduleId: candidate.moduleId,
+    revision: candidate.revision,
+    steps: candidate.steps,
+    currentStep: planProgress(candidate, records, placement.course.failuresBeforeRevision).currentStep,
+    agreedAt: current.agreedAt,
+    trigger: context.plan?.triggers.join(',') || null,
+    decisionTurnId: turnId,
+  })
+}
+
+interface PlanState {
+  plan: LearningPlan
+  progress: PlanProgress
+}
+
+// The student's records of the module, as the plan reads them to tell what is done.
+async function planRecordsFor(
+  studentId: string,
+  placement: Placement,
+  quizStore: QuizAnswerStore,
+  options?: TurnOptions,
+  pattern?: LearningPattern,
+): Promise<PlanRecords> {
+  const moduleId = placement.module.id
+  const exerciseIds = new Set(placement.module.exercises.map(exercise => exercise.id))
+  const [quizRows, submissions, activity, learned] = await Promise.all([
+    quizStore.forStudentModule(studentId, moduleId),
+    options?.submissions?.forStudent(studentId) ?? [],
+    options?.activity?.forStudent(studentId) ?? [],
+    pattern ?? learningPatternFor(studentId, placement, options),
+  ])
+  return {
+    quizAnswers: quizRows.map(row => ({ questionId: row.questionId, correct: row.correct, time: row.time })),
+    submissions: submissions
+      .filter(row => row.moduleId === moduleId)
+      .map(row => ({ exerciseId: row.exerciseId, outcome: row.outcome, findings: row.findings, time: row.createdAt })),
+    activity: activity
+      .filter(event => event.moduleId === moduleId || (typeof event.payload.exerciseId === 'string' && exerciseIds.has(event.payload.exerciseId)))
+      .map(event => ({ type: event.type, time: event.time, payload: event.payload })),
+    materialsSeconds: learned.materialsSeconds.find(item => item.moduleId === moduleId)?.seconds ?? 0,
+  }
+}
+
+// The plan in force for the module and how far the student's records say it has got.
+async function planStateFor(
+  studentId: string,
+  placement: Placement,
+  quizStore: QuizAnswerStore,
+  options?: TurnOptions,
+  pattern?: LearningPattern,
+  known?: LearningPlan | null,
+): Promise<PlanState | null> {
+  const plan = known === undefined ? await options?.plans?.latest(studentId, placement.module.id) : known
+  if (!plan) return null
+  const records = await planRecordsFor(studentId, placement, quizStore, options, pattern)
+  return { plan, progress: planProgress(plan, records, placement.course.failuresBeforeRevision) }
+}
+
+// The plan as the student sees it, with its steps marked done from their records.
+async function presentedPlan(
+  studentId: string,
+  placement: Placement,
+  quizStore: QuizAnswerStore,
+  plan: LearningPlan | null,
+  options?: TurnOptions,
+  pattern?: LearningPattern,
+): Promise<LearningPlanView | null> {
+  const state = await planStateFor(studentId, placement, quizStore, options, pattern, plan)
+  return state ? planView(state.plan, placement.module, state.progress) : null
 }
 
 async function redrawWithTrace(
@@ -1112,10 +1275,11 @@ async function teacherContext(
   seen: SeenWork,
   options?: TurnOptions,
 ): Promise<TeacherContext> {
-  const [messages, quizAnswers, findings] = await Promise.all([
+  const [messages, quizAnswers, findings, pattern] = await Promise.all([
     store.messages(studentId, placement.module.id),
     quizStore.forStudentModule(studentId, placement.module.id),
     codeFindingsFor(studentId, placement, seen, options),
+    learningPatternFor(studentId, placement, options),
   ])
   return {
     moduleId: placement.module.id,
@@ -1142,7 +1306,28 @@ async function teacherContext(
     // Mastery stays out: the Teacher looks it up with get_student_mastery.
     roadmap: roadmapForStanding(placement.course, standing).map(({ mastery: _mastery, ...module }) => module),
     answeredQuiz: answeredQuiz(placement.module, quizAnswers),
-    learningPattern: await learningPatternFor(studentId, placement, options),
+    learningPattern: pattern,
+    plan: planContext(placement.module, await planStateFor(studentId, placement, quizStore, options, pattern)),
+  }
+}
+
+// What the Teacher is told of the plan in force: its steps in the student's
+// words with what is done and where they are, and what happened since the last
+// revision. The Deskmate is told none of it.
+function planContext(module: StudyModule, state: PlanState | null): TeacherContext['plan'] {
+  if (!state) return null
+  return {
+    revision: state.plan.revision,
+    agreed: state.plan.agreedAt !== null,
+    steps: state.plan.steps.map((step, index) => ({
+      kind: step.kind,
+      ref: step.ref,
+      title: planStepTitle(step, module),
+      done: state.progress.done[index] ?? false,
+      current: index === state.progress.currentStep,
+    })),
+    triggers: [...state.progress.triggers],
+    approachAwaitingTry: state.progress.approachAwaitingTry,
   }
 }
 
@@ -1283,14 +1468,14 @@ async function redraw(
   // The plan the caller already read; undefined reads the stored latest.
   plan?: LearningPlan | null,
 ): Promise<TurnState> {
-  const [messages, displayName, quizAnswers, weakSpots, latestPlan] = await Promise.all([
+  const seen = pattern ?? await learningPatternFor(studentId, placement, options)
+  const [messages, displayName, quizAnswers, learningPlan] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
     quizStore.forStudentModule(studentId, placement.module.id),
-    weakSpotTexts(pattern ?? await learningPatternFor(studentId, placement, options), placement),
-    plan === undefined ? options?.plans?.latest(studentId, placement.module.id) ?? null : plan,
+    presentedPlan(studentId, placement, quizStore, plan === undefined ? await (options?.plans?.latest(studentId, placement.module.id) ?? null) : plan, options, seen),
   ])
-  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpots, latestPlan)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpotTexts(seen, placement), learningPlan)
 }
 
 // The pattern's weak spots in plain words: the course's response text for each
@@ -1363,7 +1548,7 @@ function composeState(
   mode: 'learn' | null,
   quizAnswers: readonly QuizAnswerRow[],
   weakSpots: readonly string[],
-  plan: LearningPlan | null = null,
+  learningPlan: LearningPlanView | null = null,
 ): TurnState {
   return {
     displayName,
@@ -1371,7 +1556,7 @@ function composeState(
     courseRoadmap: presentedRoadmap(placement.course, standing),
     masteryThreshold: placement.course.masteryThreshold,
     weakSpots,
-    learningPlan: plan ? planView(plan, placement.module) : null,
+    learningPlan,
     workingArea: {
       mode,
       moduleId: placement.module.id,
@@ -1449,6 +1634,8 @@ function teacherMoveLabel(approvedMove: string | null): string {
   if (approvedMove === 'reveal_answer') return 'Answer revealed'
   if (approvedMove?.startsWith('advance_to_module:')) return 'Next module'
   if (approvedMove === 'stay_and_practise') return 'Keep practising'
+  if (approvedMove === 'revise_plan') return 'Plan revised'
+  if (approvedMove === 'continue_plan') return 'Check-in'
   return ''
 }
 
@@ -1498,6 +1685,13 @@ function isDeskmateSwitch(input: unknown): input is { event: 'deskmate_switch', 
     && input.event === 'deskmate_switch'
     && 'on' in input
     && typeof input.on === 'boolean'
+}
+
+function isIdle(input: unknown): input is { event: 'idle' } {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'idle'
 }
 
 function isPlanStart(input: unknown): input is { event: 'plan_start' } {

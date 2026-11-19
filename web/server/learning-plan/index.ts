@@ -1,4 +1,9 @@
 import type { LearningPlanStepView, LearningPlanView } from '../../shared/turn'
+import type { PlanProgress } from './progress'
+
+export * from './progress'
+export * from './types'
+import type { LearningPlan, PlanStep } from './types'
 
 // The Teacher's learning plan for one module: what the two of them will do
 // there, in order. A plan is a list of one to five steps that point at the
@@ -6,27 +11,11 @@ import type { LearningPlanStepView, LearningPlanView } from '../../shared/turn'
 // student before it starts. Revisions are append-only: the latest revision is
 // the plan in force, and agreeing is a new revision.
 
-export type PlanStepKind = 'materials' | 'quiz' | 'exercise' | 'misconception'
 
-export interface PlanStep {
-  kind: PlanStepKind
-  // The module content the step points at: a quiz question, exercise or
-  // misconception id. Empty for the materials step.
-  ref: string
-}
 
 // The most steps a plan may have.
 export const planStepLimit = 5
 
-// What a plan step is stored with, beside its steps.
-export interface LearningPlan {
-  moduleId: string
-  revision: number
-  steps: readonly PlanStep[]
-  currentStep: number
-  // ISO time the student pressed Start, or null while the plan is only proposed.
-  agreedAt: string | null
-}
 
 // What the learning plan needs to know about a module to name its steps. The
 // course's StudyModule satisfies it.
@@ -50,9 +39,12 @@ export function planStepTitle(step: PlanStep, module: PlanModule): string {
     const question = module.quiz.find(item => item.id === step.ref)
     return question ? `Answer the quiz question: ${question.prompt}` : ''
   }
-  if (step.kind === 'exercise') {
+  if (step.kind === 'exercise' || step.kind === 'approach' || step.kind === 'try') {
     const exercise = module.exercises.find(item => item.id === step.ref)
-    return exercise ? `Practise: ${exercise.title}` : ''
+    if (!exercise) return ''
+    if (step.kind === 'approach') return `Write your approach in your own words: ${exercise.title}`
+    if (step.kind === 'try') return `Try your approach: ${exercise.title}`
+    return `Practise: ${exercise.title}`
   }
   const response = module.misconceptionResponses.find(item => item.id === step.ref)
   return response ? `Work on: ${response.response}` : ''
@@ -60,17 +52,18 @@ export function planStepTitle(step: PlanStep, module: PlanModule): string {
 
 // The plan as the student sees it. A step that no longer matches the module is
 // left out rather than shown with no words.
-export function planView(plan: LearningPlan, module: PlanModule): LearningPlanView {
+export function planView(plan: LearningPlan, module: PlanModule, progress?: PlanProgress): LearningPlanView {
+  const currentStep = progress?.currentStep ?? plan.currentStep
   const steps: LearningPlanStepView[] = plan.steps.flatMap((step, index) => {
     const title = planStepTitle(step, module)
     if (title.length === 0) return []
-    return [{ id: planStepKey(step), title, current: index === plan.currentStep }]
+    return [{ id: planStepKey(step), title, current: index === currentStep, done: progress?.done[index] ?? false }]
   })
   return {
     moduleId: plan.moduleId,
     revision: plan.revision,
     agreed: plan.agreedAt !== null,
     steps,
-    currentStep: plan.currentStep,
+    currentStep,
   }
 }

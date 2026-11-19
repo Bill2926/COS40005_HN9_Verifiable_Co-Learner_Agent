@@ -33,6 +33,9 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
       misconceptionIds: ['accumulator_reset_inside_loop'],
     },
     weakSpotMisconceptionIds: [],
+    planInForce: false,
+    planTriggers: [],
+    approachAwaitingTry: false,
     ...overrides,
   }
 }
@@ -754,5 +757,82 @@ describe('decide on a learning plan', () => {
       roleTable,
       course,
     )[0]).toMatchObject({ decision: 'block', ruleId: 'role_table', reasonCode: 'ROLE_FORBIDDEN' })
+  })
+})
+
+describe('decide on revising a plan and checking in', () => {
+  const revise = (steps: { kind: 'materials' | 'quiz' | 'exercise' | 'misconception' | 'approach' | 'try', ref: string }[]) =>
+    ({ agent: 'teacher' as const, move: { type: 'revise_plan' as const, steps } })
+  const steps = [{ kind: 'exercise' as const, ref: 'sum_of_a_list' }]
+
+  it('revises a plan when a trigger happened since the last revision', () => {
+    const [verdict] = decide([revise(steps)], snapshot({ planInForce: true, planTriggers: ['failed_submissions'] }), roleTable, course)
+
+    expect(verdict).toMatchObject({ decision: 'allow', move: { type: 'revise_plan', steps } })
+    expect(verdict!.ruleChecks).toContainEqual({ ruleId: 'plan_revision_needs_trigger', passed: true, reasonCode: 'PLAN_TRIGGER_SEEN' })
+  })
+
+  it('turns a revision with nothing new behind it into a check-in', () => {
+    const [verdict] = decide([revise(steps)], snapshot({ planInForce: true, planTriggers: [] }), roleTable, course)
+
+    expect(verdict).toMatchObject({
+      decision: 'downgrade',
+      ruleId: 'plan_revision_needs_trigger',
+      reasonCode: 'PLAN_NO_TRIGGER',
+      move: { type: 'continue_plan' },
+    })
+  })
+
+  it('turns a revision of a module with no plan into a check-in refusal', () => {
+    expect(decide([revise(steps)], snapshot({ planInForce: false, planTriggers: ['wrong_quiz_answer'] }), roleTable, course)[0])
+      .toMatchObject({ decision: 'block', reasonCode: 'NO_PLAN_IN_FORCE' })
+  })
+
+  it('holds a revision to the same step rules as a proposal', () => {
+    expect(decide(
+      [revise([{ kind: 'quiz', ref: 'string-slicing' }])],
+      snapshot({ planInForce: true, planTriggers: ['wrong_quiz_answer'] }),
+      roleTable,
+      course,
+    )[0]).toMatchObject({ decision: 'block', reasonCode: 'PLAN_NO_STEPS_IN_MODULE' })
+  })
+
+  it('allows a check-in only while a plan is in force', () => {
+    const checkIn = [{ agent: 'teacher' as const, move: { type: 'continue_plan' as const } }]
+    expect(decide(checkIn, snapshot({ planInForce: true }), roleTable, course)[0]).toMatchObject({ decision: 'allow' })
+    expect(decide(checkIn, snapshot({ planInForce: false }), roleTable, course)[0])
+      .toMatchObject({ decision: 'block', reasonCode: 'NO_PLAN_IN_FORCE' })
+  })
+
+  it('lets the approach be tried before a hint corrects it', () => {
+    const hint = [{ agent: 'teacher' as const, move: { type: 'hint_level_N' as const, level: 1 as const, scope: 'loops' } }]
+
+    expect(decide(hint, snapshot({ planInForce: true, approachAwaitingTry: true }), roleTable, course)[0]).toMatchObject({
+      decision: 'downgrade',
+      ruleId: 'approach_before_correction',
+      reasonCode: 'APPROACH_NOT_TRIED',
+      move: { type: 'continue_plan' },
+    })
+    expect(decide(hint, snapshot({ planInForce: true, approachAwaitingTry: false }), roleTable, course)[0])
+      .toMatchObject({ decision: 'allow' })
+  })
+
+  it('lets the approach be tried before a misconception is corrected', () => {
+    const correction = [{ agent: 'teacher' as const, move: { type: 'address_misconception' as const, misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' } }]
+
+    expect(decide(correction, snapshot({ planInForce: true, approachAwaitingTry: true }), roleTable, course)[0])
+      .toMatchObject({ decision: 'downgrade', ruleId: 'approach_before_correction', move: { type: 'continue_plan' } })
+  })
+
+  it('never lets the Deskmate revise or check in', () => {
+    for (const move of [{ type: 'continue_plan' as const }, { type: 'revise_plan' as const, steps }]) {
+      expect(decide([{ agent: 'deskmate', move }], snapshot({ planInForce: true, planTriggers: ['failed_submissions'] }), roleTable, course)[0])
+        .toMatchObject({ decision: 'block', reasonCode: 'ROLE_FORBIDDEN' })
+    }
+  })
+
+  it('allows them unchecked when the VerifyShield is off', () => {
+    expect(decide([revise(steps)], snapshot({ verifyShieldOn: false }), roleTable, course)[0])
+      .toMatchObject({ decision: 'allow', reasonCode: 'VERIFYSHIELD_OFF' })
   })
 })

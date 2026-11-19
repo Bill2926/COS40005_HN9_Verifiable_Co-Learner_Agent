@@ -57,6 +57,9 @@ flowchart LR
 | `note_created`, `note_changed`, `note_linked`, `note_unlinked`, `note_deleted` | Student handler | Ids only, never the note text |
 | `mindmap_moved` | Student handler | The kind and id, `{ imported: true }` for a one-time import, or `{ reset: true }` when clearing saved positions |
 | `profile_changed` | Student handler | Whether the name or the picture changed, never the picture |
+| `approach_written` | Turn handler | `{ moduleId, exerciseId }`: the student's message while the agreed plan's approach step was current. Never the words |
+| `plan_agreed` | Turn handler | `{ moduleId }`: the student pressed Start |
+| `idle_check_in` | Turn handler | `{ moduleId, exerciseId }`: the Teacher was asked to check in after a quiet period; any later activity other than going quiet ends that period |
 
 A turn that opens or selects a module appends nothing. The workspace reports `module_opened` once that open has succeeded. A preview request on the student handler writes nothing. A rejected report writes nothing. A client report the handler does not recognise, or whose JSON is larger than 1024 characters, is refused and writes nothing. An exercise id on a run, a paste or a quiet-period report is an id of at most 80 letters, digits, underscores or hyphens.
 

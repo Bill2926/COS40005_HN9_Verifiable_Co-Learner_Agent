@@ -96,6 +96,9 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 12 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
 | 13 | `plan_step_count` | `PLAN_WITHOUT_STEPS`, `PLAN_TOO_LONG` | `propose_plan` with no steps, or more than five (`planStepLimit`): block. |
 | 14 | `plan_steps_in_module` | `PLAN_NO_STEPS_IN_MODULE`, `PLAN_STEPS_DROPPED` | `propose_plan` whose steps point away from the placed module. A step fits when it is the module's materials and the module has some, one of its quiz questions, one of its exercises, or one of its misconceptions that the learning pattern calls a weak spot; a repeated step is dropped too. Every step dropped or repeated: block. Some dropped: downgrade to the plan with the steps that fit. |
+| 13a | `approach_before_correction` | `APPROACH_NOT_TRIED` | Teacher `hint_level_N` or `address_misconception` while a plan is in force and the student wrote their approach and has run or submitted nothing since (`approachAwaitingTry`): downgrade to `continue_plan`, so the approach is tried before it is corrected. Runs before the misconception and hint rules. |
+| 13b | `plan_revision_needs_trigger` | `NO_PLAN_IN_FORCE`, `PLAN_NO_TRIGGER`, `PLAN_TRIGGER_SEEN` | `revise_plan` with no plan in force: block. With a plan but no trigger since its last revision (`planTriggers` empty): downgrade to `continue_plan`. Otherwise passes, and the steps are then held to rules 13 and 14 like a proposal's (a downgrade keeps the `revise_plan` move with the steps that fit). |
+| 13c | `plan_in_force` | `NO_PLAN_IN_FORCE`, `PLAN_IN_FORCE` | `continue_plan` (a check-in on the current step) with no plan in force: block. |
 | 15 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
 ## Rule checks

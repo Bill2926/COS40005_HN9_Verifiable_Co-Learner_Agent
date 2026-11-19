@@ -76,6 +76,9 @@ export interface CourseSpec {
   courseId: string
   title: string
   masteryThreshold: number
+  // How many failed submissions of one exercise let the Teacher revise the
+  // learning plan; three when the spec leaves it out.
+  failuresBeforeRevision?: number
   parts: readonly string[]
   // In course order: Module 1 first.
   modules: readonly ModuleSpec[]
