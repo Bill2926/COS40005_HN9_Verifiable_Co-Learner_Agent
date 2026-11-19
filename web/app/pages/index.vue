@@ -82,6 +82,63 @@ function chooseMode(mode: 'learn' | 'practice') {
   workingMode.value = mode
   void recordStudentActivity({ event: 'mode_switched', mode })
 }
+
+const practiceQuietMs = 3 * 60 * 1000
+let quietTimer: ReturnType<typeof setTimeout> | undefined
+let practiceQuiet = false
+
+function clearQuietTimer() {
+  if (quietTimer === undefined) return
+  clearTimeout(quietTimer)
+  quietTimer = undefined
+}
+
+function practicePlace(): { moduleId: string, exerciseId: string } | null {
+  const area = workspace.value?.workingArea
+  if (!area || workingMode.value !== 'practice') return null
+  return { moduleId: area.moduleId, exerciseId: area.exercise.id }
+}
+
+function notePracticeActivity() {
+  if (!import.meta.client) return
+  const place = practicePlace()
+  if (!place) return
+  if (practiceQuiet) {
+    practiceQuiet = false
+    void recordStudentActivity({ event: 'returned', moduleId: place.moduleId, exerciseId: place.exerciseId })
+  }
+  clearQuietTimer()
+  quietTimer = setTimeout(() => {
+    quietTimer = undefined
+    const still = practicePlace()
+    if (!still) return
+    practiceQuiet = true
+    void recordStudentActivity({ event: 'went_idle', moduleId: still.moduleId, exerciseId: still.exerciseId })
+  }, practiceQuietMs)
+}
+
+function leavePractice() {
+  const area = workspace.value?.workingArea
+  if (practiceQuiet && area) {
+    void recordStudentActivity({
+      event: 'returned',
+      moduleId: area.moduleId,
+      exerciseId: area.exercise.id,
+    })
+  }
+  practiceQuiet = false
+  clearQuietTimer()
+}
+
+watch(workingMode, (mode, previous) => {
+  if (!import.meta.client) return
+  if (mode === 'practice') notePracticeActivity()
+  else if (previous === 'practice') leavePractice()
+})
+
+onBeforeUnmount(() => {
+  clearQuietTimer()
+})
 const studentId = ref('')
 const selecting = ref(false)
 const selectError = ref('')
@@ -641,6 +698,7 @@ async function selectExercise(exerciseId: string) {
   if (!current || selecting.value || sending.value) return
   if (current.workingArea.exercise.id === exerciseId) return
 
+  notePracticeActivity()
   selecting.value = true
   selectingExerciseId.value = exerciseId
   selectError.value = ''
@@ -755,8 +813,27 @@ function onRun(result: RunOutput | null) {
   latestRun.value = result
 }
 
-function onRunFinished(exerciseId: string) {
-  if (exerciseId) void recordStudentActivity({ event: 'code_run', exerciseId })
+function onDraft(code: string) {
+  liveDraft.value = code
+  notePracticeActivity()
+}
+
+function onPasted(characters: number) {
+  const exerciseId = workspace.value?.workingArea.exercise.id
+  if (!exerciseId || characters < 1) return
+  void recordStudentActivity({ event: 'pasted', exerciseId, characters })
+  notePracticeActivity()
+}
+
+function onRunFinished(run: { exerciseId: string, outcome: 'completed' | 'error' | 'stopped' | 'failed', errorType: string | null }) {
+  if (!run.exerciseId) return
+  void recordStudentActivity({ event: 'code_run', exerciseId: run.exerciseId })
+  void recordStudentActivity({
+    event: 'run_finished',
+    exerciseId: run.exerciseId,
+    outcome: run.outcome,
+    errorType: run.errorType,
+  })
 }
 
 function onSelectionChange() {
@@ -788,6 +865,7 @@ function askQuote() {
 async function sendMessage(text: string, addressedAgent: AddressedAgent | null, quote: Quote | null) {
   const current = workspace.value
   if (!current || sending.value || selecting.value) return
+  notePracticeActivity()
   const storedDraft = studentId.value
     ? createDraftStore(localStorage, studentId.value).read(current.workingArea.exercise.id)
     : null
@@ -804,6 +882,7 @@ async function sendMessage(text: string, addressedAgent: AddressedAgent | null, 
 
 async function submitCode(submission: SubmissionPayload) {
   if (!workspace.value || sending.value || selecting.value) return
+  notePracticeActivity()
   await streamAgentTurn({
     event: 'submission',
     code: submission.code,
@@ -1002,9 +1081,11 @@ function initialsOf(name: string): string {
           @update:mode="chooseMode"
           @update:expanded="workingAreaExpanded = $event"
           @select-exercise="selectExercise"
-          @draft="liveDraft = $event"
+          @draft="onDraft"
           @run="onRun"
           @run-finished="onRunFinished"
+          @pasted="onPasted"
+          @active="notePracticeActivity"
           @submit="submitCode"
           @quiz-answer="answerQuiz"
         />

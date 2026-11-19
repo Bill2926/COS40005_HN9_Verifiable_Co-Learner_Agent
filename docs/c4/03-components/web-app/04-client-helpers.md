@@ -61,7 +61,7 @@ flowchart LR
 | `workspace/layout.ts` | The two layouts (`study`, `mindmap`), the cookie name and options, and `resolveWorkspaceLayout` (query first, then cookie, then `study`). Old values `map` and `roadmap` open Mindmap. `ide` opens Study. | Cookie `workspace-layout`, set by `pages/index.vue`. |
 | `workspace/chat-markdown.ts` | Parses the Markdown subset into a node tree (paragraphs, inline code, bold, italic, lists, fenced code); never produces HTML; tolerant of half-streamed text. A heading in a reply stays bold text. Materials pass `{ headings: true }`, and that tree has a heading node. | None. |
 | `sign-in/intro.ts` | Decides whether the sign-in intro plays (once per device, never with reduced motion) and computes the starting transform; exports an inline head script. | `localStorage` key `colearner-sign-in-intro`. |
-| `activity/record.ts` | Posts one client report to `POST /api/student`: `signed_in`, `module_opened`, `mode_switched`, `layout_switched`, or `code_run`. A failure does not undo the action. The run report is the exercise id only. | None. The server keeps the activity log, and no page lists it. |
+| `activity/record.ts` | Posts one client report to `POST /api/student`: `signed_in`, `module_opened`, `mode_switched`, `layout_switched`, `code_run`, `run_finished`, `pasted`, `went_idle`, or `returned`. A failure does not undo the action. A finished run reports the exercise id, and separately its outcome and error name. A paste reports the character count. The workspace reports going quiet and coming back. | None. The server keeps the activity log, and no page lists it. |
 
 ## Verified imports
 
