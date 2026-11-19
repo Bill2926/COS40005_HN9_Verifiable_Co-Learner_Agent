@@ -15,8 +15,9 @@ export function sandboxIsolationFlags(): string[] {
   return [
     '--network', 'none',
     '--read-only',
-    '--tmpfs', '/opt/jail/tmp:rw,nosuid,size=64m',
-    '--tmpfs', '/tmp:rw,nosuid,size=16m',
+    // mode 1777: the jailed user is nobody, and a tmpfs otherwise belongs to root.
+    '--tmpfs', '/opt/jail/tmp:rw,nosuid,mode=1777,size=64m',
+    '--tmpfs', '/tmp:rw,nosuid,mode=1777,size=16m',
     '--memory', `${sandboxMemoryMb}m`,
     '--memory-swap', `${sandboxMemoryMb}m`,
     // Enough for the runner and the student process, not enough for an unlimited fork.

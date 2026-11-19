@@ -187,6 +187,56 @@ def score(tests, out, returncode):
     return {"outcome": "checked", "results": results}
 
 
+def _detach_runner_pipes():
+    # fd 0 and fd 2 still lead to the runner. A fork would copy them, and the
+    # runner would wait until its 10 second limit.
+    try:
+        null_in = os.open("/dev/null", os.O_RDONLY)
+        null_out = os.open("/dev/null", os.O_WRONLY)
+    except OSError:
+        for fd in (0, 2):
+            try:
+                os.close(fd)
+            except OSError:
+                pass
+        return
+    os.dup2(null_in, 0)
+    os.dup2(null_out, 2)
+    os.close(null_in)
+    os.close(null_out)
+
+
+def _drop_inherited_stdio():
+    for fd in (0, 1, 2):
+        try:
+            os.close(fd)
+        except OSError:
+            pass
+
+
+def _read_student_report(read_fd):
+    import select
+    import time
+    deadline = time.monotonic() + guard.SECONDS
+    chunks = []
+    while b"\n" not in b"".join(chunks):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return None
+        ready, _, _ = select.select([read_fd], [], [], remaining)
+        if not ready:
+            return None
+        chunk = os.read(read_fd, 65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+    return b"".join(chunks).split(b"\n", 1)[0]
+
+
+def _write_report(payload):
+    os.write(1, (json.dumps(payload) + "\n").encode())
+
+
 def supervise(payload):
     # Fork inside the jail. The student process returns actual values only.
     confine()
@@ -205,14 +255,13 @@ def supervise(payload):
             os.close(1)
             os.dup2(write_fd, 1)
             os.close(write_fd)
-            os.write(1, json.dumps(produce(student)).encode())
+            _detach_runner_pipes()
+            os.register_at_fork(after_in_child=_drop_inherited_stdio)
+            _write_report(produce(student))
             os._exit(0)
         except MemoryError:
             try:
-                os.write(1, json.dumps({
-                    "outcome": "refused",
-                    "message": guard.USED_TOO_MUCH_MEMORY,
-                }).encode())
+                _write_report({"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY})
             except Exception:
                 pass
             os._exit(2)
@@ -220,20 +269,22 @@ def supervise(payload):
             import traceback
             traceback.print_exc()
             try:
-                os.write(1, json.dumps(could_not_check()).encode())
+                _write_report(could_not_check())
             except Exception:
                 pass
             os._exit(1)
     os.close(write_fd)
-    chunks = []
-    while True:
-        chunk = os.read(read_fd, 65536)
-        if not chunk:
-            break
-        chunks.append(chunk)
+    report = _read_student_report(read_fd)
     os.close(read_fd)
+    if report is None:
+        try:
+            os.kill(pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        os.waitpid(pid, 0)
+        return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
     _, status = os.waitpid(pid, 0)
-    return score(tests, b"".join(chunks), os.waitstatus_to_exitcode(status))
+    return score(tests, report, os.waitstatus_to_exitcode(status))
 
 
 def main():
