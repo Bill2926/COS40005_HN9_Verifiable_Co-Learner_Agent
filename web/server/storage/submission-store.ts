@@ -1,7 +1,8 @@
 import type { PracticeTestResult } from '../../shared/turn'
 
-// A submission kept after the sandbox has checked it: the code, each test, and
-// the outcome. The owning student can read it. Any other student is refused.
+// A submission kept after the sandbox has checked it: the code, each test, the
+// outcome, and the misconceptions the code shows. The owning student can read
+// it. Any other student is refused.
 
 export type SubmissionOutcome = 'passed' | 'failed' | 'refused'
 
@@ -13,6 +14,8 @@ export interface NewSubmission {
   results: readonly PracticeTestResult[]
   outcome: SubmissionOutcome
   message: string | null
+  // The ids of the misconceptions the code shows; empty when it shows none.
+  findings: readonly string[]
 }
 
 export interface StoredSubmission {
@@ -24,6 +27,7 @@ export interface StoredSubmission {
   results: PracticeTestResult[]
   outcome: SubmissionOutcome
   message: string | null
+  findings: readonly string[]
 }
 
 export class SubmissionRefusedError extends Error {
@@ -48,6 +52,8 @@ export interface SubmissionStore {
   record: (submission: NewSubmission) => Promise<StoredSubmission>
   forStudent: (studentId: string) => Promise<StoredSubmission[]>
   read: (readerId: string, submissionId: string) => Promise<StoredSubmission>
+  // The latest submission kept for one exercise, or null when none is.
+  latestForExercise: (studentId: string, moduleId: string, exerciseId: string) => Promise<StoredSubmission | null>
 }
 
 export function createMemorySubmissionStore(): SubmissionStore {
@@ -64,6 +70,7 @@ export function createMemorySubmissionStore(): SubmissionStore {
         results: submission.results.map(result => ({ ...result })),
         outcome: submission.outcome,
         message: submission.message,
+        findings: [...submission.findings],
       }
       rows.push(row)
       return copySubmission(row)
@@ -73,6 +80,12 @@ export function createMemorySubmissionStore(): SubmissionStore {
     },
     async read(readerId, submissionId) {
       return copySubmission(owned(rows.find(row => row.id === submissionId), readerId))
+    },
+    async latestForExercise(studentId, moduleId, exerciseId) {
+      const latest = rows.findLast(row => row.studentId === studentId
+        && row.moduleId === moduleId
+        && row.exerciseId === exerciseId)
+      return latest ? copySubmission(latest) : null
     },
   }
 }
@@ -87,5 +100,6 @@ function copySubmission(row: StoredSubmission): StoredSubmission {
   return {
     ...row,
     results: row.results.map(result => ({ ...result })),
+    findings: [...row.findings],
   }
 }

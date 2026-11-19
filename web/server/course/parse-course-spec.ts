@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { courseFromSpec } from './course'
 import type { CourseSpec } from './course-spec'
+import { codeChecks } from './course-spec'
 import { normaliseCourseSpec } from './materials'
 
 const exerciseCheck = z.strictObject({ name: z.string(), expression: z.string(), expected: z.string() })
@@ -26,12 +27,17 @@ const materialBlock = z.discriminatedUnion('type', [
   z.strictObject({ type: z.literal('image'), url: z.string().min(1), alt: z.string().min(1) }),
   z.strictObject({ type: z.literal('video'), url: z.string().min(1), title: z.string().min(1) }),
 ])
+const codeCheck = z.enum(codeChecks)
 const moduleContent = z.strictObject({
   materials: z.array(materialBlock).min(1),
   quiz: z.tuple([quizQuestion, quizQuestion, quizQuestion]),
   exercises: z.tuple([exercise, exercise, exercise], exercise),
   hintLadder: z.tuple([z.string(), z.string(), z.string()]),
   misconceptionResponses: z.array(z.strictObject({ id: z.string().min(1), response: z.string() })),
+  codeMisconception: z.strictObject({
+    id: z.string().min(1),
+    checks: z.array(codeCheck).min(1),
+  }).optional(),
 })
 const courseSpec = z.strictObject({
   specVersion: z.literal(2),

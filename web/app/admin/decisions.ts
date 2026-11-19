@@ -96,8 +96,8 @@ const reasons: Record<string, string> = {
   ADVANCE_UNKNOWN_MODULE: 'The suggested module is not part of the course.',
   NOT_CURRENT_MODULE: 'The suggested module is not the one the student is already in.',
   ADVANCE_TO_CURRENT: 'The suggested module is the one the student is already in.',
-  MISCONCEPTION_KNOWN: 'The misconception is one this module names.',
-  MISCONCEPTION_UNKNOWN: 'The misconception is not one this module names.',
+  MISCONCEPTION_SHOWN: 'The student\'s code or quiz answers show the misconception.',
+  MISCONCEPTION_NOT_SHOWN: 'Nothing the student did shows the misconception.',
   HINT_IN_ORDER: 'The hint is at most one rung above the last one given.',
   HINT_SKIPPED: 'The hint skipped a rung of the hint ladder.',
 }

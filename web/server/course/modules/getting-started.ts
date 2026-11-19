@@ -125,4 +125,5 @@ export const gettingStartedModule: ModuleContent = {
       response: 'The words are missing their quotes, so Python looks for a variable instead of using the text. Put the text between quotes.',
     },
   ],
+  codeMisconception: { id: 'missing_quotes', checks: ['unquoted_text'] },
 }

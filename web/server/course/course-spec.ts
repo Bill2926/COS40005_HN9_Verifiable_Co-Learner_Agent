@@ -29,6 +29,27 @@ export interface QuizQuestion {
   misconceptions?: Partial<Record<0 | 1 | 2 | 3, string>>
 }
 
+// The source shapes a module's code misconception leaves behind. Each name is
+// read by one check in the turn's code findings. The list is the one source of
+// the names, so the parser and the checks cannot drift apart from it.
+export const codeChecks = [
+  'unquoted_text',
+  'text_plus_number',
+  'separate_branches',
+  'accumulator_reset',
+  'sum_instead_of_loop',
+  'index_from_one',
+] as const
+
+export type CodeCheck = (typeof codeChecks)[number]
+
+// The one misconception a module's submitted code can show, and the checks that
+// look for it. The id is one of the module's misconception responses.
+export interface CodeMisconception {
+  id: string
+  checks: readonly CodeCheck[]
+}
+
 // What a student studies in a module. A module whose spec has none is listed but not available.
 export interface ModuleContent {
   materials: ModuleMaterials
@@ -36,6 +57,8 @@ export interface ModuleContent {
   exercises: readonly [Exercise, Exercise, Exercise, ...Exercise[]]
   hintLadder: readonly [string, string, string]
   misconceptionResponses: readonly MisconceptionResponse[]
+  // Absent when no check reads this module's code.
+  codeMisconception?: CodeMisconception
 }
 
 export interface ModuleSpec {

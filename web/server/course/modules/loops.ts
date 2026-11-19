@@ -124,4 +124,5 @@ export const loopsModule: ModuleContent = {
         'The total is set back to zero inside the loop, so each pass forgets the numbers before it. Create the total once, before the loop starts.',
     },
   ],
+  codeMisconception: { id: 'accumulator_reset_inside_loop', checks: ['accumulator_reset', 'sum_instead_of_loop'] },
 }

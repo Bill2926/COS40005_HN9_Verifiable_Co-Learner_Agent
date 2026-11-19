@@ -4,7 +4,7 @@ import { pythonCourse, studyModule } from '../server/course'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemorySubmissionStore } from '../server/storage/submission-store'
 import { createFakeSandbox, libraryRefusal, printedTooMuch, tookTooLong, usedTooMuchMemory, type SandboxRequest } from '../server/sandbox'
-import { createMemoryEvidenceStore } from '../server/student-model'
+import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
 import { handleTurn } from '../server/turn/handle-turn'
 
 const student = '6f1b0c1e-1111-4111-8111-111111111111'
@@ -135,6 +135,75 @@ describe('a submission counted by the sandbox', () => {
     expect(forged.submitted.courseRoadmap[0]?.mastery).toBe(honest.submitted.courseRoadmap[0]?.mastery)
     expect(await forged.evidence.forStudent(student)).toEqual([
       expect.objectContaining({ exerciseId: 'say_hello', allPassed: true }),
+    ])
+  })
+
+  it('keeps the misconception the submitted code shows, and none for code that is right', async () => {
+    const submissions = createMemorySubmissionStore()
+    const conversation = store()
+    const sandbox = createFakeSandbox({ outcome: 'checked', results: forgedPass() })
+    const misquoted = 'def hello(name):\n    return Hello, name\n'
+    const correct = 'def hello(name):\n    return "Hello, " + name\n'
+    for (const submitted of [misquoted, correct]) {
+      await handleTurn({
+        sessionStudentId: student,
+        body: { event: 'submission', code: submitted, results: forgedPass() },
+      }, conversation, teacher(), { evidence: createMemoryEvidenceStore(), sandbox, submissions })
+    }
+
+    const saved = await submissions.forStudent(student)
+    expect(saved.map(submission => [submission.code, submission.findings])).toEqual([
+      [misquoted, ['missing_quotes']],
+      [correct, []],
+    ])
+  })
+
+  it('keeps the misconception the refused code shows, though it records no pass', async () => {
+    const submissions = createMemorySubmissionStore()
+    const code = 'def hello(name):\n    return Hello, name\n'
+    await handleTurn({
+      sessionStudentId: student,
+      body: { event: 'submission', code, results: forgedPass() },
+    }, store(), teacher(), {
+      evidence: createMemoryEvidenceStore(),
+      submissions,
+      sandbox: createFakeSandbox({ outcome: 'refused', message: libraryRefusal('os') }),
+    })
+
+    const saved = await submissions.forStudent(student)
+    expect(saved.map(submission => [submission.outcome, submission.findings])).toEqual([
+      ['refused', ['missing_quotes']],
+    ])
+  })
+
+  it('reports a pass won with sum instead of a loop as the loops misconception', async () => {
+    const submissions = createMemorySubmissionStore()
+    const unlocks = createMemoryUnlockStore()
+    await unlocks.record(student, ['getting_started', 'variables', 'strings', 'conditionals', 'loops'])
+    const conversation = store()
+    await conversation.saveResumePoint(student, { moduleId: 'loops', exerciseId: 'sum_of_a_list' })
+    const passed = [
+      { name: 'three numbers', passed: true, expected: '6', actual: '6' },
+      { name: 'one number', passed: true, expected: '10', actual: '10' },
+      { name: 'empty list', passed: true, expected: '0', actual: '0' },
+    ]
+
+    await handleTurn({
+      sessionStudentId: student,
+      body: { event: 'submission', code: 'def total(ds):\n    return sum(ds)\n', results: passed },
+    }, conversation, createFakeAgents({
+      proposal: { type: 'address_misconception', misconceptionId: 'accumulator_reset_inside_loop', scope: 'loops' },
+      text: 'A running total is built one pass at a time.',
+    }), {
+      evidence: createMemoryEvidenceStore(),
+      unlocks,
+      submissions,
+      sandbox: createFakeSandbox({ outcome: 'checked', results: passed }),
+    })
+
+    const saved = await submissions.forStudent(student)
+    expect(saved.map(submission => [submission.outcome, submission.findings])).toEqual([
+      ['passed', ['accumulator_reset_inside_loop']],
     ])
   })
 

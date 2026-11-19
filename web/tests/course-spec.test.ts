@@ -52,6 +52,19 @@ describe('a course built from its course spec', () => {
     }))).toThrow(/part/i)
   })
 
+  it('refuses a code misconception the module does not name', () => {
+    expect(() => courseFromSpec(specWith({
+      modules: [{
+        id: 'a',
+        name: 'A',
+        part: 'One',
+        summary: '',
+        keywords: [],
+        content: { ...someContent, codeMisconception: { id: 'invented', checks: ['unquoted_text'] } },
+      }],
+    }))).toThrow(/does not name/i)
+  })
+
   it('refuses modules that leave a part and come back to it', () => {
     expect(() => courseFromSpec(specWith({
       parts: ['One', 'Two'],
@@ -170,6 +183,14 @@ describe('course spec parser', () => {
 
   it('parses the seeded Python spec', () => {
     expect(parseCourseSpec(JSON.stringify(pythonCourseSpec))).toEqual(pythonCourseSpec)
+  })
+
+  it('rejects a code check it does not know', () => {
+    const raw = JSON.parse(JSON.stringify(pythonCourseSpec)) as {
+      modules: { content?: { codeMisconception?: { id: string, checks: unknown[] } } }[]
+    }
+    raw.modules[0]!.content!.codeMisconception = { id: 'missing_quotes', checks: ['guessing'] }
+    expect(() => parseCourseSpec(JSON.stringify(raw))).toThrow()
   })
 
   it('includes an image with alt text and a video in the seeded Python spec', () => {
