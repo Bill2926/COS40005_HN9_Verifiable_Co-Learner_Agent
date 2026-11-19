@@ -1,5 +1,5 @@
 import type { ActivityRecorder } from '../activity-recorder'
-import type { AgentTrace, ConversationMessage, CurrentExercise, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
+import type { AgentTrace, ConversationMessage, CurrentExercise, LearningPlanView, PracticeTestResult, QuizQuestionView, Quote, RedrawState, RunOutput, TurnEvent, TurnTrace } from '../../shared/turn'
 import { createAgentTools, type TurnTools } from '../agent-tools'
 import { moveKey, roleTable, type Agents, type AnsweredQuizResult, type DeskmateContext, type Move, type SubmissionCheck, type TeacherContext } from '../agents'
 import { canonicalModuleId, defaultCourseId, presentedRoadmap, redirectText, roadmapForStanding, studyModule, type Course, type Exercise, type StudyModule } from '../course'
@@ -24,9 +24,11 @@ import {
 } from '../student-model'
 import { dailyProposingTurnLimit, type DailyTurnAllowance } from '../storage/daily-turn-allowance'
 import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
+import type { LearningPlanStore } from '../storage/learning-plan-store'
 import type { NewSubmission, SubmissionStore } from '../storage/submission-store'
 import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
+import { planView, type LearningPlan } from '../learning-plan'
 import { learningPattern, type LearningPattern } from '../learning-pattern'
 import { showsCodeMisconception } from './code-findings'
 
@@ -121,6 +123,9 @@ export interface TurnOptions {
   sandbox?: Sandbox
   // Keeps the code, the per-test results and the outcome. Absent in tests that do not read it.
   submissions?: SubmissionStore
+  // The Teacher's plans, append-only. Absent in tests that are not about plans,
+  // which then never ask the Teacher for one and show none.
+  plans?: LearningPlanStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -253,7 +258,8 @@ async function* turnBody(
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
-    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode, options) }
+    const plan = agents ? await ensurePlan(studentId, placement, standing, store, quizStore, agents, options) : undefined
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, mode, options, undefined, plan) }
     return
   }
 
@@ -261,6 +267,22 @@ async function* turnBody(
     // Only the session student's own switch is ever read or written.
     await options?.deskmateSettings?.save(studentId, body.on)
     flags.deskmateOn = body.on
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
+    return
+  }
+
+  if (isPlanStart(body)) {
+    // Agreeing is a new revision with the time it was agreed, so no stored
+    // revision is ever rewritten. A module with no plan, or one already
+    // agreed, changes nothing.
+    const plan = await options?.plans?.latest(studentId, placement.module.id)
+    if (plan && plan.agreedAt === null) {
+      await options?.plans?.append(studentId, {
+        ...plan,
+        revision: plan.revision + 1,
+        agreedAt: (options.now?.() ?? new Date()).toISOString(),
+      })
+    }
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null, options) }
     return
   }
@@ -278,16 +300,20 @@ async function* turnBody(
       ? chosen.exercises.find(item => item.id === point.exerciseId) ?? chosen.exercises[0]
       : chosen.exercises[0]
     const next = { course, module: chosen, exercise }
-    const [existing, displayName, quizAnswers, weakSpots] = await Promise.all([
+    const [existing, displayName, quizAnswers, weakSpots, plan] = await Promise.all([
       store.messages(studentId, chosen.id),
       store.displayName(studentId),
       quizStore.forStudentModule(studentId, chosen.id),
       weakSpotTexts(await learningPatternFor(studentId, next, options), next),
+      // A preview never proposes a plan: it writes nothing.
+      isPreviewModule(body)
+        ? options?.plans?.latest(studentId, chosen.id) ?? null
+        : ensurePlan(studentId, next, standingFor(estimate, next.module.id), store, quizStore, agents, options),
       isPreviewModule(body) ? Promise.resolve() : adoptPlacement(studentId, store, next),
     ])
     yield {
       type: 'state',
-      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots),
+      state: composeState(next, standingFor(estimate, next.module.id), existing, displayName, existing.length === 0 ? 'learn' : null, quizAnswers, weakSpots, plan ?? null),
     }
     return
   }
@@ -549,7 +575,68 @@ async function* introduceModule(
     }
   }
 
-  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace, options, context.learningPattern) }
+  const plan = await ensurePlan(studentId, placement, standing, store, quizStore, agents, options)
+  yield { type: 'state', state: await redrawWithTrace(studentId, placement, standing, store, quizStore, 'learn', trace, options, context.learningPattern, plan) }
+}
+
+// Has the Teacher propose a plan for the module the student opened, unless one
+// is already in force. The plan reaches the student only through the
+// VerifyShield: a plan it blocks, or an answer that is not a plan, stores
+// nothing. The plan changes no mastery: it reads the records and writes only
+// the plan.
+async function ensurePlan(
+  studentId: string,
+  placement: Placement,
+  standing: CourseStanding,
+  store: ConversationStore,
+  quizStore: QuizAnswerStore,
+  agents: Agents | undefined,
+  options?: TurnOptions,
+): Promise<LearningPlan | null> {
+  const plans = options?.plans
+  if (!plans) return null
+  const existing = await plans.latest(studentId, placement.module.id)
+  if (existing || !agents) return existing
+
+  const context = await teacherContext(studentId, placement, standing, store, quizStore, {
+    draft: null,
+    runOutput: null,
+    submission: null,
+  }, options)
+  const snapshot = turnSnapshot(placement, standing, '', context, options)
+  let proposal: Move | null = null
+  try {
+    proposal = await agents.teacher.plan(context)
+  }
+  catch (cause) {
+    logModelFailure('teacher plan', cause)
+    return null
+  }
+  if (!proposal) return null
+  const proposed = { agent: 'teacher' as const, move: proposal }
+  const verdict = decide([proposed], snapshot, roleTable, placement.course.scope)[0]
+  await recordDecisions({
+    studentId,
+    ruled: verdict ? [{ proposal: proposed, verdict }] : [],
+    snapshot,
+    masteryThreshold: placement.course.masteryThreshold,
+    addressedAgent: null,
+    decisions: options?.decisions,
+    moduleId: placement.module.id,
+    learningPattern: context.learningPattern,
+    codeVersion: options?.codeVersion,
+    courseHistoryId: options?.courseHistoryId,
+  })
+  if (!verdict || verdict.decision === 'block' || verdict.move?.type !== 'propose_plan') return null
+  const plan: LearningPlan = {
+    moduleId: placement.module.id,
+    revision: 1,
+    steps: verdict.move.steps.map(step => ({ kind: step.kind, ref: step.ref })),
+    currentStep: 0,
+    agreedAt: null,
+  }
+  await plans.append(studentId, plan)
+  return plan
 }
 
 // Marks a quiz answer and reports whether this call stored it and whether it was
@@ -615,6 +702,13 @@ function turnSnapshot(
     verifyShieldOn: options?.verifyShieldOn !== false,
     highestHintRung: highestHintRung(context.conversation),
     shownMisconceptionIds: shownMisconceptions(context),
+    planTargets: {
+      materials: placement.module.materials.length,
+      exerciseIds: placement.module.exercises.map(exercise => exercise.id),
+      questionIds: placement.module.quiz.map(question => question.id),
+      misconceptionIds: placement.module.misconceptionResponses.map(response => response.id),
+    },
+    weakSpotMisconceptionIds: context.learningPattern.weakSpots.map(spot => spot.misconceptionId),
   }
 }
 
@@ -835,9 +929,10 @@ async function redrawWithTrace(
   trace: TurnTrace,
   options?: TurnOptions,
   pattern?: LearningPattern,
+  plan?: LearningPlan | null,
 ): Promise<TurnState> {
   return {
-    ...await redraw(studentId, placement, standing, store, quizStore, mode, options, pattern),
+    ...await redraw(studentId, placement, standing, store, quizStore, mode, options, pattern, plan),
     trace,
   }
 }
@@ -1023,6 +1118,9 @@ async function teacherContext(
     codeFindingsFor(studentId, placement, seen, options),
   ])
   return {
+    moduleId: placement.module.id,
+    exercises: placement.module.exercises.map(exercise => ({ id: exercise.id, title: exercise.title })),
+    quiz: placement.module.quiz.map(question => ({ id: question.id, prompt: question.prompt })),
     materials: placement.module.materials.map(block => ({ ...block })),
     hintLadder: [...placement.module.hintLadder],
     misconceptionResponses: placement.module.misconceptionResponses.map(response => ({ ...response })),
@@ -1182,14 +1280,17 @@ async function redraw(
   // The pattern the Teacher saw this turn, when a caller already computed it;
   // redraw reads the records itself otherwise.
   pattern?: LearningPattern,
+  // The plan the caller already read; undefined reads the stored latest.
+  plan?: LearningPlan | null,
 ): Promise<TurnState> {
-  const [messages, displayName, quizAnswers, weakSpots] = await Promise.all([
+  const [messages, displayName, quizAnswers, weakSpots, latestPlan] = await Promise.all([
     store.messages(studentId, placement.module.id),
     store.displayName(studentId),
     quizStore.forStudentModule(studentId, placement.module.id),
     weakSpotTexts(pattern ?? await learningPatternFor(studentId, placement, options), placement),
+    plan === undefined ? options?.plans?.latest(studentId, placement.module.id) ?? null : plan,
   ])
-  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpots)
+  return composeState(placement, standing, messages, displayName, mode, quizAnswers, weakSpots, latestPlan)
 }
 
 // The pattern's weak spots in plain words: the course's response text for each
@@ -1262,6 +1363,7 @@ function composeState(
   mode: 'learn' | null,
   quizAnswers: readonly QuizAnswerRow[],
   weakSpots: readonly string[],
+  plan: LearningPlan | null = null,
 ): TurnState {
   return {
     displayName,
@@ -1269,6 +1371,7 @@ function composeState(
     courseRoadmap: presentedRoadmap(placement.course, standing),
     masteryThreshold: placement.course.masteryThreshold,
     weakSpots,
+    learningPlan: plan ? planView(plan, placement.module) : null,
     workingArea: {
       mode,
       moduleId: placement.module.id,
@@ -1395,6 +1498,13 @@ function isDeskmateSwitch(input: unknown): input is { event: 'deskmate_switch', 
     && input.event === 'deskmate_switch'
     && 'on' in input
     && typeof input.on === 'boolean'
+}
+
+function isPlanStart(input: unknown): input is { event: 'plan_start' } {
+  return typeof input === 'object'
+    && input !== null
+    && 'event' in input
+    && input.event === 'plan_start'
 }
 
 function copySubmission(submission: SubmissionCheck | null): SubmissionCheck | null {

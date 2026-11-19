@@ -12,6 +12,10 @@ function listMoves(moves: readonly string[], conjunction: 'or' | 'and' = 'or'): 
 
 const teacherScopedMoves = roleTable.teacher.filter(move => scopedMoveTypes.includes(move))
 
+// A learning plan is asked for on its own when a module opens, so it is not
+// among the moves the everyday proposing instructions offer.
+const teacherProposeMoves = roleTable.teacher.filter(move => move !== 'propose_plan')
+
 // Everything the student wrote, or their code produced, sits between these, so a message saying
 // "ignore your instructions" reads as something the student said, not as an order.
 const dataOpen = '<student_data>'
@@ -31,7 +35,7 @@ function asData(content: string): string {
 export const teacherProposeInstructions = [
   'You are the Teacher in a first-year Python course.',
   'Propose one move, or no proposal.',
-  `You may propose ${listMoves(roleTable.teacher)}.`,
+  `You may propose ${listMoves(teacherProposeMoves)}.`,
   'hint_level_N needs a level from 1 to 3.',
   `${listMoves(teacherScopedMoves, 'and')} need a scope.`,
   'Scope is the module id the question is about, taken from the course roadmap, or out_of_course.',
@@ -43,6 +47,19 @@ export const teacherProposeInstructions = [
   `Call ${studentMasteryTool} when the move depends on how well the student knows a module, such as advance_to_module or stay_and_practise.`,
   'Each agent line in the conversation shows, in brackets, the move that approved it, so you can see which hint rungs you have already given.',
   'Do not hand over a full solution. A proposal is the move, not the words the student will read.',
+  dataRule,
+].join(' ')
+
+export const teacherPlanInstructions = [
+  'You are the Teacher in a first-year Python course.',
+  'The student has just opened a module and has no plan for it. Propose one.',
+  'Reply with the propose_plan move, or proposal null when you cannot.',
+  'A plan has one to five steps, in the order the student should do them.',
+  'Each step has a kind and a ref. materials takes an empty ref. quiz takes a quiz question id. exercise takes an exercise id. misconception takes a misconception id.',
+  'Use only ids listed in the prompt.',
+  'Choose a route for this student: use their learning pattern, and leave room for practice.',
+  'Include a misconception step only for a misconception the learning pattern lists as a weak spot.',
+  'Every step must point at the module the student opened.',
   dataRule,
 ].join(' ')
 
@@ -251,6 +268,25 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
   }
   if (move) lines.push('', `Approved move: ${moveKey(move)}`)
   return lines.join('\n')
+}
+
+export function teacherPlanPrompt(context: TeacherContext): string {
+  return [
+    'Module',
+    context.moduleId,
+    ...learningPatternLines(context),
+    '',
+    'Exercises',
+    ...context.exercises.map(exercise => `${exercise.id}: ${exercise.title}`),
+    '',
+    'Quiz questions',
+    ...context.quiz.map(question => `${question.id}: ${question.prompt}`),
+    '',
+    'Misconceptions',
+    ...context.misconceptionResponses.map(response => `${response.id}: ${response.response}`),
+    '',
+    'Propose a learning plan for this module.',
+  ].join('\n')
 }
 
 export function deskmatePrompt(context: DeskmateContext, move?: Move): string {

@@ -20,6 +20,7 @@ flowchart LR
   course["<b>course/course.ts</b>"]:::near
   supaStore["<b>storage/supabase-verify-shield-store.ts</b>"]:::near
   agents["<b>agents/index.ts</b>"]:::near
+  plan["<b>learning-plan/index.ts</b>"]:::near
 
   subgraph shield["verify-shield"]
     direction TB
@@ -36,6 +37,7 @@ flowchart LR
   index --> decide
   index --> store
   decide -.->|"types: Move, RoleTable"| agents
+  decide -->|"planStepLimit"| plan
 
   style shield fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
@@ -67,6 +69,8 @@ so leaving one out is a type error rather than a rule that silently does not run
 | `verifyShieldOn` | The switch. | Rule 1 |
 | `highestHintRung` | The highest hint rung already given in the module's conversation (0 if none), worked out by `handle-turn.ts` from the stored approved moves. | Rule 12 |
 | `shownMisconceptionIds` | The misconceptions the student's work shows: the findings kept with their latest submission for the placed exercise, plus the misconception ids of their wrong quiz answers, worked out by `handle-turn.ts`. | Rule 11 |
+| `planTargets` | What the placed module holds: how many material blocks, and the ids of its exercises, quiz questions and misconception responses. | Rules 13 and 14 |
+| `weakSpotMisconceptionIds` | The misconception ids the learning pattern calls weak spots for this student. | Rule 14 |
 
 `verify-shield-contract.test-d.ts` holds the contract at the type level; `vitest run` checks it with `tsc` through
 `web/tsconfig.type-tests.json`.
@@ -90,7 +94,9 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 10 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | `advance_to_module` toward a module the course has but the student has not unlocked: downgrade to redirect. |
 | 11 | `misconception_shown` | `MISCONCEPTION_NOT_SHOWN` | Teacher `address_misconception` whose id is not in `shownMisconceptionIds`: downgrade to `answer_question` on the student's own module (`moduleId`, whatever scope the proposal named). Not a block, so the Teacher still answers while the student is wrong, and only a claim the student's code or quiz answers support stands. The scope rules run first, so an invented id on a closed module still redirects. |
 | 12 | `hint_ladder` | `HINT_SKIPPED` | `hint_level_N` more than one rung above `highestHintRung`: downgrade to a `hint_level_N` at rung `highestHintRung + 1` (same scope). A rung at or below the highest given, or exactly one above it, is left alone. |
-| 13 | `role_table` | `ROLE_PERMITTED` | Allow. |
+| 13 | `plan_step_count` | `PLAN_WITHOUT_STEPS`, `PLAN_TOO_LONG` | `propose_plan` with no steps, or more than five (`planStepLimit`): block. |
+| 14 | `plan_steps_in_module` | `PLAN_NO_STEPS_IN_MODULE`, `PLAN_STEPS_DROPPED` | `propose_plan` whose steps point away from the placed module. A step fits when it is the module's materials and the module has some, one of its quiz questions, one of its exercises, or one of its misconceptions that the learning pattern calls a weak spot; a repeated step is dropped too. Every step dropped or repeated: block. Some dropped: downgrade to the plan with the steps that fit. |
+| 15 | `role_table` | `ROLE_PERMITTED` | Allow. |
 
 ## Rule checks
 
@@ -108,6 +114,8 @@ after the deciding one are not evaluated and do not appear. A rule that passed i
 | `advance_not_current_module` | `NOT_CURRENT_MODULE` |
 | `misconception_shown` | `MISCONCEPTION_SHOWN` |
 | `hint_ladder` | `HINT_IN_ORDER` |
+| `plan_step_count` | `PLAN_STEP_COUNT_OK` |
+| `plan_steps_in_module` | `PLAN_STEPS_IN_MODULE` |
 
 Checks stay in the order the rules ran, so `role_table` is always first. A block or downgrade ends with the failed rule.
 An allow lists the rules that passed, then a final deciding `all_rules` / `ALL_RULES_PASSED` check (the verdict itself
@@ -120,7 +128,8 @@ The shield-off reason code is `VERIFYSHIELD_OFF`. Set `NUXT_VERIFYSHELD` to conf
 
 ## Verified imports
 
-- Imports: types only (`agents` for `Move` and `RoleTable`). It has no runtime import, no I/O and no clock.
+- Imports: types only from `agents` (`Move`, `RoleTable`), and one runtime import from
+  [`learning-plan`](17-learning-plan.md) (`planStepLimit`). It has no I/O and no clock.
 - Runtime importers, all through `index.ts`: `turn/handle-turn.ts` (`decide`), `routes/turn.post.ts` (`verifyShieldForTurn`), `admin/handle-admin.ts` (`verifyShieldEnabled`).
 - Type-only importers: `course/course.ts` (`CourseScope`), `storage/supabase-verify-shield-store.ts` (`VerifyShieldStore`).
 - Tests: `decide.test.ts` (also imports `course` and `agents` for `roleTable`), `verify-shield-contract.test-d.ts` (types only), `verify-shield.test.ts`, `admin-handler.test.ts`. All import from `server/verify-shield`. `turn-endpoint.test.ts` checks that each verdict reaches the decision log.

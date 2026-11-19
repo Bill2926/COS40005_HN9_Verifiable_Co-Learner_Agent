@@ -6,6 +6,15 @@ import { z } from 'zod'
 // The module id a move is about, from the course roadmap, or out_of_course.
 const scope = z.string().min(1)
 
+// One step of a proposed learning plan: the kind of module content it points
+// at, and the quiz question, exercise or misconception id (empty for the
+// materials step). The VerifyShield drops a step the module or the learning
+// pattern does not support.
+export const planStepSchema = z.object({
+  kind: z.enum(['materials', 'quiz', 'exercise', 'misconception']),
+  ref: z.string(),
+})
+
 // Every move an agent may propose. Which agent may make which is not a matter for the schema: the
 // VerifyShield rules on that against the role table (ADR 0003).
 export const agentMoveSchema = z.discriminatedUnion('type', [
@@ -17,6 +26,9 @@ export const agentMoveSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('share_confusion') }),
   z.object({ type: z.literal('advance_to_module'), moduleId: z.string().min(1) }),
   z.object({ type: z.literal('stay_and_practise') }),
+  // The list is not capped here: a plan with no steps or more than five is
+  // refused by the VerifyShield, so the log says which rule refused it.
+  z.object({ type: z.literal('propose_plan'), steps: z.array(planStepSchema).max(10) }),
 ])
 
 // What either agent returns when asked to propose: one move, or null to stay quiet.

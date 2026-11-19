@@ -27,6 +27,11 @@ export interface TeacherContext {
   materials: ModuleMaterials
   hintLadder: readonly string[]
   misconceptionResponses: readonly { id: string, response: string }[]
+  // The module the student is on, and what a learning plan may point at: every
+  // exercise and quiz question of the module, not only the one in hand.
+  moduleId: string
+  exercises: readonly { id: string, title: string }[]
+  quiz: readonly { id: string, prompt: string }[]
   // The misconceptions the student's submitted code shows, from the findings
   // kept with their latest submission for this exercise.
   codeFindings: readonly string[]

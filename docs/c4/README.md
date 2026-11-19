@@ -36,6 +36,7 @@ Components are ordered the way a request travels through them (server) or the wa
 | [12-activity-recorder.md](03-components/server/12-activity-recorder.md) | activity recorder | Append-only activity log shared by the student handler and the turn |
 | [14-sandbox.md](03-components/server/14-sandbox.md) | sandbox | Re-runs a submission; only its report is evidence |
 | [16-learning-pattern.md](03-components/server/16-learning-pattern.md) | learning pattern | Where the student's work says they struggle and how they study, one pure function of their records |
+| [17-learning-plan.md](03-components/server/17-learning-plan.md) | learning plan | The Teacher's one-to-five-step plan for a module, agreed by the student, kept as append-only revisions |
 
 ### Web app (`web/app/`)
 

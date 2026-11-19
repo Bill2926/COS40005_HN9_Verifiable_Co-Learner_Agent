@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import type { PracticeTestResult, RunOutput, WorkingAreaView } from '#shared/turn'
+import type { LearningPlanView, PracticeTestResult, RunOutput, WorkingAreaView } from '#shared/turn'
+import LearningPlanPanel from './LearningPlanPanel.vue'
 import MaterialBlocks from './MaterialBlocks.vue'
 import PracticePanel from './PracticePanel.vue'
 import QuizPanel from './QuizPanel.vue'
 
 const props = defineProps<{
   area: WorkingAreaView
+  // The Teacher's plan for this module, once there is one.
+  plan?: LearningPlanView | null
+  planStarting?: boolean
   mode: 'learn' | 'practice'
   studentId: string
   selecting: boolean
@@ -30,6 +34,7 @@ const emit = defineEmits<{
   running: [running: boolean]
   submit: [submission: { code: string, results: PracticeTestResult[] }]
   quizAnswer: [answer: { questionId: string, choice: number }]
+  startPlan: []
   'update:mode': [mode: 'learn' | 'practice']
   'update:expanded': [expanded: boolean]
 }>()
@@ -161,6 +166,13 @@ watch(() => props.mode, (mode) => {
         v-if="!pendingName && shownMode === 'learn'"
         class="mx-auto flex w-full min-w-0 max-w-[720px] flex-col gap-6 px-4 py-6 md:p-8"
       >
+        <LearningPlanPanel
+          v-if="!floating && plan"
+          :plan="plan"
+          :starting="planStarting === true"
+          @start="emit('startPlan')"
+        />
+
         <MaterialBlocks :blocks="area.materials" />
 
         <QuizPanel

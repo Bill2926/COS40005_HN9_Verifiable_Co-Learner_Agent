@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createAgents, proposalSchema, roleTable } from '../server/agents'
+import { teacherPlanInstructions } from '../server/agents/prompts'
 import type { LanguageModel } from '../server/language-model'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
 import { createMemoryDecisionLogStore } from '../server/storage/decision-log'
@@ -89,8 +90,22 @@ describe('the move contract', () => {
     const allowed = (instructions: string | undefined) => instructions?.match(/You may propose (?:only )?([^.]*)\./)?.[1]
       ?.split(/,? or |, /)
 
-    expect(allowed(teacher)).toEqual([...roleTable.teacher])
+    expect(allowed(teacher)).toEqual(roleTable.teacher.filter(move => move !== 'propose_plan'))
     expect(allowed(deskmate)).toEqual([...roleTable.deskmate])
     expect(teacher).not.toContain('reveal_answer')
+  })
+
+  it('asks the Teacher for a plan only in its own plan instructions', async () => {
+    const model = replyingModel({ teacher: null, deskmate: null })
+    await handleTurn({
+      sessionStudentId: student,
+      body: { event: 'message', text: 'How does a for loop work?' },
+    }, createMemoryConversationStore({ [student]: 'An' }), createAgents(model))
+
+    const teacher = model.calls.find(call => call.includes('You are the Teacher'))
+    expect(roleTable.teacher).toContain('propose_plan')
+    expect(teacher).not.toContain('propose_plan')
+    expect(teacherPlanInstructions).toContain('propose_plan')
+    expect(teacherPlanInstructions).not.toContain('explain_concept')
   })
 })
