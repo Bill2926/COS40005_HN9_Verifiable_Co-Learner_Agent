@@ -131,13 +131,30 @@ def could_not_check():
     return {"outcome": "refused", "message": "This submission could not be checked."}
 
 
+def confine():
+    import resource
+    # The interpreter is already running. Enter the jail now, so the exec did
+    # not have to succeed from inside it.
+    if os.path.isdir("/opt/jail"):
+        os.chroot("/opt/jail")
+        os.chdir("/tmp")
+        os.setgid(65534)
+        os.setuid(65534)
+        resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
+    # The hard limit is one second higher so a busy loop receives SIGXCPU, the
+    # time signal, rather than an immediate SIGKILL. A process cap is not set
+    # here: it would count every process of this user on the machine. The
+    # container's pid limit is the cap.
+    resource.setrlimit(resource.RLIMIT_CPU, (guard.SECONDS, guard.SECONDS + 1))
+    resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
+    resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
+
+
 def score(tests, out, returncode):
-    if returncode not in (0, None):
-        if returncode is not None and returncode < 0 and -returncode in (signal.SIGXCPU, signal.SIGALRM):
+    if returncode is not None and returncode < 0:
+        if -returncode in (signal.SIGXCPU, signal.SIGALRM):
             return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
-        if returncode is not None and returncode < 0:
-            return {"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY}
-        return could_not_check()
+        return {"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY}
     try:
         data = json.loads(out.decode("utf-8", errors="replace").strip())
     except (json.JSONDecodeError, UnicodeError):
@@ -171,8 +188,8 @@ def score(tests, out, returncode):
 
 
 def supervise(payload):
-    # Fork inside the jail. A second interpreter cannot be started there: its
-    # path is the jail path, and spawning it is what made every image check fail.
+    # Fork inside the jail. The student process returns actual values only.
+    confine()
     tests = payload["tests"]
     student = {
         "code": payload["code"],
@@ -191,13 +208,19 @@ def supervise(payload):
             os.write(1, json.dumps(produce(student)).encode())
             os._exit(0)
         except MemoryError:
-            os._exit(2)
-        except Exception as exc:
             try:
                 os.write(1, json.dumps({
                     "outcome": "refused",
-                    "message": f"This submission could not be checked. ({type(exc).__name__}: {exc})",
+                    "message": guard.USED_TOO_MUCH_MEMORY,
                 }).encode())
+            except Exception:
+                pass
+            os._exit(2)
+        except Exception:
+            import traceback
+            traceback.print_exc()
+            try:
+                os.write(1, json.dumps(could_not_check()).encode())
             except Exception:
                 pass
             os._exit(1)
@@ -223,3 +246,7 @@ if __name__ == "__main__":
         main()
     except MemoryError:
         emit({"outcome": "refused", "message": guard.USED_TOO_MUCH_MEMORY})
+    except Exception:
+        import traceback
+        traceback.print_exc()
+        emit(could_not_check())

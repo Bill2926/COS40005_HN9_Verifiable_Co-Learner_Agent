@@ -10,31 +10,12 @@ import guard
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 IN_IMAGE = os.path.isdir("/opt/jail")
-CHILD = "/child.py" if IN_IMAGE else os.path.join(HERE, "child.py")
-PYTHON = "/usr/local/bin/python3" if IN_IMAGE else sys.executable
+CHILD = os.path.join(HERE, "child.py")
 
 
 def emit(payload):
     json.dump(payload, sys.stdout)
     sys.stdout.flush()
-
-
-def confine():
-    import resource
-    if IN_IMAGE:
-        os.chroot("/opt/jail")
-        os.chdir("/tmp")
-        os.setgid(65534)
-        os.setuid(65534)
-    # The hard limit is one second higher so a busy loop receives SIGXCPU, the
-    # time signal, rather than an immediate SIGKILL.
-    resource.setrlimit(resource.RLIMIT_CPU, (guard.SECONDS, guard.SECONDS + 1))
-    resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
-    resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
-    if IN_IMAGE:
-        # A process cap here counts every process of this user on the machine, so a
-        # small cap stops the sandbox's own fork. The container's pid limit is the cap.
-        resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
 
 
 def clean_tmp():
@@ -62,8 +43,11 @@ def kill_group(pid):
 
 
 def run_child(payload):
+    # Start the interpreter that is already running. Chroot happens inside
+    # child.py, after this process is up: doing it here made the exec look
+    # inside the jail and every image check came back unchecked.
     proc = subprocess.Popen(
-        [PYTHON, "-I", CHILD],
+        [sys.executable, "-I", CHILD],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -76,15 +60,16 @@ def run_child(payload):
             "PYTHONUNBUFFERED": "1",
         },
         start_new_session=True,
-        preexec_fn=confine,
     )
     try:
-        out, _err = proc.communicate(json.dumps(payload).encode(), timeout=guard.SECONDS)
+        out, err = proc.communicate(json.dumps(payload).encode(), timeout=guard.SECONDS)
     except subprocess.TimeoutExpired:
         kill_group(proc.pid)
         proc.wait()
         clean_tmp()
         return {"outcome": "refused", "message": guard.TOOK_TOO_LONG}
+    if err:
+        sys.stderr.buffer.write(err)
     kill_group(proc.pid)
     clean_tmp()
     if proc.returncode is not None and proc.returncode < 0:
