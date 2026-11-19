@@ -77,5 +77,5 @@ The owning student reads a stored submission through `POST /api/submission`. Ano
 
 - Run stays in the browser. Submit is checked again here. When the two disagree, this report is the one that is stored (ADR 0010).
 - The turn tests pass a fake sandbox and do not need an AWS account or a running image. The Lambda tests pass a fake invoke and do not call AWS.
-- The deployed server sets `NUXT_SANDBOX_FUNCTION=colearner-sandbox` and `NUXT_SANDBOX_REGION=ap-southeast-2` (`render.yaml`). The access key is the IAM user `colearner-server`, which can only invoke that function.
+- The deployed server sets `NUXT_SANDBOX_FUNCTION` to the Lambda function (`web/.env.example`, `web/nuxt.config.ts`). Blank keeps the local image. The access key is the IAM user `colearner-server`, which can only invoke that function.
 - The image tests in `sandbox-image.test.ts` build `sandbox/` and run it locally. They show that student code cannot reach the network, the environment or the file system, cannot spawn processes without a limit, and cannot see a file left by an earlier run in the same container. They are skipped when the Docker daemon is not running.

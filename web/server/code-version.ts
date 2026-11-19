@@ -2,10 +2,10 @@ import { execFileSync } from 'node:child_process'
 
 let commitFromGit: string | undefined
 
-// The commit this server is running. Render publishes it as RENDER_GIT_COMMIT.
+// The commit this server is running. Vercel publishes it as VERCEL_GIT_COMMIT_SHA.
 // CODE_VERSION overrides that. A local server asks git, once.
 export function currentCodeVersion(): string {
-  const fromEnvironment = process.env.CODE_VERSION?.trim() || process.env.RENDER_GIT_COMMIT?.trim()
+  const fromEnvironment = process.env.CODE_VERSION?.trim() || process.env.VERCEL_GIT_COMMIT_SHA?.trim()
   if (fromEnvironment) return fromEnvironment
   if (commitFromGit === undefined) {
     try {
