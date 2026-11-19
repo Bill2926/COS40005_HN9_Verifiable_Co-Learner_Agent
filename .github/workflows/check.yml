@@ -55,6 +55,12 @@ jobs:
       - run: pnpm test
         env:
           CHECK_SKIP_LIVE_SUPABASE: '1'
+      - run: pnpm benchmark
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verify-shield-benchmark
+          path: web/benchmark/results/
 
   migrations:
     name: migrations
