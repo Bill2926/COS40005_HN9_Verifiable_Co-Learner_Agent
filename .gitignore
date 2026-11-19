@@ -6,6 +6,12 @@
 
 .claude/settings.local.json
 
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/sandbox/backend.hcl
+
 node_modules/
 .pnpm-store/
 .playwright/

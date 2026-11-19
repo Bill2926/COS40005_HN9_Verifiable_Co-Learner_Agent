@@ -82,9 +82,24 @@ def emit(payload):
     sys.__stdout__.flush()
 
 
+def apply_process_cap():
+    # Docker caps processes on the container. Lambda does not, so the runner
+    # passes this and the student process applies it before the student's code.
+    cap = os.environ.pop("SANDBOX_NPROC", "")
+    if not cap.isdigit():
+        return
+    import resource
+    n = int(cap)
+    try:
+        resource.setrlimit(resource.RLIMIT_NPROC, (n, n))
+    except (ValueError, OSError):
+        pass
+
+
 def produce(payload):
     # Student code runs in the forked process. It is not given the expected
     # values. Whatever it writes is not a pass: the parent compares each actual.
+    apply_process_cap()
     code = payload["code"]
     tests = payload["tests"]
     namespace = {"__name__": "__main__"}
@@ -143,8 +158,9 @@ def confine():
         resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
     # The hard limit is one second higher so a busy loop receives SIGXCPU, the
     # time signal, rather than an immediate SIGKILL. A process cap is not set
-    # here: it would count every process of this user on the machine. The
-    # container's pid limit is the cap.
+    # here: it would count every process of this user on the machine, and the
+    # container's pid limit is the cap. Lambda sets SANDBOX_NPROC instead,
+    # applied in the student process so this fork can still happen.
     resource.setrlimit(resource.RLIMIT_CPU, (guard.SECONDS, guard.SECONDS + 1))
     resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))

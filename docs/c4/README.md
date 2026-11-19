@@ -81,4 +81,4 @@ importers and tests found by that check.
 ## Not covered
 
 - The database schema in `supabase/migrations/` is not drawn; the tables each store uses are listed in `08-storage.md`.
-- AWS: not designed yet, see the open questions in `04-deployment.md`.
+- The sandbox on Lambda in Sydney is described in `infra/sandbox` and drawn in `04-deployment.md`. The account owner applies that plan.

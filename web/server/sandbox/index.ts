@@ -1,12 +1,15 @@
 // The sandbox re-runs a submission. Only its report is evidence. A run in the
-// browser is not. The turn tests use a fake; the server runs the container image.
+// browser is not. The turn tests use a fake. The deployed server invokes the
+// Lambda function in Sydney; a machine with no function name runs the image.
 
 export {
   approvedLibraries,
   couldNotCheck,
   libraryRefusal,
+  tryAgainInAMoment,
   printedTooMuch,
   sandboxMemoryMb,
+  sandboxConcurrency,
   sandboxOutputBytes,
   sandboxSeconds,
   tookTooLong,
@@ -51,5 +54,7 @@ export function createFakeSandbox(
   }
 }
 
-export { createContainerSandbox, interpretSandboxOutput, sandboxDockerArgs, sandboxImageName, sandboxIsolationFlags } from './container'
+export { createContainerSandbox, interpretSandboxOutput, interpretSandboxReport, sandboxDockerArgs, sandboxImageName, sandboxIsolationFlags } from './container'
 export type { SandboxProcessResult } from './container'
+export { createLambdaSandbox, createSdkInvoke, createSubmissionGate, createSubmissionSandbox } from './lambda'
+export type { LambdaInvocation, LambdaInvocationResult, LambdaInvoke, SubmissionGate } from './lambda'

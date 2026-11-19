@@ -18,7 +18,9 @@ export const tookTooLong = 'This took longer than 10 seconds, so it was stopped.
 export const usedTooMuchMemory = 'This used more than 512 MB of memory, so it was stopped.'
 export const printedTooMuch = 'This printed more than 64 KB, so it was stopped.'
 export const couldNotCheck = 'This submission could not be checked.'
+export const tryAgainInAMoment = 'Try again in a moment.'
 
 export const sandboxSeconds = 10
 export const sandboxMemoryMb = 512
 export const sandboxOutputBytes = 64 * 1024
+export const sandboxConcurrency = 5

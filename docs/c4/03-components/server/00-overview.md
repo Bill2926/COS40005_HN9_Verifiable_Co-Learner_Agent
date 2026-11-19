@@ -68,8 +68,8 @@ flowchart LR
   agentTools -.->|"type: ModelTool"| lm
   turn -->|"estimateCourse, standingFor,<br/>createMemoryEvidenceStore"| studentModel
   turn -->|"couldNotCheck"| sandbox
-  routes -->|"createContainerSandbox"| sandbox
-  sandbox ==>|"docker run"| image
+  routes -->|"createSubmissionSandbox"| sandbox
+  sandbox ==>|"InvokeFunction in Sydney,<br/>or docker run locally"| image
   turn -->|"createMemoryQuizAnswerStore"| storage
   storage -->|"mergeObservations"| studentModel
   admin -->|"resolveModelChoice"| lm

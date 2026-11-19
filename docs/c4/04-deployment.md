@@ -1,11 +1,17 @@
-# C4 Deployment: current setup (localhost + Supabase cloud)
+# C4 Deployment
 
 > [C4 index](README.md) / Deployment (supplementary)
 
-This shows how the system runs today. The submission sandbox is a local container. ADR 0010 places
-that image on Lambda in Sydney; that adapter is not drawn, because it is not wired yet.
+The deployed server checks a submission by invoking the sandbox Lambda function in Sydney
+(`ap-southeast-2`). A developer machine with no function name still runs the same image locally.
+ADR 0011 records the Render service in Frankfurt; `render.yaml` still places that service in
+Singapore, and this view follows `render.yaml` for the server.
 
-Colours: blue is code in this repo, brown is an external service, teal is a database.
+## Developer machine
+
+`NUXT_SANDBOX_FUNCTION` is blank, so this server runs the `colearner-sandbox` image with Docker.
+That is the image the account owner pushes to the registry. Colours: blue is code in this repo,
+brown is an external service, teal is a database.
 
 ```mermaid
 flowchart TB
@@ -70,12 +76,13 @@ flowchart TB
 
 ## GitHub Actions
 
-Two workflows live in `.github/workflows/`. They run on GitHub after those files are on the default branch. Neither deploys the Nuxt server. The app still runs on a developer machine.
+Three workflows live in `.github/workflows/`. `check.yml` and `schema-push.yml` do not deploy the server. `deploy.yml` calls the Render deploy hook after Schema push and Check succeed on `main`. The service is described in `render.yaml`.
 
 | Workflow | When | What it runs | Credentials |
 |---|---|---|---|
 | `check.yml` | every pull request, and every push to `main` | In `web/`: `pnpm typecheck`, and `pnpm test` with `CHECK_SKIP_LIVE_SUPABASE=1`. Also `supabase db push --dry-run` against project ref `nopyjjyimtmvuucsirxb`, which does not write | `SUPABASE_ACCESS_TOKEN` for the dry-run only |
 | `schema-push.yml` | every push to `main`, queued, not cancelled mid-run | `supabase db push` for project ref `nopyjjyimtmvuucsirxb` (`VerifiableCoLearnerAgents`), without `--include-seed`. The CLI opens a temporary login role from the access token | `SUPABASE_ACCESS_TOKEN` |
+| `deploy.yml` | after Schema push succeeds on `main`, and only if Check for that commit also succeeded | Calls the Render deploy hook. A commit that is no longer the tip of `main` does not deploy | `RENDER_DEPLOY_HOOK` |
 
 `check.yml` skips the Vitest files that sign in to the shared project (`*boundary*.test.ts` and `conversation-storage.test.ts`). Those still run from `pnpm test` on a machine that has `web/.env`. Playwright rehearsal is not in either workflow. A red Check does not block a merge until someone with admin marks the `typecheck`, `test`, and `migrations` jobs as required status checks. See ADR 0007. The Vitest migration files replay SQL in PGlite from an empty database. The dry-run is the check against the migration history of the shared project.
 
@@ -85,14 +92,52 @@ Two workflows live in `.github/workflows/`. They run on GitHub after those files
 - **Playwright rehearsal.** `pnpm rehearsal` starts its own dev server on :3000 with `NUXT_MODEL=fake`
   and resets demo accounts in the same cloud project using the secret key.
 
-## Planned: the sandbox on Lambda
+## Deployed: the sandbox in Sydney
 
-ADR 0010 runs this same image as a Lambda function in Sydney (`ap-southeast-2`). The server in this diagram still starts the image with Docker on the machine that runs it. The Lambda adapter is not wired yet.
+The Render service in `render.yaml` sets `NUXT_SANDBOX_FUNCTION=colearner-sandbox` and
+`NUXT_SANDBOX_REGION=ap-southeast-2`. `createSubmissionSandbox` then invokes that function and
+uses the payload as the sandbox result. The function runs the image in `sandbox/`, in private
+subnets with no outbound route. Its role can write its own log group (kept for seven days) and
+the network interfaces Lambda needs to place it there. The server's access key is the IAM user
+`colearner-server`, which can only invoke that function. At most five submissions run at once;
+the sixth is told to try again in a moment and records no evidence. Terraform in `infra/sandbox`
+describes this, with state in an S3 bucket in Sydney (`infra/terraform-state`) and a budget
+alert at $50 a month. The account owner reviews and applies the plan. Nothing in preparing this
+change is applied to the account.
 
-Open questions that remain for the rest of the AWS move:
+```mermaid
+flowchart LR
+  classDef comp fill:#1f6fd0,stroke:#164f96,color:#ffffff
+  classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
+  linkStyle default stroke:#8b949e,stroke-width:1.5px
 
-- Where the Nitro server runs (container service, VM, or serverless) and which Nitro preset is used.
-  `nuxt.config.ts` sets none today.
+  subgraph render["Render web service: verifiable-co-learner"]
+    server["<b>Turn and admin server</b><br/>Nuxt, region in render.yaml"]:::comp
+  end
+
+  subgraph sydney["AWS ap-southeast-2 (Sydney)"]
+    direction TB
+    registry["<b>Registry</b><br/>colearner-sandbox image"]:::ext
+    sandbox["<b>Sandbox</b><br/>Lambda colearner-sandbox<br/>private subnets, no outbound route"]:::ext
+  end
+
+  server -->|"InvokeFunction: code and tests in,<br/>the report out"| sandbox
+  registry -->|"Image"| sandbox
+
+  style render fill:none,stroke:#8b949e,stroke-dasharray:5 4
+  style sydney fill:none,stroke:#8b949e,stroke-dasharray:5 4
+```
+
+| Node | Evidence in the repo |
+|---|---|
+| Render web service | `render.yaml` (`verifiable-co-learner`), `.github/workflows/deploy.yml` |
+| Sandbox function in Sydney | `infra/sandbox` (`ap-southeast-2`, `colearner-sandbox`), `web/server/sandbox/lambda.ts`, `render.yaml` (`NUXT_SANDBOX_FUNCTION`, `NUXT_SANDBOX_REGION`) |
+| Registry | `infra/sandbox` `aws_ecr_repository.sandbox`, image built from `sandbox/Dockerfile` |
+
+## Open questions that remain
+
+- Which Nitro preset the Render service uses. `nuxt.config.ts` sets none; `pnpm build` produces
+  the Node server `render.yaml` starts.
 - Whether Supabase stays as the managed cloud service or moves to AWS-hosted Postgres and auth.
   Moving off Supabase would change `web/server/storage/*`, `web/shared/student-id.ts`, the sign-in page
   and the RLS-based migrations, so it is a larger change than moving the server.
