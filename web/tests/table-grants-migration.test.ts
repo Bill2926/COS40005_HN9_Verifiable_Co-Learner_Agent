@@ -20,7 +20,12 @@ const olderTables = [
 
 const privileges = ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] as const
 
-it('revokes anon and authenticated privileges on the older tables', async () => {
+// A signed-in student reads their own conversation, under row level security (#231).
+function granted(table: string, role: string, privilege: string): boolean {
+  return role === 'authenticated' && privilege === 'SELECT' && (table === 'conversations' || table === 'messages')
+}
+
+it('revokes anon and authenticated privileges on the older tables, bar a student reading their conversation', async () => {
   const db = new PGlite()
   try {
     await db.exec(`
@@ -50,10 +55,15 @@ it('revokes anon and authenticated privileges on the older tables', async () => 
             'select has_table_privilege($1, $2, $3) as allowed',
             [role, `public.${table}`, privilege],
           )
-          expect(allowed.rows[0]?.allowed).toBe(false)
+          expect(allowed.rows[0]?.allowed).toBe(granted(table, role, privilege))
         }
         await db.exec(`set role ${role}`)
-        await expect(db.query(`select * from public.${table}`)).rejects.toMatchObject({ code: '42501' })
+        if (granted(table, role, 'SELECT')) {
+          expect((await db.query(`select * from public.${table}`)).rows).toEqual([])
+        }
+        else {
+          await expect(db.query(`select * from public.${table}`)).rejects.toMatchObject({ code: '42501' })
+        }
         await db.exec('reset role')
       }
 
