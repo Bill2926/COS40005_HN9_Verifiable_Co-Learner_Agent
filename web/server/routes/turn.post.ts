@@ -14,6 +14,7 @@ import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shie
 import { createSupabaseUnlockStore } from '../storage/supabase-unlock-store'
 import { verifyShieldForTurn } from '../verify-shield'
 import { createSupabaseActivityLog } from '../storage/supabase-activity-log'
+import { currentCodeVersion } from '../code-version'
 import { handleTurn, streamTurn, UnknownExerciseError } from '../turn/handle-turn'
 
 export default defineEventHandler(async (event) => {
@@ -65,6 +66,8 @@ export default defineEventHandler(async (event) => {
     courses: createSupabaseCourseStore(connection),
     courseId,
     activity: createSupabaseActivityLog(connection),
+    // The database sets the course history entry on insert. The commit is not in the database.
+    codeVersion: currentCodeVersion(),
   }
 
   try {

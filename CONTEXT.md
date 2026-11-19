@@ -214,7 +214,7 @@ The move the VerifyShield puts in place of a teacher move about a closed module 
 _Avoid_: refusal, decline
 
 **Decision log**:
-The record of every verdict the VerifyShield reached, with what it was proposed, what it knew (including the mastery threshold in force), the rule checks it made, the addressed agent of the turn, and whether it was switched on. It records the system, never the student's work.
+The record of every verdict the VerifyShield reached, with what it was proposed, what it knew (including the mastery threshold in force), the rule checks it made, the addressed agent of the turn, and whether it was switched on. Each decision carries a hash of its content and of the decision before it, so an edit can be detected, and it records the code version and the course history entry that were in force. It records the system, never the student's work.
 _Avoid_: audit log, history, evidence
 
 **Rule check**:

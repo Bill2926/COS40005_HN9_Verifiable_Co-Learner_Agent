@@ -32,6 +32,10 @@ export interface DecisionView {
   // The tools the agent called before its move. Absent on a Deskmate decision and on one recorded
   // before tool calls were kept.
   toolTrace?: readonly ToolCallRecord[]
+  // The commit the server was running, and the course history entry in force.
+  // Absent on a decision recorded before they were kept.
+  codeVersion?: string | null
+  courseHistoryId?: number | null
 }
 
 export interface ModelSettingsView {
@@ -67,6 +71,7 @@ export interface AdminPayload {
   model: ModelSettingsView
   verifyShieldOn: boolean
   decisions: DecisionView[]
+  chain: 'verified' | 'broken'
   students: AdminStudentView[]
 }
 
@@ -178,4 +183,14 @@ export function addressedText(agent: DecisionView['addressedAgent']): string {
 // The agent behind a decision, named as the student sees it.
 export function agentText(agent: AddressedAgent): string {
   return agentNames[agent]
+}
+
+// The commit recorded on a decision. One from before code versions were kept reads as not recorded.
+export function codeVersionText(version: string | null | undefined): string {
+  return version ? version : 'not recorded'
+}
+
+// The course history entry in force when the decision was recorded.
+export function courseHistoryText(id: number | null | undefined): string {
+  return id == null ? 'not recorded' : String(id)
 }

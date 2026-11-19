@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addressedText, agentText, drawerChecks, outcomeText, reasonText, toolCallsView } from '../app/admin/decisions'
+import { addressedText, agentText, codeVersionText, courseHistoryText, drawerChecks, outcomeText, reasonText, toolCallsView } from '../app/admin/decisions'
 
 const base = {
   outcome: 'ruled' as const,
@@ -89,6 +89,15 @@ describe('verdict drawer addressed agent', () => {
       note: 'The Teacher reached its 3-step limit before proposing a move, so it said nothing and the VerifyShield had nothing to rule on.',
       checks: [],
     })
+  })
+
+  it('names the code version and course history entry, or that they were not recorded', () => {
+    expect(codeVersionText('abc123')).toBe('abc123')
+    expect(codeVersionText(null)).toBe('not recorded')
+    expect(codeVersionText(undefined)).toBe('not recorded')
+    expect(courseHistoryText(12)).toBe('12')
+    expect(courseHistoryText(null)).toBe('not recorded')
+    expect(courseHistoryText(undefined)).toBe('not recorded')
   })
 
   it('words a ruling as its verdict, with the move a downgrade gave instead', () => {

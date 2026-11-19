@@ -36,6 +36,10 @@ export interface DecisionRecord {
   // The tools the agent called before this move, in order. Absent on a Deskmate decision and on a
   // record from before tool calls were recorded.
   toolTrace?: readonly ToolCallRecord[]
+  // The commit the server was running, and the course history entry in force.
+  // Absent on a decision recorded before they were kept.
+  codeVersion?: string | null
+  courseHistoryId?: number | null
 }
 
 export interface DecisionQuery {
@@ -43,9 +47,14 @@ export interface DecisionQuery {
   studentId?: string
 }
 
+// What the administrator sees of the hash chain: the hashes themselves stay in the database.
+export type DecisionChain = 'verified' | 'broken'
+
 export interface DecisionLogStore {
   append(record: DecisionRecord): Promise<void>
   list(query?: DecisionQuery): Promise<DecisionRecord[]>
+  // Verified when every stored decision still matches its own hash and the decision before it.
+  chain(): Promise<DecisionChain>
 }
 
 export function createMemoryDecisionLogStore(): DecisionLogStore {
@@ -69,6 +78,10 @@ export function createMemoryDecisionLogStore(): DecisionLogStore {
         })
         .slice(0, 100)
         .map(item => copyDecision(item.record))
+    },
+    // The in-memory log has no edit, so its chain is intact. The database is what an edit can break.
+    async chain() {
+      return 'verified'
     },
   }
 }
