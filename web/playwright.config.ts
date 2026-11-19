@@ -1,6 +1,10 @@
 import { defineConfig, devices } from '@playwright/test'
 
-const baseURL = 'http://localhost:3000'
+// REHEARSAL_URL points the rehearsal at a deployed site instead of its own dev
+// server. That site has to be running with NUXT_MODEL=fake, since the specs
+// assert on the scripted sentences.
+const publicURL = process.env.REHEARSAL_URL?.trim().replace(/\/+$/, '')
+const baseURL = publicURL || 'http://localhost:3000'
 
 export default defineConfig({
   testDir: './e2e',
@@ -26,13 +30,15 @@ export default defineConfig({
   // live model from `pnpm dev`, and a choice saved on /admin overrides the
   // environment. These tests assert on the exact scripted sentences, so a
   // reused server or a saved record would test the wrong thing.
-  webServer: {
-    command: 'pnpm dev --port 3000 --strictPort --no-tui',
-    url: `${baseURL}/sign-in`,
-    reuseExistingServer: false,
-    timeout: 120_000,
-    env: {
-      NUXT_MODEL: 'fake',
-    },
-  },
+  webServer: publicURL
+    ? undefined
+    : {
+        command: 'pnpm dev --port 3000 --strictPort --no-tui',
+        url: `${baseURL}/sign-in`,
+        reuseExistingServer: false,
+        timeout: 120_000,
+        env: {
+          NUXT_MODEL: 'fake',
+        },
+      },
 })

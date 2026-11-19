@@ -4,6 +4,7 @@
 
 The public site is the Vercel project `cos40005-hn9-verifiable-co-learner-agent`
 (`cos40005-hn9-verifiable-co-learner.vercel.app`). Vercel builds the Nuxt app on each push to `main`.
+Its functions run in Frankfurt (`fra1`, set in `web/vercel.json`), next to the Supabase project in Ireland.
 The deployed server checks a submission by invoking the sandbox Lambda function in Sydney
 (`ap-southeast-2`). A developer machine with no function name still runs the same image locally.
 
@@ -88,8 +89,25 @@ Two workflows live in `.github/workflows/`. Neither deploys the server. Vercel d
 ## Not part of the current setup
 
 - **Local Supabase stack.** `supabase/config.toml` records the local Auth rules: sign-up off, email confirmation on, an email change confirmed by both addresses, anonymous sign-in off, and manual linking off. No code or env file points the running app at this stack.
-- **Playwright rehearsal.** `pnpm rehearsal` starts its own dev server on :3000 with `NUXT_MODEL=fake`
-  and resets demo accounts in the same cloud project using the secret key.
+- **Playwright rehearsal in CI.** `pnpm rehearsal` starts its own dev server on :3000 with `NUXT_MODEL=fake`
+  and resets demo accounts in the same cloud project using the secret key. No workflow runs it.
+
+## Rehearsal against the public URL
+
+`REHEARSAL_URL=<public URL> pnpm rehearsal:public` runs `web/e2e/public-rehearsal.spec.ts` against the
+deployed site instead of starting a dev server. The spec signs in as An, agrees to the learning plan,
+fails the sandbox check three times so the Teacher revises the plan, reloads, passes without a run so the
+lecturer's review page shows a signal, has An refused Bình's review, and sends turns until the 60-turn
+limit answers. It needs the site to run the scripted agents (`NUXT_MODEL=fake`, or `fake` saved on
+`/admin`), `web/.env` with the Supabase secret key and the lecturer password on the machine that runs it, and the
+sandbox function set on the site. Put the saved model choice back to the real one afterwards.
+
+The account owner does these steps. The change does not do them:
+
+1. Confirm the Vercel project's function region is Frankfurt (`web/vercel.json` sets `fra1`) and that its root
+   directory is `web`, so the file is read.
+2. Apply the sandbox in `infra/sandbox`, and give the Vercel project its function name and access key.
+3. In Supabase Auth, add the public URL to Site URL and Redirect URLs.
 
 ## Deployed: the sandbox in Sydney
 
