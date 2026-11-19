@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, it } from 'vitest'
 import { markdownReport, runBenchmark } from './run'
 
-it('records all 25 prompt pairs and preserves their expected verdicts', async () => {
+it('records all 29 prompt pairs and preserves their expected verdicts', async () => {
   const report = await runBenchmark()
   const directory = new URL('./results/', import.meta.url)
   await mkdir(directory, { recursive: true })

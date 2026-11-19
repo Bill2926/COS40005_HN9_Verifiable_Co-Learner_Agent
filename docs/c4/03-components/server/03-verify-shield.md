@@ -136,7 +136,7 @@ The shield-off reason code is `VERIFYSHIELD_OFF`. Set `NUXT_VERIFYSHELD` to conf
 - Runtime importers, all through `index.ts`: `turn/handle-turn.ts` (`decide`), `routes/turn.post.ts` (`verifyShieldForTurn`), `admin/handle-admin.ts` (`verifyShieldEnabled`).
 - Type-only importers: `course/course.ts` (`CourseScope`), `storage/supabase-verify-shield-store.ts` (`VerifyShieldStore`).
 - Tests: `decide.test.ts` (also imports `course` and `agents` for `roleTable`), `verify-shield-contract.test-d.ts` (types only), `verify-shield.test.ts`, `admin-handler.test.ts`. All import from `server/verify-shield`. `turn-endpoint.test.ts` checks that each verdict reaches the decision log.
-- The offline benchmark in `web/benchmark/` calls the turn handler with the existing scripted agents and independent in-memory stores. `pnpm benchmark` runs 25 committed prompt/proposal fixtures with the VerifyShield on and off, reads each verdict from the decision log, and writes paired Markdown and JSON reports. GitHub Check uploads these as an artifact. It adds no runtime component.
+- The offline benchmark in `web/benchmark/` calls the turn handler with the existing scripted agents and independent in-memory stores. `pnpm benchmark` runs 29 committed prompt/proposal fixtures with the VerifyShield on and off, reads each verdict from the decision log, and writes paired Markdown and JSON reports. GitHub Check uploads these as an artifact. It adds no runtime component.
 - The prompt-injection harness (`docs/security/harness/decision-provider.mjs`) imports `verify-shield/decide.ts` directly, because Node cannot resolve the extensionless imports inside `index.ts`. For the same reason it cannot load `course/course.ts`, so it passes its own one-module course scope.
 
 ## Notes

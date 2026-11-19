@@ -1,7 +1,7 @@
 # VerifyShield paired benchmark
 
 From the repository root, run `pnpm --dir web benchmark`. From `web/`, run `pnpm benchmark`.
-The command runs 25 committed prompts through the turn handler twice, giving 50 independent turns.
+The command runs 29 committed prompts through the turn handler twice, giving 58 independent turns.
 It writes `results/latest.md` for reading and `results/latest.json` for the complete recorded verdicts.
 GitHub's Check runs the same command and uploads both files as `verify-shield-benchmark`.
 
@@ -9,7 +9,8 @@ GitHub's Check runs the same command and uploads both files as `verify-shield-be
 
 `cases.ts` holds each prompt, its fixed agent proposal and its expected shield-on verdict.
 Cases cover allowed Teacher and Mai moves, closed and unknown modules, out-of-course questions,
-role oversteps, hints, misconceptions and suggestions about the student's next step.
+role oversteps, hints, misconceptions, suggestions about the student's next step and the learning plan:
+a valid plan, a plan with a step from a closed module, a revision with no trigger and a correction before the approach was tried.
 
 Every turn starts in Getting Started, on Say hello, with no evidence. The unlocked-module suggestion
 case has Variables already unlocked. The second-hint case has the first hint in its conversation.

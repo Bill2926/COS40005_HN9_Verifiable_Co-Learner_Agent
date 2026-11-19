@@ -93,7 +93,7 @@ pnpm typecheck   # type checking
 pnpm rehearsal   # end-to-end demo rehearsal (Playwright, Chromium)
 ```
 
-Run the fixed 25-prompt VerifyShield comparison with `pnpm benchmark`. It writes paired verdicts to
+Run the fixed 29-prompt VerifyShield comparison with `pnpm benchmark`. It writes paired verdicts to
 `web/benchmark/results/latest.md` and `latest.json`. The [benchmark guide](web/benchmark/README.md)
 describes its scripted proposals, starting states and the recorded Sprint 1 demo prompt.
 

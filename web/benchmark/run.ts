@@ -1,6 +1,8 @@
 import { isDeepStrictEqual } from 'node:util'
 import { createFakeAgents, moveKey, proposalSchema } from '../server/agents'
 import { createMemoryConversationStore } from '../server/storage/conversation-store'
+import { createMemoryActivityLog } from '../server/activity-recorder'
+import { createMemoryLearningPlanStore } from '../server/storage/learning-plan-store'
 import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/storage/decision-log'
 import { createMemoryQuizAnswerStore } from '../server/storage/quiz-answer-store'
 import { createMemoryEvidenceStore, createMemoryUnlockStore } from '../server/student-model'
@@ -30,6 +32,7 @@ export interface BenchmarkReport {
   results: BenchmarkResult[]
 }
 
+const expectedCaseCount = 29
 const studentId = 'benchmark-student'
 const moduleId = 'getting_started'
 const exerciseId = 'say_hello'
@@ -51,6 +54,13 @@ async function runCase(fixture: BenchmarkCase, verifyShieldOn: boolean): Promise
     { proposal: fixture.agent === 'teacher' ? fixture.proposal : null, text: 'Scripted teacher reply.' },
     { proposal: fixture.agent === 'deskmate' ? fixture.proposal : null, text: 'Scripted Mai reply.' },
   )
+  const plans = createMemoryLearningPlanStore()
+  if (fixture.plan) {
+    await plans.append(studentId, {
+      moduleId, revision: 1, steps: fixture.plan, currentStep: 0,
+      agreedAt: new Date(Date.now() - 3_600_000).toISOString(), trigger: null, decisionTurnId: null,
+    })
+  }
   const quizAnswers = createMemoryQuizAnswerStore()
   if (fixture.priorQuizAnswer) {
     await quizAnswers.record({ studentId, moduleId, ...fixture.priorQuizAnswer })
@@ -58,7 +68,8 @@ async function runCase(fixture: BenchmarkCase, verifyShieldOn: boolean): Promise
   const state = await handleTurn({
     sessionStudentId: studentId,
     body: { event: 'message', text: fixture.prompt, addressedAgent: fixture.agent },
-  }, store, agents, { verifyShieldOn, decisions, unlocks, evidence: createMemoryEvidenceStore(), quizAnswers })
+  }, store, agents, { verifyShieldOn, decisions, unlocks, evidence: createMemoryEvidenceStore(), quizAnswers,
+    plans, activity: createMemoryActivityLog() })
 
   const rows = await decisions.list()
   const record = rows[0]
@@ -74,8 +85,8 @@ async function runCase(fixture: BenchmarkCase, verifyShieldOn: boolean): Promise
 }
 
 export async function runBenchmark(): Promise<BenchmarkReport> {
-  if (benchmarkCases.length !== 25 || new Set(benchmarkCases.map(item => item.id)).size !== 25) {
-    throw new Error('The benchmark requires exactly 25 uniquely named committed prompts.')
+  if (benchmarkCases.length !== expectedCaseCount || new Set(benchmarkCases.map(item => item.id)).size !== expectedCaseCount) {
+    throw new Error(`The benchmark requires exactly ${expectedCaseCount} uniquely named committed prompts.`)
   }
   const failures: string[] = []
   const results: BenchmarkResult[] = []
