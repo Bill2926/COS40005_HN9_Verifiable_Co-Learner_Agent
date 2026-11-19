@@ -192,7 +192,14 @@ def supervise(payload):
             os._exit(0)
         except MemoryError:
             os._exit(2)
-        except Exception:
+        except Exception as exc:
+            try:
+                os.write(1, json.dumps({
+                    "outcome": "refused",
+                    "message": f"This submission could not be checked. ({type(exc).__name__}: {exc})",
+                }).encode())
+            except Exception:
+                pass
             os._exit(1)
     os.close(write_fd)
     chunks = []

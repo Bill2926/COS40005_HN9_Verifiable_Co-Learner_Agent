@@ -32,8 +32,8 @@ def confine():
     resource.setrlimit(resource.RLIMIT_NOFILE, (32, 32))
     resource.setrlimit(resource.RLIMIT_FSIZE, (8 * 1024 * 1024, 8 * 1024 * 1024))
     if IN_IMAGE:
-        # Per the nobody user this child just became, so the parent's processes do not count.
-        resource.setrlimit(resource.RLIMIT_NPROC, (16, 16))
+        # A process cap here counts every process of this user on the machine, so a
+        # small cap stops the sandbox's own fork. The container's pid limit is the cap.
         resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
 
 

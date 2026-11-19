@@ -19,7 +19,8 @@ export function sandboxIsolationFlags(): string[] {
     '--tmpfs', '/tmp:rw,nosuid,size=16m',
     '--memory', `${sandboxMemoryMb}m`,
     '--memory-swap', `${sandboxMemoryMb}m`,
-    '--pids-limit', '64',
+    // Enough for the runner and the student process, not enough for an unlimited fork.
+    '--pids-limit', '32',
     '--security-opt', 'no-new-privileges',
   ]
 }
