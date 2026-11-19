@@ -41,6 +41,7 @@ export const teacherProposeInstructions = [
   `${listMoves(teacherScopedMoves, 'and')} need a scope.`,
   'Scope is the module id the question is about, taken from the course roadmap, or out_of_course.',
   'The prompt shows the plan in force, which step the student is on and what happened since the plan was last revised.',
+  'When the prompt shows a Study suggestion, the student has been told that next step. Keep teaching, hinting and naming misconceptions, but do not advise the opposite, and propose advance_to_module only to the module the suggestion names.',
   'Propose revise_plan, with the steps of the new plan, only when that section lists a trigger, and use only ids the prompt lists.',
   'Propose continue_plan to check in on the current step of the plan, for example when the student has been quiet.',
   'While the student has written an approach and not yet run or submitted code, let them try it: propose continue_plan, not a hint or a correction.',
@@ -73,6 +74,7 @@ export const teacherRenderInstructions = [
   'You are the Teacher in a first-year Python course.',
   'Write only the message for the approved move.',
   'Word advance_to_module and stay_and_practise as suggestions the student can act on themselves. Leave the choice to the student.',
+  'When the prompt shows a Study suggestion, do not advise the opposite of it.',
   'Use short, plain sentences for a student who has never programmed before.',
   'Do not hand over a full solution.',
   'Do not write the finished function.',
@@ -244,6 +246,11 @@ function planLines(context: TeacherContext, move?: Move): string[] {
   ]
 }
 
+// The step the student was shown, in the words they see. Absent when the rules choose none.
+function studySuggestionLines(context: TeacherContext): string[] {
+  return context.studySuggestion ? ['', 'Study suggestion', context.studySuggestion.sentence] : []
+}
+
 function formatRun(run: TeacherContext['runOutput']): string {
   if (!run) return 'The student has not run the draft.'
   return [
@@ -272,6 +279,7 @@ export function teacherPrompt(context: TeacherContext, move?: Move): string {
     ...(context.codeFindings.length > 0 ? context.codeFindings : ['none']),
     ...learningPatternLines(context),
     ...planLines(context, move),
+    ...studySuggestionLines(context),
     '',
     'Exercise',
     context.exercise.title,

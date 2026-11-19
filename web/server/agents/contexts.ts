@@ -80,6 +80,10 @@ export interface TeacherContext {
     // The student wrote their approach and has run or submitted nothing since.
     approachAwaitingTry: boolean
   } | null
+  // The one next step the fixed rules chose from the student's activity log, in the words the
+  // student sees, and the module it names; null when no situation is true. The Teacher must not
+  // advise the opposite. The Deskmate's context never carries it.
+  studySuggestion: { sentence: string, moduleId: string } | null
 }
 
 export interface DeskmateContext {

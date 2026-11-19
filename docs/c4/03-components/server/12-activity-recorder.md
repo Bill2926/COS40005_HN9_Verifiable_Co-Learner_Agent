@@ -1,6 +1,6 @@
 # Component: activity recorder
 
-The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and only the [staff review](15-staff-review.md) page lists it, to a lecturer or an administrator. The same interface reads one student's events back, oldest first (`forStudent`), for the [learning pattern](16-learning-pattern.md); the turn handler is the only server reader.
+The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and only the [staff review](15-staff-review.md) page lists it, to a lecturer or an administrator. The same interface reads one student's events back, oldest first (`forStudent`), for the [learning pattern](16-learning-pattern.md) and the [study suggestion](18-study-suggestion.md); the turn handler is the only server reader. Each `ActivityRow` carries the log's own `id` (a larger id is a later row; the database's identity column, a counter in memory) and the `courseId` the event was about, so a reader can keep one course's rows and order them as the log did.
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 

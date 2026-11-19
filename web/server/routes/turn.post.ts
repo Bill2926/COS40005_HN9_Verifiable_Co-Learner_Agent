@@ -8,6 +8,7 @@ import { createSupabaseDailyTurnAllowance } from '../storage/supabase-daily-turn
 import { createSupabaseDeskmateSettingStore } from '../storage/supabase-deskmate-setting-store'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
 import { createSupabaseLearningPlanStore } from '../storage/supabase-learning-plan-store'
+import { createSupabaseStudySuggestionStore } from '../storage/supabase-study-suggestion-store'
 import { createSupabaseEvidenceStore } from '../storage/supabase-evidence-store'
 import { createSupabaseMasteryStore } from '../storage/supabase-mastery-store'
 import { createSupabaseQuizAnswerStore } from '../storage/supabase-quiz-answer-store'
@@ -74,6 +75,7 @@ export default defineEventHandler(async (event) => {
     activity: createSupabaseActivityLog(connection),
     submissions: createSupabaseSubmissionStore(studentData),
     plans: createSupabaseLearningPlanStore(studentData),
+    studySuggestions: createSupabaseStudySuggestionStore(studentData),
     sandbox: createSubmissionSandbox({
       functionName: config.sandboxFunction,
       region: config.sandboxRegion,
@@ -127,5 +129,5 @@ function isNavigationTurn(input: unknown): boolean {
   return typeof input === 'object'
     && input !== null
     && 'event' in input
-    && (input.event === 'select_exercise' || input.event === 'preview_module' || input.event === 'quiz_answer' || input.event === 'deskmate_switch' || input.event === 'plan_start')
+    && (input.event === 'select_exercise' || input.event === 'preview_module' || input.event === 'quiz_answer' || input.event === 'deskmate_switch' || input.event === 'plan_start' || input.event === 'dismiss_study_suggestion')
 }

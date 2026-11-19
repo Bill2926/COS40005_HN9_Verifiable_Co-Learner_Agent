@@ -36,6 +36,7 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
     planInForce: false,
     planTriggers: [],
     approachAwaitingTry: false,
+    studyStepModuleId: null,
     ...overrides,
   }
 }
@@ -430,6 +431,39 @@ describe('decide', () => {
       reasonCode: 'ADVANCE_TO_CURRENT',
       move: { type: 'stay_and_practise' },
     }])
+  })
+
+  it('downgrades an advance to another module while the study step keeps the student on this one', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'strings' } }],
+      snapshot({ unlockedModuleIds: ['strings', 'loops'], studyStepModuleId: 'loops', studentMessage: 'Should I revisit strings?' }),
+      roleTable,
+      course,
+    )).toMatchObject([{
+      decision: 'downgrade',
+      ruleId: 'advance_follows_study_step',
+      reasonCode: 'ADVANCE_AGAINST_STUDY_STEP',
+      move: { type: 'stay_and_practise' },
+    }])
+  })
+
+  it('allows an advance to the open module the study step already names', () => {
+    const move = { type: 'advance_to_module' as const, moduleId: 'strings' }
+    expect(decide(
+      [{ agent: 'teacher', move }],
+      snapshot({ unlockedModuleIds: ['strings', 'loops'], studyStepModuleId: 'strings', studentMessage: 'Should I go back?' }),
+      roleTable,
+      course,
+    )).toMatchObject([{ decision: 'allow', move }])
+  })
+
+  it('downgrades an advance to any other module than the one the study step names', () => {
+    expect(decide(
+      [{ agent: 'teacher', move: { type: 'advance_to_module', moduleId: 'strings' } }],
+      snapshot({ unlockedModuleIds: ['strings', 'loops', 'variables'], studyStepModuleId: 'variables', studentMessage: 'Next?' }),
+      roleTable,
+      course,
+    )).toMatchObject([{ decision: 'downgrade', move: { type: 'stay_and_practise' } }])
   })
 
   it('allows an advance aimed at another open module', () => {

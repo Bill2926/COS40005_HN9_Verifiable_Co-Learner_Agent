@@ -71,6 +71,7 @@ so leaving one out is a type error rather than a rule that silently does not run
 | `shownMisconceptionIds` | The misconceptions the student's work shows: the findings kept with their latest submission for the placed exercise, plus the misconception ids of their wrong quiz answers, worked out by `handle-turn.ts`. | Rule 11 |
 | `planTargets` | What the placed module holds: how many material blocks, and the ids of its exercises, quiz questions and misconception responses. | Rules 13 and 14 |
 | `weakSpotMisconceptionIds` | The misconception ids the learning pattern calls weak spots for this student. | Rule 14 |
+| `studyStepModuleId` | The module the [study suggestion](18-study-suggestion.md) names, or null when the rules choose no step. | Rule 8a |
 
 `verify-shield-contract.test-d.ts` holds the contract at the type level; `vitest run` checks it with `tsc` through
 `web/tsconfig.type-tests.json`.
@@ -90,6 +91,7 @@ code that depends on Supabase stays in one place. It imports only the `VerifyShi
 | 6 | `scope_in_course` | `SCOPE_UNKNOWN` | Teaching move whose scope is neither a module of the course nor `out_of_course`, i.e. a scope the model invented: downgrade to `redirect_to_module` toward `out_of_course`, so the log matches what the student is told. |
 | 7 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | Teaching move whose scope is a course module that is not unlocked: downgrade to redirect. |
 | 8 | `advance_known_module` | `ADVANCE_UNKNOWN_MODULE` | `advance_to_module` toward a module the course does not have: block, so the Teacher says nothing for that move. |
+| 8a | `advance_follows_study_step` | `ADVANCE_AGAINST_STUDY_STEP` | `advance_to_module` while the study suggestion names a module (`studyStepModuleId`) and the proposal targets a different one: downgrade to `stay_and_practise`. A step that stays on the current module therefore turns every advance into a suggestion to keep practising; a step that names another unlocked module lets an advance to that module stand. With no step the rule does not run and advance is ruled as before. |
 | 9 | `advance_not_current_module` | `ADVANCE_TO_CURRENT` | `advance_to_module` toward the module the student is already placed on: downgrade to `stay_and_practise`, so the suggestion makes sense. |
 | 10 | `scope_requires_unlocked_module` | `MODULE_CLOSED` | `advance_to_module` toward a module the course has but the student has not unlocked: downgrade to redirect. |
 | 11 | `misconception_shown` | `MISCONCEPTION_NOT_SHOWN` | Teacher `address_misconception` whose id is not in `shownMisconceptionIds`: downgrade to `answer_question` on the student's own module (`moduleId`, whatever scope the proposal named). Not a block, so the Teacher still answers while the student is wrong, and only a claim the student's code or quiz answers support stands. The scope rules run first, so an invented id on a closed module still redirects. |
@@ -114,6 +116,7 @@ after the deciding one are not evaluated and do not appear. A rule that passed i
 | `scope_in_course` | `IN_COURSE` |
 | `scope_requires_unlocked_module` | `MODULE_UNLOCKED` |
 | `advance_known_module` | `MODULE_KNOWN` |
+| `advance_follows_study_step` | `FOLLOWS_STUDY_STEP` (only when a step is chosen) |
 | `advance_not_current_module` | `NOT_CURRENT_MODULE` |
 | `misconception_shown` | `MISCONCEPTION_SHOWN` |
 | `hint_ladder` | `HINT_IN_ORDER` |

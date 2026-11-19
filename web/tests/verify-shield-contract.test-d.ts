@@ -25,6 +25,7 @@ describe('VerifyShield snapshot contract', () => {
       planInForce: boolean
       planTriggers: readonly string[]
       approachAwaitingTry: boolean
+      studyStepModuleId: string | null
     }>()
   })
 
