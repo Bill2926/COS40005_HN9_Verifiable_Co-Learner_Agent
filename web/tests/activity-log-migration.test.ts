@@ -91,7 +91,7 @@ it('lets neither anon nor authenticated read, update or delete an activity row',
 
 it('accepts a finished run, a paste and going quiet, and still refuses code', async () => {
   await withActivityMigration(async (db) => {
-    const migration = '20261119133000_activity_run_paste_and_idle.sql'
+    const migration = '20261119063919_activity_run_paste_and_idle.sql'
     await db.exec(await readFile(new URL(migration, migrations), 'utf8'))
     await db.exec('set role service_role')
     const reports = [
