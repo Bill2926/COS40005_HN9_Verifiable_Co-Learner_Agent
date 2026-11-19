@@ -1,7 +1,9 @@
 import { modelAddressLocked, resolveModelChoice, testConnection, UnusableSettingsError, type ConnectionReport, type ModelSettings } from '../language-model'
 import type { DecisionChain, DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
+import type { StaffAccessLog } from '../storage/staff-access-log'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
+import type { StaffAccessEntry } from '../../shared/staff-review'
 import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
 import { campusRule, isCampus, type Campus } from '../../shared/campus'
 import { isStudentNumber, studentNumberRule } from '../../shared/student-number'
@@ -68,6 +70,8 @@ export interface AdminRequest {
   verifyShield?: VerifyShieldStore
   verifyShieldEnv?: string
   students?: StudentDirectoryStore
+  // Who opened which student's records. Only an administrator reads it (ADR 0009).
+  accessLog?: StaffAccessLog
   // Set by tests. A production server leaves it unset and the address stays locked.
   production?: boolean
   body: unknown
@@ -80,6 +84,8 @@ export interface AdminResponse {
   // The hash chain, and only whether it still holds. The broken row stays in the database command.
   chain: DecisionChain
   students: AdminStudent[]
+  // The newest staff openings of a student's records; only the access log page asks for them.
+  staffAccess: StaffAccessEntry[]
 }
 
 // The answer to a role check: reaching it at all means the caller is an administrator.
@@ -164,6 +170,7 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
     decisions: request.decisions ? await request.decisions.list(decisionQuery(request.body)) : [],
     chain: request.decisions ? await request.decisions.chain() : 'verified',
     students: wantsDirectory(request.body) && request.students ? await request.students.list() : [],
+    staffAccess: wantsStaffAccess(request.body) && request.accessLog ? await request.accessLog.list(staffAccessShown) : [],
   }
 }
 
@@ -172,6 +179,13 @@ function wantsDirectory(body: unknown): boolean {
   if (typeof body !== 'object' || body === null) return false
   return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus')
 }
+
+// Only the access log page asks for it.
+function wantsStaffAccess(body: unknown): boolean {
+  return typeof body === 'object' && body !== null && 'event' in body && body.event === 'staffAccessLog'
+}
+
+const staffAccessShown = 200
 
 // The administrator may correct a number to SWB followed by at least four
 // digits. Whether the number is free is the store's decision.

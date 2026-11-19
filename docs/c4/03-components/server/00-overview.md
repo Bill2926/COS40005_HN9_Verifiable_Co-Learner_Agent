@@ -35,6 +35,7 @@ flowchart LR
     lecturer["<b>lecturer</b><br/>Lecturer handler"]:::comp
     student["<b>student</b><br/>Profile and reported actions"]:::comp
     activity["<b>activity recorder</b><br/>Append-only activity log"]:::comp
+    staffReview["<b>staff-review</b><br/>Review of one student, signals"]:::comp
     sandbox["<b>sandbox</b><br/>Re-runs a submission"]:::comp
     shared["<b>shared</b><br/>Session helpers, types"]:::comp
   end
@@ -49,6 +50,9 @@ flowchart LR
   routes -->|"handleTurn, streamTurn"| turn
   routes -->|"handleAdmin"| admin
   routes -->|"GET /api/lecturer · handleLecturer"| lecturer
+  routes -->|"GET /api/staff/review · handleStaffReview"| staffReview
+  staffReview -->|"defaultCourseId"| course
+  staffReview -.->|"StaffReviewStore, StaffAccessLog"| storage
   routes -->|"handleStudent"| student
   student -->|"isNoteColour"| shared
   storage -->|"activityPayload"| activity
@@ -101,6 +105,7 @@ flowchart LR
 | activity recorder | `web/server/activity-recorder/` | [server/12-activity-recorder.md](12-activity-recorder.md) |
 | agent-tools | `web/server/agent-tools/` | [server/13-agent-tools.md](13-agent-tools.md) |
 | sandbox | `web/server/sandbox/` | [server/14-sandbox.md](14-sandbox.md) |
+| staff-review | `web/server/staff-review/` | [server/15-staff-review.md](15-staff-review.md) |
 | shared | `web/shared/` | [shared.md](../shared.md) |
 
 ## Type-only imports (not drawn)
@@ -113,7 +118,8 @@ flowchart LR
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |
 | agents | shared, language-model, storage | `PracticeTestResult`, `RunOutput`, `ModuleMaterials` (in `contexts.ts`); `LanguageModel`, `ModelSettings`; `ModelSettingsStore` |
 | storage | verify-shield, student-model, language-model, activity recorder | `VerifyShieldStore`; `EvidenceStore`, `EvidenceRow`, `TimedObservation`; `ModelSettings`, `ModelSettingsStore`; `ActivityRecorder` |
-| admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`; `ModelSettings`; `VerifyShieldStore` |
+| admin | storage, language-model, verify-shield | `DecisionLogStore`, `ModelSettingsStore`, `StaffAccessLog`; `ModelSettings`; `VerifyShieldStore` |
+| staff-review | storage, shared | `StaffReviewStore`, `StaffAccessLog`; `StaffReview` and its parts |
 
 Neither graph has a cycle. language-model imports nothing from agents: agents passes it the proposal schema as an
 argument, so the move set is known only to agents.

@@ -1,0 +1,58 @@
+import type {
+  ReviewConversation,
+  ReviewedStudent,
+  ReviewEvent,
+  ReviewSubmission,
+} from '../../shared/staff-review'
+
+// What the review page reads about one student. Every read here runs with the
+// server's secret key, so who may call it is decided before it, in the
+// staff-review component, never by this store.
+
+export interface StaffReviewStudent extends ReviewedStudent {
+  id: string
+}
+
+export interface StaffReviewStore {
+  studentByNumber: (studentNumber: string) => Promise<StaffReviewStudent | null>
+  // The course this lecturer owns that the student is enrolled in, or null.
+  ownedCourseOf: (lecturerEmail: string, studentId: string) => Promise<string | null>
+  // The student's activity in the course, oldest first.
+  activity: (studentId: string, courseId: string) => Promise<ReviewEvent[]>
+  submissions: (studentId: string, courseId: string) => Promise<ReviewSubmission[]>
+  conversations: (studentId: string, courseId: string) => Promise<ReviewConversation[]>
+}
+
+export interface MemoryStaffReviewData {
+  students: readonly StaffReviewStudent[]
+  // Lecturer email -> course -> enrolled student ids.
+  courses: readonly { id: string, ownerEmail: string, enrolled: readonly string[] }[]
+  activity?: Readonly<Record<string, readonly ReviewEvent[]>>
+  submissions?: Readonly<Record<string, readonly ReviewSubmission[]>>
+  conversations?: Readonly<Record<string, readonly ReviewConversation[]>>
+}
+
+export function createMemoryStaffReviewStore(data: MemoryStaffReviewData): StaffReviewStore {
+  return {
+    async studentByNumber(studentNumber) {
+      const student = data.students.find(candidate => candidate.studentNumber === studentNumber)
+      return student ? { ...student } : null
+    },
+    async ownedCourseOf(lecturerEmail, studentId) {
+      const course = data.courses.find(candidate => candidate.ownerEmail === lecturerEmail && candidate.enrolled.includes(studentId))
+      return course?.id ?? null
+    },
+    async activity(studentId) {
+      return (data.activity?.[studentId] ?? []).map(event => ({ ...event, payload: { ...event.payload } }))
+    },
+    async submissions(studentId) {
+      return (data.submissions?.[studentId] ?? []).map(submission => ({ ...submission }))
+    },
+    async conversations(studentId) {
+      return (data.conversations?.[studentId] ?? []).map(conversation => ({
+        moduleId: conversation.moduleId,
+        messages: conversation.messages.map(message => ({ ...message })),
+      }))
+    },
+  }
+}
