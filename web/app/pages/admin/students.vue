@@ -17,6 +17,8 @@ const { data, error, refresh } = await useAsyncData(
 
 const drafts = reactive<Record<string, string>>({})
 const saving = ref<string | null>(null)
+// The student whose delete button was pressed once; a second press confirms it.
+const confirming = ref<string | null>(null)
 const changeError = ref('')
 const notice = ref('')
 const inputClass = 'min-h-11 rounded-sm px-[13px] py-[9px] text-base/6 md:min-h-0 md:text-sm/5'
@@ -44,6 +46,29 @@ async function changeCampus(studentId: string, campus: string) {
     changeError.value = messageFrom(caught, 'The campus could not be changed.')
   }
   finally {
+    saving.value = null
+  }
+}
+
+async function deleteStudent(studentId: string, displayName: string) {
+  if (saving.value) return
+  changeError.value = ''
+  notice.value = ''
+  if (confirming.value !== studentId) {
+    confirming.value = studentId
+    return
+  }
+  saving.value = studentId
+  try {
+    await $fetch('/api/admin', { method: 'POST', body: { event: 'deleteStudent', studentId } })
+    await refresh()
+    notice.value = `${displayName} and every record of theirs were deleted.`
+  }
+  catch (caught) {
+    changeError.value = messageFrom(caught, 'The student could not be deleted.')
+  }
+  finally {
+    confirming.value = null
     saving.value = null
   }
 }
@@ -140,6 +165,9 @@ async function changeNumber(studentId: string) {
                   <th scope="col" class="px-3 py-2 font-medium">
                     New number
                   </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    Delete
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -213,6 +241,34 @@ async function changeNumber(studentId: string) {
                       </UButton>
                     </form>
                   </td>
+                  <td class="px-3 py-3">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <UButton
+                        type="button"
+                        size="lg"
+                        variant="outline"
+                        color="error"
+                        :disabled="saving !== null"
+                        :loading="saving === student.id"
+                        :aria-label="confirming === student.id ? `Confirm deleting ${student.displayName} and every record of theirs` : `Delete ${student.displayName}`"
+                        class="min-h-11 rounded-sm px-4 py-2.5 text-sm font-medium md:min-h-0"
+                        @click="deleteStudent(student.id, student.displayName)"
+                      >
+                        {{ confirming === student.id ? 'Delete everything' : 'Delete' }}
+                      </UButton>
+                      <UButton
+                        v-if="confirming === student.id && saving === null"
+                        type="button"
+                        size="lg"
+                        variant="ghost"
+                        color="neutral"
+                        class="min-h-11 rounded-sm px-4 py-2.5 text-sm md:min-h-0"
+                        @click="confirming = null"
+                      >
+                        Keep
+                      </UButton>
+                    </div>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -220,6 +276,8 @@ async function changeNumber(studentId: string) {
           <p class="text-xs leading-4 text-muted">
             A student number is SWB followed by at least four digits and is unique across the system.
             A number that has been used before cannot be given out again.
+            Deleting a student removes their account, submissions, learning plans, activity, conversations and the
+            record of who opened their work. It cannot be undone, and no other student is touched.
           </p>
         </section>
       </template>

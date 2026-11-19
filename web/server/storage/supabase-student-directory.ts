@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { CampusChangeResult, StudentDirectoryStore, StudentNumberChangeResult } from './student-directory'
+import type { CampusChangeResult, DeleteStudentResult, StudentDirectoryStore, StudentNumberChangeResult } from './student-directory'
 
 export function createSupabaseStudentDirectoryStore({ url, secretKey }: {
   url: string
@@ -22,6 +22,24 @@ export function createSupabaseStudentDirectoryStore({ url, secretKey }: {
         email: row.email,
         campus: row.campus,
       }))
+    },
+    async deleteStudent(studentId) {
+      // The files go first: the records name nothing that could find them afterwards.
+      const files = supabase.storage.from('student-files')
+      const paths: string[] = []
+      for (const folder of [studentId, `${studentId}/notes`]) {
+        const listed = await files.list(folder, { limit: 1000 })
+        if (listed.error) throw new Error(listed.error.message)
+        // A folder entry has no id; its files are listed on their own.
+        paths.push(...listed.data.filter(entry => entry.id !== null).map(entry => `${folder}/${entry.name}`))
+      }
+      if (paths.length > 0) {
+        const removed = await files.remove(paths)
+        if (removed.error) throw new Error(removed.error.message)
+      }
+      const result = await supabase.rpc('delete_student_records', { target: studentId })
+      if (result.error) throw new Error(result.error.message)
+      return result.data as DeleteStudentResult
     },
     async changeCampus({ studentId, campus, actorEmail }) {
       const result = await supabase.rpc('set_student_campus', {
