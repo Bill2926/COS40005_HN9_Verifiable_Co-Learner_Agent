@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { addressedText, agentText, drawerChecks, toolCallsView, type DecisionView } from '~/admin/decisions'
+import { addressedText, agentText, codeVersionText, courseHistoryText, drawerChecks, toolCallsView, type DecisionView } from '~/admin/decisions'
 
 // How the VerifyShield reached one verdict. It reads only the decision already
 // loaded in the table, so opening it makes no request. A native modal dialog
@@ -181,6 +181,18 @@ function moveText(move: string | null, scope: string | null): string {
           What the VerifyShield knew
         </h3>
         <dl class="grid grid-cols-[7rem_minmax(0,1fr)] gap-x-3 gap-y-1">
+          <dt class="text-muted">
+            Code version
+          </dt>
+          <dd class="font-mono [overflow-wrap:anywhere]">
+            {{ codeVersionText(decision.codeVersion) }}
+          </dd>
+          <dt class="text-muted">
+            Course history
+          </dt>
+          <dd class="font-mono tabular-nums">
+            {{ courseHistoryText(decision.courseHistoryId) }}
+          </dd>
           <dt class="text-muted">
             VerifyShield
           </dt>

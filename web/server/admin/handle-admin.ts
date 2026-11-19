@@ -1,5 +1,5 @@
 import { modelAddressLocked, resolveModelChoice, testConnection, UnusableSettingsError, type ConnectionReport, type ModelSettings } from '../language-model'
-import type { DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
+import type { DecisionChain, DecisionLogStore, DecisionQuery, DecisionRecord } from '../storage/decision-log'
 import type { ModelSettingsStore } from '../storage/model-settings-store'
 import type { AdminStudent, StudentDirectoryStore } from '../storage/student-directory'
 import { verifyShieldEnabled, type VerifyShieldStore } from '../verify-shield'
@@ -77,6 +77,8 @@ export interface AdminResponse {
   model: AdminModelView
   verifyShieldOn: boolean
   decisions: DecisionRecord[]
+  // The hash chain, and only whether it still holds. The broken row stays in the database command.
+  chain: DecisionChain
   students: AdminStudent[]
 }
 
@@ -160,6 +162,7 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
       request.verifyShield ? await request.verifyShield.read() : null,
     ),
     decisions: request.decisions ? await request.decisions.list(decisionQuery(request.body)) : [],
+    chain: request.decisions ? await request.decisions.chain() : 'verified',
     students: wantsDirectory(request.body) && request.students ? await request.students.list() : [],
   }
 }

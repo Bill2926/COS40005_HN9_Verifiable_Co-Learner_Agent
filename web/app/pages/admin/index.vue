@@ -117,9 +117,17 @@ function timeText(value: string): string {
       </p>
       <template v-else-if="data">
         <section class="page-enter flex min-w-0 flex-col gap-4">
-          <h1 class="text-xl font-semibold tracking-tight text-highlighted">
-            Decisions
-          </h1>
+          <div class="flex items-baseline justify-between gap-4">
+            <h1 class="text-xl font-semibold tracking-tight text-highlighted">
+              Decisions
+            </h1>
+            <p
+              class="text-sm font-medium"
+              :class="data.chain === 'broken' ? 'text-rose-800' : 'text-emerald-800'"
+            >
+              <span class="sr-only">Decision log </span>{{ data.chain }}
+            </p>
+          </div>
           <form
             class="flex flex-col gap-3 md:flex-row md:items-end"
             @submit.prevent="applyFilters"

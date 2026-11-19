@@ -108,6 +108,10 @@ export interface TurnOptions {
   // which then does not apply. The day is the Hanoi calendar day of `now`.
   dailyTurns?: DailyTurnAllowance
   now?: () => Date
+  // The commit this server is running, and the course history entry in force.
+  // Absent in tests that are not about the decision log's versions.
+  codeVersion?: string
+  courseHistoryId?: number | null
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -478,6 +482,8 @@ async function* introduceModule(
     addressedAgent: null,
     decisions: options?.decisions,
     teacherTools: tools,
+    codeVersion: options?.codeVersion,
+    courseHistoryId: options?.courseHistoryId,
   })
   const verdict = teaching ? proposedVerdict : introductionVerdict
 
@@ -668,6 +674,8 @@ async function* answerMessage(
     teacherTools: tools,
     turnId,
     time: recordedAt,
+    codeVersion: options?.codeVersion,
+    courseHistoryId: options?.courseHistoryId,
   })
   const teacherVerdict = teacherVerdicts.find(verdict => verdict.agent === 'teacher')
 
@@ -714,6 +722,8 @@ async function* answerMessage(
     decisions: options?.decisions,
     turnId,
     time: recordedAt,
+    codeVersion: options?.codeVersion,
+    courseHistoryId: options?.courseHistoryId,
   })
   const trace = verifyShieldTrace(teacherMove, deskmateMove, [...teacherVerdicts, ...deskmateVerdicts], snapshot)
   const deskmateVerdict = deskmateVerdicts.find(verdict => verdict.agent === 'deskmate')
@@ -802,6 +812,8 @@ interface DecisionsToRecord {
   // Shared by every proposal of one turn; a fresh id and time when left out.
   turnId?: string
   time?: string
+  codeVersion?: string
+  courseHistoryId?: number | null
 }
 
 async function recordDecisions({
@@ -814,6 +826,8 @@ async function recordDecisions({
   teacherTools,
   turnId = crypto.randomUUID(),
   time = new Date().toISOString(),
+  codeVersion,
+  courseHistoryId,
 }: DecisionsToRecord): Promise<void> {
   if (!decisions) return
   // What every decision of the turn shares; each outcome adds only how it ended.
@@ -829,6 +843,9 @@ async function recordDecisions({
     masteryThreshold,
     addressedAgent,
     ...(agent === 'teacher' && teacherTools ? { toolTrace: teacherTools.trace.map(call => ({ ...call })) } : {}),
+    ...(codeVersion === undefined && courseHistoryId === undefined
+      ? {}
+      : { codeVersion: codeVersion ?? null, courseHistoryId: courseHistoryId ?? null }),
   })
   if (teacherTools?.ended === 'step_cap') {
     // Not a ruling: the Teacher never reached a move, so the VerifyShield had nothing to rule on.

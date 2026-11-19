@@ -335,6 +335,30 @@ describe('admin handler', () => {
     expect(scripted.conversation.find(message => message.author === 'teacher')?.text).toBe(fakeSentence)
   })
 
+  it('shows the decision chain as verified or broken', async () => {
+    const decisions = createMemoryDecisionLogStore()
+    await decisions.append(loggedDecision())
+
+    const verified = await handleAdmin(ownerRequest({ decisions }))
+    expect(verified.chain).toBe('verified')
+    expect(verified).not.toHaveProperty('brokenAt')
+    expect(JSON.stringify(verified)).not.toContain('content_hash')
+    expect(JSON.stringify(verified)).not.toContain('previous_hash')
+
+    const broken = await handleAdmin(ownerRequest({
+      decisions: {
+        ...decisions,
+        async chain() {
+          return 'broken' as const
+        },
+      },
+      body: { verdict: 'allow' },
+    }))
+    expect(broken.chain).toBe('broken')
+    expect(broken.decisions.map(decision => decision.turnId)).toEqual(['turn-0'])
+    expect(JSON.stringify(broken)).not.toContain('content_hash')
+  })
+
   it('shows the administrator one decision per agent proposal', async () => {
     const decisions = createMemoryDecisionLogStore()
     const lesson = 'LISTS_LESSON_SHOULD_NOT_BE_LOGGED'

@@ -40,7 +40,7 @@ flowchart LR
 | `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. In production a real base URL other than `https://api.deepseek.com` is a 400 and nothing is stored. |
 | `verifyShield` event | Saves the on or off switch. |
 | `studentNumber` event | Checks the number against `isStudentNumber` in `shared/student-number.ts` (`SWB` + at least four digits, 400 with `studentNumberRule` otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting administrator's email. |
-| Every other call | Returns the model settings with the API key masked, the current shield state and up to 100 decisions filtered by verdict and student id. `students` is empty unless the body's `event` is `students` or `studentNumber`, so no other call reads the directory. |
+| Every other call | Returns the model settings with the API key masked, the current shield state, up to 100 decisions filtered by verdict and student id, and `chain`: `verified` or `broken`. The broken row's id is not in the answer. `students` is empty unless the body's `event` is `students` or `studentNumber`, so no other call reads the directory. |
 
 ## Verified imports
 
@@ -48,4 +48,4 @@ flowchart LR
 - Type only: `storage/decision-log`, `storage/model-settings-store`, `storage/student-directory` (`StudentDirectoryStore`, `AdminStudent`).
 - It never imports Supabase code; the route passes the stores in, including the student directory.
 - Each decision it returns includes `ruleChecks` when the decision log recorded them.
-- Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`, which stubs `fetch` for the connection test so the reported messages are the ones a provider really sends.
+- Imported by `api/admin.post.ts`. Tests: `admin-handler.test.ts`, which stubs `fetch` for the connection test so the reported messages are the ones a provider really sends, and which checks that the answer's chain is `verified` or `broken` with no hash and no broken-row id.

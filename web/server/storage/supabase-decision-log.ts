@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import type { DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
+import type { DecisionChain, DecisionLogStore, DecisionMastery, DecisionQuery, DecisionRecord } from './decision-log'
 import type { RuleCheck, ToolCallRecord } from '../../shared/turn'
 
 const studentIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -40,6 +40,8 @@ export function createSupabaseDecisionLogStore(options: {
         rule_checks: record.ruleChecks ? record.ruleChecks.map(check => ({ ...check })) : null,
         addressed_agent: record.addressedAgent ?? null,
         tool_trace: record.toolTrace ? record.toolTrace.map(call => ({ ...call })) : null,
+        ...(record.codeVersion ? { code_version: record.codeVersion } : {}),
+        ...(record.courseHistoryId != null ? { course_history_id: record.courseHistoryId } : {}),
       })
       if (result.error) throw new Error(result.error.message)
     },
@@ -48,7 +50,7 @@ export function createSupabaseDecisionLogStore(options: {
 
       let request = supabase
         .from('decisions')
-        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, outcome, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace')
+        .select('recorded_at, student_id, turn_id, agent, proposed_move, proposed_scope, outcome, verdict, ruled_move, ruled_scope, rule_id, reason_code, masteries, unlocked_module_ids, verify_shield_on, mastery_threshold, rule_checks, addressed_agent, tool_trace, code_version, course_history_id')
         .order('recorded_at', { ascending: false })
         .order('id', { ascending: false })
         .eq('course_id', options.courseId)
@@ -59,6 +61,13 @@ export function createSupabaseDecisionLogStore(options: {
       const result = await request
       if (result.error) throw new Error(result.error.message)
       return (result.data ?? []).map(presentDecision)
+    },
+    async chain(): Promise<DecisionChain> {
+      // verify_decision_chain returns the first broken row's id, or null when the chain holds.
+      // The page is told only which of those two it is.
+      const result = await supabase.rpc('verify_decision_chain')
+      if (result.error) throw new Error(result.error.message)
+      return result.data == null ? 'verified' : 'broken'
     },
   }
 }
@@ -83,6 +92,8 @@ interface DecisionRow {
   rule_checks: unknown
   addressed_agent: string | null
   tool_trace: unknown
+  code_version: string | null
+  course_history_id: number | null
 }
 
 function presentDecision(row: DecisionRow): DecisionRecord {
@@ -117,6 +128,8 @@ function presentDecision(row: DecisionRow): DecisionRecord {
     ...(row.rule_checks === null || row.rule_checks === undefined ? {} : { ruleChecks: ruleChecksFrom(row.rule_checks) }),
     // Likewise a row from before tool calls were recorded, and every Deskmate row.
     ...(row.tool_trace === null || row.tool_trace === undefined ? {} : { toolTrace: toolTraceFrom(row.tool_trace) }),
+    ...(row.code_version ? { codeVersion: row.code_version } : {}),
+    ...(row.course_history_id == null ? {} : { courseHistoryId: Number(row.course_history_id) }),
   }
 }
 
