@@ -38,26 +38,39 @@ export type CampusChangeResult = 'changed' | 'unchanged' | 'not-found'
 
 export type StudentNumberChangeResult = 'changed' | 'unchanged' | 'not-found' | 'duplicate' | 'used'
 
+export type DeleteStudentResult = 'deleted' | 'not-found'
+
 export interface StudentDirectoryStore {
   list: () => Promise<AdminStudent[]>
   changeNumber: (change: StudentNumberChange) => Promise<StudentNumberChangeResult>
   changeCampus: (change: CampusChange) => Promise<CampusChangeResult>
+  // Removes the student and every record of theirs. No other student's record is touched.
+  deleteStudent: (studentId: string) => Promise<DeleteStudentResult>
 }
 
 export function createMemoryStudentDirectoryStore(
   students: readonly AdminStudent[],
-): StudentDirectoryStore & { changes: RecordedStudentNumberChange[], campusChanges: RecordedCampusChange[] } {
+): StudentDirectoryStore & { changes: RecordedStudentNumberChange[], campusChanges: RecordedCampusChange[], deleted: string[] } {
   const stored = students.map(student => ({ ...student }))
   const changes: RecordedStudentNumberChange[] = []
   const campusChanges: RecordedCampusChange[] = []
+  const deleted: string[] = []
 
   return {
     changes,
+    deleted,
     campusChanges,
     async list() {
       return stored
         .map(student => ({ ...student }))
         .sort((left, right) => left.studentNumber.localeCompare(right.studentNumber))
+    },
+    async deleteStudent(studentId) {
+      const index = stored.findIndex(candidate => candidate.id === studentId)
+      if (index === -1) return 'not-found'
+      stored.splice(index, 1)
+      deleted.push(studentId)
+      return 'deleted'
     },
     async changeCampus({ studentId, campus, actorEmail }) {
       const student = stored.find(candidate => candidate.id === studentId)

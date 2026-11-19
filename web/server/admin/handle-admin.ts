@@ -161,6 +161,13 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
     if (result === 'not-found') throw new AdminNotFoundError()
   }
 
+  const deletion = deleteStudentBody(request.body)
+  if (deletion) {
+    if (!request.students) throw new AdminRequestError('The student directory is unavailable.')
+    const result = await request.students.deleteStudent(deletion.studentId)
+    if (result === 'not-found') throw new AdminNotFoundError()
+  }
+
   return {
     model: await present(request.store, request.env),
     verifyShieldOn: verifyShieldEnabled(
@@ -177,7 +184,7 @@ export async function handleAdmin(request: AdminRequest): Promise<AdminResponse>
 // Only the page that shows the directory asks for it; every other call pays no query.
 function wantsDirectory(body: unknown): boolean {
   if (typeof body !== 'object' || body === null) return false
-  return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus')
+  return 'event' in body && (body.event === 'students' || body.event === 'studentNumber' || body.event === 'campus' || body.event === 'deleteStudent')
 }
 
 // Only the access log page asks for it.
@@ -215,6 +222,15 @@ function campusBody(body: unknown): { studentId: string, campus: Campus } | null
     throw new AdminRequestError(campusRule)
   }
   return { studentId: body.studentId.trim(), campus: body.campus }
+}
+
+function deleteStudentBody(body: unknown): { studentId: string } | null {
+  if (typeof body !== 'object' || body === null) return null
+  if (!('event' in body) || body.event !== 'deleteStudent') return null
+  if (!('studentId' in body) || typeof body.studentId !== 'string' || body.studentId.trim() === '') {
+    throw new AdminRequestError('The student is missing.')
+  }
+  return { studentId: body.studentId.trim() }
 }
 
 function verifyShieldBody(body: unknown): { enabled: boolean } | null {

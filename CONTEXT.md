@@ -34,7 +34,7 @@ _Avoid_: companion, buddy, second tutor
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
 **Administrator**:
-The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus. May open any student's records for review (see **Staff review**) and reads the **Staff access log**, which only an administrator can read. Never sees a student's mastery. Does not manage courses: that is the lecturer.
+The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus, or delete one student and every record of theirs (including the staff access entries about them). No one can edit a single row of a ledger. May open any student's records for review (see **Staff review**) and reads the **Staff access log**, which only an administrator can read. Never sees a student's mastery. Does not manage courses: that is the lecturer.
 _Avoid_: product owner, admin, assessor
 
 **Lecturer**:

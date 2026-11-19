@@ -1057,6 +1057,49 @@ describe('admin campus', () => {
   })
 })
 
+describe('admin deletes a student', () => {
+  const an = {
+    id: signedInStudent,
+    displayName: 'An',
+    studentNumber: 'SWB0001',
+    email: 'an@example.com',
+    campus: 'Hanoi' as const,
+  }
+  const binh = {
+    id: '6f1b0c1e-2222-4222-8222-222222222222',
+    displayName: 'Bình',
+    studentNumber: 'SWB0002',
+    email: 'binh@example.com',
+    campus: null,
+  }
+
+  it('deletes one student and answers with the students who remain', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+
+    const deleted = await handleAdmin(ownerRequest({ students, body: { event: 'deleteStudent', studentId: an.id } }))
+
+    expect(deleted.students).toEqual([binh])
+    expect(students.deleted).toEqual([an.id])
+  })
+
+  it('refuses an unknown student, a missing student and anyone but the administrator', async () => {
+    const students = createMemoryStudentDirectoryStore([an, binh])
+    await expect(handleAdmin(ownerRequest({
+      students,
+      body: { event: 'deleteStudent', studentId: '6f1b0c1e-3333-4333-8333-333333333333' },
+    }))).rejects.toMatchObject({ statusCode: 404 })
+    await expect(handleAdmin(ownerRequest({ students, body: { event: 'deleteStudent' } })))
+      .rejects.toMatchObject({ statusCode: 400, message: 'The student is missing.' })
+    await expect(handleAdmin(ownerRequest({
+      email: 'an@example.com',
+      students,
+      body: { event: 'deleteStudent', studentId: an.id },
+    }))).rejects.toMatchObject({ statusCode: 403 })
+    expect(students.deleted).toEqual([])
+    expect(await students.list()).toHaveLength(2)
+  })
+})
+
 // The Teacher proposes by tool call and Mai as JSON in the text, as the real agents ask.
 function proposalReply(instructions: string, proposal: unknown): Response {
   const message = instructions.includes('You are the Teacher')

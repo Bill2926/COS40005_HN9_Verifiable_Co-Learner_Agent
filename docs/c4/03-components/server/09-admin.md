@@ -3,7 +3,7 @@
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
 `web/server/admin/handle-admin.ts`, one file. The administrator's handler: it checks who is asking, then saves
-the model choice, tests the connection, switches the VerifyShield, lists decisions, lists or renumbers students and lists the staff access log. Part of
+the model choice, tests the connection, switches the VerifyShield, lists decisions, lists, renumbers or deletes students and lists the staff access log. Part of
 [server/00-overview.md](00-overview.md).
 
 Legend: solid = runtime import, dashed = type-only import. Blue = this component, grey = other components.
@@ -42,8 +42,9 @@ flowchart LR
 | `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. In production a real base URL other than `https://api.deepseek.com` is a 400 and nothing is stored. |
 | `verifyShield` event | Saves the on or off switch. |
 | `studentNumber` event | Checks the number against `isStudentNumber` in `shared/student-number.ts` (`SWB` + at least four digits, 400 with `studentNumberRule` otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting administrator's email. |
+| `deleteStudent` event | Asks the student directory to delete the student and every record of theirs (404 if the student is unknown, 400 if `studentId` is missing) and answers with the students who remain. Only an administrator reaches it. The cascade lives in the database function `delete_student_records` ([storage](08-storage.md)). |
 | `staffAccessLog` event | Returns `staffAccess`: the newest 200 openings of a student's records by staff, with who, their role, the student number and when. Only an administrator reaches it (the same 401/403 checks), so a lecturer or a student cannot read the log. Every other call returns it empty and reads nothing. |
-| Every other call | Returns the model settings with the API key masked, the current shield state, up to 100 decisions filtered by verdict and student id, and `chain`: `verified` or `broken`. The broken row's id is not in the answer. `students` is empty unless the body's `event` is `students` or `studentNumber`, so no other call reads the directory. |
+| Every other call | Returns the model settings with the API key masked, the current shield state, up to 100 decisions filtered by verdict and student id, and `chain`: `verified` or `broken`. The broken row's id is not in the answer. `students` is empty unless the body's `event` is `students`, `studentNumber`, `campus` or `deleteStudent`, so no other call reads the directory. |
 
 ## Verified imports
 
