@@ -100,7 +100,7 @@ flowchart LR
 
 | From | To | What |
 |---|---|---|
-| turn | shared, agents, verify-shield, student-model, storage, activity recorder | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`; `ActivityRecorder` |
+| turn | shared, agents, verify-shield, student-model, storage, activity recorder | `RedrawState` and friends; `Agents`, `Move`, contexts; `Proposal`, `TurnSnapshot`, `Verdict`; `CourseEstimate`, `CourseStanding`, `EvidenceStore`; `ConversationStore`, `DecisionLogStore`, `DailyTurnAllowance`; `ActivityRecorder` |
 | student | activity recorder, storage, shared | `ActivityRecorder`, `ActivityEventType`; `MindmapStore`, `MindmapRecord`, `ProfileStore`, `StudentFileStore`; `NoteColour` |
 | verify-shield | agents | `Move`, `RoleTable` |
 | course | shared, verify-shield, student-model | `RoadmapModule`; `CourseScope`; `CourseStanding` |

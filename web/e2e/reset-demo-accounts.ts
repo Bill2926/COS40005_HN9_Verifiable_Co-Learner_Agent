@@ -64,9 +64,12 @@ export async function resetDemoAccounts() {
   // mastery the next run starts from. The seeded ledger is left as it is.
   const evidence = await admin.from('evidence').delete().in('student_id', clearableIds(students))
   if (evidence.error) throw new Error(evidence.error.message)
-  // Each rehearsal starts with Mai switched on.
+  // Each rehearsal starts with Mai switched on, and with the day's 60 turns unused.
   const deskmate = await admin.from('deskmate_settings').delete().in('student_id', ids)
   if (deskmate.error) throw new Error(deskmate.error.message)
+  const allowance = await admin.from('daily_turn_allowances').delete().in('student_id', ids)
+  // The same suite can run against the shared database before the migration lands.
+  if (allowance.error && allowance.error.code !== 'PGRST205') throw new Error(allowance.error.message)
   // A picture and a new name are the student's, so the next run starts without
   // them: the portrait file is removed and the name returns to the seeded one.
   // The demo students start with a campus so the campus step stays out of the
