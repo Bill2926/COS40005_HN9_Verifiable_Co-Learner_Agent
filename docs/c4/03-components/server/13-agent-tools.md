@@ -44,5 +44,5 @@ flowchart LR
 ## Notes
 
 - No tool takes a student id from the model: the turn handler binds `readMastery` to the turn's student standing and course.
-- The turn handler records the trace on the Teacher's decisions (`tool_trace` column), and the product owner's verdict drawer lists it.
+- The turn handler records the trace on the Teacher's decisions (`tool_trace` column), and the administrator's verdict drawer lists it.
 - Tests: `mastery-tool-turn.test.ts` drives turns with the fake language model scripted to call the tool; `tool-trace-migration.test.ts` checks the column.

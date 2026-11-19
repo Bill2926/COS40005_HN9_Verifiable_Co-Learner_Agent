@@ -42,7 +42,7 @@ async function choose() {
           Choose your campus
         </h1>
         <p class="text-sm/5 text-muted">
-          Pick the campus you study at. You choose once; only the product owner can change it afterwards.
+          Pick the campus you study at. You choose once; only the administrator can change it afterwards.
         </p>
       </div>
       <p

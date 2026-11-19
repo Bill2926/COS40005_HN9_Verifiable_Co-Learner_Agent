@@ -40,7 +40,7 @@ export interface StudentProfileView {
   displayName: string
   email: string
   studentNumber: string
-  // Empty until the student chooses it; only the product owner changes it after.
+  // Empty until the student chooses it; only the administrator changes it after.
   campus: Campus | null
   // Only the events that can change the picture, and a fresh open, sign it.
   pictureUrl?: string | null
@@ -173,7 +173,7 @@ async function requireCampus(request: StudentHandlerRequest, studentId: string):
 async function chooseCampus(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   if (!isCampus(body.campus)) throw new StudentRequestError(campusRule)
   if (await request.profile.chooseCampus(studentId, body.campus) === 'already-chosen') {
-    throw new StudentRequestError('Your campus is already chosen. Ask the product owner to change it.')
+    throw new StudentRequestError('Your campus is already chosen. Ask the administrator to change it.')
   }
 }
 
@@ -223,7 +223,7 @@ async function recordActivity(
 async function changeProfile(request: StudentHandlerRequest, studentId: string, body: Record<string, unknown>): Promise<void> {
   const hasName = 'displayName' in body && body.displayName !== undefined
   const hasPicture = 'picture' in body && body.picture !== undefined
-  if ('campus' in body) throw new StudentRequestError('The campus cannot be changed here. Ask the product owner.')
+  if ('campus' in body) throw new StudentRequestError('The campus cannot be changed here. Ask the administrator.')
   if (!hasName && !hasPicture) {
     throw new StudentRequestError(
       'studentNumber' in body

@@ -763,7 +763,7 @@ describe('admin connection test', () => {
     return { authorities }
   }
 
-  it('answers the product owner both checks, and saves nothing', async () => {
+  it('answers the administrator both checks, and saves nothing', async () => {
     const store = createMemoryModelSettingsStore()
     scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
 
@@ -819,7 +819,7 @@ describe('admin connection test', () => {
     expect(report.toolCall.error).toContain('tool call')
   })
 
-  it('refuses anyone but the product owner before calling the provider', async () => {
+  it('refuses anyone but the administrator before calling the provider', async () => {
     const store = createMemoryModelSettingsStore()
     const provider = scriptedConnection(['Counted in a loop.', { toolCall: '{"proposal": "checked"}' }])
 
@@ -981,7 +981,7 @@ describe('admin campus', () => {
     expect(students.campusChanges).toEqual([])
   })
 
-  it('refuses anyone but the product owner', async () => {
+  it('refuses anyone but the administrator', async () => {
     const students = createMemoryStudentDirectoryStore([an, binh])
     await expect(handleAdmin(ownerRequest({
       email: 'an@example.com',

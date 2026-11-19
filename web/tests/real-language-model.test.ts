@@ -197,7 +197,7 @@ describe('a plain reply, asked for without streaming', () => {
   })
 
   // The streaming call hides a failed request behind one generic message, which is fine for a student
-  // and useless for the product owner. This one reaches the caller with what the provider said.
+  // and useless for the administrator. This one reaches the caller with what the provider said.
   it('carries the provider message when the key is refused', async () => {
     scriptedProvider([Response.json({ error: { message: 'Invalid API key' } }, { status: 401 })])
 

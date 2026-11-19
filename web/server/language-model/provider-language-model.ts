@@ -78,7 +78,7 @@ export function createProviderLanguageModel(model: ProviderModel): LanguageModel
           }),
         },
         // A model that answers with words instead of calling the tool is reported, not talked to
-        // again: that is the answer the product owner needs to see.
+        // again: that is the answer the administrator needs to see.
         toolChoice: choice,
         // The loop ends at the tool call, so a proposal costs one call. The cap bounds a model that
         // keeps calling other tools before it answers with this one; no move comes back when it is hit.

@@ -100,7 +100,7 @@ export function isConnectionTest(body: unknown): boolean {
   return typeof body === 'object' && body !== null && 'event' in body && body.event === 'testConnection'
 }
 
-// The two checks the product owner asked for, of the settings on the form and of nothing else: what is
+// The two checks the administrator asked for, of the settings on the form and of nothing else: what is
 // saved stays as it was until the owner saves it. A provider that refuses or cannot be reached is
 // answered inside the report; only settings that describe no call at all are a fault.
 export async function handleConnectionTest(request: AdminRequest): Promise<ConnectionReport> {

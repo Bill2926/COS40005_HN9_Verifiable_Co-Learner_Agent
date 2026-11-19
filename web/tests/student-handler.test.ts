@@ -434,7 +434,7 @@ describe('student handler', () => {
       await expect(call({ event: 'campus_chosen', campus: 'Hanoi' }, asBinh)).rejects.toMatchObject({
         name: 'StudentRequestError',
         statusCode: 400,
-        message: 'Your campus is already chosen. Ask the product owner to change it.',
+        message: 'Your campus is already chosen. Ask the administrator to change it.',
       })
       expect((await profile.read(otherStudentId)).campus).toBe('Can Tho')
     })
@@ -449,7 +449,7 @@ describe('student handler', () => {
       const { profile, call } = setup()
       await expect(call({ event: 'profile_changed', campus: 'Can Tho' })).rejects.toMatchObject({
         statusCode: 400,
-        message: 'The campus cannot be changed here. Ask the product owner.',
+        message: 'The campus cannot be changed here. Ask the administrator.',
       })
       await expect(call({ event: 'profile_changed', displayName: 'An', campus: 'Can Tho' })).rejects.toMatchObject({ statusCode: 400 })
       expect((await profile.read(studentId)).campus).toBe('Hanoi')
