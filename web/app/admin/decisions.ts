@@ -3,7 +3,7 @@
 
 import type { Campus } from '../../shared/campus'
 import type { StaffAccessEntry } from '../../shared/staff-review'
-import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
+import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '#shared/turn'
 
 export type RuleCheckView = RuleCheck
 
