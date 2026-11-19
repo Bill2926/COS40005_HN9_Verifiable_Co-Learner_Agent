@@ -51,6 +51,6 @@ flowchart TB
 
 ## Out of scope for this diagram
 
-- Deployment: see [04-deployment.md](04-deployment.md). The submission sandbox runs as a local container today. ADR 0010 places that image on Lambda in Sydney; that adapter is not wired yet.
+- Deployment: see [04-deployment.md](04-deployment.md). The deployed server checks a submission by invoking the sandbox Lambda function in Sydney (`ap-southeast-2`). A developer machine with no function name still runs the image locally.
 - Developer tooling (Supabase MCP server, Playwright, Claude Code skills).
 - Fonts (Inter, JetBrains Mono are named in `main.css`): whether they are fetched from an external host was not verified.

@@ -15,6 +15,9 @@ export default defineNuxtConfig({
     lecturerEmails: process.env.LECTURER_EMAILS ?? 'lecturer@example.com',
     // on unless set to off, false, or 0. A saved verify_shield_settings row replaces this.
     verifyShield: 'on',
+    // Blank runs the local image. The deployed server names the Lambda function in Sydney.
+    sandboxFunction: '',
+    sandboxRegion: 'ap-southeast-2',
     sandboxImage: 'colearner-sandbox',
     public: {
       supabaseUrl: '',

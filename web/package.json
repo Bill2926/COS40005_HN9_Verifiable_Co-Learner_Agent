@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.85",
+    "@aws-sdk/client-lambda": "^3.1172.0",
     "@codemirror/autocomplete": "^6.20.4",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/language": "^6.13.1",

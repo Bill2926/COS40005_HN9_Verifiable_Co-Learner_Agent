@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+#
+# Node server for the Nuxt app. Auto-deploy is off: .github/workflows/deploy.yml
+# calls the deploy hook after Check and Schema push succeed on main.
+# Create the service with Render → New → Blueprint, then put the deploy hook
+# URL in the GitHub Actions secret RENDER_DEPLOY_HOOK. Fill the sync:false
+# keys in the Render dashboard. They are the same values as web/.env.
+
+services:
+  - type: web
+    name: verifiable-co-learner
+    runtime: node
+    region: singapore
+    branch: main
+    rootDir: web
+    autoDeployTrigger: off
+    healthCheckPath: /sign-in
+    buildCommand: npm install -g pnpm@12 && pnpm install --frozen-lockfile && pnpm build
+    startCommand: node .output/server/index.mjs
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NUXT_PUBLIC_SUPABASE_URL
+        value: https://nopyjjyimtmvuucsirxb.supabase.co
+      - key: NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+        sync: false
+      - key: NUXT_SUPABASE_SECRET_KEY
+        sync: false
+      - key: NUXT_MODEL
+        value: real
+      - key: NUXT_MODEL_API_KEY
+        sync: false
+      - key: NUXT_MODEL_BASE_URL
+        value: https://api.deepseek.com
+      - key: NUXT_MODEL_NAME
+        value: deepseek-flash
+      - key: NUXT_ADMIN_EMAILS
+        value: owner@example.com
+      - key: NUXT_LECTURER_EMAILS
+        value: lecturer@example.com
+      - key: NUXT_VERIFYSHELD
+        value: on
+      # Submissions are checked by the Lambda sandbox in Sydney. The access key
+      # belongs to the IAM user that can only invoke that function.
+      - key: NUXT_SANDBOX_FUNCTION
+        value: colearner-sandbox
+      - key: NUXT_SANDBOX_REGION
+        value: ap-southeast-2
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false

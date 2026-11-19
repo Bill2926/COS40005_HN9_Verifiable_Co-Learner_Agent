@@ -30,20 +30,24 @@ export function sandboxDockerArgs(image: string, extras: readonly string[] = [])
   return ['run', '--rm', '-i', ...sandboxIsolationFlags(), ...extras, image]
 }
 
-export function interpretSandboxOutput(result: Pick<SandboxProcessResult, 'stdout' | 'status' | 'signal'>): SandboxReport {
-  if (result.signal === 'SIGKILL' || result.status === 137) {
-    return { outcome: 'refused', message: usedTooMuchMemory }
-  }
-  const text = result.stdout.trim()
-  if (!text) return { outcome: 'refused', message: couldNotCheck }
+export function interpretSandboxReport(text: string): SandboxReport {
+  const trimmed = text.trim()
+  if (!trimmed) return { outcome: 'refused', message: couldNotCheck }
   try {
-    const parsed = JSON.parse(text) as unknown
+    const parsed = JSON.parse(trimmed) as unknown
     if (isReport(parsed)) return parsed
   }
   catch {
     return { outcome: 'refused', message: couldNotCheck }
   }
   return { outcome: 'refused', message: couldNotCheck }
+}
+
+export function interpretSandboxOutput(result: Pick<SandboxProcessResult, 'stdout' | 'status' | 'signal'>): SandboxReport {
+  if (result.signal === 'SIGKILL' || result.status === 137) {
+    return { outcome: 'refused', message: usedTooMuchMemory }
+  }
+  return interpretSandboxReport(result.stdout)
 }
 
 export function createContainerSandbox(options?: {

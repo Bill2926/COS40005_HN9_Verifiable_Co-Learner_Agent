@@ -5,9 +5,12 @@ import { approvedLibraries, libraryRefusal, printedTooMuch } from '../server/san
 
 const runner = new URL('../../sandbox/runner.py', import.meta.url)
 
-function runSandbox(payload: unknown): Promise<{ stdout: string, status: number | null }> {
+function runSandbox(payload: unknown, env?: Record<string, string>): Promise<{ stdout: string, status: number | null }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('python3', [runner.pathname], { stdio: ['pipe', 'pipe', 'pipe'] })
+    const child = spawn('python3', [runner.pathname], {
+      stdio: ['pipe', 'pipe', 'pipe'],
+      env: env ? { ...process.env, ...env } : process.env,
+    })
     const out: Buffer[] = []
     const err: Buffer[] = []
     child.stdout.on('data', (chunk: Buffer) => out.push(chunk))
@@ -88,6 +91,31 @@ describe('sandbox runner', () => {
     const passed = report.outcome === 'checked'
       && report.results.every((result: { passed: boolean }) => result.passed)
     expect(passed).toBe(false)
+  })
+
+  it('caps new processes when Lambda runs the sandbox', async () => {
+    const report = JSON.parse((await runSandbox({
+      code: [
+        'import os, resource',
+        'value = resource.getrlimit(resource.RLIMIT_NPROC)[0]',
+        'leaked = "SANDBOX_NPROC" in os.environ',
+      ].join('\n'),
+      tests: [
+        { name: 'cap', expression: 'value', expected: '32' },
+        { name: 'hidden', expression: 'leaked', expected: 'False' },
+      ],
+    }, {
+      AWS_LAMBDA_RUNTIME_API: '127.0.0.1:9001',
+      SANDBOX_PROBE: '1',
+    })).stdout)
+
+    expect(report).toEqual({
+      outcome: 'checked',
+      results: [
+        { name: 'cap', passed: true, expected: '32', actual: '32' },
+        { name: 'hidden', passed: true, expected: 'False', actual: 'False' },
+      ],
+    })
   })
 
   it('names the same approved libraries the server keeps', async () => {

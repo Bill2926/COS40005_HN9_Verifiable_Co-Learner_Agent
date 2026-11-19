@@ -56,7 +56,7 @@ flowchart LR
   submissionRoute -->|"defaultCourseId"| course
   submissionRoute -->|"sessionStudentId"| studentId
   submissionRoute -->|"createSupabaseSubmissionStore"| stores
-  turnRoute -->|"createContainerSandbox"| sandbox["<b>sandbox</b>"]:::near
+  turnRoute -->|"createSubmissionSandbox"| sandbox["<b>sandbox</b>"]:::near
   turnRoute -->|"defaultCourseId"| course
 
   style routes fill:none,stroke:#8b949e,stroke-dasharray:5 4
@@ -74,7 +74,7 @@ flowchart LR
 
 ## Verified imports
 
-- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `course` (`defaultCourseId`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-deskmate-setting-store`, `supabase-daily-turn-allowance`, `supabase-evidence-store`, `supabase-mastery-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `supabase-unlock-store`, `supabase-course-store`, `supabase-activity-log`, `supabase-submission-store`, `sandbox` (`createContainerSandbox`), `verify-shield` (`verifyShieldForTurn`), `code-version` (`currentCodeVersion`), `turn/handle-turn`.
+- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `course` (`defaultCourseId`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-deskmate-setting-store`, `supabase-daily-turn-allowance`, `supabase-evidence-store`, `supabase-mastery-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `supabase-unlock-store`, `supabase-course-store`, `supabase-activity-log`, `supabase-submission-store`, `sandbox` (`createSubmissionSandbox`), `verify-shield` (`verifyShieldForTurn`), `code-version` (`currentCodeVersion`), `turn/handle-turn`.
 - `api/submission.post.ts`: `shared/student-id`, `course` (`defaultCourseId`), `storage/supabase-submission-store`, `storage/submission-store` (`SubmissionRefusedError`, `SubmissionNotFoundError`).
 - `student.post.ts`: `shared/student-id`, `course` (`defaultCourseId`), `storage/supabase-activity-log`, `supabase-course-store`, `supabase-mindmap-store`, `supabase-profile-store`, `supabase-student-file-store`, `student` (`handleStudent`, `SignInRequiredError`, `StudentRequestError`).
 - `admin.post.ts`: `auth/staff-session-email` (`staffSessionEmail`), `admin/handle-admin` (`checkAdminRole`, `handleAdmin`, `handleConnectionTest`, `isConnectionTest`, `isRoleCheck` and the error classes), `course` (`defaultCourseId`), `storage/supabase-decision-log`, `supabase-model-settings-store`, `supabase-student-directory`, `supabase-verify-shield-store`.
