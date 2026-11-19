@@ -65,8 +65,8 @@ describe('quiz answers boundary', () => {
 
       // The student cannot read the ledger.
       const selected = await supabase.from('quiz_answers').select('*').eq('question_id', questionId)
-      expect(selected.error).toBeNull()
-      expect(selected.data).toEqual([])
+      if (selected.error) expect(selected.error.code).toBe(permissionDenied)
+      else expect(selected.data).toEqual([])
 
       // Nor insert into it.
       const inserted = await supabase.from('quiz_answers').insert({

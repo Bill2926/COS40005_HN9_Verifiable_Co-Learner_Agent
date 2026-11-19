@@ -1,4 +1,4 @@
-import { sessionEmail } from '../../../shared/student-id'
+import { staffSessionEmail } from '../../auth/staff-session-email'
 import { handleCourseSpec } from '../../lecturer/handle-lecturer'
 import { createSupabaseLecturerStore } from '../../storage/supabase-lecturer-store'
 
@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const identity = {
     courseId: query.courseId,
-    email: await sessionEmail(event),
+    email: await staffSessionEmail(event),
     lecturerEmails: config.lecturerEmails,
     store: createSupabaseLecturerStore({ url: config.public.supabaseUrl, secretKey: config.supabaseSecretKey }),
   }

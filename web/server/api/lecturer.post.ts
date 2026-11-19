@@ -1,4 +1,4 @@
-import { sessionEmail } from '../../shared/student-id'
+import { staffSessionEmail } from '../auth/staff-session-email'
 import { handleLecturer } from '../lecturer/handle-lecturer'
 import { createSupabaseLecturerStore } from '../storage/supabase-lecturer-store'
 import { createSupabaseMasteryRecalculator } from '../storage/supabase-mastery-recalculation'
@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig(event)
   const connection = { url: config.public.supabaseUrl, secretKey: config.supabaseSecretKey }
   return handleLecturer({
-    email: await sessionEmail(event),
+    email: await staffSessionEmail(event),
     lecturerEmails: config.lecturerEmails,
     store: createSupabaseLecturerStore(connection),
     change: await readBody(event) ?? null,

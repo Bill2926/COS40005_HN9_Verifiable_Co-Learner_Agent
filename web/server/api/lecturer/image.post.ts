@@ -1,4 +1,4 @@
-import { sessionEmail } from '../../../shared/student-id'
+import { staffSessionEmail } from '../../auth/staff-session-email'
 import { handleCourseImage } from '../../lecturer/handle-lecturer'
 import { createSupabaseCourseImageStore } from '../../storage/supabase-course-image-store'
 import { createSupabaseLecturerStore } from '../../storage/supabase-lecturer-store'
@@ -9,7 +9,7 @@ export default defineEventHandler(async (event) => {
   const options = { url: config.public.supabaseUrl, secretKey: config.supabaseSecretKey }
   const body = await readBody(event) as { courseId?: unknown, image?: unknown } | null
   return handleCourseImage({
-    email: await sessionEmail(event),
+    email: await staffSessionEmail(event),
     lecturerEmails: config.lecturerEmails,
     store: createSupabaseLecturerStore(options),
     images: createSupabaseCourseImageStore(options),

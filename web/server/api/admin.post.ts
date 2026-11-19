@@ -1,4 +1,4 @@
-import { sessionEmail } from '../../shared/student-id'
+import { staffSessionEmail } from '../auth/staff-session-email'
 import {
   AdminNotFoundError,
   AdminRequestError,
@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   }
   try {
     const body = await readBody(event)
-    const email = await sessionEmail(event)
+    const email = await staffSessionEmail(event)
     if (isRoleCheck(body)) return checkAdminRole({ email, adminEmails: config.adminEmails })
     const request = {
       email,

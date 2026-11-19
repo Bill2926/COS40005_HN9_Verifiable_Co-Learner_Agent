@@ -15,8 +15,10 @@ Demo accounts, reproducible from `supabase/seed.sql`:
 |---|---|---|
 | An | an@example.com | an-demo-password |
 | Bình | binh@example.com | binh-demo-password |
-| Administrator | owner@example.com | owner-demo-password |
-| Lecturer | lecturer@example.com | lecturer-demo-password |
+| Administrator | owner@example.com | set by the account owner |
+| Lecturer | lecturer@example.com | set by the account owner |
+
+The administrator and lecturer passwords are not in this repository. The account owner keeps them in the team password manager and in the GitHub Actions secrets `DEMO_OWNER_PASSWORD` and `DEMO_LECTURER_PASSWORD`.
 
 An starts on Module 1 with nothing behind her. Bình has seeded passing submissions on every exercise of Modules 1 to 4, so those four read as mastered and she starts on Module 5. The seed writes those submissions into the `evidence` ledger; no mastery is stored. Mastery is Bayesian Knowledge Tracing over that ledger, with the parameters in `server/student-model/mastery-parameters.ts`, estimated again every time the course roadmap is drawn. Only a submission writes evidence, a passing submission counts the first time that exercise is passed, and a module unlocks for good once the module before it reaches 0.9.
 

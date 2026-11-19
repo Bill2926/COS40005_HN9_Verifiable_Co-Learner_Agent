@@ -107,8 +107,8 @@ describe('decision log boundary', () => {
       expect(JSON.stringify(listed)).not.toContain('An')
 
       const selected = await supabase.from('decisions').select('*')
-      expect(selected.error).toBeNull()
-      expect(selected.data).toEqual([])
+      if (selected.error) expect(selected.error.code).toBe('42501')
+      else expect(selected.data).toEqual([])
       expect(JSON.stringify(selected)).not.toContain(marker)
 
       const inserted = await supabase.from('decisions').insert({

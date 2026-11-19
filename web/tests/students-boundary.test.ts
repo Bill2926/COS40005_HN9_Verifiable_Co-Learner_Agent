@@ -40,8 +40,8 @@ describe('students table boundary', () => {
     expect(signedIn.data.user?.id).toBeTruthy()
 
     const selected = await supabase.from('students').select('*')
-    expect(selected.error).toBeNull()
-    expect(selected.data).toEqual([])
+    if (selected.error) expect(selected.error.code).toBe('42501')
+    else expect(selected.data).toEqual([])
 
     const inserted = await supabase.from('students').insert({
       id: signedIn.data.user!.id,

@@ -11,19 +11,35 @@ export type ModelChoice =
 
 const providers = ['real', 'fake'] as const
 
+// The only address a production server may call. A saved record that names
+// another host would send students' prompts there.
+export const approvedModelAddress = 'https://api.deepseek.com'
+
+// Production locks the address unless a caller says otherwise. Tests pass the
+// flag outright, so the process environment does not decide them.
+export function modelAddressLocked(override?: boolean): boolean {
+  return override ?? process.env.NODE_ENV === 'production'
+}
+
 // The provider is named outright. A blank name means the real
-// OpenAI-compatible client, which is how DeepSeek is reached. Nothing here
-// reads the environment or the network.
-export function resolveModelChoice(settings: ModelSettings): ModelChoice {
+// OpenAI-compatible client, which is how DeepSeek is reached.
+// resolveModelChoice reads neither the environment nor the network. The caller
+// says whether this is production. In production the real address has to be
+// the approved one; development may name another host.
+export function resolveModelChoice(settings: ModelSettings, options?: { production?: boolean }): ModelChoice {
   const provider = settings.provider.trim().toLowerCase() || 'real'
 
   if (provider === 'fake') return { kind: 'fake' }
 
   if (provider === 'real') {
+    const address = baseUrl(required(settings.baseUrl, 'base URL'))
+    if (options?.production && address !== approvedModelAddress) {
+      throw new Error(`The model address must be ${approvedModelAddress}.`)
+    }
     return {
       kind: 'real',
       apiKey: required(settings.apiKey, 'API key'),
-      baseUrl: baseUrl(required(settings.baseUrl, 'base URL')),
+      baseUrl: address,
       model: required(settings.modelName, 'model name'),
     }
   }

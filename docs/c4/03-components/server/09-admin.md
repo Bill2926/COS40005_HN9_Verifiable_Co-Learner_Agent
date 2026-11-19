@@ -34,17 +34,17 @@ flowchart LR
 
 | Step | What happens |
 |---|---|
-| Who may call | No email: `SignInRequiredError` (401). Email not in the comma-separated `adminEmails`: `ProductOwnerRequiredError` (403). |
+| Who may call | No confirmed email: `SignInRequiredError` (401). Email not in the comma-separated `adminEmails`: `ProductOwnerRequiredError` (403). The route supplies the email from the user record. |
 | `role` event | `checkAdminRole`: the same 401/403 checks, then `{ productOwner: true }`. Reads no settings and no decisions; `api/admin.post.ts` routes it there before `handleAdmin`. |
 | `testConnection` event | `handleConnectionTest`: the same 401/403 checks, then the two provider calls of [`language-model`](07-language-model.md) with the settings on the form — the same merge a save makes, so a blank field is the value in effect and not an empty one. It answers `{ reply, toolCall }`, each with success, the time it took and the provider's message with the API key taken out. Nothing is saved and no store is written; a blank or `fake` form is refused (400) before a call is made. `api/admin.post.ts` routes it here, so the answer carries no decisions and no directory. |
-| `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. |
+| `save` event | Validates the provider with `resolveModelChoice`, keeps the current API key if the new one is blank, and stores the settings. In production a real base URL other than `https://api.deepseek.com` is a 400 and nothing is stored. |
 | `verifyShield` event | Saves the on or off switch. |
 | `studentNumber` event | Checks the number against `isStudentNumber` in `shared/student-number.ts` (`SWB` + at least four digits, 400 with `studentNumberRule` otherwise) before reading the directory, then asks the store to change the number: an unknown student is 404, a number another student holds or one a student had before is 400. The store writes the change record with the acting administrator's email. |
 | Every other call | Returns the model settings with the API key masked, the current shield state and up to 100 decisions filtered by verdict and student id. `students` is empty unless the body's `event` is `students` or `studentNumber`, so no other call reads the directory. |
 
 ## Verified imports
 
-- Runtime: `language-model` (`resolveModelChoice`, `testConnection`, `UnusableSettingsError`; types `ModelSettings`, `ConnectionReport`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`), `shared/student-number` (`isStudentNumber`, `studentNumberRule`).
+- Runtime: `language-model` (`resolveModelChoice`, `modelAddressLocked`, `testConnection`, `UnusableSettingsError`; types `ModelSettings`, `ConnectionReport`), `verify-shield` (`verifyShieldEnabled`; type `VerifyShieldStore`), `shared/student-number` (`isStudentNumber`, `studentNumberRule`).
 - Type only: `storage/decision-log`, `storage/model-settings-store`, `storage/student-directory` (`StudentDirectoryStore`, `AdminStudent`).
 - It never imports Supabase code; the route passes the stores in, including the student directory.
 - Each decision it returns includes `ruleChecks` when the decision log recorded them.

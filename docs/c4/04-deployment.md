@@ -62,7 +62,7 @@ flowchart TB
 |---|---|
 | Developer machine, `pnpm dev` on port 3000 | `web/README.md` ("pnpm dev"), `web/playwright.config.ts` (`baseURL` `http://localhost:3000`, command `pnpm dev --port 3000`) |
 | Supabase cloud project | `web/.env.example` points `NUXT_PUBLIC_SUPABASE_URL` at a `*.supabase.co` URL; `web/README.md` says to use the team's Supabase project `VerifiableCoLearnerAgents`; `.mcp.json` points at the same project |
-| LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the administrator can change it on `/admin` |
+| LLM provider | `nuxt.config.ts` default `modelBaseUrl: https://api.deepseek.com`; the administrator can change the model on `/admin`. In production a saved address other than `https://api.deepseek.com` is refused |
 | jsDelivr | `web/app/python/browser-worker.mjs` |
 
 ## GitHub Actions
@@ -78,8 +78,7 @@ Two workflows live in `.github/workflows/`. They run on GitHub after those files
 
 ## Not part of the current setup
 
-- **Local Supabase stack.** `supabase/config.toml` exists (ports 54321 and so on), but no code or env file
-  points at it. It looks like the default CLI template. Whether anyone runs it locally: not known.
+- **Local Supabase stack.** `supabase/config.toml` records the local Auth rules: sign-up off, email confirmation on, an email change confirmed by both addresses, anonymous sign-in off, and manual linking off. No code or env file points the running app at this stack.
 - **Playwright rehearsal.** `pnpm rehearsal` starts its own dev server on :3000 with `NUXT_MODEL=fake`
   and resets demo accounts in the same cloud project using the secret key.
 

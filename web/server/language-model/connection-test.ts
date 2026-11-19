@@ -36,8 +36,8 @@ const probePrompt = 'This is a connection check, not a lesson.'
 // The two questions the administrator can ask of a provider by hand: will it answer in words, and will
 // it answer a forced tool call. Each is timed and each is reported on its own, because a model can do
 // one and not the other. Nothing is saved here and nothing is retried.
-export async function testConnection(settings: ModelSettings): Promise<ConnectionReport> {
-  const choice = realChoice(settings)
+export async function testConnection(settings: ModelSettings, options?: { production?: boolean }): Promise<ConnectionReport> {
+  const choice = realChoice(settings, options)
   const model = createRealLanguageModel({ apiKey: choice.apiKey, baseUrl: choice.baseUrl, model: choice.model })
 
   return {
@@ -58,10 +58,10 @@ export async function testConnection(settings: ModelSettings): Promise<Connectio
 
 // A fake provider has nothing to reach, and a real one needs every field: both are answered before a
 // call is made, so the administrator is told what to fix instead of watching two timeouts.
-function realChoice(settings: ModelSettings): Extract<ModelChoice, { kind: 'real' }> {
+function realChoice(settings: ModelSettings, options?: { production?: boolean }): Extract<ModelChoice, { kind: 'real' }> {
   let choice
   try {
-    choice = resolveModelChoice(settings)
+    choice = resolveModelChoice(settings, options)
   }
   catch (error) {
     throw new UnusableSettingsError(error instanceof Error ? error.message : 'The model settings are not usable.')

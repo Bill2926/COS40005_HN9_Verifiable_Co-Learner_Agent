@@ -50,8 +50,8 @@ describe('conversation storage boundary', () => {
 
     for (const table of ['conversations', 'messages', 'resume_points'] as const) {
       const selected = await supabase.from(table).select('*')
-      expect(selected.error).toBeNull()
-      expect(selected.data).toEqual([])
+      if (selected.error) expect(selected.error.code).toBe('42501')
+      else expect(selected.data).toEqual([])
     }
 
     const conversation = await supabase.from('conversations').insert({
@@ -81,8 +81,8 @@ describe('conversation storage boundary', () => {
 
     try {
       const hidden = await supabase.from('conversations').select('*').eq('id', probe.data!.id)
-      expect(hidden.error).toBeNull()
-      expect(hidden.data).toEqual([])
+      if (hidden.error) expect(hidden.error.code).toBe('42501')
+      else expect(hidden.data).toEqual([])
 
       const message = await supabase.from('messages').insert({
         conversation_id: probe.data!.id,

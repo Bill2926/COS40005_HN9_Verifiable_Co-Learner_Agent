@@ -102,4 +102,40 @@ describe('language model choice', () => {
       model: 'deepseek-flash',
     })
   })
+
+  it('accepts the approved DeepSeek address in production, including a trailing slash', () => {
+    expect(resolveModelChoice(settings({
+      provider: 'real',
+      baseUrl: 'https://api.deepseek.com/',
+    }), { production: true })).toEqual({
+      kind: 'real',
+      apiKey: 'sk-not-a-real-key',
+      baseUrl: 'https://api.deepseek.com',
+      model: 'deepseek-flash',
+    })
+  })
+
+  it('refuses a saved model address other than the approved one in production', () => {
+    expect(() => resolveModelChoice(settings({
+      provider: 'real',
+      baseUrl: 'https://example.test',
+    }), { production: true })).toThrow(/The model address must be https:\/\/api\.deepseek\.com\./)
+    expect(() => resolveModelChoice(settings({
+      provider: 'real',
+      baseUrl: 'https://api.deepseek.com/v1',
+    }), { production: true })).toThrow(/https:\/\/api\.deepseek\.com/)
+    expect(() => resolveModelChoice(settings({
+      provider: 'real',
+      baseUrl: 'http://api.deepseek.com',
+    }), { production: true })).toThrow(/https:\/\/api\.deepseek\.com/)
+  })
+
+  it('still chooses the fake model in production when no address is called', () => {
+    expect(resolveModelChoice({
+      provider: 'fake',
+      apiKey: '',
+      baseUrl: 'https://example.test',
+      modelName: '',
+    }, { production: true })).toEqual({ kind: 'fake' })
+  })
 })

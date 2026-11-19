@@ -4,7 +4,7 @@
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
-`GET /api/lecturer` verifies the Supabase session and passes its email to `handleLecturer`. The handler checks the lecturer allowlist and returns 401 for a missing session or 403 for an email outside the list. The landing check does not use this route: `GET /api/staff-role` (`server/staff/staff-role.ts`, reusing the lecturer and administrator allowlist checks) answers `{productOwner, lecturer}` with 200 for anyone, a student included.
+`GET /api/lecturer` reads the signed-in user with the secret key and passes that confirmed email to `handleLecturer`. An unconfirmed email is no email. The handler checks the lecturer allowlist and returns 401 for a missing session or 403 for an email outside the list. The JWT email claim, the request body and user metadata are not consulted. The landing check does not use this route: `GET /api/staff-role` (`server/staff/staff-role.ts`, reusing the lecturer and administrator allowlist checks, on the same confirmed email) answers `{productOwner, lecturer}` with 200 for anyone, a student included.
 
 The handler reads through `LecturerStore`. The Supabase adapter selects course IDs and titles by owner email, counts enrollments in Postgres and reads course history with the server key. The page receives the count, history, title and ID for each owned course.
 
