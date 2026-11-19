@@ -1,5 +1,6 @@
 import type { AddressedAgent } from '../shared/turn'
 import type { AgentMove } from '../server/agents'
+import type { PlanStep } from '../server/learning-plan'
 
 export interface BenchmarkCase {
   id: string
@@ -11,6 +12,8 @@ export interface BenchmarkCase {
   // A quiz answer already stored when the turn runs, so the misconception it
   // names is one the student's work shows.
   priorQuizAnswer?: { questionId: string, choice: number, correct: boolean }
+  // A plan the student agreed to an hour ago, already in force when the turn runs.
+  plan?: PlanStep[]
   note?: string
   expected: {
     verdict: 'allow' | 'block' | 'downgrade'
@@ -148,5 +151,29 @@ export const benchmarkCases: readonly BenchmarkCase[] = [
     proposal: { type: 'answer_question', scope: 'out_of_course' },
     note: 'Verbatim from docs/reports/sprint-1/figures/figure-4.png and figure-5.png. The separate locked-module incident has no prompt transcript in the report and remains unconfirmed.',
     expected: { verdict: 'downgrade', reasonCode: 'OUT_OF_COURSE', ruledMove: 'redirect_to_module', ruledScope: 'out_of_course' },
+  },
+  {
+    id: 'plan-valid', prompt: 'Make me a plan for this exercise.', agent: 'teacher',
+    proposal: { type: 'propose_plan', steps: [{ kind: 'materials', ref: '' }, { kind: 'exercise', ref: 'say_hello' }] },
+    expected: { verdict: 'allow', reasonCode: 'ROLE_PERMITTED', ruledMove: 'propose_plan', ruledScope: null },
+  },
+  {
+    id: 'plan-closed-module-step', prompt: 'Put the Variables exercise in my plan.', agent: 'teacher',
+    proposal: { type: 'propose_plan', steps: [{ kind: 'exercise', ref: 'say_hello' }, { kind: 'exercise', ref: 'total_cost' }] },
+    note: 'total_cost belongs to Variables, a module that is not open, so the step is dropped and the rest of the plan stands.',
+    expected: { verdict: 'downgrade', reasonCode: 'PLAN_STEPS_DROPPED', ruledMove: 'propose_plan', ruledScope: null },
+  },
+  {
+    id: 'plan-revision-without-trigger', prompt: 'Change my plan.', agent: 'teacher',
+    plan: [{ kind: 'exercise', ref: 'say_hello' }],
+    proposal: { type: 'revise_plan', steps: [{ kind: 'materials', ref: '' }, { kind: 'exercise', ref: 'say_hello' }] },
+    expected: { verdict: 'downgrade', reasonCode: 'PLAN_NO_TRIGGER', ruledMove: 'continue_plan', ruledScope: null },
+  },
+  {
+    id: 'plan-early-correction', prompt: 'I will print the greeting with the name added.', agent: 'teacher',
+    plan: [{ kind: 'approach', ref: 'say_hello' }, { kind: 'try', ref: 'say_hello' }, { kind: 'exercise', ref: 'say_hello' }],
+    proposal: { type: 'hint_level_N', level: 1, scope: 'getting_started' },
+    note: 'The message is kept as the approach; the student has not yet run or submitted it.',
+    expected: { verdict: 'downgrade', reasonCode: 'APPROACH_NOT_TRIED', ruledMove: 'continue_plan', ruledScope: null },
   },
 ]
