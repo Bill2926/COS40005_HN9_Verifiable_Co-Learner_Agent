@@ -97,13 +97,15 @@ Three workflows live in `.github/workflows/`. `check.yml` and `schema-push.yml` 
 The Render service in `render.yaml` sets `NUXT_SANDBOX_FUNCTION=colearner-sandbox` and
 `NUXT_SANDBOX_REGION=ap-southeast-2`. `createSubmissionSandbox` then invokes that function and
 uses the payload as the sandbox result. The function runs the image in `sandbox/`, in private
-subnets with no outbound route. Its role can write its own log group (kept for seven days) and
+subnets with no outbound route. Lambda runs it as an unprivileged user, so the image's chroot
+jail applies under Docker and not here; the student process is denied new sockets, and the
+handler removes AWS credential values from the report it returns. Its role can write its own log group (kept for seven days) and
 the network interfaces Lambda needs to place it there. The server's access key is the IAM user
 `colearner-server`, which can only invoke that function. At most five submissions run at once;
 the sixth is told to try again in a moment and records no evidence. Terraform in `infra/sandbox`
 describes this, with state in an S3 bucket in Sydney (`infra/terraform-state`) and a budget
-alert at $50 a month. The account owner reviews and applies the plan. Nothing in preparing this
-change is applied to the account.
+alert at $50 a month. The account owner applies the plan. The registry keeps immutable tags, one
+per commit, and the function's image URI names that commit.
 
 ```mermaid
 flowchart LR

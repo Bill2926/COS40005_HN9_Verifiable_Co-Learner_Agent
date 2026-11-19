@@ -163,8 +163,16 @@ _Avoid_: run, check, upload
 **Attempt**:
 One submission on an exercise.
 
+**Sandbox**:
+The isolated place on the server side where a submission is run again against the exercise's tests; only its result is evidence. A run never goes to the sandbox.
+_Avoid_: checker, runner, judge
+
+**Approved library**:
+A Python module a student may import, the same for runs and submissions. Only the development team changes the list.
+_Avoid_: allowed package, whitelist
+
 **Evidence**:
-A recorded fact about what the student did, produced from a submission (by the test runner) or from a quiz answer. Reading materials, running code and chatting produce none.
+A recorded fact about what the student did, produced from a submission by the sandbox or from a quiz answer. Results the student's browser reports are never evidence. Reading materials, running code and chatting produce none.
 
 **Activity log**:
 The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. Only a staff review page shows it. On first sign-in, on Home and on the profile, students are told that their activity, submitted code and conversations are recorded, that their lecturers and administrators can review them, and that DeepSeek processes their conversations.

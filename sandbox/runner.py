@@ -18,21 +18,30 @@ def emit(payload):
     sys.stdout.flush()
 
 
-def clean_tmp():
-    if not IN_IMAGE:
-        return
-    root = "/opt/jail/tmp"
+def _remove_entry(path):
+    try:
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path, ignore_errors=True)
+        else:
+            os.remove(path)
+    except OSError:
+        pass
+
+
+def _empty_directory(root):
     if not os.path.isdir(root):
         return
     for name in os.listdir(root):
-        path = os.path.join(root, name)
-        try:
-            if os.path.isdir(path) and not os.path.islink(path):
-                shutil.rmtree(path, ignore_errors=True)
-            else:
-                os.remove(path)
-        except OSError:
-            pass
+        _remove_entry(os.path.join(root, name))
+
+
+def clean_tmp():
+    if not IN_IMAGE:
+        return
+    # The jail's temporary directory when chroot worked, and the real one when
+    # Lambda refused the jail. A warm Lambda keeps /tmp between students.
+    _empty_directory("/opt/jail/tmp")
+    _empty_directory("/tmp")
 
 
 def kill_group(pid):

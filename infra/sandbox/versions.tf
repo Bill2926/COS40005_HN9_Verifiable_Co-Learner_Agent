@@ -8,11 +8,12 @@
 # 3. terraform apply -var 'budget_alert_email=you@example.com'
 #    This creates the registry, the private network, the roles, the log group
 #    and the budget. Leave image_uri empty until the image has been pushed.
-# 4. Build for the function's architecture and push to the registry:
-#    docker build --platform linux/amd64 -t colearner-sandbox <repo>/sandbox
-#    docker tag colearner-sandbox <repository_url>:sandbox
-#    docker push <repository_url>:sandbox
-# 5. terraform apply again with -var image_uri=<repository_url>:sandbox
+# 4. Build for the function's architecture and push to the registry, tagged
+#    with the commit it was built from. The registry refuses a tag twice.
+#    docker build --platform linux/amd64 --provenance=false \
+#      -t <repository_url>:$(git rev-parse --short HEAD) <repo>/sandbox
+#    docker push <repository_url>:$(git rev-parse --short HEAD)
+# 5. terraform apply again with -var image_uri=<repository_url>:<commit>
 # 6. Create an access key for the user colearner-server in the console and set
 #    AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY on the deployed server.
 #    render.yaml already sets NUXT_SANDBOX_FUNCTION=colearner-sandbox and
