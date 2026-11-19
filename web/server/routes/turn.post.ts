@@ -1,4 +1,5 @@
 import { sessionStudentId } from '../../shared/student-id'
+import { createRequestClient } from '../../shared/supabase-server'
 import { agentsForTurn } from '../agents'
 import { defaultCourseId } from '../course'
 import { createSupabaseCourseStore } from '../storage/supabase-course-store'
@@ -32,7 +33,9 @@ export default defineEventHandler(async (event) => {
   // The stores of student data read and write that course's rows only.
   const courseId = defaultCourseId
   const studentData = { ...connection, courseId }
-  const store = createSupabaseConversationStore(studentData)
+  // The student's conversation is read through their own sign-in, not the secret key.
+  const reader = createRequestClient(event, config.public.supabaseUrl, config.public.supabasePublishableKey)
+  const store = createSupabaseConversationStore({ ...studentData, reader })
   const body = await readBody(event)
   const request = { sessionStudentId: studentId, body }
   // Opening a module does not call the model. Skip those reads so the click

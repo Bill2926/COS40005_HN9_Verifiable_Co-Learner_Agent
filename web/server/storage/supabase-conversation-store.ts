@@ -1,13 +1,18 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import type { Quote } from '../../shared/turn'
 import type { ConversationStore, MessageAuthor, ResumePoint, StoredMessage } from './conversation-store'
 
 // Scoped to one course: it reads and writes only that course's rows.
+// The conversation is read through `reader`, the signed-in student's own client,
+// so row level security returns nothing of any other student (#231).
+// Writes and the other reads use the secret key.
 export function createSupabaseConversationStore(options: {
   url: string
   secretKey: string
   courseId: string
+  reader: SupabaseClient
 }): ConversationStore {
+  const reader = options.reader
   const supabase = createClient(options.url, options.secretKey, {
     auth: {
       persistSession: false,
@@ -79,7 +84,7 @@ export function createSupabaseConversationStore(options: {
       if (result.error) throw new Error(result.error.message)
     },
     async messages(studentId, moduleId) {
-      const conversation = await supabase
+      const conversation = await reader
         .from('conversations')
         .select('id')
         .eq('student_id', studentId)
@@ -89,7 +94,7 @@ export function createSupabaseConversationStore(options: {
       if (conversation.error) throw new Error(conversation.error.message)
       if (!conversation.data) return []
 
-      const result = await supabase
+      const result = await reader
         .from('messages')
         .select('id, sequence, author, approved_move, text, exercise_id, created_at, addressed_agent, quote')
         .eq('conversation_id', conversation.data.id)

@@ -28,7 +28,7 @@ function supabaseClient(url: string, key: string) {
 }
 
 describe('conversation storage boundary', () => {
-  it('returns nothing and refuses inserts on conversations, messages, and resume points', async () => {
+  it('lets a signed-in student read only their own conversation and write none', async () => {
     const url = envValue('NUXT_PUBLIC_SUPABASE_URL')
     const publishableKey = envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY')
     const secretKey = envValue('NUXT_SUPABASE_SECRET_KEY')
@@ -38,65 +38,88 @@ describe('conversation storage boundary', () => {
     expect(publishableKey.startsWith('sb_secret_')).toBe(false)
     expect(publishableKey).not.toBe(secretKey)
 
-    const supabase = supabaseClient(url, publishableKey)
-    const an = demoAccounts[0]
-    const signedIn = await supabase.auth.signInWithPassword({
-      email: an.email,
-      password: an.password,
-    })
+    const [an, binh] = demoAccounts
+    const asAn = supabaseClient(url, publishableKey)
+    const signedIn = await asAn.auth.signInWithPassword({ email: an.email, password: an.password })
     expect(signedIn.error).toBeNull()
-    const studentId = signedIn.data.user?.id
-    expect(studentId).toBeTruthy()
-
-    for (const table of ['conversations', 'messages', 'resume_points'] as const) {
-      const selected = await supabase.from(table).select('*')
-      if (selected.error) expect(selected.error.code).toBe('42501')
-      else expect(selected.data).toEqual([])
-    }
-
-    const conversation = await supabase.from('conversations').insert({
-      student_id: studentId,
-      course_id: 'intro_python',
-      module_id: 'for_loop',
-    })
-    expect(conversation.error?.code).toBe('42501')
-    expect(conversation.data).toBeNull()
-
-    const resumePoint = await supabase.from('resume_points').insert({
-      student_id: studentId,
-      course_id: 'intro_python',
-      module_id: 'for_loop',
-      exercise_id: 'sum_of_a_list',
-    })
-    expect(resumePoint.error?.code).toBe('42501')
-    expect(resumePoint.data).toBeNull()
+    const anId = signedIn.data.user!.id
+    const asBinh = supabaseClient(url, publishableKey)
+    const binhSignedIn = await asBinh.auth.signInWithPassword({ email: binh.email, password: binh.password })
+    expect(binhSignedIn.error).toBeNull()
+    const binhId = binhSignedIn.data.user!.id
 
     const admin = supabaseClient(url, secretKey)
-    const probe = await admin.from('conversations').insert({
-      student_id: studentId,
-      course_id: 'intro_python',
-      module_id: `boundary-${crypto.randomUUID()}`,
-    }).select('id').single()
-    expect(probe.error).toBeNull()
+    const moduleId = `boundary-${crypto.randomUUID()}`
+    const probes = await admin.from('conversations').insert([
+      { student_id: anId, course_id: 'intro_python', module_id: moduleId },
+      { student_id: binhId, course_id: 'intro_python', module_id: moduleId },
+    ]).select('id, student_id')
+    expect(probes.error).toBeNull()
+    const anConversation = probes.data!.find(row => row.student_id === anId)!.id
+    const binhConversation = probes.data!.find(row => row.student_id === binhId)!.id
+    const written = await admin.from('messages').insert([
+      { conversation_id: anConversation, author: 'student', text: 'An asks', exercise_id: 'sum_of_a_list' },
+      { conversation_id: binhConversation, author: 'student', text: 'Binh asks', exercise_id: 'sum_of_a_list' },
+    ])
+    expect(written.error).toBeNull()
 
     try {
-      const hidden = await supabase.from('conversations').select('*').eq('id', probe.data!.id)
-      if (hidden.error) expect(hidden.error.code).toBe('42501')
-      else expect(hidden.data).toEqual([])
+      // A query with no student filter returns An's rows only.
+      const conversations = await asAn.from('conversations').select('student_id')
+      expect(conversations.error).toBeNull()
+      expect(conversations.data!.every(row => row.student_id === anId)).toBe(true)
+      const messages = await asAn.from('messages').select('conversation_id, text').eq('text', 'Binh asks')
+      expect(messages.error).toBeNull()
+      expect(messages.data).toEqual([])
 
-      const message = await supabase.from('messages').insert({
-        conversation_id: probe.data!.id,
+      // Naming Binh's id or Binh's conversation returns nothing.
+      const named = await asAn.from('conversations').select('*').eq('student_id', binhId)
+      expect(named.data).toEqual([])
+      const throughId = await asAn.from('messages').select('*').eq('conversation_id', binhConversation)
+      expect(throughId.data).toEqual([])
+
+      // Through the store, a crafted request naming Binh returns nothing of Binh,
+      // and An still reads An's own conversation.
+      const store = createSupabaseConversationStore({ url, secretKey, courseId: 'intro_python', reader: asAn })
+      expect(await store.messages(binhId, moduleId)).toEqual([])
+      expect((await store.messages(anId, moduleId)).map(message => message.text)).toEqual(['An asks'])
+
+      // A session with no student sees nothing.
+      const anonymous = await supabaseClient(url, publishableKey).from('messages').select('*')
+      if (anonymous.error) expect(anonymous.error.code).toBe('42501')
+      else expect(anonymous.data).toEqual([])
+
+      const resumePoints = await asAn.from('resume_points').select('*')
+      if (resumePoints.error) expect(resumePoints.error.code).toBe('42501')
+      else expect(resumePoints.data).toEqual([])
+
+      const conversation = await asAn.from('conversations').insert({
+        student_id: anId,
+        course_id: 'intro_python',
+        module_id: 'for_loop',
+      })
+      expect(conversation.error?.code).toBe('42501')
+
+      const resumePoint = await asAn.from('resume_points').insert({
+        student_id: anId,
+        course_id: 'intro_python',
+        module_id: 'for_loop',
+        exercise_id: 'sum_of_a_list',
+      })
+      expect(resumePoint.error?.code).toBe('42501')
+
+      const message = await asAn.from('messages').insert({
+        conversation_id: anConversation,
         author: 'student',
         text: 'Forged',
         exercise_id: 'sum_of_a_list',
       })
       expect(message.error?.code).toBe('42501')
-      expect(message.data).toBeNull()
     }
     finally {
-      await admin.from('conversations').delete().eq('id', probe.data!.id)
+      await admin.from('conversations').delete().in('id', [anConversation, binhConversation])
     }
-  }, 20_000)
+  }, 30_000)
 })
 
 describe('supabase conversation store', () => {
@@ -115,7 +138,13 @@ describe('supabase conversation store', () => {
     })
     expect(created.error).toBeNull()
     const studentId = created.data.user!.id
-    const store = createSupabaseConversationStore({ url, secretKey, courseId: 'intro_python' })
+    const reader = supabaseClient(url, envValue('NUXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'))
+    const readerSignIn = await reader.auth.signInWithPassword({
+      email: created.data.user!.email!,
+      password: 'round-trip-password',
+    })
+    expect(readerSignIn.error).toBeNull()
+    const store = createSupabaseConversationStore({ url, secretKey, courseId: 'intro_python', reader })
 
     try {
       expect(await store.displayName(studentId)).toBe('Round trip')
