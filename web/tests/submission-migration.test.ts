@@ -26,9 +26,15 @@ it('keeps a submission for the server alone, and refuses a change', async () => 
       create function storage.foldername(name text) returns text[] language sql
         as $$ select string_to_array(name, '/') $$;
     `)
-    for (const name of (await readdir(migrations)).sort().filter(name => name.endsWith('.sql'))) {
+    const names = (await readdir(migrations)).filter(name => name.endsWith('.sql')).sort()
+    const versions = names.map(name => name.split('_')[0] ?? '')
+    expect(new Set(versions).size).toBe(names.length)
+    for (const name of names) {
       await db.exec(await readFile(new URL(name, migrations), 'utf8'))
     }
+    const findings = names.find(name => name.endsWith('_store_submission_findings.sql'))
+    if (!findings) throw new Error('The submission findings migration is missing.')
+    await db.exec(await readFile(new URL(findings, migrations), 'utf8'))
     await db.exec(`
       insert into auth.users (id, email) values
         ('${an}', 'an@example.com'),
