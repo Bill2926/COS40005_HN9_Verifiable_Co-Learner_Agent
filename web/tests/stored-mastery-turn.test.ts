@@ -10,6 +10,7 @@ import {
   createMemoryUnlockStore,
   learningParameters,
 } from '../server/student-model'
+import { createFakeSandbox } from '../server/sandbox'
 import { handleTurn, type TurnOptions } from '../server/turn/handle-turn'
 
 // The turn handler is where a student's mastery is read and, once they record evidence, stored
@@ -62,7 +63,13 @@ describe('stored mastery in a turn', () => {
         code: 'print("hi")',
         results: [{ name: 'hello', passed: true, expected: 'hi', actual: 'hi' }],
       },
-    }, store, teacher(), options)
+    }, store, teacher(), {
+      ...options,
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [{ name: 'hello', passed: true, expected: 'hi', actual: 'hi' }],
+      }),
+    })
 
     const stored = await storedOf(firstModule)
     expect(stored!.passedExercise).toBe(true)

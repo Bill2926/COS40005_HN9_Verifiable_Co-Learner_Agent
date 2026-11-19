@@ -62,7 +62,8 @@ Note: the two "PracticePanel" arrows are the same file importing two different f
 | `protocol.ts` | The message types between runner and worker (`ToWorker`, `FromWorker`), result types, and the guards `isRunResult` and `isTestReport`. |
 | `browser-runner.ts` | `createPythonRunner()` with a spawn that starts `browser-worker.mjs` as a module Web Worker. |
 | `browser-worker.mjs` | Calls `servePyodide` with `loadPyodide({ indexURL: https://cdn.jsdelivr.net/pyodide/v<version>/full/ })`. |
-| `pyodide-session.mjs` | Installs two Python helpers in Pyodide: one runs the student's code and captures stdout, stderr and the error line; one runs each test expression against the student's namespace and compares `str(value)` with the expected text. |
+| `approved-libraries.mjs` | The approved import list and the Python that refuses anything else, by name, before the code runs and again from inside the student namespace. |
+| `pyodide-session.mjs` | Installs that guard and two Python helpers: one runs the student's code and captures stdout, stderr and the error line; one runs each test expression against the student's namespace and compares `str(value)` with the expected text. |
 | `node-runner.ts`, `node-worker.mjs` | The same core started in a Node `worker_threads` Worker with Pyodide from `node_modules`. |
 | `highlight.ts` (in the same folder) | CodeMirror highlight style, used by `PythonEditor` and `PythonExample` through dynamic imports. It is not part of running Python. |
 
@@ -75,5 +76,6 @@ Note: the two "PracticePanel" arrows are the same file importing two different f
 
 ## Notes
 
-- Tests run in the student's browser, so the server gets only the counts the browser reports (ADR 0002).
+- Run stays in the browser. Submit still runs the tests here so the panel can show them at once, and the server runs them again in the sandbox. The evidence ledger records only the sandbox report (ADR 0010).
+- An import outside `math`, `random`, `string`, `itertools`, `collections`, `datetime`, `re`, `statistics` and `functools` is refused, on Run and on the browser check, with a message that names the library. The list lives in `approved-libraries.mjs`.
 - `python-runner.test.ts` runs exercise reference solutions through the Node worker, which makes it a way to check that the course exercises pass their own tests. That is my reading of the test file's imports (`course`), not something I ran.

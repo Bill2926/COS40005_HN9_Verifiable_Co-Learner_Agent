@@ -21,6 +21,7 @@ flowchart LR
     adminRoute["<b>api/admin.post.ts</b><br/>POST /api/admin"]:::comp
     outlineRoute["<b>routes/course-outline.get.ts</b><br/>GET /course-outline"]:::comp
     studentRoute["<b>api/student.post.ts</b><br/>POST /api/student"]:::comp
+    submissionRoute["<b>api/submission.post.ts</b><br/>POST /api/submission"]:::comp
   end
 
   handleTurn["<b>turn/handle-turn.ts</b>"]:::near
@@ -36,6 +37,7 @@ flowchart LR
   spa ==>|"admin requests"| adminRoute
   spa ==>|"course outline"| outlineRoute
   spa ==>|"reported actions"| studentRoute
+  spa ==>|"read a submission"| submissionRoute
 
   turnRoute -->|"sessionStudentId"| studentId
   studentRoute -->|"sessionStudentId, sessionEmail"| studentId
@@ -51,6 +53,10 @@ flowchart LR
   adminRoute -->|"3 createSupabase...Store"| stores
   outlineRoute -->|"defaultCourseId"| course
   studentRoute -->|"defaultCourseId"| course
+  submissionRoute -->|"defaultCourseId"| course
+  submissionRoute -->|"sessionStudentId"| studentId
+  submissionRoute -->|"createSupabaseSubmissionStore"| stores
+  turnRoute -->|"createContainerSandbox"| sandbox["<b>sandbox</b>"]:::near
   turnRoute -->|"defaultCourseId"| course
 
   style routes fill:none,stroke:#8b949e,stroke-dasharray:5 4
@@ -64,10 +70,12 @@ flowchart LR
 | `api/student.post.ts` | Returns 401 when there is no session and 400 for a rejected report. Builds the activity log, course, profile, mindmap and student-file stores and passes them to `handleStudent`. A preview is not selected here. |
 | `api/admin.post.ts` | Builds the admin request once (the confirmed email from the user record, read with the secret key, `adminEmails`, the env model settings, `verifyShield` and four Supabase stores) and dispatches on the body: a `role` event goes to `checkAdminRole` before the request is built, a `testConnection` event to `handleConnectionTest`, everything else to `handleAdmin`. A JWT email claim, the request body and user metadata are not the email. Maps `SignInRequiredError`, `ProductOwnerRequiredError`, `ModelSettingsError`, `AdminRequestError` and `AdminNotFoundError` to their `statusCode`. |
 | `routes/course-outline.get.ts` | Public course outline for the About page: number, name, part, summary, availability, of the course read through the Supabase course store. No student data and none of the teacher-only content. |
+| `api/submission.post.ts` | Returns 401 when there is no session. With an `id`, returns that submission to the session student, 403 when it belongs to someone else, and 404 when it does not exist. Without an `id`, returns the session student's submissions. |
 
 ## Verified imports
 
-- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `course` (`defaultCourseId`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-deskmate-setting-store`, `supabase-daily-turn-allowance`, `supabase-evidence-store`, `supabase-mastery-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `supabase-unlock-store`, `supabase-course-store`, `supabase-activity-log`, `verify-shield` (`verifyShieldForTurn`), `code-version` (`currentCodeVersion`), `turn/handle-turn`.
+- `turn.post.ts`: `shared/student-id`, `agents` (`agentsForTurn`), `course` (`defaultCourseId`), `storage/supabase-conversation-store`, `supabase-decision-log`, `supabase-deskmate-setting-store`, `supabase-daily-turn-allowance`, `supabase-evidence-store`, `supabase-mastery-store`, `supabase-quiz-answer-store`, `supabase-model-settings-store`, `supabase-verify-shield-store`, `supabase-unlock-store`, `supabase-course-store`, `supabase-activity-log`, `supabase-submission-store`, `sandbox` (`createContainerSandbox`), `verify-shield` (`verifyShieldForTurn`), `code-version` (`currentCodeVersion`), `turn/handle-turn`.
+- `api/submission.post.ts`: `shared/student-id`, `course` (`defaultCourseId`), `storage/supabase-submission-store`, `storage/submission-store` (`SubmissionRefusedError`, `SubmissionNotFoundError`).
 - `student.post.ts`: `shared/student-id`, `course` (`defaultCourseId`), `storage/supabase-activity-log`, `supabase-course-store`, `supabase-mindmap-store`, `supabase-profile-store`, `supabase-student-file-store`, `student` (`handleStudent`, `SignInRequiredError`, `StudentRequestError`).
 - `admin.post.ts`: `auth/staff-session-email` (`staffSessionEmail`), `admin/handle-admin` (`checkAdminRole`, `handleAdmin`, `handleConnectionTest`, `isConnectionTest`, `isRoleCheck` and the error classes), `course` (`defaultCourseId`), `storage/supabase-decision-log`, `supabase-model-settings-store`, `supabase-student-directory`, `supabase-verify-shield-store`.
 - `course-outline.get.ts`: `course` (`defaultCourseId`), `storage` (`supabase-course-store`).

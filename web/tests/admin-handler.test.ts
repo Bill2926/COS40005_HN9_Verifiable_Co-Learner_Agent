@@ -8,6 +8,7 @@ import { createMemoryDecisionLogStore, type DecisionRecord } from '../server/sto
 import { createMemoryModelSettingsStore } from '../server/storage/model-settings-store'
 import { createMemoryStudentDirectoryStore } from '../server/storage/student-directory'
 import { createMemoryVerifyShieldStore, verifyShieldForTurn } from '../server/verify-shield'
+import { createFakeSandbox } from '../server/sandbox'
 import { handleTurn } from '../server/turn/handle-turn'
 
 const owner = productOwnerAccount.email
@@ -619,7 +620,13 @@ describe('admin handler', () => {
     }), createFakeAgents({
       proposal: { type: 'explain_concept', scope: 'getting_started' },
       text: 'Look at where the total is created.',
-    }), { decisions })
+    }), {
+      decisions,
+      sandbox: createFakeSandbox({
+        outcome: 'checked',
+        results: [{ name: 'adds the numbers', passed: false, expected: '6', actual: '0' }],
+      }),
+    })
 
     const viewed = await handleAdmin(ownerRequest({ decisions }))
     expect(viewed.decisions).toHaveLength(1)

@@ -24,6 +24,8 @@ import {
 } from '../student-model'
 import { dailyProposingTurnLimit, type DailyTurnAllowance } from '../storage/daily-turn-allowance'
 import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
+import type { NewSubmission, SubmissionStore } from '../storage/submission-store'
+import { couldNotCheck, type Sandbox, type SandboxReport } from '../sandbox'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
@@ -112,6 +114,11 @@ export interface TurnOptions {
   // Absent in tests that are not about the decision log's versions.
   codeVersion?: string
   courseHistoryId?: number | null
+  // Re-runs the submission. Absent only where a test is not submitting; a submission
+  // with no sandbox is refused and records no pass.
+  sandbox?: Sandbox
+  // Keeps the code, the per-test results and the outcome. Absent in tests that do not read it.
+  submissions?: SubmissionStore
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -325,16 +332,47 @@ async function* turnBody(
   }
 
   if (isSubmission(body)) {
-    if (!agents) throw new Error('The agents have no language model.')
     await adoptPlacement(studentId, store, placement)
-    // Record the submission before refreshing mastery.
-    const testsPassed = body.results.filter(result => result.passed).length
+    const report = await checkedSubmission(body.code, placement.exercise.tests, options?.sandbox)
+    if (report.outcome === 'refused') {
+      await rememberSubmission(options?.submissions, {
+        studentId,
+        moduleId: placement.module.id,
+        exerciseId: placement.exercise.id,
+        code: body.code,
+        results: [],
+        outcome: 'refused',
+        message: report.message,
+      })
+      await store.appendMessage(studentId, placement.module.id, {
+        author: 'event',
+        approvedMove: null,
+        text: report.message,
+        exerciseId: placement.exercise.id,
+      })
+      flags.notice = report.message
+      yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+      return
+    }
+    if (!agents) throw new Error('The agents have no language model.')
+    const results = report.results
+    const testsPassed = results.filter(result => result.passed).length
+    // Record the sandbox result before refreshing mastery. The counts the browser sent are not used.
     await ledger.append({
       studentId,
       moduleId: placement.module.id,
       exerciseId: placement.exercise.id,
       testsPassed,
-      testsTotal: body.results.length,
+      testsTotal: results.length,
+    })
+    await rememberSubmission(options?.submissions, {
+      studentId,
+      moduleId: placement.module.id,
+      exerciseId: placement.exercise.id,
+      code: body.code,
+      results,
+      outcome: testsPassed === results.length ? 'passed' : 'failed',
+      message: null,
     })
     await options?.activity?.record({
       studentId,
@@ -344,7 +382,7 @@ async function* turnBody(
         moduleId: placement.module.id,
         exerciseId: placement.exercise.id,
         testsPassed,
-        testsTotal: body.results.length,
+        testsTotal: results.length,
       },
     })
     estimate = await refreshEstimate(await ledger.forStudent(studentId), true)
@@ -352,13 +390,13 @@ async function* turnBody(
     await store.appendMessage(studentId, placement.module.id, {
       author: 'event',
       approvedMove: null,
-      text: submissionSummary(body.results),
+      text: submissionSummary(results),
       exerciseId: placement.exercise.id,
     })
     yield* answerMessage(studentId, placement, standing, {
       draft: null,
       runOutput: null,
-      submission: { code: body.code, results: body.results },
+      submission: { code: body.code, results },
     }, store, quizStore, agents, '', everyone, flags, options)
     return
   }
@@ -1269,6 +1307,36 @@ interface SubmissionEvent {
   event: 'submission'
   code: string
   results: PracticeTestResult[]
+}
+
+const uncheckedSandbox: Sandbox = {
+  async check() {
+    return { outcome: 'refused', message: couldNotCheck }
+  },
+}
+
+// The exercise's own tests, never the counts the browser sent.
+async function checkedSubmission(
+  code: string,
+  tests: readonly { name: string, expression: string, expected: string }[],
+  sandbox: Sandbox | undefined,
+): Promise<SandboxReport> {
+  const report = await (sandbox ?? uncheckedSandbox).check({
+    code,
+    tests: tests.map(test => ({
+      name: test.name,
+      expression: test.expression,
+      expected: test.expected,
+    })),
+  })
+  if (report.outcome === 'checked' && report.results.length === 0) {
+    return { outcome: 'refused', message: couldNotCheck }
+  }
+  return report
+}
+
+async function rememberSubmission(store: SubmissionStore | undefined, submission: NewSubmission): Promise<void> {
+  await store?.record(submission)
 }
 
 function submissionSummary(results: readonly { passed: boolean }[]): string {

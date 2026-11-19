@@ -23,18 +23,57 @@ describe('python runner', () => {
     runner?.stop()
   })
 
-  it('returns printed stdout and stderr', async () => {
+  it('returns printed stdout', async () => {
     runner = createPythonRunner()
 
-    const run = runner.run([
-      'import sys',
-      'print("hello")',
-      'print("warn", file=sys.stderr)',
-    ].join('\n'))
+    const run = runner.run('print("hello")\n')
 
     await expect(run.result).resolves.toEqual({
       stdout: 'hello\n',
-      stderr: 'warn\n',
+      stderr: '',
+      error: null,
+    })
+  }, 120_000)
+
+  it('refuses a library outside the approved list and names it', async () => {
+    runner = createPythonRunner()
+
+    const run = runner.run('import os\nprint("ran")\n')
+
+    await expect(run.result).resolves.toEqual({
+      stdout: '',
+      stderr: '',
+      error: { message: 'The library os is not allowed.', line: 1 },
+    })
+  }, 120_000)
+
+  it('refuses an unapproved library when checking tests and names it', async () => {
+    runner = createPythonRunner()
+
+    const check = runner.runTests('import socket\n', [{
+      name: 'connected',
+      expression: 'True',
+      expected: 'True',
+    }])
+
+    await expect(check.result).resolves.toEqual({
+      results: [{
+        name: 'connected',
+        passed: false,
+        expected: 'True',
+        actual: 'The library socket is not allowed.',
+      }],
+    })
+  }, 120_000)
+
+  it('runs an approved library', async () => {
+    runner = createPythonRunner()
+
+    const run = runner.run('import math\nprint(math.floor(2.9))\n')
+
+    await expect(run.result).resolves.toEqual({
+      stdout: '2\n',
+      stderr: '',
       error: null,
     })
   }, 120_000)
