@@ -278,6 +278,9 @@ function enrolledText(value: string): string {
                   <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell">
                     Email
                   </th>
+                  <th scope="col" class="px-3 py-2 font-medium">
+                    <span class="sr-only">Review</span>
+                  </th>
                   <th scope="col" class="hidden px-3 py-2 font-medium md:table-cell" :aria-sort="ariaSort(course.id, 'enrolledAt')">
                     <button type="button" class="inline-flex min-h-11 items-center gap-1 hover:text-highlighted md:min-h-0" @click="toggleSort(course.id, 'enrolledAt')">
                       Enrolled<span v-if="sortOf(course.id).key === 'enrolledAt'" aria-hidden="true">{{ sortOf(course.id).asc ? '↑' : '↓' }}</span>
@@ -312,6 +315,15 @@ function enrolledText(value: string): string {
                   </td>
                   <td class="hidden px-3 py-3 [overflow-wrap:anywhere] md:table-cell">
                     {{ student.email }}
+                  </td>
+                  <td class="px-3 py-3 whitespace-nowrap">
+                    <NuxtLink
+                      :to="`/review/${student.studentNumber}`"
+                      class="text-sm font-medium text-brand-700 underline underline-offset-4"
+                      :aria-label="`Review ${student.displayName}'s work`"
+                    >
+                      Review work
+                    </NuxtLink>
                   </td>
                   <td class="hidden px-3 py-3 whitespace-nowrap md:table-cell">
                     <time :datetime="student.enrolledAt">{{ enrolledText(student.enrolledAt) }}</time>

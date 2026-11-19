@@ -13,6 +13,7 @@ import {
 } from '../admin/handle-admin'
 import { defaultCourseId } from '../course'
 import { createSupabaseDecisionLogStore } from '../storage/supabase-decision-log'
+import { createSupabaseStaffAccessLog } from '../storage/supabase-staff-access-log'
 import { createSupabaseModelSettingsStore } from '../storage/supabase-model-settings-store'
 import { createSupabaseStudentDirectoryStore } from '../storage/supabase-student-directory'
 import { createSupabaseVerifyShieldStore } from '../storage/supabase-verify-shield-store'
@@ -42,6 +43,7 @@ export default defineEventHandler(async (event) => {
       verifyShield: createSupabaseVerifyShieldStore(connection),
       verifyShieldEnv: config.verifyShield,
       students: createSupabaseStudentDirectoryStore(connection),
+      accessLog: createSupabaseStaffAccessLog(connection),
       body,
     }
     if (isConnectionTest(body)) return await handleConnectionTest(request)

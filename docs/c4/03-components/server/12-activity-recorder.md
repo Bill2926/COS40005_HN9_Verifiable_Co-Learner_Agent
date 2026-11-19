@@ -1,6 +1,6 @@
 # Component: activity recorder
 
-The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and no screen lists it.
+The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and only the [staff review](15-staff-review.md) page lists it, to a lecturer or an administrator.
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 

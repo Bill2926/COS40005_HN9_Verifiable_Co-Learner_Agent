@@ -34,11 +34,11 @@ _Avoid_: companion, buddy, second tutor
 The whole product as the student experiences it: the teacher agent and the deskmate agent operating inside the VerifyShield.
 
 **Administrator**:
-The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus. Never sees a student's code, conversation or mastery. Does not manage courses: that is the lecturer.
+The person who reviews what the VerifyShield decided, switches it on or off, and chooses the language model. Also sees every student by name, student number and email, and is the only person who can change a student number or a student's campus. May open any student's records for review (see **Staff review**) and reads the **Staff access log**, which only an administrator can read. Never sees a student's mastery. Does not manage courses: that is the lecturer.
 _Avoid_: product owner, admin, assessor
 
 **Lecturer**:
-The person who owns a course: edits or imports its course spec, sets its mastery threshold, and sees who is enrolled by name, student number and email. Never sees a student's code, conversation or mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and an administrator.
+The person who owns a course: edits or imports its course spec, sets its mastery threshold, and sees who is enrolled by name, student number and email. May open the records of a student enrolled in a course they own (see **Staff review**). Never sees a student's mastery. Has no say over the VerifyShield or the language model. One person may be both a lecturer and an administrator.
 _Avoid_: teacher, instructor, admin, product owner
 
 ### Course
@@ -167,12 +167,24 @@ One submission on an exercise.
 A recorded fact about what the student did, produced from a submission (by the test runner) or from a quiz answer. Reading materials, running code and chatting produce none.
 
 **Activity log**:
-The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. No screen shows it. On first sign-in, on Home and on the profile, students are told that their activity, submitted code and conversations are recorded, that their lecturers and administrators can review them, and that DeepSeek processes their conversations.
+The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. Only a staff review page shows it. On first sign-in, on Home and on the profile, students are told that their activity, submitted code and conversations are recorded, that their lecturers and administrators can review them, and that DeepSeek processes their conversations.
 _Avoid_: audit log, tracking, telemetry, history
 
 **Draft**:
 The code currently in the student's editor that has not been submitted. Kept on the student's device only; it is neither evidence nor part of the resume point.
 _Avoid_: save, autosave
+
+**Staff review**:
+The read-only page where a lecturer, for a student enrolled in a course they own, or an administrator, for any student, looks at that student's latest activity, submissions with their code and test results, and conversation, beside the **Review signals**. A student never sees it, and opening it is recorded in the **Staff access log**.
+_Avoid_: monitoring, surveillance, audit
+
+**Review signal**:
+A prompt on the staff review page for a person to look at some work: a large paste (200 characters or more) followed by a pass on the same exercise, or a pass with no run before it. Each links to the activity events behind it and is worded as something to look at, never as cheating. Worked out when the page opens, never stored, and never changes mastery.
+_Avoid_: flag, alert, cheating detection, score
+
+**Staff access log**:
+The record of every time a lecturer or an administrator opened a student's records: who, which student, what they opened and when. Written before any record is handed over, append-only, and readable only by an administrator.
+_Avoid_: audit log, activity log
 
 ### Standing
 
