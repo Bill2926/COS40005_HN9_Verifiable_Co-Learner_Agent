@@ -62,7 +62,7 @@ A turn that opens or selects a module appends nothing. The workspace reports `mo
 
 Row-level security is on with no policy. Insert and select are granted to the server role only. Update and delete are granted to nobody, including the server role. `anon` and `authenticated` cannot read, update or delete.
 
-Home and the profile tell the student that activity is recorded and is not used for a grade. No page lists the events. The student model does not import this component.
+Sign-in, Home and the profile tell the student that their activity, submitted code and conversations are recorded, that their lecturers and administrators can review them, and that DeepSeek processes their conversations. No page lists the events. The student model does not import this component.
 
 ## Verified imports
 

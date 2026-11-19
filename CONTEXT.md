@@ -167,7 +167,7 @@ One submission on an exercise.
 A recorded fact about what the student did, produced from a submission (by the test runner) or from a quiz answer. Reading materials, running code and chatting produce none.
 
 **Activity log**:
-The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. No screen shows it; students are told it is kept.
+The record of what a student did in the app: signing in, opening a module, switching mode or layout, runs, submissions, quiz answers, messages, changes to notes and the mindmap, and changes to their profile. It never holds keystrokes, drafts or the code of a run, and it is never evidence, so it never changes mastery. No screen shows it. On first sign-in, on Home and on the profile, students are told that their activity, submitted code and conversations are recorded, that their lecturers and administrators can review them, and that DeepSeek processes their conversations.
 _Avoid_: audit log, tracking, telemetry, history
 
 **Draft**:

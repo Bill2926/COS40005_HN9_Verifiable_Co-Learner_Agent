@@ -286,6 +286,7 @@ async function verifyCode() {
           <p class="text-sm/5 text-muted">
             Pick up your module and conversation where you left off.
           </p>
+          <RecordingNotice class="text-sm/5 text-muted" />
         </div>
         <p
           v-if="errorMessage"
@@ -366,6 +367,7 @@ async function verifyCode() {
           <p v-else class="text-sm/5 text-muted">
             We emailed a 6-digit code to <strong class="font-medium text-default [overflow-wrap:anywhere]">{{ email }}</strong>. It is valid for 5 minutes.
           </p>
+          <RecordingNotice class="text-sm/5 text-muted" />
         </div>
         <p
           v-if="errorMessage"
