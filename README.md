@@ -93,6 +93,10 @@ pnpm typecheck   # type checking
 pnpm rehearsal   # end-to-end demo rehearsal (Playwright, Chromium)
 ```
 
+Run the fixed 25-prompt VerifyShield comparison with `pnpm benchmark`. It writes paired verdicts to
+`web/benchmark/results/latest.md` and `latest.json`. The [benchmark guide](web/benchmark/README.md)
+describes its scripted proposals, starting states and the recorded Sprint 1 demo prompt.
+
 `pnpm rehearsal` starts its own dev server on port 3000 with the fake model, so stop `pnpm dev` first. It resets the demo accounts in the Supabase project that `.env` points at.
 
 To make a production build, run `pnpm build`, then `pnpm preview` to serve it locally.

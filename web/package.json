@@ -10,6 +10,7 @@
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
+    "benchmark": "vitest run --config vitest.benchmark.config.ts",
     "rehearsal": "playwright install chromium && playwright test"
   },
   "pnpm": {
