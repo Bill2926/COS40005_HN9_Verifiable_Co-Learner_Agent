@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { configDefaults, defineConfig } from 'vitest/config'
 
 // These files sign in to the shared Supabase project and do not skip when
@@ -9,6 +10,12 @@ const liveSupabaseFiles = [
 ]
 
 export default defineConfig({
+  resolve: {
+    // The alias Nuxt gives app and server code; tests that import app files need it too.
+    alias: {
+      '#shared': fileURLToPath(new URL('./shared', import.meta.url)),
+    },
+  },
   test: {
     include: ['tests/**/*.test.ts'],
     exclude: [

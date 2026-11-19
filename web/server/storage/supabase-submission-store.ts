@@ -8,7 +8,7 @@ import {
   type SubmissionStore,
 } from './submission-store'
 
-const selected = 'id, student_id, module_id, exercise_id, code, results, outcome, message, findings'
+const selected = 'id, student_id, module_id, exercise_id, code, results, outcome, message, findings, created_at'
 
 // Scoped to one course: it reads and writes only that course's rows.
 export function createSupabaseSubmissionStore(options: {
@@ -95,6 +95,7 @@ interface SubmissionRecord {
   outcome: SubmissionOutcome
   message: string | null
   findings: string[]
+  created_at: string
 }
 
 function present(row: SubmissionRecord): StoredSubmission {
@@ -108,5 +109,6 @@ function present(row: SubmissionRecord): StoredSubmission {
     outcome: row.outcome,
     message: row.message,
     findings: [...row.findings],
+    createdAt: row.created_at,
   }
 }

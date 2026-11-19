@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { activityPayload, type ActivityRecorder } from '../activity-recorder'
+import { activityPayload, type ActivityRecorder, type ActivityRow } from '../activity-recorder'
 
 export function createSupabaseActivityLog(options: { url: string, secretKey: string }): ActivityRecorder {
   const supabase = createClient(options.url, options.secretKey, {
@@ -14,6 +14,21 @@ export function createSupabaseActivityLog(options: { url: string, secretKey: str
         payload: activityPayload(event.payload),
       })
       if (result.error) throw new Error(result.error.message)
+    },
+    async forStudent(studentId) {
+      const result = await supabase
+        .from('activity_log')
+        .select('created_at, event_type, payload')
+        .eq('student_id', studentId)
+        .order('created_at', { ascending: true })
+      if (result.error) throw new Error(result.error.message)
+      const rows = result.data as { created_at: string, event_type: ActivityRow['type'], payload: Record<string, unknown> }[]
+      return rows.map(row => ({
+        time: row.created_at,
+        type: row.event_type,
+        moduleId: typeof row.payload.moduleId === 'string' ? row.payload.moduleId : null,
+        payload: { ...row.payload },
+      }))
     },
   }
 }

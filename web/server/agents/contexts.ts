@@ -1,4 +1,5 @@
 import type { ModuleMaterials, ModuleState, PracticeTestResult, RunOutput } from '../../shared/turn'
+import type { LearningPattern } from '../learning-pattern'
 
 export interface SubmissionCheck {
   code: string
@@ -52,6 +53,9 @@ export interface TeacherContext {
     current: boolean
   }[]
   answeredQuiz: readonly AnsweredQuizResult[]
+  // Where the student's work says they struggle and how they study, computed from
+  // their records in this course. The Deskmate's context never carries it.
+  learningPattern: LearningPattern
 }
 
 export interface DeskmateContext {

@@ -35,6 +35,7 @@ Components are ordered the way a request travels through them (server) or the wa
 | [11-student.md](03-components/server/11-student.md) | student | Profile, mindmap and the actions the browser reports |
 | [12-activity-recorder.md](03-components/server/12-activity-recorder.md) | activity recorder | Append-only activity log shared by the student handler and the turn |
 | [14-sandbox.md](03-components/server/14-sandbox.md) | sandbox | Re-runs a submission; only its report is evidence |
+| [16-learning-pattern.md](03-components/server/16-learning-pattern.md) | learning pattern | Where the student's work says they struggle and how they study, one pure function of their records |
 
 ### Web app (`web/app/`)
 

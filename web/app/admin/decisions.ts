@@ -1,9 +1,9 @@
 // What the administrator's pages read from the admin endpoint, and how the
 // verdict drawer turns a decision's rule checks into plain English.
 
-import type { Campus } from '../../shared/campus'
-import type { StaffAccessEntry } from '../../shared/staff-review'
-import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '../../shared/turn'
+import type { Campus } from '#shared/campus'
+import type { StaffAccessEntry } from '#shared/staff-review'
+import { agentNames, maxToolSteps, type AddressedAgent, type RuleCheck, type ToolCallRecord } from '#shared/turn'
 
 export type RuleCheckView = RuleCheck
 

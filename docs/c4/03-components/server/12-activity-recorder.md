@@ -1,6 +1,6 @@
 # Component: activity recorder
 
-The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and only the [staff review](15-staff-review.md) page lists it, to a lecturer or an administrator.
+The one way the server appends to the activity log. The student handler and the turn handler both receive the same recorder. A payload never keeps code, a draft or keystrokes. The log is not evidence, so it never changes mastery, and only the [staff review](15-staff-review.md) page lists it, to a lecturer or an administrator. The same interface reads one student's events back, oldest first (`forStudent`), for the [learning pattern](16-learning-pattern.md); the turn handler is the only server reader.
 
 > [C4 index](../../README.md) / Level 3: Components / Turn and admin server
 
@@ -71,6 +71,6 @@ Sign-in, Home and the profile tell the student that their activity, submitted co
 ## Verified imports
 
 - Runtime: `storage/supabase-activity-log.ts` imports `activityPayload` from `activity-recorder`. `student/index.ts` re-exports `handle-student.ts`, which is what `api/student.post.ts` imports.
-- Type only: `storage/supabase-activity-log.ts` imports `ActivityRecorder`. `student/handle-student.ts` imports `ActivityRecorder` and `ActivityEventType`. `turn/handle-turn.ts` imports `ActivityRecorder`. The routes do not import this folder; they construct `createSupabaseActivityLog` and pass it in.
+- Type only: `storage/supabase-activity-log.ts` imports `ActivityRecorder`. `student/handle-student.ts` imports `ActivityRecorder` and `ActivityEventType`. `turn/handle-turn.ts` imports `ActivityRecorder` and calls `forStudent` for the learning pattern. The routes do not import this folder; they construct `createSupabaseActivityLog` and pass it in.
 - Browser: `app/activity/record.ts` posts to `POST /api/student` and ignores a failure, so a missed report does not undo the action. `pages/index.vue` reports `module_opened` for the module the workspace opens onto and again when the student opens another, `mode_switched` only when the student chooses Learn or Practice, `layout_switched`, and both `code_run` and `run_finished` when a run ends (including a failure, a stop, or the practice panel going away while the run is still going). `run_finished` carries the outcome and the error name, never the code. A paste in the editor reports `pasted` with the character count. Three minutes without activity in Practice mode reports `went_idle`; the clock waits while a run or a check is in progress. The next activity, or leaving Practice, reports `returned` for the place that went quiet. `pages/sign-in.vue` reports `signed_in`. Applying a turn's own mode does not record a mode switch. The course preview does not report these events.
 - Tests: `student-handler.test.ts` and `turn-endpoint.test.ts` use `createMemoryActivityLog`. `activity-log-migration.test.ts` runs the migration (and the note-with-first-link function) on PGlite. `activity-mindmap-boundary.test.ts` checks the live project.

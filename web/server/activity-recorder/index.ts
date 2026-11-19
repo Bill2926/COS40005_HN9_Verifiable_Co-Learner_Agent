@@ -33,8 +33,20 @@ export interface ActivityEvent {
   payload: Record<string, unknown>
 }
 
+// One stored event as the learning pattern reads it: when it happened, its kind,
+// the module it belongs to (from the payload, null when it has none) and the
+// payload itself.
+export interface ActivityRow {
+  time: string
+  type: ActivityEventType
+  moduleId: string | null
+  payload: Record<string, unknown>
+}
+
 export interface ActivityRecorder {
   record: (event: ActivityEvent) => Promise<void>
+  // The student's events oldest first; what the learning pattern computes from.
+  forStudent: (studentId: string) => Promise<ActivityRow[]>
 }
 
 const droppedKeys = new Set(['code', 'draft', 'keystrokes'])
@@ -43,17 +55,31 @@ export function activityPayload(payload: Record<string, unknown>): Record<string
   return Object.fromEntries(Object.entries(payload).filter(([key]) => !droppedKeys.has(key)))
 }
 
-export function createMemoryActivityLog(): ActivityRecorder & { events: ActivityEvent[] } {
+export function createMemoryActivityLog(now: () => Date = () => new Date()): ActivityRecorder & { events: ActivityEvent[] } {
   const events: ActivityEvent[] = []
+  // Each event paired with the time it was recorded, so the two can never drift apart.
+  const rows: { event: ActivityEvent, time: string }[] = []
   return {
     events,
     async record(event) {
-      events.push({
+      const stored: ActivityEvent = {
         studentId: event.studentId,
         courseId: event.courseId,
         type: event.type,
         payload: activityPayload(event.payload),
-      })
+      }
+      events.push(stored)
+      rows.push({ event: stored, time: now().toISOString() })
+    },
+    async forStudent(studentId) {
+      return rows
+        .filter(row => row.event.studentId === studentId)
+        .map(({ event, time }) => ({
+          time,
+          type: event.type,
+          moduleId: typeof event.payload.moduleId === 'string' ? event.payload.moduleId : null,
+          payload: { ...event.payload },
+        }))
     },
   }
 }

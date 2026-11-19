@@ -27,7 +27,11 @@ export interface StoredSubmission {
   results: PracticeTestResult[]
   outcome: SubmissionOutcome
   message: string | null
+  // The ids of the misconceptions the code shows; empty when it shows none.
   findings: readonly string[]
+  // When the row was stored (the database clock on insert); the learning
+  // pattern reads it as the sighting's time.
+  createdAt: string
 }
 
 export class SubmissionRefusedError extends Error {
@@ -71,6 +75,7 @@ export function createMemorySubmissionStore(): SubmissionStore {
         outcome: submission.outcome,
         message: submission.message,
         findings: [...submission.findings],
+        createdAt: new Date().toISOString(),
       }
       rows.push(row)
       return copySubmission(row)

@@ -1,6 +1,6 @@
 // The composer's `@` menu: one addressed agent per message, chosen only at
 // its start. An `@` anywhere else is plain text.
-import { agentNames, type AddressedAgent } from '../../shared/turn'
+import { agentNames, type AddressedAgent } from '#shared/turn'
 
 export type { AddressedAgent }
 
