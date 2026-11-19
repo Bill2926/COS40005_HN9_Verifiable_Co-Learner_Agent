@@ -1,5 +1,6 @@
 resource "aws_ecr_repository" "sandbox" {
-  name = "colearner-sandbox"
+  name                 = "colearner-sandbox"
+  image_tag_mutability = "IMMUTABLE"
 }
 
 resource "aws_vpc" "sandbox" {
@@ -84,12 +85,9 @@ resource "aws_iam_role_policy" "sandbox" {
   name = "colearner-sandbox"
   role = aws_iam_role.sandbox.id
 
-  # Contradicts ADR 0010's "no AWS permissions beyond its own logs":
   # PlaceInPrivateNetwork is the set AWS requires on this role to attach the
-  # function to the private subnets. Invoke still works after those actions
-  # are removed, but this plan keeps them so a later apply can still place the
-  # function. They grant no access to student data. OwnLogs is the only
-  # permission the function's own work uses.
+  # function to the private subnets. OwnLogs is the only permission the
+  # function's own work uses.
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [

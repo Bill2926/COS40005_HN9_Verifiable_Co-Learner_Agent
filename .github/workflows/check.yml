@@ -62,6 +62,24 @@ jobs:
           name: verify-shield-benchmark
           path: web/benchmark/results/
 
+  # No AWS credential: the organisation denies OIDC providers, so CI checks the
+  # Terraform against a mock provider and the account owner applies it.
+  infrastructure:
+    name: infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.2
+      - run: terraform fmt -check -recursive infra
+      - name: Validate and test the sandbox stack
+        working-directory: infra/sandbox
+        run: |
+          terraform init -backend=false -input=false
+          terraform validate
+          terraform test
+
   migrations:
     name: migrations
     runs-on: ubuntu-latest

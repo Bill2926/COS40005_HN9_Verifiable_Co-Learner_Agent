@@ -8,7 +8,7 @@ mock_provider "aws" {
 
 variables {
   budget_alert_email = "owner@example.com"
-  image_uri          = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/colearner-sandbox:sandbox"
+  image_uri          = "123456789012.dkr.ecr.ap-southeast-2.amazonaws.com/colearner-sandbox:0123abc"
 }
 
 run "sydney_sandbox" {

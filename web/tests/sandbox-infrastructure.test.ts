@@ -17,6 +17,7 @@ describe('sandbox infrastructure', () => {
     expect(sandbox).toContain('backend "s3"')
     expect(sandbox).toContain('region       = "ap-southeast-2"')
     expect(sandbox).toContain('aws_ecr_repository')
+    expect(sandbox).toContain('image_tag_mutability = "IMMUTABLE"')
     expect(sandbox).toContain('aws_lambda_function')
     expect(sandbox).toContain('aws_vpc')
     expect(sandbox).toContain('vpc_config')
@@ -38,5 +39,12 @@ describe('sandbox infrastructure', () => {
     expect(entry).toContain('handler.handler')
     expect(entry).toContain('/opt/sandbox/runner.py')
     expect(image).toContain('ENTRYPOINT ["/opt/sandbox/entrypoint.sh"]')
+  })
+
+  it('runs the same Python minor version as the browser', () => {
+    const image = readFileSync(new URL('../../sandbox/Dockerfile', import.meta.url), 'utf8')
+    const lock = JSON.parse(readFileSync(new URL('../node_modules/pyodide/pyodide-lock.json', import.meta.url), 'utf8'))
+    const browser = String(lock.info.python).split('.').slice(0, 2).join('.')
+    expect(image).toContain(`FROM python:${browser}-slim`)
   })
 })

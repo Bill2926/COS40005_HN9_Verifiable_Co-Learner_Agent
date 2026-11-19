@@ -146,16 +146,90 @@ def could_not_check():
     return {"outcome": "refused", "message": "This submission could not be checked."}
 
 
+def _network_syscalls():
+    import platform
+    machine = platform.machine()
+    # io_uring can open a socket too, so it is denied on both architectures.
+    if machine in ("x86_64", "amd64"):
+        return [41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 288, 425, 426, 427]
+    if machine in ("aarch64", "arm64"):
+        return [198, 199, 200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 242, 425, 426, 427]
+    return []
+
+
+def deny_network():
+    # Lambda runs this process as an unprivileged user, so chroot is refused
+    # there. A filter installed by the student process itself still stops new
+    # sockets. Docker already has no network; the filter is the same rule.
+    syscalls = _network_syscalls()
+    if not syscalls:
+        return
+    try:
+        import ctypes
+        libc = ctypes.CDLL(None, use_errno=True)
+        if libc.prctl(38, 1, 0, 0, 0) != 0:
+            return
+    except Exception:
+        return
+
+    class SockFilter(ctypes.Structure):
+        _fields_ = [
+            ("code", ctypes.c_uint16),
+            ("jt", ctypes.c_uint8),
+            ("jf", ctypes.c_uint8),
+            ("k", ctypes.c_uint32),
+        ]
+
+    class SockFprog(ctypes.Structure):
+        _fields_ = [("len", ctypes.c_ushort), ("filter", ctypes.POINTER(SockFilter))]
+
+    instructions = [
+        SockFilter(0x20, 0, 0, 4),
+        SockFilter(0x15, 1, 0, 0xC000003E if syscalls[0] == 41 else 0xC00000B7),
+        SockFilter(0x06, 0, 0, 0x7FFF0000),
+        SockFilter(0x20, 0, 0, 0),
+    ]
+    for number in syscalls:
+        instructions.append(SockFilter(0x15, 0, 1, number))
+        instructions.append(SockFilter(0x06, 0, 0, 0x00050001))
+    instructions.append(SockFilter(0x06, 0, 0, 0x7FFF0000))
+    program = (SockFilter * len(instructions))(*instructions)
+    fprog = SockFprog(len(instructions), program)
+    try:
+        libc.prctl(22, 2, ctypes.byref(fprog), 0, 0)
+    except Exception:
+        return
+
+
 def confine():
     import resource
     # The interpreter is already running. Enter the jail now, so the exec did
-    # not have to succeed from inside it.
+    # not have to succeed from inside it. Lambda refuses chroot and setuid, so
+    # there the student stays in a private directory of the temporary folder.
     if os.path.isdir("/opt/jail"):
-        os.chroot("/opt/jail")
-        os.chdir("/tmp")
-        os.setgid(65534)
-        os.setuid(65534)
-        resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
+        jailed = False
+        try:
+            os.chroot("/opt/jail")
+            jailed = True
+        except OSError:
+            jailed = False
+        if jailed:
+            os.chdir("/tmp")
+            os.setgid(65534)
+            os.setuid(65534)
+            resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
+        else:
+            workspace = "/tmp/colearner-student"
+            os.makedirs(workspace, exist_ok=True)
+            try:
+                os.chmod(workspace, 0o700)
+            except OSError:
+                pass
+            os.chdir(workspace)
+            try:
+                resource.setrlimit(resource.RLIMIT_AS, (guard.MEMORY_BYTES, guard.MEMORY_BYTES))
+            except (ValueError, OSError):
+                pass
     # The hard limit is one second higher so a busy loop receives SIGXCPU, the
     # time signal, rather than an immediate SIGKILL. A process cap is not set
     # here: it would count every process of this user on the machine, and the
@@ -273,6 +347,7 @@ def supervise(payload):
             os.close(write_fd)
             _detach_runner_pipes()
             os.register_at_fork(after_in_child=_drop_inherited_stdio)
+            deny_network()
             _write_report(produce(student))
             os._exit(0)
         except MemoryError:
