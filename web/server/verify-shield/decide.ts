@@ -1,9 +1,19 @@
 import type { AddressedAgent, RuleCheck } from '../../shared/turn'
 import type { Move, RoleTable } from '../agents'
+import { planStepKey, planStepLimit, type PlanStep } from '../learning-plan'
 
 export interface ModuleMastery {
   moduleId: string
   mastery: number
+}
+
+// What a learning plan step may point at: the module the student is on.
+export interface PlanTargets {
+  // How many material blocks the module has; the materials step points at all of them.
+  materials: number
+  exerciseIds: readonly string[]
+  questionIds: readonly string[]
+  misconceptionIds: readonly string[]
 }
 
 // Every field is required: a rule that read an optional field would be
@@ -22,6 +32,12 @@ export interface TurnSnapshot {
   // latest submission and the ones their quiz answers named. The teacher may
   // address one of these, and a claim they do not support is an answer.
   shownMisconceptionIds: readonly string[]
+  // What the current module holds, so a plan step that points at nothing or at
+  // another module is dropped.
+  planTargets: PlanTargets
+  // The misconceptions the learning pattern names as weak spots. A plan step
+  // may revisit one of these, and only one of these.
+  weakSpotMisconceptionIds: readonly string[]
 }
 
 export interface CourseModule {
@@ -125,7 +141,64 @@ function rule(
     ?? advanceDowngrade(proposal, snapshot, course, checks)
     ?? misconceptionDowngrade(proposal, snapshot, checks)
     ?? hintLadderDowngrade(proposal, snapshot, checks)
+    ?? planDowngrade(proposal, snapshot, checks)
     ?? { decision: 'allow', ruleId: 'role_table', reasonCode: 'ROLE_PERMITTED', move: proposal.move }
+}
+
+// A plan has one to five steps, and every step must point at the module the
+// student is on: its materials, one of its quiz questions, one of its
+// exercises, or a misconception the module names and the learning pattern
+// calls a weak spot. A step that points elsewhere is dropped; a plan with no
+// steps left, like one that was empty or too long to begin with, is blocked.
+function planDowngrade(
+  proposal: Proposal,
+  snapshot: TurnSnapshot,
+  checks: RuleCheck[],
+): Ruling | null {
+  if (proposal.move.type !== 'propose_plan') return null
+  const steps = proposal.move.steps
+  if (steps.length < 1) {
+    return { decision: 'block', ruleId: 'plan_step_count', reasonCode: 'PLAN_WITHOUT_STEPS', move: null }
+  }
+  if (steps.length > planStepLimit) {
+    return { decision: 'block', ruleId: 'plan_step_count', reasonCode: 'PLAN_TOO_LONG', move: null }
+  }
+  checks.push({ ruleId: 'plan_step_count', passed: true, reasonCode: 'PLAN_STEP_COUNT_OK' })
+
+  const kept: typeof steps = []
+  const seen = new Set<string>()
+  for (const step of steps) {
+    if (!stepFits(step, snapshot)) continue
+    const key = planStepKey(step)
+    if (seen.has(key)) continue
+    seen.add(key)
+    kept.push(step)
+  }
+
+  if (kept.length === 0) {
+    return { decision: 'block', ruleId: 'plan_steps_in_module', reasonCode: 'PLAN_NO_STEPS_IN_MODULE', move: null }
+  }
+  if (kept.length !== steps.length) {
+    return {
+      decision: 'downgrade',
+      ruleId: 'plan_steps_in_module',
+      reasonCode: 'PLAN_STEPS_DROPPED',
+      move: { type: 'propose_plan', steps: kept },
+    }
+  }
+  checks.push({ ruleId: 'plan_steps_in_module', passed: true, reasonCode: 'PLAN_STEPS_IN_MODULE' })
+  return null
+}
+
+function stepFits(
+  step: PlanStep,
+  snapshot: TurnSnapshot,
+): boolean {
+  const targets = snapshot.planTargets
+  if (step.kind === 'materials') return targets.materials > 0
+  if (step.kind === 'quiz') return targets.questionIds.includes(step.ref)
+  if (step.kind === 'exercise') return targets.exerciseIds.includes(step.ref)
+  return targets.misconceptionIds.includes(step.ref) && snapshot.weakSpotMisconceptionIds.includes(step.ref)
 }
 
 function scopeDowngrade(

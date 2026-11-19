@@ -208,6 +208,14 @@ _Avoid_: resume point, mastery
 The system's estimate, between 0 and 1, of how well a student knows a module, computed from evidence alone, from both submissions and quiz answers; a module counts as mastered once its mastery reaches the threshold and the student has passed at least one of its exercises, so quiz answers alone never master a module.
 _Avoid_: progress, score, level, SM
 
+**Learning plan**:
+The Teacher's suggestion, for one module, of what the student should do there and in what order: one to five steps. The student agrees to it with Start, and from then on it is in progress, with one step current. A plan is kept as revisions, each a new record rather than an edit, and the newest revision is the one in force. It never changes mastery or opens a module.
+_Avoid_: roadmap, syllabus, to-do list
+
+**Plan step**:
+One item of a learning plan: the module's materials, one of its quiz questions, one of its exercises, or one of its misconception responses that the student's learning pattern calls a weak spot. A step the module no longer holds, or a misconception that is not a weak spot, is dropped or refuses the plan, so a plan never points outside its module.
+_Avoid_: task, milestone
+
 ### VerifyShield
 
 **Turn**:

@@ -159,6 +159,8 @@ const pendingModuleName = ref('')
 const selectingModuleId = ref('')
 const selectingExerciseId = ref('')
 const answering = ref<{ questionId: string, choice: number } | null>(null)
+// True while the student's agreement to the Teacher's plan is being recorded.
+const planStarting = ref(false)
 const moduleViews = new Map<string, RedrawState>()
 const moduleLoads = new Map<string, Promise<RedrawState>>()
 let selectGeneration = 0
@@ -761,6 +763,27 @@ async function answerQuiz(answer: { questionId: string, choice: number }) {
   }
 }
 
+async function startPlan() {
+  const current = workspace.value
+  if (!current || !current.learningPlan || current.learningPlan.agreed) return
+  if (selecting.value || sending.value || planStarting.value) return
+
+  planStarting.value = true
+  selectError.value = ''
+  try {
+    showWorkspace(await $fetch<RedrawState>('/turn', {
+      method: 'POST',
+      body: { event: 'plan_start' },
+    }))
+  }
+  catch {
+    selectError.value = 'That plan could not be started.'
+  }
+  finally {
+    planStarting.value = false
+  }
+}
+
 async function readTurn(body: unknown): Promise<boolean> {
   const response = await fetch('/turn', {
     method: 'POST',
@@ -1081,6 +1104,8 @@ function initialsOf(name: string): string {
       <div v-show="layout === 'study'" :class="studyFrame('working')">
         <WorkingArea
           :area="workspace.workingArea"
+          :plan="workspace.learningPlan"
+          :plan-starting="planStarting"
           :mode="workingMode"
           :student-id="studentId"
           :selecting="selecting"
@@ -1101,6 +1126,7 @@ function initialsOf(name: string): string {
           @running="onPracticeRunning"
           @submit="submitCode"
           @quiz-answer="answerQuiz"
+          @start-plan="startPlan"
         />
       </div>
       <div

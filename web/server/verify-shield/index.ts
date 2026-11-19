@@ -5,6 +5,7 @@ export type {
   CourseModule,
   CourseScope,
   ModuleMastery,
+  PlanTargets,
   Proposal,
   RuleCheck,
   TurnSnapshot,

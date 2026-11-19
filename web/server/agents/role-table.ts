@@ -13,6 +13,7 @@ export const roleTable: RoleTable = {
     'address_misconception',
     'advance_to_module',
     'stay_and_practise',
+    'propose_plan',
   ],
   deskmate: [
     'peer_question',

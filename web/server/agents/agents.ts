@@ -10,9 +10,17 @@ export interface Agent<Context, Tools = void> {
   render: (context: Context, move: Move) => AsyncIterable<string>
 }
 
+// The Teacher, who also proposes the learning plan when a module opens. The
+// Deskmate never plans.
+export interface Teacher extends Agent<TeacherContext, TurnTools> {
+  // The plan for the module the student opened, as a propose_plan move or
+  // null. The VerifyShield rules on it like any other move.
+  plan: (context: TeacherContext) => Promise<Move | null>
+}
+
 // What the turn handler calls: the Teacher and the Deskmate.
 export interface Agents {
-  teacher: Agent<TeacherContext, TurnTools>
+  teacher: Teacher
   deskmate: Agent<DeskmateContext>
 }
 
@@ -20,7 +28,7 @@ export interface Agents {
 export type AgentExchange =
   | {
     agent: 'teacher'
-    phase: 'propose' | 'render'
+    phase: 'propose' | 'plan' | 'render'
     context: TeacherContext
     move: Move | null
   }

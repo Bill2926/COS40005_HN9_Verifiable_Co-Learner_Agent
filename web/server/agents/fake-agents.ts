@@ -7,6 +7,8 @@ import type { Move } from './moves'
 export interface FakeAgentScript<Context = TeacherContext> {
   // A fixed proposal, or one read from the context, as a real agent reads the roadmap for its scope.
   proposal: Move | null | ((context: Context) => Move | null)
+  // The Teacher's plan for a module the student opens, scripted like a proposal.
+  plan?: Move | null | ((context: Context) => Move | null)
   text?: string
   fail?: 'propose' | 'render'
 }
@@ -40,6 +42,16 @@ export function createFakeAgents(
         })
         if (script.fail === 'render') throw new Error('The language model failed.')
         for (const delta of spokenChunks(script.text ?? '')) yield delta
+      },
+      async plan(context) {
+        const move = script.plan === undefined ? null : proposalFor({ proposal: script.plan }, context)
+        exchanges.push({
+          agent: 'teacher',
+          phase: 'plan',
+          context: structuredClone(context),
+          move,
+        })
+        return move
       },
     },
     deskmate: {

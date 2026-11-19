@@ -34,6 +34,14 @@ export function createConfiguredAgents(settings: ModelSettings, options?: { prod
       type: 'explain_concept',
       scope: context.roadmap.find(module => module.current)?.id ?? 'out_of_course',
     }),
+    // The module's materials, then its first exercise, as a real plan would.
+    plan: context => ({
+      type: 'propose_plan',
+      steps: [
+        { kind: 'materials', ref: '' },
+        ...(context.exercises[0] ? [{ kind: 'exercise' as const, ref: context.exercises[0].id }] : []),
+      ],
+    }),
     text: 'A running total has to be created before the loop, so each pass can add to the same number.',
   }, {
     proposal: { type: 'peer_question' },

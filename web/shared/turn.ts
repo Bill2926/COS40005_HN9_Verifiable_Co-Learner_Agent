@@ -157,6 +157,25 @@ export interface TurnTrace {
   agents: readonly [AgentTrace, AgentTrace]
 }
 
+// One step of the Teacher's plan for a module, as the student sees it.
+export interface LearningPlanStepView {
+  id: string
+  title: string
+  // The step the student is on.
+  current: boolean
+}
+
+// The Teacher's plan for the module the student opened: proposed until the
+// student presses Start, then agreed. Null for a module with no plan.
+export interface LearningPlanView {
+  moduleId: string
+  revision: number
+  agreed: boolean
+  steps: readonly LearningPlanStepView[]
+  // The index of the step the student is on, from 0.
+  currentStep: number
+}
+
 export interface RedrawState {
   displayName: string
   course: string
@@ -167,6 +186,8 @@ export interface RedrawState {
   conversation: ConversationMessage[]
   // The learning pattern's weak spots in plain words, so the student knows what to work on.
   weakSpots: readonly string[]
+  // The plan the Teacher proposed for the current module, or null when there is none.
+  learningPlan: LearningPlanView | null
   trace?: TurnTrace
   // Whether the student's deskmate switch is on: Mai takes part in their turns.
   deskmateOn: boolean

@@ -5,6 +5,8 @@ import {
   deskmatePrompt,
   deskmateProposeInstructions,
   deskmateRenderInstructions,
+  teacherPlanInstructions,
+  teacherPlanPrompt,
   teacherPrompt,
   teacherProposeInstructions,
   teacherRenderInstructions,
@@ -25,6 +27,11 @@ export function createAgents(languageModel: LanguageModel): Agents {
       },
       render(context, move) {
         return languageModel.streamReply(teacherRenderInstructions, teacherPrompt(context, move))
+      },
+      // The plan is asked for on its own when a module opens, so it costs no
+      // tool loop and its prompt holds only what a plan may point at.
+      plan(context) {
+        return languageModel.proposeMove(teacherPlanInstructions, teacherPlanPrompt(context), proposalSchema)
       },
     },
     deskmate: {

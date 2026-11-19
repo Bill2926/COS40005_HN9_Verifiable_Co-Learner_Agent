@@ -26,6 +26,13 @@ function snapshot(overrides: Partial<TurnSnapshot> = {}): TurnSnapshot {
     verifyShieldOn: true,
     highestHintRung: 0,
     shownMisconceptionIds: ['accumulator_reset_inside_loop'],
+    planTargets: {
+      materials: 1,
+      exerciseIds: ['sum_of_a_list', 'count_the_even_numbers', 'count_the_items'],
+      questionIds: ['running-total', 'skip-pass', 'while-condition'],
+      misconceptionIds: ['accumulator_reset_inside_loop'],
+    },
+    weakSpotMisconceptionIds: [],
     ...overrides,
   }
 }
@@ -625,5 +632,127 @@ describe('decide', () => {
       }
       expect(decide(proposals, snapshot({ studentMessage: 'Tell me about pandas' }), roleTable, course)).toEqual(again)
     })
+  })
+})
+
+describe('decide on a learning plan', () => {
+  const plan = (steps: { kind: 'materials' | 'quiz' | 'exercise' | 'misconception', ref: string }[]) =>
+    ({ agent: 'teacher' as const, move: { type: 'propose_plan' as const, steps } })
+
+  it('allows a plan whose steps all point at the module', () => {
+    expect(decide(
+      [plan([
+        { kind: 'materials', ref: '' },
+        { kind: 'quiz', ref: 'running-total' },
+        { kind: 'exercise', ref: 'sum_of_a_list' },
+      ])],
+      snapshot(),
+      roleTable,
+      course,
+    )).toMatchObject([{
+      decision: 'allow',
+      move: { type: 'propose_plan', steps: [
+        { kind: 'materials', ref: '' },
+        { kind: 'quiz', ref: 'running-total' },
+        { kind: 'exercise', ref: 'sum_of_a_list' },
+      ] },
+    }])
+  })
+
+  it('blocks a plan with no steps', () => {
+    expect(decide([plan([])], snapshot(), roleTable, course)).toMatchObject([{
+      decision: 'block',
+      ruleId: 'plan_step_count',
+      reasonCode: 'PLAN_WITHOUT_STEPS',
+      move: null,
+    }])
+  })
+
+  it('blocks a plan with more than five steps', () => {
+    const steps = Array.from({ length: 6 }, () => ({ kind: 'materials' as const, ref: '' }))
+    expect(decide([plan(steps)], snapshot(), roleTable, course)).toMatchObject([{
+      decision: 'block',
+      ruleId: 'plan_step_count',
+      reasonCode: 'PLAN_TOO_LONG',
+      move: null,
+    }])
+  })
+
+  it('drops a step that points at another module', () => {
+    const verdict = decide(
+      [plan([
+        { kind: 'exercise', ref: 'sum_of_a_list' },
+        { kind: 'exercise', ref: 'hello_name' },
+      ])],
+      snapshot(),
+      roleTable,
+      course,
+    )[0]
+    expect(verdict).toMatchObject({
+      decision: 'downgrade',
+      ruleId: 'plan_steps_in_module',
+      reasonCode: 'PLAN_STEPS_DROPPED',
+      move: { type: 'propose_plan', steps: [{ kind: 'exercise', ref: 'sum_of_a_list' }] },
+    })
+  })
+
+  it('blocks a plan whose every step points at another module', () => {
+    expect(decide(
+      [plan([{ kind: 'quiz', ref: 'string-slicing' }])],
+      snapshot(),
+      roleTable,
+      course,
+    )).toMatchObject([{
+      decision: 'block',
+      ruleId: 'plan_steps_in_module',
+      reasonCode: 'PLAN_NO_STEPS_IN_MODULE',
+      move: null,
+    }])
+  })
+
+  it('keeps a misconception step only when the learning pattern calls it a weak spot', () => {
+    const steps = [{ kind: 'misconception' as const, ref: 'accumulator_reset_inside_loop' }]
+    expect(decide([plan(steps)], snapshot(), roleTable, course)[0]).toMatchObject({
+      decision: 'block',
+      reasonCode: 'PLAN_NO_STEPS_IN_MODULE',
+    })
+    expect(decide(
+      [plan(steps)],
+      snapshot({ weakSpotMisconceptionIds: ['accumulator_reset_inside_loop'] }),
+      roleTable,
+      course,
+    )[0]).toMatchObject({ decision: 'allow', move: { type: 'propose_plan', steps } })
+  })
+
+  it('drops a repeated step', () => {
+    const verdict = decide(
+      [plan([{ kind: 'materials', ref: '' }, { kind: 'materials', ref: '' }])],
+      snapshot(),
+      roleTable,
+      course,
+    )[0]
+    expect(verdict).toMatchObject({
+      decision: 'downgrade',
+      reasonCode: 'PLAN_STEPS_DROPPED',
+      move: { type: 'propose_plan', steps: [{ kind: 'materials', ref: '' }] },
+    })
+  })
+
+  it('allows any plan when the VerifyShield is off', () => {
+    expect(decide(
+      [plan([{ kind: 'quiz', ref: 'string-slicing' }])],
+      snapshot({ verifyShieldOn: false }),
+      roleTable,
+      course,
+    )[0]).toMatchObject({ decision: 'allow', reasonCode: 'VERIFYSHIELD_OFF' })
+  })
+
+  it('never lets the Deskmate propose a plan', () => {
+    expect(decide(
+      [{ agent: 'deskmate', move: { type: 'propose_plan', steps: [{ kind: 'materials', ref: '' }] } }],
+      snapshot(),
+      roleTable,
+      course,
+    )[0]).toMatchObject({ decision: 'block', ruleId: 'role_table', reasonCode: 'ROLE_FORBIDDEN' })
   })
 })
