@@ -15,9 +15,9 @@
 #    docker push <repository_url>:$(git rev-parse --short HEAD)
 # 5. terraform apply again with -var image_uri=<repository_url>:<commit>
 # 6. Create an access key for the user colearner-server in the console and set
-#    AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY on the deployed server.
-#    render.yaml already sets NUXT_SANDBOX_FUNCTION=colearner-sandbox and
-#    NUXT_SANDBOX_REGION=ap-southeast-2.
+#    AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY on the Vercel project.
+#    Set NUXT_SANDBOX_FUNCTION=colearner-sandbox and
+#    NUXT_SANDBOX_REGION=ap-southeast-2 there too (web/.env.example).
 #
 # Do not set reserved concurrency. The account allows five executions in total,
 # and AWS keeps 100 unreserved, so a reservation cannot express that limit.

@@ -2,10 +2,10 @@
 
 > [C4 index](README.md) / Deployment (supplementary)
 
+The public site is the Vercel project `cos40005-hn9-verifiable-co-learner-agent`
+(`cos40005-hn9-verifiable-co-learner.vercel.app`). Vercel builds the Nuxt app on each push to `main`.
 The deployed server checks a submission by invoking the sandbox Lambda function in Sydney
 (`ap-southeast-2`). A developer machine with no function name still runs the same image locally.
-ADR 0011 records the Render service in Frankfurt; `render.yaml` still places that service in
-Singapore, and this view follows `render.yaml` for the server.
 
 ## Developer machine
 
@@ -76,13 +76,12 @@ flowchart TB
 
 ## GitHub Actions
 
-Three workflows live in `.github/workflows/`. `check.yml` and `schema-push.yml` do not deploy the server. `deploy.yml` calls the Render deploy hook after Schema push and Check succeed on `main`. The service is described in `render.yaml`.
+Two workflows live in `.github/workflows/`. Neither deploys the server. Vercel deploys the Nuxt app when `main` changes.
 
 | Workflow | When | What it runs | Credentials |
 |---|---|---|---|
 | `check.yml` | every pull request, and every push to `main` | In `web/`: `pnpm typecheck`, and `pnpm test` with `CHECK_SKIP_LIVE_SUPABASE=1`. Also `supabase db push --dry-run` against project ref `nopyjjyimtmvuucsirxb`, which does not write | `SUPABASE_ACCESS_TOKEN` for the dry-run only |
 | `schema-push.yml` | every push to `main`, queued, not cancelled mid-run | `supabase db push` for project ref `nopyjjyimtmvuucsirxb` (`VerifiableCoLearnerAgents`), without `--include-seed`. The CLI opens a temporary login role from the access token | `SUPABASE_ACCESS_TOKEN` |
-| `deploy.yml` | after Schema push succeeds on `main`, and only if Check for that commit also succeeded | Calls the Render deploy hook. A commit that is no longer the tip of `main` does not deploy | `RENDER_DEPLOY_HOOK` |
 
 `check.yml` skips the Vitest files that sign in to the shared project (`*boundary*.test.ts` and `conversation-storage.test.ts`). Those still run from `pnpm test` on a machine that has `web/.env`. Playwright rehearsal is not in either workflow. A red Check does not block a merge until someone with admin marks the `typecheck`, `test`, and `migrations` jobs as required status checks. See ADR 0007. The Vitest migration files replay SQL in PGlite from an empty database. The dry-run is the check against the migration history of the shared project.
 
@@ -94,9 +93,9 @@ Three workflows live in `.github/workflows/`. `check.yml` and `schema-push.yml` 
 
 ## Deployed: the sandbox in Sydney
 
-The Render service in `render.yaml` sets `NUXT_SANDBOX_FUNCTION=colearner-sandbox` and
-`NUXT_SANDBOX_REGION=ap-southeast-2`. `createSubmissionSandbox` then invokes that function and
-uses the payload as the sandbox result. The function runs the image in `sandbox/`, in private
+The Vercel project runs the Nuxt server. `createSubmissionSandbox` invokes the Lambda function
+when `NUXT_SANDBOX_FUNCTION` is set (`web/.env.example`; Nuxt reads it as `sandboxFunction`)
+and uses the payload as the sandbox result. The function runs the image in `sandbox/`, in private
 subnets with no outbound route. Lambda runs it as an unprivileged user, so the image's chroot
 jail applies under Docker and not here; the student process is denied new sockets, and the
 handler removes AWS credential values from the report it returns. Its role can write its own log group (kept for seven days) and
@@ -105,7 +104,9 @@ the network interfaces Lambda needs to place it there. The server's access key i
 the sixth is told to try again in a moment and records no evidence. Terraform in `infra/sandbox`
 describes this, with state in an S3 bucket in Sydney (`infra/terraform-state`) and a budget
 alert at $50 a month. The account owner applies the plan. The registry keeps immutable tags, one
-per commit, and the function's image URI names that commit.
+per commit, and the function's image URI names that commit. The server secrets
+(`NUXT_SUPABASE_SECRET_KEY`, `NUXT_MODEL_API_KEY`, the sandbox access key) are environment
+variables of the Vercel project, not files in the repo.
 
 ```mermaid
 flowchart LR
@@ -113,8 +114,8 @@ flowchart LR
   classDef ext fill:#8a5a00,stroke:#5c3c00,color:#ffffff
   linkStyle default stroke:#8b949e,stroke-width:1.5px
 
-  subgraph render["Render web service: verifiable-co-learner"]
-    server["<b>Turn and admin server</b><br/>Nuxt, region in render.yaml"]:::comp
+  subgraph host["Vercel project: cos40005-hn9-verifiable-co-learner-agent"]
+    server["<b>Turn and admin server</b><br/>Nuxt"]:::comp
   end
 
   subgraph sydney["AWS ap-southeast-2 (Sydney)"]
@@ -126,22 +127,19 @@ flowchart LR
   server -->|"InvokeFunction: code and tests in,<br/>the report out"| sandbox
   registry -->|"Image"| sandbox
 
-  style render fill:none,stroke:#8b949e,stroke-dasharray:5 4
+  style host fill:none,stroke:#8b949e,stroke-dasharray:5 4
   style sydney fill:none,stroke:#8b949e,stroke-dasharray:5 4
 ```
 
 | Node | Evidence in the repo |
 |---|---|
-| Render web service | `render.yaml` (`verifiable-co-learner`), `.github/workflows/deploy.yml` |
-| Sandbox function in Sydney | `infra/sandbox` (`ap-southeast-2`, `colearner-sandbox`), `web/server/sandbox/lambda.ts`, `render.yaml` (`NUXT_SANDBOX_FUNCTION`, `NUXT_SANDBOX_REGION`) |
+| Vercel project | Vercel project `cos40005-hn9-verifiable-co-learner-agent`, production host `cos40005-hn9-verifiable-co-learner.vercel.app` |
+| Sandbox function in Sydney | `infra/sandbox` (`ap-southeast-2`, `colearner-sandbox`), `web/server/sandbox/lambda.ts`, `web/nuxt.config.ts` (`sandboxFunction`, `sandboxRegion`) |
 | Registry | `infra/sandbox` `aws_ecr_repository.sandbox`, image built from `sandbox/Dockerfile` |
 
 ## Open questions that remain
 
-- Which Nitro preset the Render service uses. `nuxt.config.ts` sets none; `pnpm build` produces
-  the Node server `render.yaml` starts.
 - Whether Supabase stays as the managed cloud service or moves to AWS-hosted Postgres and auth.
   Moving off Supabase would change `web/server/storage/*`, `web/shared/student-id.ts`, the sign-in page
   and the RLS-based migrations, so it is a larger change than moving the server.
-- Where the server secrets live (`NUXT_SUPABASE_SECRET_KEY`, `NUXT_MODEL_API_KEY`).
 - Whether Pyodide stays on the public CDN or is self-hosted (matters for restricted networks).
