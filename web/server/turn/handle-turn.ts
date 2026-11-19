@@ -22,12 +22,14 @@ import {
   type StoredMastery,
   type UnlockStore,
 } from '../student-model'
+import { dailyProposingTurnLimit, type DailyTurnAllowance } from '../storage/daily-turn-allowance'
 import type { DecisionLogStore, DecisionRecord } from '../storage/decision-log'
 import { decide, type Proposal, type TurnSnapshot, type Verdict } from '../verify-shield'
 
 const teacherFallback = 'The Teacher could not answer just now. Please try again.'
 const deskmateFallback = 'Mai could not answer just now. Please try again.'
 const deskmateOffNotice = 'Mai is switched off.'
+const dailyTurnLimitNotice = `You have used your ${dailyProposingTurnLimit} turns for today. The agents will answer again tomorrow.`
 
 // A turn's state before the student's deskmate switch and the turn's notice are added.
 type TurnState = Omit<RedrawState, 'deskmateOn' | 'notice'>
@@ -38,6 +40,11 @@ interface Participants {
   teacher: boolean
   deskmate: boolean
   addressedAgent: AddressedAgent | null
+}
+
+interface TurnFlags {
+  deskmateOn: boolean
+  notice: string | null
 }
 
 // A failed call to the provider used to be swallowed whole, so a wrong model
@@ -97,6 +104,10 @@ export interface TurnOptions {
   deskmateSettings?: DeskmateSettingStore
   // Append-only activity. Absent in tests that are not about the log.
   activity?: ActivityRecorder
+  // One proposing turn per student per calendar day. Absent in tests that are not about the limit,
+  // which then does not apply. The day is the Hanoi calendar day of `now`.
+  dailyTurns?: DailyTurnAllowance
+  now?: () => Date
 }
 
 export function studentIdForTurn(request: TurnRequest): string {
@@ -168,7 +179,7 @@ async function* turnBody(
   studentId: string,
   body: unknown,
   store: ConversationStore,
-  flags: { deskmateOn: boolean, notice: string | null },
+  flags: TurnFlags,
   agents?: Agents,
   options?: TurnOptions,
 ): AsyncGenerator<InnerEvent> {
@@ -225,7 +236,7 @@ async function* turnBody(
   if (isOpenEvent(body)) {
     const existing = await store.messages(studentId, placement.module.id)
     if (existing.length === 0 && agents) {
-      yield* introduceModule(studentId, placement, standing, store, quizStore, agents, options)
+      yield* introduceModule(studentId, placement, standing, store, quizStore, agents, flags, options)
       return
     }
     const mode = existing.length === 0 ? 'learn' : null
@@ -302,7 +313,7 @@ async function* turnBody(
         draft: null,
         runOutput: null,
         submission: null,
-      }, store, quizStore, agents, '', everyone, options)
+      }, store, quizStore, agents, '', everyone, flags, options)
       return
     }
     yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
@@ -344,7 +355,7 @@ async function* turnBody(
       draft: null,
       runOutput: null,
       submission: { code: body.code, results: body.results },
-    }, store, quizStore, agents, '', everyone, options)
+    }, store, quizStore, agents, '', everyone, flags, options)
     return
   }
 
@@ -380,11 +391,33 @@ async function* turnBody(
       draft: messageDraft(body),
       runOutput: messageRun(body),
       submission: null,
-    }, store, quizStore, agents, quote ? `${quote.text}\n${text}` : text, participants, options)
+    }, store, quizStore, agents, quote ? `${quote.text}\n${text}` : text, participants, flags, options)
     return
   }
 
   throw new Error('The turn endpoint does not accept that event.')
+}
+
+// A proposing turn is allowed when no allowance is in use, or when this student still has one of
+// the 60 turns for the Hanoi calendar day. The reservation happens before any agent is called.
+async function proposingTurnAllowed(studentId: string, options?: TurnOptions): Promise<boolean> {
+  if (!options?.dailyTurns) return true
+  return options.dailyTurns.take(studentId, hanoiCalendarDay(options.now?.() ?? new Date()))
+}
+
+function hanoiCalendarDay(now: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: Intl.DateTimeFormatPartTypes) => {
+    const value = parts.find(item => item.type === type)?.value
+    if (!value) throw new Error('The Hanoi calendar day could not be read.')
+    return value
+  }
+  return `${part('year')}-${part('month')}-${part('day')}`
 }
 
 async function* introduceModule(
@@ -394,8 +427,14 @@ async function* introduceModule(
   store: ConversationStore,
   quizStore: QuizAnswerStore,
   agents: Agents,
+  flags: TurnFlags,
   options?: TurnOptions,
 ): AsyncGenerator<InnerEvent> {
+  if (!(await proposingTurnAllowed(studentId, options))) {
+    flags.notice = dailyTurnLimitNotice
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, 'learn') }
+    return
+  }
   const context = await teacherContext(studentId, placement, standing, store, quizStore, {
     draft: null,
     runOutput: null,
@@ -593,8 +632,14 @@ async function* answerMessage(
   agents: Agents,
   studentMessage: string,
   participants: Participants,
+  flags: TurnFlags,
   options?: TurnOptions,
 ): AsyncGenerator<InnerEvent> {
+  if ((participants.teacher || participants.deskmate) && !(await proposingTurnAllowed(studentId, options))) {
+    flags.notice = dailyTurnLimitNotice
+    yield { type: 'state', state: await redraw(studentId, placement, standing, store, quizStore, null) }
+    return
+  }
   const context = await teacherContext(studentId, placement, standing, store, quizStore, seen)
   const deskmate = deskmateContext(context)
   // Mai's proposal runs while the Teacher is already writing, so the first
