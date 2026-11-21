@@ -544,7 +544,7 @@ watch(() => props.sending, (sending) => {
         </li>
       </ul>
       <div class="flex items-center gap-2">
-        <div class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[4px] border border-ink-200 bg-ink-50 pl-1.5 focus-within:border-brand-500">
+        <div class="flex min-w-0 flex-1 items-center gap-1.5 rounded-[4px] border border-ink-200 bg-ink-50 pl-1.5 focus-within:border-brand-500 focus-within:ring-1 focus-within:ring-brand-500">
           <span
             v-if="quote"
             class="inline-flex max-w-[40%] shrink-0 items-center gap-0.5 rounded-full bg-ink-200 py-0.5 pr-0.5 pl-2 text-xs leading-4 text-ink-800"
@@ -580,6 +580,7 @@ watch(() => props.sending, (sending) => {
             <span class="sr-only">Message</span>
             <input
               ref="messageInput"
+              data-composer-input
               v-model="text"
               name="message"
 :placeholder="askingApproach ? 'Write your approach in your own words, before you code' : 'Message, or @ to address an agent'"

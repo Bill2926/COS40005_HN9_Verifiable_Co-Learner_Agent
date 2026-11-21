@@ -122,8 +122,8 @@ function timeText(value: string): string {
               Decisions
             </h1>
             <p
-              class="text-sm font-medium"
-              :class="data.chain === 'broken' ? 'text-rose-800' : 'text-emerald-800'"
+              v-if="data.chain === 'broken'"
+              class="text-sm font-medium text-rose-800"
             >
               <span class="sr-only">Decision log </span>{{ data.chain }}
             </p>

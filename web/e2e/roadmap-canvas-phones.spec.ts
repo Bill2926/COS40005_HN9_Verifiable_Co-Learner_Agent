@@ -66,9 +66,9 @@ test('places the canvas above the Mindmap panel on a tablet', async ({ page }) =
 test('shows the full-height canvas on the Mindmap tab of a phone', async ({ page }) => {
   await openWorkspace(page, { width: 375, height: 812 })
   await showMindmap(page)
-  await page.getByRole('tab', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('tab', { name: 'Progress map', exact: true }).click()
 
-  await expect(page.getByRole('tab', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tab', { name: 'Progress map', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toBeHidden()
   await expect(notesPanel(page)).toBeHidden()
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
@@ -76,7 +76,7 @@ test('shows the full-height canvas on the Mindmap tab of a phone', async ({ page
   await expectNoDocumentScroll(page)
 
   const viewport = page.viewportSize()
-  const tab = await page.getByRole('tab', { name: 'Mindmap', exact: true }).boundingBox()
+  const tab = await page.getByRole('tab', { name: 'Progress map', exact: true }).boundingBox()
   const canvas = await canvasBox(page)
   expect(viewport).not.toBeNull()
   expect(tab).not.toBeNull()
@@ -107,7 +107,7 @@ test('drags a module by touch on a tablet and a phone, and the connector follows
     await page.reload()
     await expect(page.getByRole('button', { name: 'Reset arrangement', exact: true })).toBeEnabled()
     await page.setViewportSize({ width: 375, height: 812 })
-    await page.getByRole('tab', { name: 'Mindmap', exact: true }).click()
+    await page.getByRole('tab', { name: 'Progress map', exact: true }).click()
     await expect(moduleCard(page, 'Variables, Data Types, and Operators')).toBeVisible()
     await dragModuleByTouch(page, 'Variables, Data Types, and Operators')
   }
@@ -124,7 +124,7 @@ test('keeps the modules apart when the screen is turned sideways', async ({ page
   await expectNoDocumentScroll(page)
 
   await page.setViewportSize({ width: 667, height: 375 })
-  await page.getByRole('tab', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('tab', { name: 'Progress map', exact: true }).click()
   await expectModulesFit(page)
   await expectChromeFits(page)
   await expectNoDocumentScroll(page)
@@ -161,9 +161,9 @@ test('pans, pinch-zooms and opens a bottom sheet on a phone', async ({ browser }
     await expect(page.getByRole('button', { name: 'Fit all modules' })).toHaveText('189%')
     await expect(card.getByRole('button')).toHaveAttribute('aria-pressed', 'false')
 
-    await page.getByRole('tab', { name: 'Notes', exact: true }).click()
+    await page.getByRole('tab', { name: 'Notes List', exact: true }).click()
     const panel = page.getByRole('complementary', { name: 'Mindmap panel' })
-    await expect(panel.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
+    await expect(panel.getByRole('region', { name: 'Notes List', exact: true })).toBeVisible()
     await expect(page.getByRole('region', { name: 'Mindmap canvas' })).toBeVisible()
     const sheet = (await panel.boundingBox())!
     expect(sheet.y).toBeGreaterThan(canvas.y)
@@ -183,12 +183,12 @@ test('reaches the notes editor on a phone', async ({ page }) => {
     await page.setViewportSize({ width, height: 800 })
     await expectNoDocumentScroll(page)
 
-    await page.getByRole('tab', { name: 'Mindmap', exact: true }).click()
-    await expect(page.getByRole('heading', { name: 'Mindmap', exact: true })).toBeVisible()
+    await page.getByRole('tab', { name: 'Progress map', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Progress map', exact: true })).toBeVisible()
     await expectNoDocumentScroll(page)
     await expectModulesFit(page)
 
-    await page.getByRole('tab', { name: 'Notes', exact: true }).click()
+    await page.getByRole('tab', { name: 'Notes List', exact: true }).click()
     await page.getByRole('button', { name: 'New note', exact: true }).click()
     await expectReachable(page, page.getByRole('textbox', { name: 'Title' }))
     await expectReachable(page, page.getByRole('button', { name: 'Save', exact: true }))
@@ -230,7 +230,7 @@ async function dragModuleByTouch(page: Page, name: string) {
 
 async function expectModulesFit(page: Page) {
   const canvas = await canvasBox(page)
-  const label = await bandBox(page.getByRole('heading', { name: 'Mindmap', exact: true }))
+  const label = await bandBox(page.getByRole('heading', { name: 'Progress map', exact: true }))
   const footer = await bandBox(page.getByRole('button', { name: 'Reset arrangement', exact: true }))
   expect(canvas).not.toBeNull()
   expect(label).not.toBeNull()
@@ -282,7 +282,7 @@ function moduleCard(page: Page, name: string): Locator {
 }
 
 function notesPanel(page: Page): Locator {
-  return page.getByRole('region', { name: 'Notes', exact: true })
+  return page.getByRole('region', { name: 'Notes List', exact: true })
 }
 
 interface Bounds {
@@ -387,11 +387,11 @@ async function expectReachable(page: Page, locator: Locator) {
 }
 
 async function showMindmap(page: Page) {
-  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
+  const roadmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Progress map', exact: true })
   if (await roadmapLink.getAttribute('aria-current') !== 'page') await roadmapLink.click()
   await expect(roadmapLink).toHaveAttribute('aria-current', 'page')
-  if (await page.getByRole('tab', { name: 'Mindmap', exact: true }).count() > 0) return
-  await expect(page.getByRole('heading', { name: 'Mindmap', exact: true })).toBeVisible()
+  if (await page.getByRole('tab', { name: 'Progress map', exact: true }).count() > 0) return
+  await expect(page.getByRole('heading', { name: 'Progress map', exact: true })).toBeVisible()
 }
 
 async function openWorkspace(page: Page, size: { width: number, height: number }) {

@@ -124,6 +124,8 @@ p { text-wrap: pretty; }
   border-radius: 4px;
 }
 :where(input, textarea):focus-visible { outline-offset: 0; }
+/* The chat composer's box shows focus on its own border, edge to edge. */
+[data-composer-input]:focus-visible { outline: none; }
 
 /* Controls answer the pointer: colour steps on hover, a press sinks 1px. */
 :where(a, button, [role='tab'], input, textarea) {
