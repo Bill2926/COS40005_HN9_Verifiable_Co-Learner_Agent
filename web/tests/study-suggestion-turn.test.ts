@@ -534,3 +534,86 @@ describe('the study suggestion in the redraw', () => {
     expect(selected.studySuggestion?.sentence).toBe('Submit Total cost so it can be checked.')
   })
 })
+
+// The page logs a module opening on every load of the workspace, so a reload must not look like new activity.
+describe('the study suggestion across reloads', () => {
+  it('keeps a dismissed reading-only step hidden after the page reloads the module', async () => {
+    const s = session()
+    await s.log('module_opened', { moduleId: gs })
+    await s.dismiss((await s.open()).studySuggestion!.key)
+
+    await s.log('module_opened', { moduleId: gs })
+
+    expect((await s.open()).studySuggestion).toBeNull()
+  })
+
+  it('keeps a dismissed abandoned module hidden when the student comes back and leaves it again', async () => {
+    const s = session({ unlocked: ['variables'] })
+    await practising(s)
+    await s.log('layout_switched', { layout: 'mindmap', moduleId: gs })
+    expect((await s.open()).studySuggestion?.sentence).toBe(`Go back to ${moduleName}. You left it before submitting.`)
+    await s.dismiss((await s.open()).studySuggestion!.key)
+
+    await s.log('layout_switched', { layout: 'study', moduleId: gs })
+    await s.log('module_opened', { moduleId: gs })
+    await s.log('layout_switched', { layout: 'mindmap', moduleId: gs })
+
+    expect((await s.open()).studySuggestion?.sentence ?? '').not.toContain('Go back to')
+  })
+
+  it('sends the student back to the module they left most recently', async () => {
+    const s = session({ unlocked: ['variables'] })
+    await practising(s, gs)
+    await practising(s, 'variables')
+    await s.log('module_opened', { moduleId: gs })
+    await s.log('module_opened', { moduleId: 'variables' })
+
+    expect((await s.open()).studySuggestion?.sentence).toBe(`Go back to ${moduleName}. You left it before submitting.`)
+  })
+
+  it('does not count three reloads of one module as hopping', async () => {
+    const s = session()
+    await fullPass(s, 'say_hello', gs)
+    for (let load = 0; load < 3; load += 1) await s.log('module_opened', { moduleId: gs })
+
+    expect((await s.open()).studySuggestion).toBeNull()
+  })
+
+  it('counts only openings that change module as hops', async () => {
+    const s = session({ unlocked: ['variables'] })
+    await fullPass(s, 'say_hello', gs)
+    await fullPass(s, 'total_cost', 'variables')
+    await s.log('module_opened', { moduleId: gs })
+    await s.log('module_opened', { moduleId: gs })
+    await s.log('module_opened', { moduleId: 'variables' })
+    await s.log('module_opened', { moduleId: 'variables' })
+
+    expect((await s.open()).studySuggestion).toBeNull()
+
+    await s.log('module_opened', { moduleId: gs })
+    expect((await s.open()).studySuggestion?.sentence).toMatch(/^Stay on .* and do an exercise\.$/)
+  })
+})
+
+describe('the repeated error with two error types', () => {
+  it('names the error type the student hit most recently', async () => {
+    const s = session()
+    const error = (errorType: string) => s.log('run_finished', { exerciseId: 'say_hello', outcome: 'error', errorType })
+    for (let run = 0; run < 3; run += 1) await error('TypeError')
+    for (let run = 0; run < 3; run += 1) await error('NameError')
+    await error('TypeError')
+
+    expect((await s.open()).studySuggestion?.sentence).toBe('Stay on Say hello. Your runs keep ending in a TypeError.')
+  })
+
+  it('keeps the dismissal when the same error happens again', async () => {
+    const s = session()
+    const error = () => s.log('run_finished', { exerciseId: 'say_hello', outcome: 'error', errorType: 'NameError' })
+    for (let run = 0; run < 3; run += 1) await error()
+    await s.dismiss((await s.open()).studySuggestion!.key)
+
+    await error()
+
+    expect((await s.open()).studySuggestion).toBeNull()
+  })
+})

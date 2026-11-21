@@ -178,6 +178,8 @@ describe('lecturer course spec', () => {
     expect(preview.modules[0]?.hintLadder).toMatchObject({ teacherOnly: true })
     expect(preview.modules[0]?.misconceptionResponses[0]).toMatchObject({ teacherOnly: true })
     expect(JSON.stringify(preview)).not.toContain('referenceSolution')
+    // A course preview records no activity, so it advises nothing.
+    expect(JSON.stringify(preview)).not.toContain('studySuggestion')
     expect(await download()).toEqual(pythonCourseSpec)
     expect((await handleLecturer(request)).courses[0]?.history).toEqual([seeded])
   })

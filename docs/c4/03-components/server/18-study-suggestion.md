@@ -41,8 +41,9 @@ count equals its total.
 
 ## The twelve situations
 
-Highest first; a situation names the exercise or module with the latest anchor, and one that would name a closed
-module is skipped, so the next is considered.
+Highest first; a situation names the exercise, module or error type where it was most recently true (its latest
+satisfying row, not necessarily its anchor), and one that would name a closed module is skipped, so the next is
+considered.
 
 | # | Identity | True when | Action |
 |---|---|---|---|
@@ -55,7 +56,7 @@ module is skipped, so the next is considered.
 | 7 | `quiz_only` | a quiz answer and no exercise of the module passed | Practice on its first unfinished exercise |
 | 8 | `reading_only` | the module was opened, with no run, submission or switch to Practice (the default Learn screen records none) | Practice on its first unfinished exercise |
 | 9 | `abandoned_module` | a module opened, then another module or the Mindmap layout, with no submission or quiz answer in it | Practice on its first unfinished exercise |
-| 10 | `hopping` | the openings and submissions end in three module openings | Practice on the current module's first unfinished exercise |
+| 10 | `hopping` | the openings and submissions end in three openings that each change module (reopening the same module is not a hop) | Practice on the current module's first unfinished exercise |
 | 11 | `left_study_layout` | the latest layout switch is to the Mindmap layout and the current exercise has no full pass | Study layout on the current exercise |
 | 12 | `returned_to_exercise` | went idle then returned on the same exercise, with no run, submission or message since | Practice on the exercise |
 
@@ -67,9 +68,12 @@ module whose exercises are all passed has nowhere to go and is skipped.
 
 A step's identity is the situation, module, exercise (when it names one) and error type (when the sentence names
 one). Its anchor is the id of the activity row that makes the episode true, kept the same while the episode lasts:
-the row that completed the pattern (the third run, the second failed submission), or for the situations that
-re-fire on an event, the latest such row (the latest module opening, the latest abandonment, the latest layout
-switch, the latest return). A dismissal stores identity and anchor ([storage](08-storage.md)); the suggestion is
+the row that completed the pattern (the third run, the second failed submission, the third error of that type).
+A situation that, once ended, cannot become true again is anchored on its first row: the first message
+(`asked_first`), quiz answer (`quiz_only`), module opening (`reading_only`) and leaving of the module
+(`abandoned_module`). The page logs a module opening on every reload, so a reload never starts a new episode. The
+situations that re-fire on an event are anchored on the latest such row (the latest hop, the latest layout switch,
+the latest return). A dismissal stores identity and anchor ([storage](08-storage.md)); the suggestion is
 hidden while the winning step's identity and anchor are the ones dismissed. The rules do not fill the dialog with
 the next situation: it shows later, once it is the step chosen and its own episode was not dismissed. The same
 identity shows again only after its episode ended and a later one began.

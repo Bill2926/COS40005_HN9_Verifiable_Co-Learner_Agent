@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { createFakeAgents } from '../server/agents'
 import { pythonCourse, studyModule } from '../server/course'
@@ -176,7 +177,7 @@ describe('sandbox on Lambda', () => {
   })
 })
 
-const sandboxDir = new URL('../../sandbox/', import.meta.url).pathname
+const sandboxDir = fileURLToPath(new URL('../../sandbox/', import.meta.url))
 
 function runHandler(code: string): Promise<{ out: string, err: string, report: { outcome: string, results?: { actual: string }[], message?: string }, processErr: string }> {
   const script = [
@@ -346,7 +347,8 @@ describe('the Lambda invoke', () => {
   })
 })
 
-describe('Lambda handler logs', () => {
+// The handler runs the Linux-only runner, as Lambda does.
+describe.skipIf(process.platform === 'win32')('Lambda handler logs', () => {
   it('returns the sandbox result and writes no student code', async () => {
     const source = 'SENTINEL_STUDENT_CODE = 1\nvalue = 1\n'
     const ran = await runHandler(source)
