@@ -1,6 +1,8 @@
 """Train and score the offline self-harm content baseline."""
 
 import argparse
+from dataclasses import dataclass
+from io import BytesIO
 import json
 from pathlib import Path
 
@@ -55,22 +57,47 @@ def export_model(pipeline: Pipeline, threshold: float, path: Path = MODEL_PATH) 
     )
 
 
+@dataclass(frozen=True)
+class PromptModel:
+    idf: np.ndarray
+    coefficients: np.ndarray
+    intercept: float
+    threshold: float
+
+    def score(self, prompts: list[str]) -> np.ndarray:
+        counts = vectorizer().transform(prompts)
+        weighted = normalize(counts.multiply(self.idf), norm="l2")
+        return expit(weighted @ self.coefficients + self.intercept)
+
+
+def load_prompt_model(source: Path | BytesIO) -> PromptModel:
+    with np.load(source, allow_pickle=False) as archive:
+        if set(archive.files) != {"format_version", "idf", "coefficients", "intercept", "threshold"}:
+            raise ValueError("Unexpected prompt model fields.")
+        version = archive["format_version"]
+        if version.shape != () or version.dtype.kind not in "iu" or version.item() != MODEL_FORMAT:
+            raise ValueError("Unsupported model artifact format.")
+        idf = finite_array(archive["idf"], (N_FEATURES,))
+        coefficients = finite_array(archive["coefficients"], (N_FEATURES,))
+        intercept = float(finite_array(archive["intercept"], ()).item())
+        threshold = float(finite_array(archive["threshold"], ()).item())
+    if not 0 <= threshold <= 1:
+        raise ValueError("Invalid prompt model threshold.")
+    return PromptModel(idf, coefficients, intercept, threshold)
+
+
+def finite_array(values: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
+    if values.shape != shape or values.dtype.kind not in "fiu" or not np.isfinite(values).all():
+        raise ValueError("Invalid numeric parameters in the prompt model.")
+    values.setflags(write=False)
+    return values
+
+
 def score_prompts(
     prompts: list[str], path: Path = MODEL_PATH
 ) -> tuple[np.ndarray, float]:
-    with np.load(path, allow_pickle=False) as archive:
-        if archive["format_version"].item() != MODEL_FORMAT:
-            raise ValueError("Unsupported model artifact format.")
-        idf = archive["idf"]
-        coefficients = archive["coefficients"]
-        intercept = archive["intercept"].item()
-        threshold = archive["threshold"].item()
-    if idf.shape != (N_FEATURES,) or coefficients.shape != (N_FEATURES,):
-        raise ValueError("Model features do not match the vectorizer.")
-
-    counts = vectorizer().transform(prompts)
-    weighted = normalize(counts.multiply(idf), norm="l2")
-    return expit(weighted @ coefficients + intercept), threshold
+    model = load_prompt_model(path)
+    return model.score(prompts), model.threshold
 
 
 def main() -> None:

@@ -12,6 +12,8 @@ The files are numbered in the order to read them, from the whole system down to 
 Deployment is a supplementary view in C4. It is numbered 4 only to keep the reading order; C4's own "Level 4" is
 code, which is not drawn here.
 
+The [local ML demo](local-ml-demo.md) has its own container and component views. A presenter runs it on a development machine.
+
 ## Level 3: Components
 
 Two containers have code of their own, so each has an overview (component level) followed by one file per component.
