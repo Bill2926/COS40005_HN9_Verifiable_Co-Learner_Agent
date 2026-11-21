@@ -23,20 +23,20 @@ class InferenceService:
     prompt_model: PromptModel | None
 
     @classmethod
-    def load(cls, model_dir: Path) -> "InferenceService":
-        return cls(*load_prompt_artifact(model_dir))
+    def load(cls, model_dir: Path, manifest_path: Path) -> "InferenceService":
+        return cls(*load_prompt_artifact(model_dir, manifest_path))
 
     def models(self) -> dict:
         return {"models": [{**self.metadata, "available": self.prompt_model is not None}]}
 
     def classify_prompt(self, data: dict) -> dict:
+        if set(data) != {"prompt", "language"}:
+            raise ApiError(400, "invalid_request", "Send only prompt and language.")
         prompt = data.get("prompt")
         if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > MAX_PROMPT_LENGTH:
             raise ApiError(422, "invalid_prompt", f"Enter a prompt of 1 to {MAX_PROMPT_LENGTH:,} characters.")
-        if data.get("language") != "en":
+        if data["language"] != self.metadata.get("language", "en"):
             raise ApiError(422, "unsupported_language", "Choose English for this model.")
-        if set(data) != {"prompt", "language"}:
-            raise ApiError(400, "invalid_request", "Send only prompt and language.")
         if self.prompt_model is None:
             raise ApiError(503, "model_unavailable", "The prompt model is unavailable. Check the model export and restart.")
 

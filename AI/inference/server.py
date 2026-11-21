@@ -1,8 +1,9 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 from pathlib import Path
+import re
 
-from .artifacts import AI_ROOT
+from .artifacts import AI_ROOT, MANIFEST_PATH
 from .service import ApiError, InferenceService
 
 
@@ -29,8 +30,27 @@ def invalid_constant(_value: str) -> None:
     raise ValueError("Use standard JSON values.")
 
 
-def create_server(port: int = 8765, *, model_dir: Path = AI_ROOT) -> ThreadingHTTPServer:
-    service = InferenceService.load(model_dir)
+def demo_assets() -> dict:
+    assets = {
+        route: (content_type, (AI_ROOT / "demo" / name).read_bytes())
+        for route, (name, content_type) in ASSETS.items()
+    }
+    theme = (AI_ROOT.parent / "web/app/assets/css/main.css").read_text(encoding="utf-8")
+    colors = re.findall(r"^\s*(--color-[\w-]+: #[\da-fA-F]+;)", theme, re.MULTILINE)
+    palette = ":root {\n" + "\n".join(colors) + "\n}\n"
+    content_type, styles = assets["/styles.css"]
+    assets["/styles.css"] = content_type, palette.encode("utf-8") + styles
+    return assets
+
+
+def create_server(
+    port: int = 8765,
+    *,
+    model_dir: Path = AI_ROOT,
+    manifest_path: Path = MANIFEST_PATH,
+) -> ThreadingHTTPServer:
+    service = InferenceService.load(model_dir, manifest_path)
+    assets = demo_assets()
 
     class Handler(BaseHTTPRequestHandler):
         def setup(self) -> None:
@@ -47,17 +67,11 @@ def create_server(port: int = 8765, *, model_dir: Path = AI_ROOT) -> ThreadingHT
         def do_POST(self) -> None:
             self.dispatch("POST")
 
-        def do_HEAD(self) -> None:
-            self.dispatch("HEAD")
-
-        def do_OPTIONS(self) -> None:
-            self.dispatch("OPTIONS")
-
-        def do_PUT(self) -> None:
-            self.dispatch("PUT")
-
-        do_PATCH = do_PUT
-        do_DELETE = do_PUT
+        def send_error(self, code: int, message: str | None = None, explain: str | None = None) -> None:
+            if code == 501:
+                self.dispatch(self.command)
+            else:
+                super().send_error(code, message, explain)
 
         def dispatch(self, method: str) -> None:
             origin = f"http://127.0.0.1:{self.server.server_port}"
@@ -70,10 +84,10 @@ def create_server(port: int = 8765, *, model_dir: Path = AI_ROOT) -> ThreadingHT
                     self.json_response(200, service.classify_prompt(self.read_json()))
                 elif self.path == MODELS_ROUTE and method == "GET":
                     self.json_response(200, service.models())
-                elif self.path in ASSETS and method == "GET":
-                    name, content_type = ASSETS[self.path]
-                    self.respond(200, content_type, (AI_ROOT / "demo" / name).read_bytes())
-                elif self.path in ASSETS or self.path in (PROMPT_ROUTE, MODELS_ROUTE):
+                elif self.path in assets and method == "GET":
+                    content_type, body = assets[self.path]
+                    self.respond(200, content_type, body)
+                elif self.path in assets or self.path in (PROMPT_ROUTE, MODELS_ROUTE):
                     raise ApiError(405, "method_not_allowed", "Use the documented method for this route.")
                 else:
                     raise ApiError(404, "not_found", "This route does not exist.")
@@ -119,6 +133,8 @@ def create_server(port: int = 8765, *, model_dir: Path = AI_ROOT) -> ThreadingHT
             self.send_header("Content-Type", content_type)
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
+            if status == 405:
+                self.send_header("Allow", "POST" if self.path == PROMPT_ROUTE else "GET")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Content-Security-Policy", "default-src 'self'; base-uri 'none'; frame-ancestors 'none'")
             self.end_headers()

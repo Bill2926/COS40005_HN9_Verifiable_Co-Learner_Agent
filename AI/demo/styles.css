@@ -1,18 +1,6 @@
-/* Standalone demo role tokens from the Co-Learner palette in web/app/assets/css/main.css. */
+/* The local service prepends the shared Co-Learner palette. */
 :root {
   color-scheme: light;
-  --color-paper: #ffffff;
-  --color-ink-100: #f3f4f6;
-  --color-ink-200: #dce3ea;
-  --color-ink-600: #525c6a;
-  --color-ink-900: #1f2a44;
-  --color-brand-50: #eef5fb;
-  --color-brand-200: #c4dbf0;
-  --color-brand-500: #4b8bbe;
-  --color-accent: #36719f;
-  --color-accent-hover: #2c5d84;
-  --color-on-accent: #ffffff;
-  --color-error: #9f1239;
   font-family: Inter, system-ui, sans-serif;
   line-height: 1.55;
   color: var(--color-ink-900);
@@ -73,6 +61,6 @@ dd { margin: 0; overflow-wrap: anywhere; }
   border-radius: .65rem;
   padding: .85rem;
 }
-#prompt-result[data-kind="error"] { color: var(--color-error); }
+#prompt-result[data-kind="error"] { font-weight: 600; }
 #prompt-result dl { grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr)); }
 .result-label { font-size: 1.1rem; font-weight: 650; }

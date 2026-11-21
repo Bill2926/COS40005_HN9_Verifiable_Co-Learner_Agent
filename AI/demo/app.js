@@ -79,9 +79,11 @@ async function showModelDetails() {
     const model = models.find(item => item.task === 'prompt_content')
     const { evaluation } = model
     modelStatus.textContent = model.available ? model.meaning : 'The prompt model is currently unavailable.'
+    if (!evaluation) return
+    const languages = new Intl.DisplayNames(['en'], { type: 'language' })
     modelDetails.replaceChildren(...dataList([
-      ['Language', 'English'],
-      ['Evaluation status', 'Experimental'],
+      ['Language', languages.of(model.language)],
+      ['Evaluation status', model.evaluationStatus],
       ['Model version', model.modelVersion],
       ['Features', model.featureDescription],
       ['Evaluation data', evaluation.dataset],
