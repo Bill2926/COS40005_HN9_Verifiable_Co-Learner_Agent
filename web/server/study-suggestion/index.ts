@@ -58,7 +58,10 @@ interface Candidate {
   moduleId: string
   exerciseId?: string
   errorType?: string
+  // The row this episode is anchored on. It stays put while the episode lasts, so a dismissal holds.
   anchor: number
+  // The latest row that makes it true, which decides between two places where it is true. Defaults to the anchor.
+  rank?: number
 }
 
 interface Situation {
@@ -72,7 +75,7 @@ export function chooseStudyStep(input: StudyStepInput): StudyStep | null {
   for (const situation of situations) {
     const found = situation.find(log)
       .filter(candidate => input.unlockedModuleIds.includes(candidate.moduleId))
-      .sort((a, b) => b.anchor - a.anchor)
+      .sort((a, b) => (b.rank ?? b.anchor) - (a.rank ?? a.anchor))
     for (const candidate of found) {
       const said = situation.say(log, candidate)
       if (!said) continue
@@ -237,8 +240,11 @@ const situations: readonly Situation[] = [
         if (entry.type !== 'run_finished' || entry.payload.outcome !== 'error' || typeof entry.payload.errorType !== 'string') continue
         errors.set(entry.payload.errorType, [...errors.get(entry.payload.errorType) ?? [], entry])
       }
-      const reached = [...errors].flatMap(([errorType, runs]) => runs.length >= patternSize ? [{ errorType, anchor: runs[patternSize - 1]!.id }] : [])
-      const latest = reached.sort((a, b) => b.anchor - a.anchor)[0]
+      // The type the student hit most recently wins; its episode is anchored on its third error.
+      const reached = [...errors].flatMap(([errorType, runs]) => runs.length >= patternSize
+        ? [{ errorType, anchor: runs[patternSize - 1]!.id, rank: runs.at(-1)!.id }]
+        : [])
+      const latest = reached.sort((a, b) => b.rank - a.rank)[0]
       return latest ? { moduleId, exerciseId, ...latest } : null
     }),
     say: (log, { moduleId, exerciseId, errorType }) => practiceOn(
@@ -297,8 +303,8 @@ const situations: readonly Situation[] = [
     name: 'asked_first',
     find: log => perModule(log, (moduleId) => {
       const worked = log.entries.some(entry => entry.moduleId === moduleId && (entry.type === 'code_run' || entry.type === 'submitted'))
-      const asked = log.of('message_sent', entry => entry.moduleId === moduleId)[0]
-      return asked && !worked ? { moduleId, anchor: asked.id } : null
+      const asked = log.of('message_sent', entry => entry.moduleId === moduleId)
+      return asked.length > 0 && !worked ? { moduleId, anchor: asked[0]!.id, rank: asked.at(-1)!.id } : null
     }),
     say: (log, { moduleId }) => practiceOn(
       moduleId,
@@ -311,9 +317,9 @@ const situations: readonly Situation[] = [
     // 7. Quiz answers and no exercise of the module passed.
     name: 'quiz_only',
     find: log => perModule(log, (moduleId) => {
-      const answered = log.of('quiz_answered', entry => entry.moduleId === moduleId)[0]
+      const answered = log.of('quiz_answered', entry => entry.moduleId === moduleId)
       const passedAny = log.exercisesOf(moduleId).some(exercise => log.hasFullPass(exercise.id))
-      return answered && !passedAny ? { moduleId, anchor: answered.id } : null
+      return answered.length > 0 && !passedAny ? { moduleId, anchor: answered[0]!.id, rank: answered.at(-1)!.id } : null
     }),
     say: (log, { moduleId }) => practiceOn(
       moduleId,
@@ -326,10 +332,12 @@ const situations: readonly Situation[] = [
     // 8. The module was opened and only read: the default Learn screen records no mode switch.
     name: 'reading_only',
     find: log => perModule(log, (moduleId) => {
-      const opened = log.of('module_opened', entry => entry.moduleId === moduleId).at(-1)
+      // Once ended it never comes back, so the episode is anchored on the first opening: the page
+      // logs an opening on every reload, and a reload must not show a dismissed step again.
+      const opened = log.of('module_opened', entry => entry.moduleId === moduleId)
       const worked = log.entries.some(entry => entry.moduleId === moduleId
         && (entry.type === 'code_run' || entry.type === 'submitted' || (entry.type === 'mode_switched' && entry.payload.mode === 'practice')))
-      return opened && !worked ? { moduleId, anchor: opened.id } : null
+      return opened.length > 0 && !worked ? { moduleId, anchor: opened[0]!.id, rank: opened.at(-1)!.id } : null
     }),
     say: (log, { moduleId }) => practiceOn(
       moduleId,
@@ -350,7 +358,9 @@ const situations: readonly Situation[] = [
           || (next.type === 'layout_switched' && next.payload.layout === 'mindmap'))
         return left ? [left.id] : []
       })
-      return lefts.length > 0 ? { moduleId, anchor: Math.max(...lefts) } : null
+      // Once ended it never comes back, so the episode is anchored on the first time the module was
+      // left; the most recently left module wins.
+      return lefts.length > 0 ? { moduleId, anchor: Math.min(...lefts), rank: Math.max(...lefts) } : null
     }),
     say: (log, { moduleId }) => practiceOn(
       moduleId,
@@ -365,7 +375,11 @@ const situations: readonly Situation[] = [
     find: (log) => {
       const tail = log.entries.filter(entry => entry.type === 'module_opened' || entry.type === 'submitted')
       const lastSubmission = tail.findLastIndex(entry => entry.type === 'submitted')
-      const openings = tail.slice(lastSubmission + 1)
+      // Only an opening of a different module is a hop: the page logs an opening on every reload.
+      const openings = tail.slice(lastSubmission + 1).filter((entry, index, after) => {
+        const previous = index > 0 ? after[index - 1] : tail.slice(0, lastSubmission + 1).findLast(row => row.type === 'module_opened')
+        return entry.moduleId !== previous?.moduleId
+      })
       return openings.length >= patternSize
         ? [{ moduleId: log.input.currentModuleId, anchor: openings.at(-1)!.id }]
         : []

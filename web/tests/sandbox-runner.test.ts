@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { approvedLibraries as browserLibraries } from '../app/python/approved-libraries.mjs'
 import { approvedLibraries, libraryRefusal, printedTooMuch } from '../server/sandbox'
@@ -7,7 +8,7 @@ const runner = new URL('../../sandbox/runner.py', import.meta.url)
 
 function runSandbox(payload: unknown, env?: Record<string, string>): Promise<{ stdout: string, status: number | null }> {
   return new Promise((resolve, reject) => {
-    const child = spawn('python3', [runner.pathname], {
+    const child = spawn('python3', [fileURLToPath(runner)], {
       stdio: ['pipe', 'pipe', 'pipe'],
       env: env ? { ...process.env, ...env } : process.env,
     })
@@ -30,7 +31,8 @@ function runSandbox(payload: unknown, env?: Record<string, string>): Promise<{ s
 
 const greeting = [{ name: 'floor', expression: 'value()', expected: '2' }]
 
-describe('sandbox runner', () => {
+// The runner is Linux-only (it uses `resource` and `os.killpg`), as Lambda is.
+describe.skipIf(process.platform === 'win32')('sandbox runner', () => {
   it('refuses a library outside the approved list and names it', async () => {
     const report = JSON.parse((await runSandbox({
       code: 'import os\nvalue = lambda: "ran"\n',

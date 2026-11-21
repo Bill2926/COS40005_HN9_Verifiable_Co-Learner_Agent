@@ -18,7 +18,33 @@ onMounted(() => {
   followButton.value?.$el?.focus()
 })
 
+const panel = ref<HTMLElement | null>(null)
+
+// The dialog covers the workspace, so Tab stays on its controls.
+function keepFocusInside(event: KeyboardEvent) {
+  const controls = [...panel.value?.querySelectorAll<HTMLElement>('button:not([disabled])') ?? []]
+  if (controls.length === 0) {
+    event.preventDefault()
+    return
+  }
+  const first = controls[0]!
+  const last = controls.at(-1)!
+  const active = document.activeElement
+  if (event.shiftKey && (active === first || !panel.value?.contains(active))) {
+    event.preventDefault()
+    last.focus()
+  }
+  else if (!event.shiftKey && (active === last || !panel.value?.contains(active))) {
+    event.preventDefault()
+    first.focus()
+  }
+}
+
 function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Tab') {
+    keepFocusInside(event)
+    return
+  }
   if (event.key !== 'Escape' || props.busy) return
   event.stopPropagation()
   emit('close')
@@ -35,7 +61,7 @@ function onKeydown(event: KeyboardEvent) {
     class="phone-safe fixed inset-0 z-40 grid place-items-center overflow-y-auto bg-ink-900/40 p-4"
     @keydown="onKeydown"
   >
-    <div class="flex w-full flex-col gap-4 rounded-xl border border-ink-200 bg-paper p-4 shadow-md md:max-w-md md:p-6">
+    <div ref="panel" class="flex w-full flex-col gap-4 rounded-xl border border-ink-200 bg-paper p-4 shadow-md md:max-w-md md:p-6">
       <div class="flex flex-col gap-1">
         <h2 id="study-suggestion-title" class="font-mono text-[10px] leading-4 tracking-[0.5px] text-ink-500 uppercase">
           Your next step
