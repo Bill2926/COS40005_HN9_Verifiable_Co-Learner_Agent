@@ -811,7 +811,7 @@ onUnmounted(() => {
           class="size-2.5 shrink-0 rounded-full bg-brand-600"
           aria-hidden="true"
         />
-        Mindmap
+        Progress map
       </h2>
       <p class="text-xs leading-[18px] text-ink-500 max-lg:min-w-0 lg:whitespace-nowrap">
         {{ course }}

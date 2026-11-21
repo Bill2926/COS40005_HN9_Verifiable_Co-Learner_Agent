@@ -209,7 +209,7 @@ async function choose(page: Page, select: Locator, label: string) {
 }
 
 function notesPanel(page: Page): Locator {
-  return page.getByRole('region', { name: 'Notes', exact: true })
+  return page.getByRole('region', { name: 'Notes List', exact: true })
 }
 
 function row(page: Page, title: string): Locator {
@@ -238,7 +238,7 @@ async function openMindmap(page: Page) {
 }
 
 async function showNotesOnPhone(page: Page) {
-  await page.getByRole('tab', { name: 'Notes', exact: true }).click()
+  await page.getByRole('tab', { name: 'Notes List', exact: true }).click()
   await expect(notesPanel(page)).toBeVisible({ timeout: 60_000 })
 }
 

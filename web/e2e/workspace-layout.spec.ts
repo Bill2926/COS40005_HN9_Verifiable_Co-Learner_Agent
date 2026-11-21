@@ -23,9 +23,9 @@ test('marks Study as the current layout on the first visit', async ({ page }) =>
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
   const ide = switcher.getByRole('link', { name: 'Study', exact: true })
-  const mindmapCanvas = switcher.getByRole('link', { name: 'Mindmap', exact: true })
+  const mindmapCanvas = switcher.getByRole('link', { name: 'Progress map', exact: true })
 
-  await expect(switcher.getByRole('link')).toHaveText(['Study', 'Mindmap'])
+  await expect(switcher.getByRole('link')).toHaveText(['Study', 'Progress map'])
   await expect(ide).toHaveAttribute('aria-current', 'page')
   await expect(ide).toHaveAttribute('href', /[?&]layout=study(?:&|$)/)
   await expect(mindmapCanvas).toHaveAttribute('href', /[?&]layout=mindmap(?:&|$)/)
@@ -48,9 +48,9 @@ test('switches to Mindmap without reloading, and back and forward restore each l
     loads += 1
   })
 
-  await switcher.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expect(page).toHaveURL(/[?&]layout=mindmap(?:&|$)/)
-  await expect(switcher.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(switcher.getByRole('link', { name: 'Progress map', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(switcher.getByRole('link', { name: 'Study', exact: true })).not.toHaveAttribute('aria-current', 'page')
   expect(loads).toBe(0)
   await expectMindmapCanvas(page)
@@ -76,16 +76,16 @@ test('reloads the remembered layout from the server and falls back when the layo
   await page.goto('/')
   await expectIde(page)
 
-  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
   await expectServerLayout(browser, await page.context().storageState(), 'mindmap')
 
   await page.goto('/')
-  await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Progress map', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectMindmapCanvas(page)
 
   await page.goto('/?layout=nope')
-  await expect(page.getByRole('link', { name: 'Mindmap', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Progress map', exact: true })).toHaveAttribute('aria-current', 'page')
   await expectMindmapCanvas(page)
 })
 
@@ -116,7 +116,7 @@ test('keeps the conversation, the draft, an unsent message, and the run output a
   await composer.fill(unsent)
 
   const switcher = page.getByRole('navigation', { name: 'Workspace layout' })
-  await switcher.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await switcher.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
   await expect(conversation(page)).toContainText(studentMessage)
   await expect(conversation(page)).toContainText(teacherReply)
@@ -137,7 +137,7 @@ test('shows the closed module reason and Study link on the Mindmap', async ({ pa
   await openWorkspace(page)
   await expect(page.getByRole('button', { name: 'Collapse working area', exact: true })).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
 
   await expect(page.getByText('Introduction to Programming with Python', { exact: true })).toBeVisible()
@@ -160,7 +160,7 @@ test('shows the closed module reason and Study link on the Mindmap', async ({ pa
 
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
   await expect(page.getByText('ACTIVE', { exact: true })).toHaveCount(0)
-  await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Notes List', exact: true })).toBeVisible()
   await expect(conversation(page)).toHaveCount(0)
   await closed.getByRole('button').click()
   await expect(page.getByRole('complementary', { name: 'Mindmap panel' })).toContainText('Not available yet')
@@ -197,7 +197,7 @@ test('selects an unlocked module from the Mindmap and resumes it after a reload'
 
 test('drags a module with the mouse and leaves the current module and working area unchanged', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
   await expect(page.getByRole('img', { name: 'Module connectors' }).locator('path')).toHaveCount(10)
 
@@ -213,7 +213,7 @@ test('drags a module with the mouse and leaves the current module and working ar
   await expect(moduleCard(page, 'Getting Started with Programming and Python').getByRole('button')).toHaveAttribute('aria-pressed', 'false')
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toHaveAttribute('aria-current', 'true')
   await expect(page.getByRole('region', { name: 'Working area', exact: true })).toHaveCount(0)
-  await expect(page.getByRole('region', { name: 'Notes', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Notes List', exact: true })).toBeVisible()
 
   const tick = moduleCard(page, 'Variables, Data Types, and Operators').locator('img')
   const tickBox = await tick.boundingBox()
@@ -245,7 +245,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
   const page = await context.newPage()
   try {
     await openWorkspace(page)
-    await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+    await page.getByRole('link', { name: 'Progress map', exact: true }).click()
     await expectMindmapCanvas(page)
 
     const card = moduleCard(page, 'Working with Strings')
@@ -269,7 +269,7 @@ test('drags a module with touch without scrolling the page', async ({ browser })
 
 test('moves a module anywhere on the board, and fit all brings every module back into view', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
 
   const canvas = await page.getByRole('list', { name: 'Modules' }).boundingBox()
@@ -311,7 +311,7 @@ test('moves a module anywhere on the board, and fit all brings every module back
 
 test('selects a module without moving it, and arrow keys move the focused module', async ({ page }) => {
   await openWorkspace(page)
-  await page.getByRole('link', { name: 'Mindmap', exact: true }).click()
+  await page.getByRole('link', { name: 'Progress map', exact: true }).click()
   await expectMindmapCanvas(page)
 
   const variables = moduleCard(page, 'Variables, Data Types, and Operators')
@@ -564,7 +564,7 @@ async function expectServerLayout(browser: Browser, storageState: Awaited<Return
 }
 
 async function showMindmap(page: Page) {
-  const mindmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Mindmap', exact: true })
+  const mindmapLink = page.getByRole('navigation', { name: 'Workspace layout' }).getByRole('link', { name: 'Progress map', exact: true })
   if (await mindmapLink.getAttribute('aria-current') !== 'page') await mindmapLink.click()
   await expectMindmapCanvas(page)
   await expect(moduleCard(page, 'Getting Started with Programming and Python')).toBeVisible()
@@ -683,7 +683,7 @@ interface Box {
 
 async function panelBoxes(page: Page, layout: 'study' | 'mindmap') {
   const mindmap = layout === 'mindmap'
-  const mapHeading = page.getByRole('heading', { name: mindmap ? 'Mindmap' : 'Course roadmap', exact: true })
+  const mapHeading = page.getByRole('heading', { name: mindmap ? 'Progress map' : 'Course roadmap', exact: true })
   const conversationPanel = mindmap
     ? page.getByRole('complementary', { name: 'Mindmap panel' })
     : page.getByRole('region', { name: 'Conversation', exact: true })

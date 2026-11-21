@@ -283,8 +283,8 @@ const workingAreaExpanded = ref(true)
 const mindmapPanelChrome = 'lg:overflow-hidden lg:rounded-2xl lg:bg-paper lg:shadow-[0_0_0_1px_var(--color-ink-200),0px_12px_36px_-6px_rgba(15,23,42,0.12),0px_4px_12px_-2px_rgba(15,23,42,0.04)]'
 const phonePanels = computed(() => layout.value === 'mindmap'
   ? [
-      { id: 'roadmap' as const, name: 'Mindmap' },
-      { id: 'notes' as const, name: 'Notes' },
+      { id: 'roadmap' as const, name: 'Progress map' },
+      { id: 'notes' as const, name: 'Notes List' },
     ]
   : [
       { id: 'roadmap' as const, name: 'Roadmap' },

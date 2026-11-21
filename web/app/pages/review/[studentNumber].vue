@@ -50,7 +50,7 @@ const eventLabels: Record<string, string> = {
   note_linked: 'Linked a note',
   note_unlinked: 'Unlinked a note',
   note_deleted: 'Deleted a note',
-  mindmap_moved: 'Moved on the mindmap',
+  mindmap_moved: 'Moved on the progress map',
   profile_changed: 'Changed their profile',
   approach_written: 'Wrote their approach',
   plan_agreed: 'Agreed to a plan',
@@ -75,6 +75,12 @@ const signalTitles: Record<string, string> = {
   large_paste_then_pass: 'A large paste came before a pass',
   pass_without_run: 'A pass with no run before it',
 }
+
+// The prompts table shows a page at a time, so a long history stays short.
+const signalsPerPage = 5
+const signalPage = ref(1)
+const signalPageCount = computed(() => Math.max(1, Math.ceil((data.value?.signals.length ?? 0) / signalsPerPage)))
+const pagedSignals = computed(() => (data.value?.signals ?? []).slice((signalPage.value - 1) * signalsPerPage, signalPage.value * signalsPerPage))
 </script>
 
 <template>
@@ -84,9 +90,6 @@ const signalTitles: Record<string, string> = {
         <NuxtLink :to="backTo" class="inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline underline-offset-4 md:min-h-0">
           Back to students
         </NuxtLink>
-        <p class="text-xs text-muted">
-          Read only. Opening this page is recorded.
-        </p>
       </div>
     </header>
     <main class="phone-safe-bottom mx-auto flex w-full max-w-[90rem] flex-1 flex-col gap-6 p-4 md:p-8">
@@ -121,30 +124,50 @@ const signalTitles: Record<string, string> = {
           <p v-if="!data.signals.length" class="text-sm text-muted">
             Nothing stands out.
           </p>
-          <ul v-else class="flex flex-col gap-2">
-            <li
-              v-for="(signal, index) in data.signals"
-              :key="index"
-              class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs"
-            >
-              <p class="font-medium text-highlighted">
-                {{ signalTitles[signal.kind] }}
-                <span class="font-normal text-muted">· {{ signal.exerciseId }}</span>
-              </p>
-              <p class="text-default">
-                {{ signal.summary }}
-              </p>
-              <p class="mt-1 flex flex-wrap gap-x-3 text-xs">
-                <span class="text-muted">Events:</span>
-                <a
-                  v-for="id in signal.eventIds"
-                  :key="id"
-                  :href="`#event-${id}`"
-                  class="font-medium text-brand-700 underline underline-offset-4"
-                >#{{ id }}</a>
-              </p>
-            </li>
-          </ul>
+          <template v-else>
+            <div class="overflow-x-auto rounded-lg border border-default bg-default shadow-xs">
+              <table class="w-full text-left text-sm">
+                <thead class="border-b border-default bg-muted text-xs font-semibold tracking-wide text-muted uppercase">
+                  <tr>
+                    <th scope="col" class="px-3 py-2">Prompt</th>
+                    <th scope="col" class="px-3 py-2">Exercise</th>
+                    <th scope="col" class="px-3 py-2">Details</th>
+                    <th scope="col" class="px-3 py-2">Events</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(signal, index) in pagedSignals"
+                    :key="index"
+                    class="border-b border-default align-top last:border-b-0"
+                  >
+                    <td class="px-3 py-2 font-medium whitespace-nowrap text-highlighted">{{ signalTitles[signal.kind] }}</td>
+                    <td class="px-3 py-2 font-mono text-xs text-muted">{{ signal.exerciseId }}</td>
+                    <td class="px-3 py-2 text-default">{{ signal.summary }}</td>
+                    <td class="px-3 py-2">
+                      <span class="flex flex-wrap gap-x-2 text-xs">
+                        <a
+                          v-for="id in signal.eventIds"
+                          :key="id"
+                          :href="`#event-${id}`"
+                          class="font-medium text-brand-700 underline underline-offset-4"
+                        >#{{ id }}</a>
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <nav v-if="signalPageCount > 1" aria-label="Prompts pages" class="flex items-center justify-end gap-3 text-sm">
+              <button type="button" class="min-h-11 font-medium text-brand-700 underline-offset-4 hover:underline disabled:text-muted disabled:no-underline md:min-h-0" :disabled="signalPage === 1" @click="signalPage--">
+                Previous
+              </button>
+              <span class="text-muted">Page {{ signalPage }} of {{ signalPageCount }}</span>
+              <button type="button" class="min-h-11 font-medium text-brand-700 underline-offset-4 hover:underline disabled:text-muted disabled:no-underline md:min-h-0" :disabled="signalPage === signalPageCount" @click="signalPage++">
+                Next
+              </button>
+            </nav>
+          </template>
         </section>
 
         <section aria-labelledby="plan-heading" class="flex flex-col gap-3" data-testid="review-plans">
@@ -180,12 +203,9 @@ const signalTitles: Record<string, string> = {
           <h2 id="pattern-heading" class="text-base font-semibold text-highlighted">
             Learning pattern
           </h2>
-          <p class="max-w-prose text-sm text-muted">
-            The student sees only the weak spots. The habits below are for staff.
-          </p>
           <div class="grid gap-3 md:grid-cols-2">
             <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
-              <h3 class="font-medium text-highlighted">Weak spots</h3>
+              <h3 class="mb-2 border-b border-default pb-1.5 text-xs font-semibold tracking-wide text-highlighted uppercase">Weak spots</h3>
               <p v-if="!data.learningPattern.weakSpots.length" class="text-muted">None seen.</p>
               <ul v-else class="mt-1">
                 <li v-for="spot in data.learningPattern.weakSpots" :key="spot.misconceptionId">
@@ -194,7 +214,7 @@ const signalTitles: Record<string, string> = {
               </ul>
             </div>
             <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
-              <h3 class="font-medium text-highlighted">Recurring errors</h3>
+              <h3 class="mb-2 border-b border-default pb-1.5 text-xs font-semibold tracking-wide text-highlighted uppercase">Recurring errors</h3>
               <p v-if="!data.learningPattern.recurringErrors.length" class="text-muted">None seen.</p>
               <ul v-else class="mt-1">
                 <li v-for="error in data.learningPattern.recurringErrors" :key="error.kind">
@@ -203,7 +223,7 @@ const signalTitles: Record<string, string> = {
               </ul>
             </div>
             <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
-              <h3 class="font-medium text-highlighted">Attempts to pass</h3>
+              <h3 class="mb-2 border-b border-default pb-1.5 text-xs font-semibold tracking-wide text-highlighted uppercase">Attempts to pass</h3>
               <p v-if="!data.learningPattern.exerciseAttempts.length" class="text-muted">No attempts yet.</p>
               <ul v-else class="mt-1">
                 <li v-for="item in data.learningPattern.exerciseAttempts" :key="item.exerciseId">
@@ -212,7 +232,7 @@ const signalTitles: Record<string, string> = {
               </ul>
             </div>
             <div class="rounded-lg border border-default bg-default p-3 text-sm shadow-xs">
-              <h3 class="font-medium text-highlighted">Hints and materials</h3>
+              <h3 class="mb-2 border-b border-default pb-1.5 text-xs font-semibold tracking-wide text-highlighted uppercase">Hints and materials</h3>
               <p v-if="!data.learningPattern.hintRungs.length && !data.learningPattern.materialsSeconds.length" class="text-muted">Nothing yet.</p>
               <ul class="mt-1">
                 <li v-for="item in data.learningPattern.hintRungs" :key="`hint-${item.moduleId}`">

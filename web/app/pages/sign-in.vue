@@ -286,7 +286,6 @@ async function verifyCode() {
           <p class="text-sm/5 text-muted">
             Pick up your module and conversation where you left off.
           </p>
-          <RecordingNotice class="text-sm/5 text-muted" />
         </div>
         <p
           v-if="errorMessage"
@@ -367,7 +366,6 @@ async function verifyCode() {
           <p v-else class="text-sm/5 text-muted">
             We emailed a 6-digit code to <strong class="font-medium text-default [overflow-wrap:anywhere]">{{ email }}</strong>. It is valid for 5 minutes.
           </p>
-          <RecordingNotice class="text-sm/5 text-muted" />
         </div>
         <p
           v-if="errorMessage"
@@ -451,6 +449,12 @@ async function verifyCode() {
           </button>
         </div>
       </form>
+      <NuxtLink
+        to="/sign-up"
+        class="mt-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-700 underline-offset-4 hover:underline md:min-h-0"
+      >
+        New student? Sign up
+      </NuxtLink>
       <NuxtLink
         to="/home"
         class="mt-2 inline-flex min-h-11 items-center text-xs font-medium text-muted underline-offset-4 hover:text-highlighted hover:underline md:min-h-0"

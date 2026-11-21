@@ -231,9 +231,9 @@ function save() {
 </script>
 
 <template>
-  <section class="flex min-h-0 flex-col overflow-y-auto bg-paper" aria-label="Notes">
+  <section class="flex min-h-0 flex-col overflow-y-auto bg-paper" aria-label="Notes List">
     <div class="flex items-center justify-between gap-2">
-      <h2 class="text-sm font-medium text-ink-900">Notes</h2>
+      <h2 class="text-sm font-medium text-ink-900">Notes List</h2>
       <UButton
         type="button"
         class="min-h-11 rounded-sm bg-accent px-3 text-sm text-on-accent hover:bg-accent-hover disabled:bg-accent disabled:opacity-60"
